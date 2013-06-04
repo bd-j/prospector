@@ -1,0 +1,34 @@
+\title{Bayesian SFH mesures from full spectrum fitting}
+
+
+\section{Introduction}
+\citet{tinsley68}
+
+SFH constraints (in order of preference: resolved stellar CMDs, integrated spectroscopy, integrated broadband SED)
+
+SFH methods for spectra \citep{walcher2011}.  SSP equivalent (indices), various minimization schemes, ICA/PCA, NMF. \texttt{STARLIGHT, STECKMAP, MOPED/VESPA, K_CORRECT}.  ICA can be considered an implementation of Bayesian BSS with several assumptions (strong priors).
+
+\section{Methodology}
+Fully Bayesian SFH reconstruction using MCMC.  Advantages are no linearity constraint, full marginalized posterior PDFs for model parameters, incorporation of prior information, an extensible generative model.
+
+Model:  a number of non-overlapping top-hat SFRs that can be linearly combined, including metallicity variations and velocity dispersion.  In principle, emission lines can be added, as well as dust attenuation of stars of different ages, and uncertainties in SPS models can be propogated.  Complexity of the model is only limited by the expense of the likelihood call.
+
+\subsection{Number of components}
+In principle, can be determined from the data (e.g. find the binning which minimizes covariance), or left to be very large.  In practice, this takes a long time to reach autocorrelation. Biases due to considering wide bins?  can mock spectra using high temporal resolution and solve with low temporal resolution, see if you get biases.
+
+\subsection{An example}
+
+\section{Tests}
+
+\subsection{Realistic SFHs from CMDs}
+For testing we consider the SFHs from the angst project. 
+
+\subsection{Dependence of results on observational parameters}
+S/N
+wavelength range (wlo, whigh)
+resolution
+
+show contours of $\delta \Theta/\Theta$ as a fn of these four instrument characteristics for a number of the ANGST SFHs.  compare to the uncertainties on the CMD based SFHs.
+
+\subsection{Caveats and Limitations}
+subject to uncertainties in the SPS models (AGB lifetimes and SEDs, IMFs, isochrones or tracks).  In principle these aspects can be modeled and marginalized over \citep{conroy09} but the likelihood calls become very expensive.
