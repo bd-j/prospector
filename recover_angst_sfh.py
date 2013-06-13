@@ -126,4 +126,4 @@ pl.plot_spectrum(pars, outsamples, angst_sfh, model_wave, spec_array)
 
 pl.plot_sfr_mass(pars, outsamples, angst_sfh, sfr_time_index = 3)
 
-pl.plot_covariance(pars, outsamples, bin1 = 0, bin2 = 1)
+pl.plot_covariance(pars, outsamples, bin1 = 0, bin2 = 1, sfh_input = angst_sfh)
