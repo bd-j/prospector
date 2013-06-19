@@ -16,6 +16,21 @@ Model:  a number of non-overlapping top-hat SFRs that can be linearly combined, 
 \subsection{Number of components}
 In principle, can be determined from the data (e.g. find the binning which minimizes covariance), or left to be very large.  In practice, this takes a long time to reach autocorrelation. Biases due to considering wide bins?  can mock spectra using high temporal resolution and solve with low temporal resolution, see if you get biases.
 
+While at infinite S/N there is no covariance between different components and they can be recovered exactly as long as they are linearly idependent, there is significant covariance in the different components at moderate signal to noise.  If we consider three time bins whose spectra are nearly indistinguishable, then the likelihood surface for the amplitude of these components, assuming the other coomponents to be fixed, will describe the surface of an ellipsoid in the positive octant (or in a 2-d slice resembling something like a banana distribution).  Generalizing to higher order covariances the likelihood function may be expected to approximately describe the surface of a hyper-ellipsoid in the positive closed orthant.
+
+Possibilities for dealing with these complicated likelihood surfaces using MCMC techniques.  
+\begin{enumerate}
+
+\item HMC - this technique explicitly makes use of gradient information (loosely analagous to covariance information) to explore the parameter space efficiently.  It is not clear that HMC will be more efficient than emcee in this respect though.  And of course it means writing down expressions for the gradient of the likelihood with respect to every parameter, but this may not be too difficult if the model is constructed carefully.
+
+\item solve with a lower time -resolution and use the likelihood samples as  intial guesses for the amplitudes of sub-bins when solving at higher resolution.  This at least keeps you near a likelihood maximum as the dimensionality increases.
+
+\item something more formally and strictly heirarchical than the last method?
+
+\end{enumerate}
+
+
+
 \subsection{An example}
 
 \section{Tests}

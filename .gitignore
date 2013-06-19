@@ -1,0 +1,10 @@
+data/spectra/*fits
+data/models/*fits
+data/models/fsps*
+data_models/bins.dat
+data/sfhs/*
+*~
+*.pyc
+*/*.pyc
+junk*
+experiments
