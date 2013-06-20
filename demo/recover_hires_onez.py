@@ -2,7 +2,7 @@ import os, time
 import numpy as np
 
 import emcee
-import popsynth
+import fsps
 import plotter as pl
 import utils
 #import sfhs
@@ -15,7 +15,7 @@ pars = {'snr': 50.,
         'veldisp': 0., # in km/s
         'wlo':1.3e3, 'whi':2e4, #in angstroms
         'spstype':'BaSel+Padova'}
-pars['figname'] = pars['name']
+pars['figname'] = "hires_{0}".format(pars['name'])
 
 angst_dat = utils.load_angst_sfh(pars['name'])
 
@@ -27,6 +27,7 @@ bin_starts = 10**np.arange(6.6,10.1,0.1) #in yrs
 bin_ends = 10**np.arange(6.5,10.0,0.1)   #in yrs
 bin_ends[0] = 0.0
 fitsfilename=['data/models/fspsSalp_angstBin%s_z2.fits' % str(s) for s in range(36)]
+bin_centers = (bin_starts+bin_ends)/2.
 
 #parameters to recombine into wider bins.  In principle this should not be required
 subs = np.array([0,0,0,
@@ -46,28 +47,27 @@ pars['rebin_centers'] = (pars['rebin_starts']+pars['rebin_ends'])/2./1e9 #in Gyr
 
 ###### GENERATE THE BASIS SPECTRA ######
 
-sps = popsynth.CSP(filename = fitsfilename[0])
-model_wave = sps.wavelength
-spec_array = np.zeros( [nrebin,sps.wavelength.shape[0]] )
+sps = fsps.StellarPopulation(imf_type = 2, dust_type = 0, dust1 = 0.0, dust2 = 0.0)
+model_wave = sps.wavelengths
+spec_array = np.zeros( [nrebin,sps.wavelengths.shape[0]] )
 mstar_array = np.zeros( nrebin )
 angst_sfh = np.zeros( nrebin )
 
+print
+
 for i in range(bin_starts.shape[0]):
     ## spectra are normalized to an SFR of one for each component
-    sps = popsynth.CSP(filename = fitsfilename[i]) #just read from file for now. 
-    spec, mstar = sps.properties_at_age(bin_starts[i]/1e9) #interpolate to present day
-    spec_array[subs[i],:] += spec[0] #cumulate into the wider bins
-    #spec_array[subs[i],:] += observate.vel_broaden(sps.wavelength,
-    #                                               spec[0], model_wave, pars['veldisp']) #apply velocity dispersion broadening
-    mstar_array[subs[i]] += mstar
+    wave, spec = sps.get_spectrum(zmet = 4, tage = bin_centers[i]*1e-9, peraa=True) 
+    spec_array[subs[i],:] += (spec/10 * (bin_starts[i]-bin_ends[i]))#cumulate into the wider bins with sfr normalization
+    mstar_array[subs[i]] += 10**sps.log_mass/10
 
     angst_sfh[subs[i]] += angst_dat['sfr'][i]*(bin_starts[i]-bin_ends[i])
 
 ###### LOAD OR MOCK THE OBSERVATIONS######
 angst_sfh = angst_sfh / (pars['rebin_starts']-pars['rebin_ends'])
-mask = np.where((sps.wavelength > pars['wlo']) & (sps.wavelength < pars['whi']), 1, 0) 
+mask = np.where((sps.wavelengths > pars['wlo']) & (sps.wavelengths < pars['whi']), 1, 0) 
 mock_spec = (angst_sfh * spec_array.T).sum(axis = 1)
-noised_mock = mock_spec * (1+np.random.normal(0,1,sps.wavelength.shape[0])/pars['snr'])
+noised_mock = mock_spec * (1+np.random.normal(0,1,sps.wavelengths.shape[0])/pars['snr'])
 data = noised_mock
 err = mock_spec/pars['snr']
 
