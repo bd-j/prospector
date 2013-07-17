@@ -3,7 +3,7 @@ import matplotlib.pyplot as pl
 
 def plot_sfh(pars, outsamples, angst_sfh, fine_sfh = None):
     # SFH
-    delta = ( (angst_sfh - outsamples).std(axis = 0) / angst_sfh ).mean()
+    delta =  np.ma.masked_invalid( (angst_sfh - outsamples).std(axis = 0)  / angst_sfh )
     ns = pars['nsample']
 
     if fine_sfh is not None:
@@ -31,7 +31,7 @@ def plot_sfh(pars, outsamples, angst_sfh, fine_sfh = None):
     pl.xlabel('lookback time')
     pl.ylabel('SFR')
     pl.title(r"{name}: $\lambda\lambda = {wlo},{whi}$,S/N = {snr},$\sigma_v ={veldisp}$ km/s, $t_{{sample}} = {tsample:.1f} s$".format(**pars))
-    pl.annotate(r'$\langle \delta SFR/SFR\rangle =$ %s' % delta, (6.5,0))
+    pl.annotate(r'$\langle \sigma (\Delta SFR_i/SFR_i) \rangle =$ %s' % delta.mean(), (6.5,0))
 
     pl.savefig("{figname}_sfh.png".format(**pars))
     pl.close()

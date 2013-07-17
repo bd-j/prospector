@@ -76,9 +76,7 @@ err = mock_spec/pars['snr']
 def lnprob(theta, data, err, mask):
     #prior bounds test.  all components must be non-negative
     #prior probabilities could also be introduced here via a priors blob in the call?
-    ptest=[]
-    for i,par in enumerate(theta):
-        ptest.append(par >= 0)
+    ptest = theta >= 0
 
     if (False in ptest):
         #set lnp to -infty if some component is negative

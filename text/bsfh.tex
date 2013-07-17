@@ -2,27 +2,42 @@
 
 
 \section{Introduction}
-\citet{tinsley68}
+\citet{tinsley68}.  We've been at this for forty years. Spectral models improving (in resolution, accuracy, and characterisation of uncertainties), spectral observations rapidly improving.
 
-SFH constraints (in order of preference: resolved stellar CMDs, integrated spectroscopy, integrated broadband SED)
+SFH constraints (in rough order of preference depending on S/N or depth: resolved stellar CMDs, integrated spectroscopy, line indices, integrated broadband SED)
 
-SFH methods for spectra \citep{walcher2011}.  SSP equivalent (indices), various minimization schemes, ICA/PCA, NMF. \texttt{STARLIGHT, STECKMAP, MOPED/VESPA, K_CORRECT}.  ICA can be considered an implementation of Bayesian BSS with several assumptions (strong priors).
+SFH methods for spectra \citep{walcher2011}.  SSP equivalent (indices), various least-squares minimization, maximum likelihood, and matrix inversion schemes, ICA/PCA, NMF. \texttt{STARLIGHT, STECKMAP, ULYSS, pPXF, MOPED/VESPA, K_CORRECT}. ICA can be considered an implementation of Bayesian BSS with several assumptions (strong priors).
+
+Why is this better? 
 
 \section{Methodology}
-Fully Bayesian SFH reconstruction using MCMC.  Advantages are no linearity constraint, full marginalized posterior PDFs for model parameters, incorporation of prior information, an extensible generative model.
+Fully Bayesian SFH reconstruction using MCMC.  Advantages are no linearity constraint, full marginalized posterior PDFs for model parameters, incorporation of prior information (this is key!), an extensible generative model, full samples of the likelihood for use in heirarchical models of galaxy evolution (i.e. to infer hyperparameters of the SFH distribution from largish galaxy samples)
 
-Model:  a number of non-overlapping top-hat SFRs that can be linearly combined, including metallicity variations and velocity dispersion.  In principle, emission lines can be added, as well as dust attenuation of stars of different ages, and uncertainties in SPS models can be propogated.  Complexity of the model is only limited by the expense of the likelihood call.
+Model:  a number of non-overlapping top-hat SFRs (or SSPs) that can be linearly combined, including metallicity variations and velocity dispersion.  In principle, emission lines can be added, as well as dust attenuation of stars of different ages, and uncertainties in SPS models can be propogated.  Complexity of the model is only limited by the expense of the likelihood call and the ability of MCMC routines to efficiently exploe the parameter space.
+
+The model is effectively specified by the classical population synthesis equation (though we expand on the typical dust specification):
+\begin{equation}
+L_\lambda = \Sum_i A_i S_\lambda (t_i, Z_i [,\xi] ) e^{-\tau_{V,i} k_\lambda( \tau_v, DF, R_v, \Theta)}  + B S_\lambda(nebular)
+\end{equation}
+where $t_i$ is the age, $Z_i$ is the metallicity, $\xi$ are parameters related to uncertain ingredients of the SSP models (e.g. $f_{BHB}$, binary fraction, IMF, etc..), $\tau_\lambda$ is the effective optical depth at wavelength $\lambda$ (including scattering and geometric effects), $\tau_v$ is the characteristic $V$ band optical depth toward stars of that component. $k_\lambda$ relates the attenuation at $\lambda$ to the characteristic attenuation at $V$ and depends on: $\tau_v$ itself \citep{chevallard}; $DF$,  the distribution of attenuation values (e.g., a delta-function at $\tau_v$, log-normal, or uniform up to some value $2A_v$); $R_v$, the shape of the extinction curve; and $\Theta$, a parameter that encapsulates the effects of relative star/dust and global geometry on the shape of the attenuation curve.  Note that $k_v$ is not necessarily 1 if the $DF$ is complex. The amplitudes $A_i$ describe the SFH (i.e. the total stellar masses of each component).
+
 
 \subsection{Number of components}
-In principle, can be determined from the data (e.g. find the binning which minimizes covariance), or left to be very large.  In practice, this takes a long time to reach autocorrelation. Biases due to considering wide bins?  can mock spectra using high temporal resolution and solve with low temporal resolution, see if you get biases.  This does indeed result in biases.
+In principle, can be determined from the data (e.g. find the binning which minimizes covariance), or left to be very large.  In practice, this takes a long time to reach autocorrelation. Biases due to considering wide bins?  can mock spectra using high temporal resolution and solve with low temporal resolution, see if you get biases.  This does indeed result in biases, need to quantify/explore a bit more.
 
 While at infinite S/N there is no covariance between different components and they can be recovered exactly as long as they are linearly idependent, there is significant covariance in the different components at moderate signal to noise.  If we consider three time bins whose spectra are nearly indistinguishable, then the likelihood surface for the amplitude of these components, assuming the other coomponents to be fixed, will describe the surface of an ellipsoid in the positive octant (or in a 2-d slice resembling something like a banana distribution).  Generalizing to higher order covariances the likelihood function may be expected to approximately describe the surface of a hyper-ellipsoid in the positive closed orthant.
 
-Possibilities for dealing with these complicated likelihood surfaces using MCMC techniques.  
+Possibilities for dealing with these complicated likelihood surfaces using MCMC techniques.
 
 \begin{enumerate}
 
-\item HMC - this technique explicitly makes use of gradient information (loosely analagous to covariance information) to explore the parameter space efficiently.  It is not clear that HMC will be more efficient than emcee in this respect though.  And of course it means writing down expressions for the gradient of the likelihood with respect to every parameter, but this may not be too difficult if the model is constructed carefully.
+\item Hamiltonian MC - this technique explicitly makes use of gradient information (loosely analagous to covariance information) to explore the parameter space efficiently.  It is not clear that HMC will be more efficient than emcee in this respect though.  And of course it means writing down expressions for the gradient of the likelihood with respect to every parameter, but this may not be too difficult if the model is constructed carefully.
+
+\item reversible-jump MCMC.  allows the number of components to vary.  requires model-comparison and all the issues therein.  
+
+\item \citet{gregory11} has developed some MCMC routines that use covariance information of accepted proposals to specify new proposals.  Not clear how this maintains the Markov property.  Applied to exoplanet parameter inference.
+
+\item making the basis spectra orthogonal before calculating likelihoods.  A potential problem with this is dust.  Also, the spectral matrix will have to be diagonalized separately for each combination of observed wavelengths and velocity dispersions.
 
 \item solve with a lower time -resolution and use the likelihood samples as intial guesses for the amplitudes of sub-bins when solving at higher resolution.  This at least keeps you near a likelihood maximum as the dimensionality increases.
 
