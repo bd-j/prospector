@@ -1,14 +1,46 @@
 import numpy as np
 import matplotlib.pyplot as pl
 
+def res_vs_x(out, wlo, whi, par = 'sigma_sfr', age_bins = None):
+    c = ['m','b','g','r']
+    pl.figure(1)
+
+    #wlo = 0
+    #whi = 0
+    if age_bins is None:
+        xx = np.arange(len(out[par][wlo,whi,i,:]))
+        xlabel = 'Bin #'
+    else:
+        xx = np.append(np.log10(age_bins['center']),[np.log10(13.7e9)])
+        xlabel = r'$\log t$'
+    for i,snr in enumerate(out['snr']):
+        pl.plot(xx,out[par][wlo,whi,i,:], color = c[i], 
+                 label = '{0:04.0f}-{1:5.0f} at S/N ={2:.0f}'.format(out['wlo'][wlo], out['whi'][whi],snr)
+            )
+        pl.plot(xx,out[par][wlo,whi,i,:], c[i]+'o')
+    pl.legend(loc = 4)
+    if par is 'bias_sfr':
+        pl.ylabel(r'Avg. $(\log SFR_{out}/SFR_{in})$')
+        pl.ylim(-0.5,0.5)
+        pl.axhline(y=0, linestyle = '--')
+    else:
+        pl.ylabel(r'$\sigma(\log SFR_{out}/SFR_{in})$')
+        pl.ylim(0,0.6)
+    pl.xlabel(xlabel)
+    pl.title(par)
+    pl.savefig('{2}_w{0:04.0f}_{1:04.0f}.png'.format(out['wlo'][wlo], out['whi'][whi], par))
+    pl.close()
+
+
 def plot_sfh(pars, outsamples, angst_sfh, fine_sfh = None):
     # SFH
     delta =  np.ma.masked_invalid( (angst_sfh - outsamples).std(axis = 0)  / angst_sfh )
+    median_sfr = np.median(outsamples, axis = 0)
     ns = pars['nsample']
 
     if fine_sfh is not None:
         xx = np.log10( np.append(pars['bin_ends'], pars['bin_starts'][-1]) )
-        xx[0] = 6.0
+        xx[0] = 6.7
         pl.step(xx, np.append(fine_sfh,0), where = 'post',
             linewidth = 2, color = 'green', label = 'fine_input')
 
@@ -18,9 +50,10 @@ def plot_sfh(pars, outsamples, angst_sfh, fine_sfh = None):
 #    pl.plot(np.log10(pars['rebin_centers']*1e9),angst_sfh,
 #            linewidth = 2, color = 'red', label = 'input')
     xx = np.log10( np.append(pars['rebin_ends'], pars['rebin_starts'][-1]) )
-    xx[0] = 6.0
+    xx[0] = 6.7
     pl.step(xx, np.append(angst_sfh,0), where = 'post',
             linewidth = 2, color = 'red', label = 'input')
+    pl.plot(np.log10(pars['rebin_centers']*1e9), median_sfr, color = 'blue', linewidth = 1.5)
 
     for i in np.random.uniform(size=30) :
         pl.plot(np.log10(pars['rebin_centers']*1e9),outsamples[np.floor(i * ns),:],
@@ -30,9 +63,12 @@ def plot_sfh(pars, outsamples, angst_sfh, fine_sfh = None):
     #pl.legend()
     pl.xlabel('lookback time')
     pl.ylabel('SFR')
-    pl.title(r"{name}: $\lambda\lambda = {wlo},{whi}$,S/N = {snr},$\sigma_v ={veldisp}$ km/s, $t_{{sample}} = {tsample:.1f} s$".format(**pars))
+    #$t_{{sample}} = {tsample:.1f} s$
+    pl.title(r"{name}: $\lambda\lambda = {wlo},{whi}$,S/N = {snr},$\sigma_v ={veldisp}$ km/s, maf = {maf:.3f}".format(**pars))
     pl.annotate(r'$\langle \sigma (\Delta SFR_i/SFR_i) \rangle =$ %s' % delta.mean(), (6.5,0))
 
+    #pl.yscale('log')
+    pl.xlim(8,10.2)
     pl.savefig("{figname}_sfh.png".format(**pars))
     pl.close()
     

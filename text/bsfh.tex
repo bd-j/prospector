@@ -6,9 +6,9 @@
 
 SFH constraints (in rough order of preference depending on S/N or depth: resolved stellar CMDs, integrated spectroscopy, line indices, integrated broadband SED)
 
-SFH methods for spectra \citep{walcher2011}.  SSP equivalent (indices), various least-squares minimization, maximum likelihood, and matrix inversion schemes, ICA/PCA, NMF. \texttt{STARLIGHT, STECKMAP, ULYSS, pPXF, MOPED/VESPA, K_CORRECT}. ICA can be considered an implementation of Bayesian BSS with several assumptions (strong priors).
+SFH methods for spectra \citep{walcher2011}.  SSP equivalent (indices), various least-squares minimization, maximum likelihood, and matrix inversion schemes, ICA/PCA, NMF. Various amounts of regularisation required. \texttt{STARLIGHT, STECKMAP, ULYSS, pPXF, MOPED/VESPA, K_CORRECT}. ICA can be considered an implementation of Bayesian BSS with several assumptions (strong priors).
 
-Why is this better? 
+Why is this better?   Open source, for one (STARLIGHT is closed source, VESPA/MOPED is not even publically available as a binary), not in IDL (ULySS, pPXF), much more flexible, and fully Bayesian (i.e. not maximum likelihood, allows prior information in a principled way, allows marginalization)
 
 \section{Methodology}
 Fully Bayesian SFH reconstruction using MCMC.  Advantages are no linearity constraint, full marginalized posterior PDFs for model parameters, incorporation of prior information (this is key!), an extensible generative model, full samples of the likelihood for use in heirarchical models of galaxy evolution (i.e. to infer hyperparameters of the SFH distribution from largish galaxy samples)
@@ -25,10 +25,9 @@ where $t_i$ is the age, $Z_i$ is the metallicity, $\xi$ are parameters related t
 \subsection{Number of components}
 In principle, can be determined from the data (e.g. find the binning which minimizes covariance), or left to be very large.  In practice, this takes a long time to reach autocorrelation. Biases due to considering wide bins?  can mock spectra using high temporal resolution and solve with low temporal resolution, see if you get biases.  This does indeed result in biases, need to quantify/explore a bit more.
 
-While at infinite S/N there is no covariance between different components and they can be recovered exactly as long as they are linearly idependent, there is significant covariance in the different components at moderate signal to noise.  If we consider three time bins whose spectra are nearly indistinguishable, then the likelihood surface for the amplitude of these components, assuming the other coomponents to be fixed, will describe the surface of an ellipsoid in the positive octant (or in a 2-d slice resembling something like a banana distribution).  Generalizing to higher order covariances the likelihood function may be expected to approximately describe the surface of a hyper-ellipsoid in the positive closed orthant.
+While at infinite S/N there is no covariance between different components and they can be recovered exactly as long as they are linearly idependent, there is significant covariance in the different components at moderate signal to noise.  If we consider three time bins whose spectra are nearly indistinguishable, then the likelihood surface for the amplitude of these components, assuming the other coomponents to be fixed, will describe the surface of an ellipsoid in the positive octant (or in a 2-d slice resembling something like a banana distribution).  Generalizing to higher order covariances the likelihood function may be expected to approximately describe the surface of a hyper-ellipsoid in the positive closed orthant, but could get significantly more complex.
 
-Possibilities for dealing with these complicated likelihood surfaces using MCMC techniques.
-
+Possibilities for dealing with these complicated likelihood surfaces 
 \begin{enumerate}
 
 \item Hamiltonian MC - this technique explicitly makes use of gradient information (loosely analagous to covariance information) to explore the parameter space efficiently.  It is not clear that HMC will be more efficient than emcee in this respect though.  And of course it means writing down expressions for the gradient of the likelihood with respect to every parameter, but this may not be too difficult if the model is constructed carefully.

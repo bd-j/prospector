@@ -1,5 +1,6 @@
 import glob
 import numpy as np
+import scipy.special
 
 def load_angst_sfh(name, sfhdir = 'data/sfhs/'):
     ty = '<f8'
@@ -28,3 +29,17 @@ def rebin_sfh(pars, sfrs, subs):
     pars['rebin_centers'] = (pars['rebin_starts']+pars['rebin_ends'])/2. -9 #in Gyr
 
     return sfr_rebin/(10**pars['rebin_starts']-10**pars['rebin_ends'])
+
+
+def m32_sfh(age_bins, tau = 1, norm = 1):
+    
+    times = age_bins['end'][-1] - age_bins['start']
+    dt = (age_bins['end'] -age_bins['start'])*1e-9
+    phase = times*1e-9/tau
+    sfr_end = norm * phase/tau * np.exp(-phase)
+    mformed = norm*scipy.special.gammainc(2,phase)
+    sfr_avg = (mformed - np.append(mformed[1:], [0.]))/dt
+    phase_center = (age_bins['end'][-1] - age_bins['center'])*1e-9/tau
+    sfr_center = norm * phase_center/tau * np.exp(-phase_center)
+
+    return sfr_center
