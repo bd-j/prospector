@@ -2,8 +2,16 @@ import numpy as np
 import emcee
 import time
 
+#Objects to do the fitting of the full spectrum.  The superclass
+#includes a wrapper on emcee to handle the actual sampling, while subclassses
+#for different situations should include a lnprob function which actually
+#constructs the model for a given set of parameters.
+
+# each object is initialized with a parameter dictionary and an 'sps' object
+# that containes the stellar population synthesis model (i.e. python-FSPS)
+
 class SFHfitter(object):
-    isoc_ages = 10**np.arange(6.6,10.1,0.05)
+    isoc_ages = 10**np.arange(6.6, 10.1, 0.05)
 
     def __init__(self, rp, sps):
         self.rp = rp
@@ -11,6 +19,7 @@ class SFHfitter(object):
         self.sps = sps
 
     def sample(self, walker_factor = 50, nburn = 10, nsteps = 10, nthreads = 1, **extras):
+        """Wrapper around emcee that handles burn-in, etc"""
         ndim = self.rp['nbin']
         nwalkers = ndim * walker_factor
 
@@ -34,12 +43,14 @@ class SFHfitter(object):
 
 
 class FixedZ(SFHfitter):
-
-        def lnprob(self, theta, data, err, mask):
+    """Keep the model stellar metallicity fixed"""
+    
+    def lnprob(self, theta, data, err, mask):
+        """Given SFR in each bin (theta), the data, and the error estimate, return lnP"""
         #prior bounds test.  all components must be non-negative
         #prior probabilities could also be introduced here via a priors blob in the call?
         ptest = theta >= 0
-
+        # theta should actaully be sfr**2 to avoid this discontinuity....?
         if (False in ptest):
             #set lnp to -infty if some component is negative
             return -np.infty
@@ -51,7 +62,9 @@ class FixedZ(SFHfitter):
 
 
     def load_spectra(self, age_bins):
-        """Build the basis spectra"""
+    """Build the basis spectra using python-FSPS.  This will compute and
+    store the stellar mass and spectrum for each 'time bin' (or rather
+    collection of SSPs).  Should be rewritten to this more precisely. """
         self.age_bins = age_bins
         nbin = len(age_bins)
         self.rp['nbin'] = nbin
@@ -60,8 +73,11 @@ class FixedZ(SFHfitter):
         
         for j,abin in enumerate(age_bins):
             ## spectra are normalized to an SFR of one for each component
-            ## This should be fixed to actually do the convolution
+            # This should be fixed to actually do the convolution of SSPs for a given SFH time bin?
+            # no, should just us SSPs as is.... then conversion to an actual SFH is handled elsewhere
             ## Also, just use the default SSP time points
+
+            #clunky bit to sum SSPs into a given time bin.
             for i,iage in enumerate(self.isoc_ages):
                 if (iage > abin['start']) & (iage < abin['end']):
                     if i == 0:
@@ -74,7 +90,7 @@ class FixedZ(SFHfitter):
                         
                     wave, spec = self.sps.get_spectrum(zmet = self.rp['met_index'], tage = iage*1e-9, peraa=True)
                     mstar = 10**self.sps.log_mass
-                    mformed = 10 #for some reason fsps ssps start with log_mass = 1
+                    mformed = 10 #for some reason FSPS ssps start with log_mass = 1 instead of 0
                     norm = dt/mformed #for an sfr of 1
                     self.mstar_array[j] += (norm * mstar)
                     self.spec_array[j,:] += (norm * spec)
@@ -85,6 +101,7 @@ class FixedZ(SFHfitter):
         
 
     def mock_spectrum(self, rp = None):
+        """Mock a spectrum for a given SFH and SNR"""
         if rp is None:
             rp = self.rp
         mock_spec = (self.mock_sfh * self.spec_array.T).sum(axis = 1)
@@ -95,5 +112,6 @@ class FixedZ(SFHfitter):
 
 
     def recovery_stats(self):
+        """return standard deviation and mean of SFR_recovered/SFR_input"""
         delta =  np.ma.masked_invalid( np.log10(self.sfr_samples / self.mock_sfh) )
         return np.append(delta.std(axis = 0), delta.std()), np.append(delta.mean(axis = 0), delta.mean())
