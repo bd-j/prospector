@@ -41,6 +41,12 @@ class SFHfitter(object):
         print("Mean acceptance fraction: {0:.3f}".format(self.rp['maf']))
         return sampler.flatchain
 
+class MixedZ(SFHfitter):
+
+    def spec_model(theta):
+        """given parameter vector, return a model of the spectrum"""
+        
+
 
 class FixedZ(SFHfitter):
     """Keep the model stellar metallicity fixed"""
@@ -62,9 +68,9 @@ class FixedZ(SFHfitter):
 
 
     def load_spectra(self, age_bins):
-    """Build the basis spectra using python-FSPS.  This will compute and
-    store the stellar mass and spectrum for each 'time bin' (or rather
-    collection of SSPs).  Should be rewritten to this more precisely. """
+        """Build the basis spectra using python-FSPS.  This will compute and
+        store the stellar mass and spectrum for each 'time bin' (or rather
+        collection of SSPs).  Should be rewritten to do this more precisely. """
         self.age_bins = age_bins
         nbin = len(age_bins)
         self.rp['nbin'] = nbin
@@ -95,11 +101,9 @@ class FixedZ(SFHfitter):
                     self.mstar_array[j] += (norm * mstar)
                     self.spec_array[j,:] += (norm * spec)
 
-
     def fit_sfh(self):
         self.sfr_samples = self.sample(**self.rp)
         
-
     def mock_spectrum(self, rp = None):
         """Mock a spectrum for a given SFH and SNR"""
         if rp is None:
@@ -109,7 +113,6 @@ class FixedZ(SFHfitter):
         noised_mock = mock_spec * (1+np.random.normal(0,1,self.wavelengths.shape[0])/rp['snr'])
         self.data = noised_mock
         self.err = mock_spec/rp['snr']
-
 
     def recovery_stats(self):
         """return standard deviation and mean of SFR_recovered/SFR_input"""
