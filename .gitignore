@@ -1,8 +1,10 @@
-data/spectra/*fits
-data/models/*fits
-data/models/fsps*
-data_models/bins.dat
-data/sfhs/*
+archived_20140116/
+vsm_results/
+text/*log
+text/*aux
+text/*dvi
+text/*ps
+text/xsede*
 *~
 *.pyc
 */*.pyc
