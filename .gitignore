@@ -5,6 +5,8 @@ text/*aux
 text/*dvi
 text/*ps
 text/xsede*
+text/apj*
+text/*bib
 *~
 *.pyc
 */*.pyc
