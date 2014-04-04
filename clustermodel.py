@@ -57,10 +57,7 @@ class ClusterModel(Model):
         self.set_parameters(theta, sps = sps) # Propogate theta into the relevant parameter arrays
         wave, spec =  sps.get_spectrum(peraa = True, tage = sps.params['tage'])
         spec *= self.ssp['mass']/sps.stellar_mass
-        try:
-            z1 = (1 + self.ssp['zred'])
-        except (KeyError):
-            z1 = 1.0
+        z1 = (1 + self.ssp.get('zred', 0.0))
         try:
             outspec = griddata(wave * z1, spec, self.obs['wavelength']) * self.calibration() 
         except (KeyError):

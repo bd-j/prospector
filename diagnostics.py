@@ -98,7 +98,7 @@ def diagnostic_plots(powell_file, sample_file, sps,
         pl.ylabel(ylabel[photflag])
         pl.savefig('{0}_{1}.png'.format(outname, outn[photflag]), dpi = 600)
         if photflag ==0:
-            pl.xlim(3750, 4300)
+            pl.xlim(3550, 4300)
             pl.savefig('{0}_{1}_blue.png'.format(outname, outn[photflag]), dpi = 300)
         pl.close()
    

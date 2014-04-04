@@ -18,27 +18,37 @@ def load_obs(rp):
     if rp['verbose']:
         print('Loading data from {0}'.format(rp['file']))
 
-    #mags = np.array([16.9450, 17.4311, 18.1425, 16.9637, 16.1824, 15.4335])
-    #mags_unc = np.array([0.0760, 0.0488, 0.0542, 0.0644, 0.0546, 0.0554])
-    #AAARGH
-    mags = np.array([17.40, 17.35, 17.76, 17.15, 16.94, 16.39])
-    mags_unc = np.array([0.076, 0.049, 0.054, 0.064, 0.21, 0.28])
-    dat = pyfits.getdata(rp['file'])
-
-    fluxconv = 5.0e-20 #counts to erg/s/AA/cm^2
-    fluxconv *= np.pi *4. * (rp['dist'] * 1e6 * pc)**2/lsun #erg/s/AA/cm^2 to L_sun/AA
+    fluxconv = np.pi *4. * (rp['dist'] * 1e6 * pc)**2/lsun #erg/s/AA/cm^2 to L_sun/AA
     redshift = rp['vel']/2.998e8
 
+    dat = pyfits.getdata(rp['file'])
     obs ={}
-    obs['wavelength'] = np.arange(0, 4540)*1.2+3700.
-    obs['wavelength'] /= (1.0 + redshift)
-    obs['spectrum'] = dat[0,:] * fluxconv
-    obs['unc'] = np.sqrt(dat[1,:]) * fluxconv
-    #Masking.  should move to a function that reads a mask definition file
-    obs['mask'] =  ((obs['wavelength'] >= 3750 ) & (obs['wavelength'] <= 7000.))
-    obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 6555) | (obs['wavelength'] >= 6590)) #mask NII & Halpha
-    obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 5570) | (obs['wavelength'] >= 5590)) #mask OI sky line
-    
+    if rp['file'].split('/')[-2] == 'mmt':
+        fluxconv *= 5.0e-20 #approximate counts to erg/s/AA/cm^2
+        #dao9
+        #mags = np.array([16.9450, 17.4311, 18.1425, 16.9637, 16.1824, 15.4335])
+        #mags_unc = np.array([0.0760, 0.0488, 0.0542, 0.0644, 0.0546, 0.0554])
+        #AAARGH
+        mags = np.array([17.40, 17.35, 17.76, 17.15, 16.94, 16.39])
+        mags_unc = np.array([0.076, 0.049, 0.054, 0.064, 0.21, 0.28])
+        obs['wavelength'] = np.arange(0, 4540)*1.2+3700.
+        obs['spectrum'] = dat[0,:] * fluxconv
+        obs['unc'] = np.sqrt(dat[1,:]) * fluxconv
+        #Masking.  should move to a function that reads a mask definition file
+        obs['mask'] =  ((obs['wavelength'] >= 3750 ) & (obs['wavelength'] <= 7000.))
+        obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 6555) | (obs['wavelength'] >= 6590)) #mask NII & Halpha
+        obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 5570) | (obs['wavelength'] >= 5590)) #mask OI sky line
+    elif rp['file'].split('/')[-2] == 'lris':
+        #obj 467
+        mags = np.array([18.63547, 19.892399, 19.935846, 19.467628, 19.598925, 21.052458])
+        mags_unc = np.array([0.025585078, 0.05667416, 0.06420175, 0.41923323, 0.8458821, 2.6606328])
+        sig = np.array([56.38456, 25.312307, 16.934145, 2.7173033, 0.8478325, 0.09438831])
+        obs['wavelength'] = dat[0]['wave_opt']
+        obs['spectrum'] = dat[0]['spec']
+        obs['unc'] = 1./np.sqrt(dat[0]['ivar'])
+        obs['mask'] =  ((obs['wavelength'] >= 3550 ) & (obs['wavelength'] <= 5550.))
+        
+    obs['wavelength'] /= (1.0 + redshift)    
     obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in ["F275W", "F336W", "F475W", "F814W"]] +
                                             ['wfc3_ir_'+b.lower() for b in ["F110W", "F160W"]])
     obs['mags'] = mags - (5.0 * np.log10(rp['dist']) + 25) - np.array([f.ab_to_vega for f in obs['filters']])
