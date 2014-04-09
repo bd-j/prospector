@@ -1,3 +1,6 @@
+#script for playing with SFH inference at fixed population parameters
+
+
 import time
 import sys
 import numpy as np
@@ -12,6 +15,7 @@ import acor
 from convergence import gelman_rubin_R as grR
 import priors
 
+rp = {}
 snr = 100.
 nage = 15
 logt0 = 7.0
@@ -39,8 +43,22 @@ dusttheta = {'i0':ncomp, 'N': 1, 'lower':0., 'upper': 2, 'dtype':'<f8',
              'prior_args':{}}
 
 theta_desc = {'mass':masstheta}#, 'dust2':dusttheta}
-sps = fsps.StellarPopulation()
-model = cspmodel.CompositeModel(theta_desc, sps, ages, metals, filters = filters)
+model = cspmodel.CompositeModel(theta_desc, ages, metals)
+ndim = 0
+for p, d in model.theta_desc.iteritems():
+    ndim += d['N']
+rp['ndim'] = ndim
+
+sps_fixed_params = {'sfh':0, 'imf_type': 2, 'dust_type': 1, 'imf3': rp['imf3']}
+sps = StellarPopulation(compute_vega_mags = False)
+for k, v in sps_fixed_params.iteritems():
+    sps.params[k] = v
+model.sps_fixed_params = sps_fixed_params
+
+def lnprobfn(theta, mod):
+    """wrapper on the model instance method, defined here
+    globally to enable multiprocessing"""
+    return mod.lnprob(theta, sps = sps)
 
 ###############
 # MOCK
@@ -60,19 +78,20 @@ else:
     obs['filters'] = None
 
 model.add_obs(obs)
+model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
 model.verbose = False
-
 
 ###############
 # INITIALIZE
 ################
 def chi2(theta):
     """A sort of chi2 function that allows for maximization of lnP"""
-    return -model.lnprob(theta)
+    return -model.lnprob(theta, sps =sps)
 
 def chi2_grad(theta):
     """A sort of chi2 gradient function that allows for maximization of lnP"""
-    return -model.lnprob_grad(theta)
+    return -model.lnprob_grad(theta, sps=sps)
+
 bounds = len(mock_theta) * [(0, None)]
 bfgs_opt = {'ftol':1e-10, 'gtol':1e-8, 'maxfev':1e4}
 x0 = mock_theta * np.clip(np.random.normal(5.0,5.0, len(mock_theta)),0,np.infty)
