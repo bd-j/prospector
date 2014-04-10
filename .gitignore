@@ -1,5 +1,3 @@
-archived_20140116/
-vsm_results/
 text/*log
 text/*aux
 text/*dvi
@@ -11,4 +9,8 @@ text/*bib
 *.pyc
 */*.pyc
 junk*
-experiments
+archived_20140116/
+vsm_results/
+modeldefs/
+runscripts/
+src/todo/
