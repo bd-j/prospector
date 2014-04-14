@@ -26,6 +26,7 @@ if filters: filters = observate.load_filters(filters)
 ###############
 # SET UP
 ###############
+sps = fsps.StellarPopulation(compute_vega_mags = False)
 
 ages = 10**(np.arange(nage)*dlogt + logt0)/1e9
 #ages = [1,10]
@@ -43,14 +44,13 @@ dusttheta = {'i0':ncomp, 'N': 1, 'lower':0., 'upper': 2, 'dtype':'<f8',
              'prior_args':{}}
 
 theta_desc = {'mass':masstheta}#, 'dust2':dusttheta}
-model = cspmodel.CompositeModel(theta_desc, ages, metals)
+model = cspmodel.CompositeModel(theta_desc, ages, metals, sps =sps)
 ndim = 0
 for p, d in model.theta_desc.iteritems():
     ndim += d['N']
 rp['ndim'] = ndim
 
-sps_fixed_params = {'sfh':0, 'imf_type': 2, 'dust_type': 1, 'imf3': rp['imf3']}
-sps = StellarPopulation(compute_vega_mags = False)
+sps_fixed_params = {'sfh':0, 'imf_type': 2, 'dust_type': 1, 'imf3': 2.3}
 for k, v in sps_fixed_params.iteritems():
     sps.params[k] = v
 model.sps_fixed_params = sps_fixed_params
@@ -66,7 +66,7 @@ def lnprobfn(theta, mod):
 obs = {}
 tweight = np.log(model.ssp['tage']/model.ssp['tage'].min()) + 0.1
 mock_theta = np.array( tweight.tolist() )
-mock_spec, mock_phot, mock_other = model.model(mock_theta)
+mock_spec, mock_phot, mock_other = model.model(mock_theta, sps =sps)
 obs['spectrum'] = mock_spec * (1 + np.random.normal(0,1./snr, len(model.sps.wavelengths)))
 obs['unc'] = mock_spec/snr
 obs['mask'] = ((model.sps.wavelengths > 3e3) & (model.sps.wavelengths < 10e3))

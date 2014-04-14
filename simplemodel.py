@@ -15,7 +15,6 @@ class Model(object):
     def lnprob(self, theta, **extras):
         """Given a theta vector, return the ln of the posterior probability."""
 
-        
         # Determine prior probability for this theta
         lnp_prior = self.prior_product(theta)
         if self.verbose:
@@ -36,7 +35,7 @@ class Model(object):
             else:
                 lnp_spec = 0
             # Photometry term
-            if phot is not None:
+            if self.obs['mags'] is not None:
                 maggies = 10**(-0.4 * self.obs['mags'])
                 phot_var = (maggies*self.obs['mags_unc']/1.086)**2 
                 lnp_phot =  -0.5*( (phot - maggies)**2 / phot_var ).sum()

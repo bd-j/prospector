@@ -49,7 +49,7 @@ class CompositeModel(Model):
 
         #decalibrated spectrum
         try:
-            outspec = griddata(self.ssp_wave * z1, spec, self.obs['wavelength']) * self.calibration() 
+            outspec = griddata(self.ssp_wave * z1, spec/z1, self.obs['wavelength']) * self.calibration() 
         except (KeyError):
             outspec = spec
         #photometry
