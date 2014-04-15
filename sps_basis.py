@@ -131,7 +131,6 @@ class StellarPopBasis(object):
             self.build_basis(inparams['outwave'])
 
 
-
 def selftest():
     import fsps
     from observate import load_filters
