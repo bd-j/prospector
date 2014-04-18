@@ -7,7 +7,7 @@ from simplemodel import Model
 
 class CompositeModel(Model):
 
-    def __init__(self, theta_desc, tage = [1.0], zmet = [-0.5], sps = None, dust_curve = None):
+    def __init__(self, theta_desc, tage = [1.0], zmet = [-0.5], sps = None, dust_curve = attenuation.calzetti):
         self.verbose = False
         self.theta_desc = theta_desc
         self.jitter = 0
@@ -25,41 +25,48 @@ class CompositeModel(Model):
 
     
     def model(self, theta, sps = None):
-        """Given a theta vector, generate a spectrum, photometry, and any extras."""
-        
+        """
+        Given a theta vector, generate a spectrum, photometry, and any extras (e.g. stellar mass).
+        """
+        if sps is None:
+            sps = self.sps
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(self.params, self.obs['wavelength'], self.obs['filters'])
         return spec, phot, extras
             
  
     def lnprob_grad(self, theta, sps = None):
-        """Given theta, return a vector of gradients in lnP along the theta directions.
+        """
+        Given theta, return a vector of gradients in lnP along the theta directions.
         Theta can *only* include amplitudes in this formulation, though potentially dust
-        and calibration parameters might be added. """
-        
+        and calibration parameters might be added.
+        """
+        if sps is None:
+            sps = self.sps
+
         status = ((len(theta) == self.theta_desc['mass']['N']) and (self.theta_desc.keys() == ['mass']))
         if status is False:
             raise ValueError('You are attempting to use gradients for parameters where they are not calculated!!!')
         
         self.set_parameters(theta)
         comp_spec, comp_phot, comp_extra = sps.get_components(self.params, self.obs['wavelength'], self.obs['filters'])
-        spec = (comp_spec  * self.params['mass']).sum(axis = 0)
-        phot = (comp_spec  * self.params['mass']).sum(axis = 0)
+        spec = (comp_spec  * self.params['mass'][:,None]).sum(axis = 0)
+        phot = (comp_phot  * self.params['mass'][:,None]).sum(axis = 0)
         
         # Spectroscopy terms
-        if self.obs['wavelength'] is not None:
+        if self.obs['spectrum'] is not None:
             #shortcuts for observational uncertainties
-            total_var_spec =  (self.obs['unc'] + self.params['jitter'] * self.obs['spectrum'])**2
+            total_var_spec =  (self.obs['unc'] + self.params.get('jitter',0) * self.obs['spectrum'])**2
             mask = self.obs['mask']
             wave = self.obs['wavelength']
-
+            delta_spec = -(spec - self.obs['spectrum'])/total_var_spec 
             gradp_spec = {} 
-            spec_part = -(spec - self.obs['spectrum'])/total_var_spec 
-            gradp_spec['mass'] = (spec_part[None,:] * comp_spec )[:,mask].sum(axis = 1)
+            
+            gradp_spec['mass'] = (delta_spec[None,:] * comp_spec )[:,mask].sum(axis = 1)
 
             #jitter term
             gradp_jitter = {}
-            if self.jitter is not 0:
+            if self.params.get('jitter',0.) != 0:
                 raise ValueError('gradients in jitter term not written')
             
         # Photometry terms
@@ -81,5 +88,3 @@ class CompositeModel(Model):
 
         return gradp
 
-
- 

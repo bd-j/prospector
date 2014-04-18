@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.interpolate import griddata
 import astropy.constants as constants
+import fsps
 from observate import getSED
 from sfhutils import weights_1DLinear
 
@@ -12,9 +13,9 @@ to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
 class StellarPopBasis(object):
 
-    def __init__(self, sps):
+    def __init__(self):
         #this is a StellarPopulation object from fsps
-        self.sps = sps
+        self.sps = fsps.StellarPopulation()
         self.ssp_zlegend = np.array([0.008, 0.0031, 0.0096, 0.0190, 0.0300])
         #This is the main state vector for the model
         self.params = {'dust_tesc':0.02, 'dust1':0., 'dust2':0.}
@@ -80,7 +81,7 @@ class StellarPopBasis(object):
                 try:
                     dust = ((tage < self.params['dust_tesc']) * self.params['dust1']  +
                             (tage >= self.params['dust_tesc']) * self.params['dust2'])
-                    spec *= np.exp(-self.params['dust_curve'](inwave))
+                    spec *= np.exp(-self.params['dust_curve'][0](inwave))
                 except KeyError:
                     pass
                 #redshift and put on the proper wavelength grid
@@ -110,21 +111,22 @@ class StellarPopBasis(object):
         for k,v in inparams.iteritems():
             if k in self.ssp_params:
                 if np.any(v != self.params.get(k,None)):
-                    print(k)
+                    #print(k)
                     ssp_dirty = True
                     try:
                         self.sps.params[k] = v
                     except KeyError:
                         pass
             elif k in self.basis_params:
-                print(k, np.any(v != self.params.get(k,None)))
+                #print(k, np.any(v != self.params.get(k,None)))
                 if np.any(v != self.params.get(k,None)):
                     basis_dirty = True
         
             self.params[k] = np.copy(np.atleast_1d(v))
+            
         self.ssp_dirty = self.ssp_dirty | ssp_dirty
         self.basis_dirty = self.basis_dirty | basis_dirty
-        print(self.ssp_dirty, self.basis_dirty)
+        #print(self.ssp_dirty, self.basis_dirty)
         if self.ssp_dirty:
             self.build_ssp()
         if self.ssp_dirty or self.basis_dirty:
