@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import griddata
 import astropy.constants as constants
 import fsps
-from observate import getSED
+from observate import getSED, broaden
 from sfhutils import weights_1DLinear
 
 lsun = constants.L_sun.cgs.value
@@ -20,9 +20,9 @@ class StellarPopBasis(object):
         #This is the main state vector for the model
         self.params = {'dust_tesc':0.02, 'dust1':0., 'dust2':0.}
         #These are the parameters whose change will force a regeneration of the SSPs (and basis) using fsps
-        self.ssp_params = ['vel_broad','sigma_smooth','imf_type','imf3','agb_dust']
+        self.ssp_params = ['sigma_smooth','imf_type','imf3','agb_dust']
         #These are the parameters whose change will force a regeneration of the basis from the SSPs
-        self.basis_params = ['tage','zmet','dust1','dust2','dust_tesc','zred','outwave','dust_curve']
+        self.basis_params = ['vel_broad','tage','zmet','dust1','dust2','dust_tesc','zred','outwave','dust_curve']
         self.ssp_dirty = True
         self.basis_dirty =True
         
@@ -86,10 +86,18 @@ class StellarPopBasis(object):
                     pass
                 #redshift and put on the proper wavelength grid
                 #eventually this should probably do proper integration within
-                # the output wavelength bins.  It should also allow for 
-                self.basis_spec[i,:] = griddata(inwave * z1, spec/z1, self.params['outwave'] )
+                # the output wavelength bins.  It should also allow for
+                self.basis_spec[i,:] = broaden(inwave * z1, spec/z1, self.params['vel_broad'],
+                                               outwave = self.params['outwave'],
+                                               stype = 'vel' )
+                #self.spec_basis[i,:] = spec
                 self.basis_mass[i] = mass
                 i += 1
+        #redshift and put on the proper wavelength grid
+        #eventually this should probably do proper integration within
+        # the output wavelength bins.  It should also allow for
+        #self.basis_spec[i,:] = broaden(inwave * z1, spec/z1, self.params['vel_disp'], outwave = self.params['outwave'] )
+
         self.basis_dirty = False
 
     def ztinterp(self, zmet, tage):

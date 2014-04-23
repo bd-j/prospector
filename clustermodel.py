@@ -50,6 +50,7 @@ class ClusterModel(Model):
                 tmp = theta[start:end]
             sps.params[p] = tmp[0] #this should increase dirtiness and force a regeneration of the SSPs
             #print(self.sps.params.dirtiness)
+        print(self.cal_pars)
             
     def model(self, theta, sps = None, filters = None):
         """Given a theta vector, generate a spectrum, photometry, and any extras."""

@@ -210,3 +210,10 @@ def sample_photometry(sample_results, sps, filterlist, start = 0, wthin = 16, tt
             phot[i,j,:] = p
             #mass[i,j] = m
     return phot, wit, tit
+
+
+i=0
+fig, axes = subplots(3,2)
+for j in xrange(3):
+    for k in xrange(2):
+        axes[j,k].plot(esampler.chain[:,:,i])

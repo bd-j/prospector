@@ -151,8 +151,25 @@ hpos, hprob, eps = sampler.sample(hinitial, model, iterations = 10000,
                                    epsilon = eps, length = length*10,
                                    store_trajectories = False, nadapt = 0)
 
-
 dur = time.time() - tstart
+
+results = {}
+#results['run_params'] = rp
+results['obs'] = model.obs
+results['theta'] = model.theta_desc
+results['initial_center'] = initial_center
+results['chain'] = sampler.chain
+results['lnprobability'] = sampler.lnprobability
+results['acceptance'] = sampler.acceptance_fraction
+results['duration'] = dur
+model.sps = None
+results['model'] = model
+    
+out = open('{1}.imf3_{3}_sampler{2:02d}_mcmc_{0}'.format(int(time.time()), rp['outfile'], isampler+1, sps.params['imf3']), 'wb')
+pickle.dump(results, out)
+out.close()
+
+
 
 #try:
 #    tau, mean, sigma = acor.acor(hsampler.lnprob)

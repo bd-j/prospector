@@ -27,13 +27,19 @@ class Model(object):
         if np.isfinite(lnp_prior):
             # Get the spectrum for this theta
             spec, phot, other = self.model(theta, **extras)
-            
+
             # Spectroscopic term
             if self.obs['spectrum'] is not None:
                 # Shortcuts for observational uncertainties
-                total_var_spec =  (self.obs['unc'] + self.params.get('jitter',0) * self.obs['spectrum'])**2
+                #total_var_spec =  (self.obs['unc'] + self.params.get('jitter',0) * self.obs['spectrum'])**2
+                total_var_spec =  (self.obs['unc']**2 + (self.params.get('jitter',0) * self.obs['spectrum'])**2)
                 mask = self.obs['mask']
-                lnp_spec = -0.5* ((spec - self.obs['spectrum'])**2 / total_var_spec)[mask].sum()      
+                lnp_spec = -0.5* ((spec - self.obs['spectrum'])**2 / total_var_spec)[mask].sum()
+                #lnp_spec = -0.5 * (((np.log(spec) - np.log(self.obs['spectrum']))**2) / (total_var_spec/spec**2) )[mask].sum()
+
+                r = (self.obs['spectrum'] - spec)
+                sigma = total_var_spec * self.params.get('jitter',0)
+                
                 # Jitter term
                 if self.params.get('jitter',0) != 0:
                     lnp_spec += log(2*pi*total_var_spec[mask]).sum()

@@ -23,7 +23,6 @@ class CompositeModel(Model):
             start, end = self.theta_desc[p]['i0'], self.theta_desc[p]['i0'] + self.theta_desc[p]['N']
             self.params[p] = np.array(theta[start:end])
 
-    
     def model(self, theta, sps = None):
         """
         Given a theta vector, generate a spectrum, photometry, and any extras (e.g. stellar mass).
@@ -32,6 +31,7 @@ class CompositeModel(Model):
             sps = self.sps
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(self.params, self.obs['wavelength'], self.obs['filters'])
+        spec *= self.calibration()
         return spec, phot, extras
             
  
@@ -50,7 +50,7 @@ class CompositeModel(Model):
         
         self.set_parameters(theta)
         comp_spec, comp_phot, comp_extra = sps.get_components(self.params, self.obs['wavelength'], self.obs['filters'])
-        spec = (comp_spec  * self.params['mass'][:,None]).sum(axis = 0)
+        spec = (comp_spec  * self.params['mass'][:,None]).sum(axis = 0) * self.calibration()
         phot = (comp_phot  * self.params['mass'][:,None]).sum(axis = 0)
         
         # Spectroscopy terms
@@ -62,7 +62,7 @@ class CompositeModel(Model):
             delta_spec = -(spec - self.obs['spectrum'])/total_var_spec 
             gradp_spec = {} 
             
-            gradp_spec['mass'] = (delta_spec[None,:] * comp_spec )[:,mask].sum(axis = 1)
+            gradp_spec['mass'] = (delta_spec[None,:] * self.calibration() * comp_spec )[:,mask].sum(axis = 1)
 
             #jitter term
             gradp_jitter = {}
@@ -88,3 +88,10 @@ class CompositeModel(Model):
 
         return gradp
 
+    def calibration(self):
+        x = self.obs['wavelength']/self.params['pivot_wave'] - 1.0
+        poly = np.zeros_like(x)
+        powers = np.arange( len(self.params['poly_coeffs']) ) + 1
+        poly = (x[None,:] ** powers[:,None] * self.params['poly_coeffs'][:,None]).sum(axis = 0)
+        
+        return (1.0 + poly) * self.params['spec_norm']
