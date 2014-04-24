@@ -48,9 +48,11 @@ class ClusterModel(Model):
                 tmp = np.clip(np.round(theta[start:end]),1,5)
             else:
                 tmp = theta[start:end]
+            if p == 'vel_broad':
+                p = 'sigma_smooth'
             sps.params[p] = tmp[0] #this should increase dirtiness and force a regeneration of the SSPs
             #print(self.sps.params.dirtiness)
-        print(self.cal_pars)
+        #print(self.cal_pars)
             
     def model(self, theta, sps = None, filters = None):
         """Given a theta vector, generate a spectrum, photometry, and any extras."""

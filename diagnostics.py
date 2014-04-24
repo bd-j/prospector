@@ -8,7 +8,7 @@ import triangle
 import pickle
 
 
-def diagnostic_plots(powell_file, sample_file, sps, 
+def diagnostic_plots(sample_file, sps, powell_file = None,
                      nspec = 5, thin = 10, start = 0, outname = None, inmod = None):
     """Plots a number of diagnostics.  These include:
             spectrum -
@@ -35,8 +35,10 @@ def diagnostic_plots(powell_file, sample_file, sps,
     
 
     """
-    
-    powell_results = pickle.load( open(powell_file, 'rb'))
+    if powell_file:
+        powell_results = pickle.load( open(powell_file, 'rb'))
+    else:
+        powell_results = None
     sample_results = pickle.load( open(sample_file, 'rb'))
     if outname is None:
         outname = sample_file#''.join(sample_file.split('.')[:-1])
@@ -82,23 +84,38 @@ def diagnostic_plots(powell_file, sample_file, sps,
         point_cal = pcal[photflag]
         pl.figure()
         pl.plot(obs['wavelength'], obs['spectrum'],
-                marker = marker[photflag], color = 'blue', linewidth = 1.5, label = 'observed')
-        pl.plot(obs['wavelength'], model.model(flatchain[rindex[0],:], sps =sps)[photflag],
+                marker = marker[photflag], color = 'blue', linewidth = 0.5, label = 'observed')
+        pl.plot(obs['wavelength'], model.model(flatchain[rindex[0],:], sps =sps)[photflag]*0.,
                 marker = marker[photflag], color = 'green', alpha = 0.5, label = 'model (sample)')
         for i in range(nspec-1):
-            pl.plot(obs['wavelength'], model.model(flatchain[rindex[i+1],:], sps =sps)[photflag],
+            ypred = model.model(flatchain[rindex[i+1],:], sps =sps)[photflag]
+            if (photflag == 0) and sample_results.has_key('gp'):
+                mask = obs['mask']
+                res = sample_results['gp'].predict( (obs['spectrum'] - ypred)[mask] )
+                pl.plot(obs['wavelength'][mask], np.zeros(mask.sum()) + res,
+                        linewidth = 0.5, color = 'red', alpha = 0.5)
+            else:
+                res = 0
+                mask = np.arange(len(obs['wavelength']))
+#                print(mask.sum())
+            pl.plot(obs['wavelength'][mask], ypred[mask] + res,
                     marker = marker[photflag], color = 'green', alpha = 0.5)
-        pl.plot(obs['wavelength'], point_model[photflag],
-                marker = marker[photflag], color = 'red', label = 'model (mean params)')
+                      
+            
+        #pl.plot(obs['wavelength'], point_model[photflag],
+        #        marker = marker[photflag], color = 'red', label = 'model (mean params)')
+        
         pl.plot(obs['wavelength'], point_cal,
-                marker = marker[photflag], color = 'magenta', label = 'calibration (mean)')
+                marker = marker[photflag], color = 'magenta', label = 'calibration poly (mean)', linewidth = 0.5)
+        
         pl.plot(obs['wavelength'], model.model(sample_results['initial_center'], sps =sps)[photflag],
-                marker = marker[photflag], color = 'cyan', label = 'initial', alpha = 0.5)
-        pl.legend(loc = 'lower left', fontsize = 'small', bbox_to_anchor = (0.7,0.8), mode="expand")
+                marker = marker[photflag], color = 'cyan', label = 'initial', alpha = 0.5, linewidth = 0.3)
+        
+        pl.legend(loc = 'lower left', fontsize = 'small', bbox_to_anchor = (0.7,0.8), mode="expand")        
         pl.ylabel(ylabel[photflag])
         pl.savefig('{0}_{1}.png'.format(outname, outn[photflag]), dpi = 600)
         if photflag ==0:
-            pl.xlim(3550, 4300)
+            pl.xlim(3500, 4300)
             pl.savefig('{0}_{1}_blue.png'.format(outname, outn[photflag]), dpi = 300)
         pl.close()
    
@@ -118,15 +135,21 @@ def diagnostic_plots(powell_file, sample_file, sps,
  
         for i in range(nspec-1):
             spec = model.model(flatchain[rindex[i+1],:], sps =sps)[photflag]
-            axes[0].plot(obs['wavelength'], obs['spectrum'] / spec,
+            if  (photflag == 0) and sample_results.has_key('gp'):
+                mask = obs['mask']
+                res = sample_results['gp'].predict( (obs['spectrum'] - spec)[mask] )
+            else:
+                mask = np.arange(len(obs['wavelength']))
+                res = 0
+            axes[0].plot(obs['wavelength'][mask], obs['spectrum'][mask] / (spec[mask]+res),
                          marker = marker[photflag], alpha = 0.3, color = 'blue')
-            axes[1].plot(obs['wavelength'], (obs['spectrum'] - spec) / obs['unc'],
+            axes[1].plot(obs['wavelength'][mask], (obs['spectrum'][mask] - spec[mask]-res) / obs['unc'][mask],
                          marker = marker[photflag], alpha = 0.3, color = 'blue')
-            axes[2].plot(obs['wavelength'], (obs['spectrum'] - spec),
+            axes[2].plot(obs['wavelength'][mask], (obs['spectrum'][mask] - spec[mask]-res),
                          marker = marker[photflag], alpha = 0.3, color = 'blue')
         
         if photflag == 0:
-            [a.set_xlim(3700,7200) for a in axes]
+            [a.set_xlim(3500,5600) for a in axes]
         fig.savefig('{0}_{1}_residuals.png'.format(outname, outn[photflag]), dpi = 300)
         fig.clf()
 
@@ -210,10 +233,3 @@ def sample_photometry(sample_results, sps, filterlist, start = 0, wthin = 16, tt
             phot[i,j,:] = p
             #mass[i,j] = m
     return phot, wit, tit
-
-
-i=0
-fig, axes = subplots(3,2)
-for j in xrange(3):
-    for k in xrange(2):
-        axes[j,k].plot(esampler.chain[:,:,i])
