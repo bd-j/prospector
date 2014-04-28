@@ -30,9 +30,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
             lnp_vs_step -
                 the evolution of the walkers in likelihood
             triangle  -
-                a triangle plot of paramter covariances
-            
-    
+                a triangle plot of paramter covariances    
 
     """
     if powell_file:
@@ -149,7 +147,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
                          marker = marker[photflag], alpha = 0.3, color = 'blue')
         
         if photflag == 0:
-            [a.set_xlim(3500,5600) for a in axes]
+            [a.set_xlim(3700,8000) for a in axes]
         fig.savefig('{0}_{1}_residuals.png'.format(outname, outn[photflag]), dpi = 300)
         fig.clf()
 

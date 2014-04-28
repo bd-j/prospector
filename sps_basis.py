@@ -13,21 +13,25 @@ to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
 class StellarPopBasis(object):
 
-    def __init__(self):
+    def __init__(self, smooth_velocity = True):
         #this is a StellarPopulation object from fsps
-        self.sps = fsps.StellarPopulation()
-        self.ssp_zlegend = np.array([0.008, 0.0031, 0.0096, 0.0190, 0.0300])
+        self.ssp = fsps.StellarPopulation(smooth_velocity = smooth_velocity)
+        
         #This is the main state vector for the model
         self.params = {'dust_tesc':0.02, 'dust1':0., 'dust2':0.}
+        
         #These are the parameters whose change will force a regeneration of the SSPs (and basis) using fsps
-        self.ssp_params = ['sigma_smooth','imf_type','imf3','agb_dust']
-        #These are the parameters whose change will force a regeneration of the basis from the SSPs
-        self.basis_params = ['vel_broad','tage','zmet','dust1','dust2','dust_tesc','zred','outwave','dust_curve']
+        self.ssp_params = ['imf_type','imf3','agb_dust']
         self.ssp_dirty = True
+        
+        #These are the parameters whose change will force a regeneration of the basis from the SSPs
+        self.basis_params = ['sigma_smooth','tage','zmet','dust1','dust2','dust_tesc','zred','outwave','dust_curve']
         self.basis_dirty =True
         
     def get_spectrum(self, inparams, outwave, filters):
-        #return a spectrum for the given parameters
+        """
+        Return a spectrum for the given parameters.
+        """
         cspec, cphot, cextra = self.get_components(inparams, outwave, filters)
 
         spec = (cspec * inparams['mass'][:,None]).sum(axis = 0)    
@@ -35,25 +39,18 @@ class StellarPopBasis(object):
         extra = (cextra * inparams['mass']).sum()
         return spec, phot, extra
     
+    
     def get_components(self, inparams, outwave, filters):
+        """
+        Return the component spectra for the given parameters,
+        making sure to update the components if necessary
+        """
+
         inparams['outwave'] = outwave
         self.update(inparams)            
         return self.basis_spec, getSED(self.basis_wave, self.basis_spec * to_cgs, filters), self.basis_mass
+    
 
-    def build_ssp(self):
-        """Rebuild the SSPs.  This is basically a proxy/wrapper for
-        SSP_GEN from FSPS.
-        """
-        for i, zmet in enumerate(self.ssp_zlegend):
-            wave, spec = self.sps.get_spectrum(peraa =True, tage = 0., zmet = i+1)
-            if i == 0:
-                self.ssp_spec = np.zeros([ len(self.ssp_zlegend), spec.shape[0], spec.shape[1] ])
-                self.ssp_mass = np.zeros([ len(self.ssp_zlegend), spec.shape[0] ])
-            self.ssp_spec[i,:,:] = spec
-            self.ssp_mass[i,:] = self.sps.stellar_mass
-        self.ssp_logage = self.sps.log_age - 9. #in log Gyr
-        self.ssp_dirty = False
-        
     def build_basis(self, outwave):
         """ Rebuild the component spectra from the SSPs.  The component
         spectra include dust attenuation, redshifting, and spectral regridding.
@@ -67,16 +64,18 @@ class StellarPopBasis(object):
         self.basis_spec = np.zeros([nbasis, len(self.params['outwave'])])
         self.basis_mass = np.zeros(nbasis)
         i = 0
-        inwave = self.sps.wavelengths
-        #redshift
-        z1 = (1 + self.params.get('zred', 0.0))
+        inwave = self.ssp.wavelengths
+        
+        #scale factor from redshift
+        a1 = (1 + self.params.get('zred', 0.0))
         self.basis_wave = self.params['outwave']
-        #should vectorize this
+        
+        #should vectorize this set of loops
         for j,zmet in enumerate(self.params['zmet']):
             for k,tage in enumerate(self.params['tage']):
                 #get the intrinsic spectrum at this metallicity and age
-                spec, mass = self.ztinterp(zmet, tage)
-                #print(spec.shape, mass.shape)
+                spec, mass, lbol = self.ssp.ztinterp(zmet, tage, peraa = True)
+                
                 #and attenuate by dust unless missing any dust parameters
                 try:
                     dust = ((tage < self.params['dust_tesc']) * self.params['dust1']  +
@@ -87,28 +86,13 @@ class StellarPopBasis(object):
                 #redshift and put on the proper wavelength grid
                 #eventually this should probably do proper integration within
                 # the output wavelength bins.  It should also allow for
-                self.basis_spec[i,:] = broaden(inwave * z1, spec/z1, self.params['vel_broad'],
-                                               outwave = self.params['outwave'],
-                                               stype = 'vel' )
-                #self.spec_basis[i,:] = spec
+                self.basis_spec[i,:] = griddata(inwave * a1,
+                                                self.ssp.smoothspec(inwave, spec, self.params.get('sigma_smooth',0.0)) /a1,
+                                                self.params['outwave'])
                 self.basis_mass[i] = mass
                 i += 1
-        #redshift and put on the proper wavelength grid
-        #eventually this should probably do proper integration within
-        # the output wavelength bins.  It should also allow for
-        #self.basis_spec[i,:] = broaden(inwave * z1, spec/z1, self.params['vel_disp'], outwave = self.params['outwave'] )
-
+                
         self.basis_dirty = False
-
-    def ztinterp(self, zmet, tage):
-        """Bilinear interpolation in log age and log Z/Zsun"""
-        ainds, aweights = weights_1DLinear(self.ssp_logage, [np.log10(tage)])
-        zinds, zweights = weights_1DLinear(np.log10(self.ssp_zlegend/0.0190), [zmet])
-        spec = (self.ssp_spec[:,ainds[0,:],:] * aweights[:,:,None]).sum(axis = 1)
-        mass = (self.ssp_mass[:,ainds[0,:]] * aweights).sum(axis = 1)
-        spec = (spec[zinds[0,:],:] * zweights.T).sum(axis = 0)
-        mass = (mass[zinds[0,:]] * zweights[0,:]).sum()
-        return spec, mass
     
     def update(self, inparams):
         """Update the parameters, recording whether it was new
@@ -118,40 +102,31 @@ class StellarPopBasis(object):
         ssp_dirty, basis_dirty = False, False
         for k,v in inparams.iteritems():
             if k in self.ssp_params:
-                if np.any(v != self.params.get(k,None)):
-                    #print(k)
-                    ssp_dirty = True
-                    try:
-                        self.sps.params[k] = v
-                    except KeyError:
-                        pass
+                try:
+                    #here the sps.params.dirtiness should increase if there was a change
+                    self.ssp.params[k] = v
+                except KeyError:
+                    pass
             elif k in self.basis_params:
                 #print(k, np.any(v != self.params.get(k,None)))
                 if np.any(v != self.params.get(k,None)):
-                    basis_dirty = True
-        
+                    self.basis_dirty = True
+            #now update params
             self.params[k] = np.copy(np.atleast_1d(v))
             
-        self.ssp_dirty = self.ssp_dirty | ssp_dirty
-        self.basis_dirty = self.basis_dirty | basis_dirty
-        #print(self.ssp_dirty, self.basis_dirty)
-        if self.ssp_dirty:
-            self.build_ssp()
-        if self.ssp_dirty or self.basis_dirty:
+        if self.basis_dirty | (self.ssp.params.dirtiness == 2):
             self.build_basis(inparams['outwave'])
 
 
 def selftest():
-    import fsps
     from observate import load_filters
-    sp = fsps.StellarPopulation()
-    sps = StellarPopBasis(sps)
+    sps = sps_basis.StellarPopBasis()
     params = {}
     params['tage'] = np.array([1,2,3,4.])
     params['zmet'] = np.array([-0.5,0.0])
     params['mass'] = np.random.uniform(0,1,len(params['tage']) * len(params['zmet']))
-
-    outwave = sp.wavelengths
+    params['sigma_smooth'] = 100.
+    outwave = sps.ssp.wavelengths
     flist = ['sdss_u0', 'sdss_r0']
     filters = load_filters(flist)
 
