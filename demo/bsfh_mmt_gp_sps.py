@@ -20,10 +20,10 @@ import fitterutils
 ########
 # SETUP
 ##########
-rp = {'verbose':True, 'powell_results':None, #'results/dao69.imf3_2.3_powell_1394030533',
+rp = {'verbose':False, 'powell_results':None, #'results/dao69.imf3_2.3_powell_1394030533',
       'file':'data/mmt/DAO69.fits', 'dist':0.783, 'vel':0.,
       'ftol':3., 'maxfev':200, 'guess_factor':2, 'nsamplers':1,
-      'walker_factor':10, 'nthreads':1, 'nburn':2 * [20], 'niter': 100, 'initial_disp':0.1,
+      'walker_factor':10, 'nthreads':1, 'nburn':1 * [10], 'niter': 10, 'initial_disp':0.1,
       'imf3':2.7}
     
 rp['outfile'] = 'results/' + os.path.basename(rp['file']).split('.')[0].lower()
@@ -32,7 +32,7 @@ rp = fitterutils.parse_args(sys.argv,rp)
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
 to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )
 
-print(rp['imf3'])
+#print(rp['imf3'])
 
 ############
 # REAL OBS EXAMPLE
@@ -64,29 +64,34 @@ dusttheta = {'i0':2, 'N': 1, 'dtype':'<f8',
              'prior_function':tophat,
              'prior_args':{'mini':0.0, 'maxi':2.5}}
 
-#veltheta = {'i0':4, 'N': 1, 'dtype':'<f8', 
-#             'prior_function':tophat,
-#             'prior_args':{'mini':100.0, 'maxi':200.0}}
+veltheta = {'i0':3, 'N': 1, 'dtype':'<f8', 
+             'prior_function':tophat,
+             'prior_args':{'mini':100.0, 'maxi':200.0}}
 
-#redtheta = {'i0':5, 'N':1, 'dtype':'<f8',
-#            'prior_function':tophat,
-#            'prior_args':{'mini':-0.001, 'maxi':0.001}}
+redtheta = {'i0':4, 'N':1, 'dtype':'<f8',
+            'prior_function':tophat,
+            'prior_args':{'mini':-0.001, 'maxi':0.001}}
 order = 2 #up to x**3
-polytheta = {'i0':3, 'N':order, 'dtype':'<f8',
+polytheta = {'i0':5, 'N':order, 'dtype':'<f8',
             'prior_function':tophat,
             'prior_args':{'mini':np.array([-3,-5]), 'maxi':np.array([3,5])}}
 
-normtheta = {'i0':3+order, 'N':1, 'dtype':'<f8',
+normtheta = {'i0':5+order, 'N':1, 'dtype':'<f8',
             'prior_function':tophat,
             'prior_args':{'mini':0.1, 'maxi':10}}
 
+imftheta = {'i0':6+order, 'N':1, 'dtype':'<f8',
+            'prior_function':tophat,
+            'prior_args':{'mini':1.3, 'maxi':3.5}}
+    
 theta_desc = {'mass':masstheta, 'tage': agestheta, 'dust2':dusttheta,
-              #'zred':redtheta,'zmet':zmetstheta,'vel_broad':veltheta,
+              'zred':redtheta,'vel_broad':veltheta,
+              #'zmet':zmetstheta,
+              'imf3':imftheta,
               'poly_coeffs':polytheta,'spec_norm':normtheta}
 
-
-sps_fixed_params = {'sfh':0, 'imf_type': 2, 'dust_type': 1, 'imf3': 2.3, 'vel_broad':160.,
-                    'zmet':4, 'zred':-0.0002}
+sps_fixed_params = {'sfh':0, 'imf_type': 2, 'dust_type': 1,# 'imf3': 2.3,
+                    'zmet':4}
 gp_pars = {'s':0, 'a': 1.0, 'l':100}
 
     
@@ -104,7 +109,7 @@ for k, v in sps_fixed_params.iteritems():
 
 
 model.sps_fixed_params = sps_fixed_params
-
+model.verbose = False
 ndim = 0
 for p, d in model.theta_desc.iteritems():
     ndim += d['N']
@@ -117,7 +122,7 @@ gprocess.factor(gp_pars['s'], gp_pars['a'], gp_pars['l'])
 def lnprobfn(theta, mod):
     """wrapper on the model instance method, defined here
     globally to enable multiprocessing"""
-    print(theta)
+    #print(theta)
     lnp_prior = mod.prior_product(theta)
     if np.isfinite(lnp_prior):
         t = time.time()
@@ -127,11 +132,11 @@ def lnprobfn(theta, mod):
         t = time.time()
         lnp_spec = gprocess.lnlike(r)
         d2 = time.time() - t
-        print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
+    #    print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
         maggies = 10**(-0.4 * mod.obs['mags'])
         phot_var = (maggies * mod.obs['mags_unc']/1.086)**2 
         lnp_phot =  -0.5*( (phot - maggies)**2 / phot_var ).sum()
-        print('lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'.format(lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot))
+    #    print('lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'.format(lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot))
         return lnp_prior + lnp_phot + lnp_spec
     else:
         return -np.infty
@@ -146,7 +151,7 @@ synphot = observate.getSED(model.obs['wavelength'], model.obs['spectrum'] * to_c
 norm = 10**(-0.4 * (synphot[norm_band]  - model.obs['mags'][norm_band]))
 #assume you've got this right to within 5% (and 3 sigma) after marginalized over everything
 #  that changes spectral shape within the band (polynomial terms, dust, age, etc)
-fudge = (1 + 3 * model.obs['mags_unc'][norm_band]/1.068) * 1.05
+fudge = (1 + 5 * model.obs['mags_unc'][norm_band]/1.068) * 1.05
 model.theta_desc['spec_norm']['prior_args'] = {'mini':norm/fudge, 'maxi':norm * fudge}
 #pivot the polynomial near the filter used for approximate normalization
 model.cal_pars['pivot_wave'] =  model.obs['filters'][norm_band].wave_effective 
@@ -157,6 +162,14 @@ if rp['verbose']:
 #################
 #INITIAL GUESS USING POWELL MINIMIZATION
 #################
+
+def chi2(theta):
+    """A sort of chi2 function that allows for maximization of lnP using minimization routines"""
+    return -lnprobfn(theta, model)
+powell_opt = {'ftol':rp['ftol']/model.ndof * 2., 'maxfev':rp['maxfev']}
+
+initial_center = np.array([8e3, 2e-2, 0.5, 160., -0.0002, 0.1, 0.1, norm, 2.3])
+powell_guess = minimize(chi2, initial_center, method = 'powell',options = powell_opt)
 
 #expand the allowed range for IMF and normalization
 #model.theta_desc['spec_norm']['prior_args'] = {'mini':norm/1.2, 'maxi':norm * 1.2}
@@ -170,9 +183,10 @@ if rp['verbose']:
 nsamplers = int(rp['nsamplers'])
 
 tstart = time.time()
-initial_center = np.array([8e3, 2e-2, 0.5, 0.1, 0.1, norm])
+initial_center = powell_guess.x #np.array([8e3, 2e-2, 0.5, 0.1, 0.1, norm])
 esampler = fitterutils.run_a_sampler(model, sps, lnprobfn, initial_center, rp)
 edur = time.time() - tstart
+
 
 results = {}
 results['run_params'] = rp
@@ -184,6 +198,7 @@ results['lnprobability'] = esampler.lnprobability
 results['acceptance'] = esampler.acceptance_fraction
 results['duration'] = edur
 results['model'] = model
+results['gp'] = gprocess
 
 out = open('{1}.imf3_{3}_sampler{2:02d}_mcmc_{0}'.format(int(time.time()), rp['outfile'], 1, sps.params['imf3']), 'wb')
 pickle.dump(results, out)

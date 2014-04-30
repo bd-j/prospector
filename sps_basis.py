@@ -77,33 +77,34 @@ class StellarPopBasis(object):
                 spec, mass, lbol = self.ssp.ztinterp(zmet, tage, peraa = True)
                 
                 #and attenuate by dust unless missing any dust parameters
+                #This is ugly - should use a hook into ADD_DUST
                 try:
                     dust = ((tage < self.params['dust_tesc']) * self.params['dust1']  +
                             (tage >= self.params['dust_tesc']) * self.params['dust2'])
                     spec *= np.exp(-self.params['dust_curve'][0](inwave))
                 except KeyError:
                     pass
-                #redshift and put on the proper wavelength grid
-                #eventually this should probably do proper integration within
-                # the output wavelength bins.  It should also allow for
-                self.basis_spec[i,:] = griddata(inwave * a1,
-                                                self.ssp.smoothspec(inwave, spec, self.params.get('sigma_smooth',0.0)) /a1,
-                                                self.params['outwave'])
+                # Redshift and put on the proper wavelength grid
+                # Eventually this should probably do proper integration within
+                # the output wavelength bins.
+                spec = self.ssp.smoothspec(inwave, spec, self.params.get('sigma_smooth',0.0))
+                self.basis_spec[i,:] = griddata(inwave * a1, spec / a1, self.params['outwave'])
                 self.basis_mass[i] = mass
                 i += 1
                 
         self.basis_dirty = False
-    
+
+        
     def update(self, inparams):
         """Update the parameters, recording whether it was new
-        for the ssp or basis parameters.  If it was, regenerate the
-        relevant spectral grid
+        for the ssp or basis parameters.  If those changed,
+        regenerate the relevant spectral grid(s).
         """
         ssp_dirty, basis_dirty = False, False
         for k,v in inparams.iteritems():
             if k in self.ssp_params:
                 try:
-                    #here the sps.params.dirtiness should increase if there was a change
+                    #here the sps.params.dirtiness should increase to 2 if there was a change
                     self.ssp.params[k] = v
                 except KeyError:
                     pass

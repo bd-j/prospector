@@ -4,6 +4,8 @@ from observate import getSED
 import attenuation
 from scipy.interpolate import griddata
 
+
+
 class Model(object):
 
     verbose = False
@@ -30,15 +32,10 @@ class Model(object):
 
             # Spectroscopic term
             if self.obs['spectrum'] is not None:
-                # Shortcuts for observational uncertainties
-                #total_var_spec =  (self.obs['unc'] + self.params.get('jitter',0) * self.obs['spectrum'])**2
+                res = (self.obs['spectrum'] - spec)
                 total_var_spec =  (self.obs['unc']**2 + (self.params.get('jitter',0) * self.obs['spectrum'])**2)
-                mask = self.obs['mask']
-                lnp_spec = -0.5* ((spec - self.obs['spectrum'])**2 / total_var_spec)[mask].sum()
-                #lnp_spec = -0.5 * (((np.log(spec) - np.log(self.obs['spectrum']))**2) / (total_var_spec/spec**2) )[mask].sum()
-
-                r = (self.obs['spectrum'] - spec)
-                sigma = total_var_spec * self.params.get('jitter',0)
+                mask = self.obs['mask']                
+                lnp_spec = -0.5* ( res**2 / total_var_spec)[mask].sum()
                 
                 # Jitter term
                 if self.params.get('jitter',0) != 0:
@@ -49,14 +46,18 @@ class Model(object):
             # Photometry term
             if self.obs['filters'] is not None:
                 maggies = 10**(-0.4 * self.obs['mags'])
-                phot_var = (maggies * self.obs['mags_unc']/1.086)**2 
+                phot_var = (maggies * (self.obs['mags_unc']/1.086 + self.params.get('phot_jitter',0)))**2 
                 lnp_phot =  -0.5*( (phot - maggies)**2 / phot_var ).sum()
+                # Jitter term
+                if self.params.get('phot_jitter',0) != 0:
+                    lnp_phot += log(2*pi*phot_var).sum()
+
             else:
                 lnp_phot = 0
 
-            #print out
             if self.verbose:
                 print('lnp = {0}'.format(lnp_spec + lnp_phot + lnp_prior))
+                
             return lnp_spec + lnp_phot + lnp_prior
         else:
             return -np.infty
@@ -68,10 +69,9 @@ class Model(object):
         functions are defined in the theta descriptor.
         """
         lnp_prior = 0
-        for p in self.theta_desc.keys():
-            start, stop = self.theta_desc[p]['i0'], self.theta_desc[p]['i0'] + self.theta_desc[p]['N']
-            lnp_prior += np.sum(self.theta_desc[p]['prior_function'](theta[start:stop],
-                                                                     **self.theta_desc[p]['prior_args']))
+        for p, v in self.theta_desc.iteritems():
+            start, stop = v['i0'], v['i0'] + v['N']
+            lnp_prior += np.sum(v['prior_function'](theta[start:stop], **v['prior_args']))
         return lnp_prior
 
     def lnp_prior_grad(self, theta):
@@ -80,11 +80,10 @@ class Model(object):
         that functions giving the gradients are given in the theta descriptor.
         """
         lnp_prior_grad = np.zeros_like(theta)
-        for p in self.theta_desc.keys():
-            start, stop = self.theta_desc[p]['i0'], self.theta_desc[p]['i0'] + self.theta_desc[p]['N']
-            lnp_prior_grad[start:stop] = self.theta_desc[p]['prior_gradient_function'](theta[start:stop], **self.theta_desc[p]['prior_args'])
+        for p, v in self.theta_desc.iteritems():
+            start, stop = v['i0'], v['i0'] + v['N']
+            lnp_prior_grad[start:stop] = v['prior_gradient_function'](theta[start:stop], **v['prior_args'])
         return lnp_prior_grad
-
 
     def check_constrained(self, theta):
         """
