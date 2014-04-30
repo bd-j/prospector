@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import griddata
+from scipy.interpolate import interp1d
 import astropy.constants as constants
 import fsps
 from observate import getSED, broaden
@@ -53,10 +53,11 @@ class StellarPopBasis(object):
         # Eventually this should probably do proper integration within
         # the output wavelength bins.
         a1 = (1 + self.params.get('zred', 0.0))
-        specs = interp1d( self.ssp.wavelengths * a1,  self.basis_spec / a1, axis = -1)
+        cspec = interp1d( self.ssp.wavelengths * a1,  self.basis_spec / a1, axis = -1)(outwave)
         #get the photometry
-        phots = 10**(-0.4 *getSED(self.basis_wave * a1, self.basis_spec / a1 * to_cgs, filters))
-        return specs(outwave), phots, self.basis_mass
+        cphot = 10**(-0.4 *getSED( self.ssp.wavelengths * a1, self.basis_spec / a1 * to_cgs, filters))
+        
+        return cspec, cphot, self.basis_mass
     
 
     def build_basis(self, outwave):
