@@ -47,8 +47,16 @@ class StellarPopBasis(object):
         """
 
         params['outwave'] = outwave
-        self.update(params)            
-        return self.basis_spec, 10**(-0.4 *getSED(self.basis_wave, self.basis_spec * to_cgs, filters)), self.basis_mass
+        self.update(params)
+
+        # Redshift and put on the proper wavelength grid
+        # Eventually this should probably do proper integration within
+        # the output wavelength bins.
+        a1 = (1 + self.params.get('zred', 0.0))
+        specs = interp1d( self.ssp.wavelengths * a1,  self.basis_spec / a1, axis = -1)
+        #get the photometry
+        phots = 10**(-0.4 *getSED(self.basis_wave * a1, self.basis_spec / a1 * to_cgs, filters))
+        return specs(outwave), phots, self.basis_mass
     
 
     def build_basis(self, outwave):
@@ -60,32 +68,30 @@ class StellarPopBasis(object):
         less sophiticated.
         """
         #setup the internal component basis arrays
+        inwave = self.ssp.wavelengths
         nbasis = len(np.atleast_1d(self.params['zmet'])) * len(np.atleast_1d(self.params['tage']))
-        self.basis_spec = np.zeros([nbasis, len(self.params['outwave'])])
+        self.basis_spec = np.zeros([nbasis, len(inwave)])
         self.basis_mass = np.zeros(nbasis)
         i = 0
-        inwave = self.ssp.wavelengths
         
         #scale factor from redshift
-        a1 = (1 + self.params.get('zred', 0.0))
-        self.basis_wave = self.params['outwave']
+        #a1 = (1 + self.params.get('zred', 0.0))
+        #self.basis_wave = self.params['outwave']
         
         #should vectorize this set of loops
         for j,zmet in enumerate(self.params['zmet']):
             for k,tage in enumerate(self.params['tage']):
-                #get the intrinsic spectrum at this metallicity and age
+                # get the intrinsic spectrum at this metallicity and age
                 spec, mass, lbol = self.ssp.ztinterp(zmet, tage, peraa = True)
                 
-                #and attenuate by dust unless missing any dust parameters
-                #This is ugly - should use a hook into ADD_DUST
+                # and attenuate by dust unless missing any dust parameters
+                # This is ugly - should use a hook into ADD_DUST
                 dust = ((tage < self.params['dust_tesc']) * self.params['dust1']  +
                         (tage >= self.params['dust_tesc']) * self.params['dust2'])
                 spec *= np.exp(-self.params['dust_curve'][0](inwave) * dust)
-                # Redshift and put on the proper wavelength grid
-                # Eventually this should probably do proper integration within
-                # the output wavelength bins.
-                spec = self.ssp.smoothspec(inwave, spec, self.params.get('sigma_smooth',0.0))
-                self.basis_spec[i,:] = griddata(inwave * a1, spec / a1, self.params['outwave'])
+                # broaden and store
+                self.basis_spec[i,:] = self.ssp.smoothspec(inwave, spec, self.params.get('sigma_smooth',0.0))
+                # = griddata(inwave * a1, spec / a1, self.params['outwave'])
                 self.basis_mass[i] = mass
                 i += 1
                 
