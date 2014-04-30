@@ -1,7 +1,6 @@
 import numpy as np
 
 from observate import getSED
-import attenuation
 
 class ThetaParameters(object):
 
@@ -12,8 +11,8 @@ class ThetaParameters(object):
         if theta_init:
             self.set_parameters(theta_init)
         for k,v in kwargs.iteritems():
-            self.params[k] = np.array(v)
-
+            self.params[k] = np.atleast_1d(v)
+            
     @property
     def ndim(self):
         #should probably cache this
@@ -96,7 +95,7 @@ class SedModel(ThetaParameters):
         if sps is None:
             sps = self.sps
         self.set_parameters(theta)
-        spec, phot, extras = sps.get_spectrum(self.params, self.obs['wavelength'], self.obs['filters'])
+        spec, phot, extras = sps.get_spectrum(self.params.copy(), self.obs['wavelength'], self.obs['filters'])
         spec *= self.calibration()
         return spec, phot, extras
 

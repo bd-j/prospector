@@ -18,7 +18,7 @@ class StellarPopBasis(object):
         self.ssp = fsps.StellarPopulation(smooth_velocity = smooth_velocity)
         
         #This is the main state vector for the model
-        self.params = {'dust_tesc':0.02, 'dust1':0., 'dust2':0.}
+        self.params = {'dust_tesc':0.00, 'dust1':0., 'dust2':0.}
         
         #These are the parameters whose change will force a regeneration of the SSPs (and basis) using fsps
         self.ssp_params = ['imf_type','imf3','agb_dust']
@@ -34,9 +34,9 @@ class StellarPopBasis(object):
         """
         cspec, cphot, cextra = self.get_components(params, outwave, filters)
 
-        spec = (cspec * inparams['mass'][:,None]).sum(axis = 0)    
-        phot = (cphot * inparams['mass'][:,None]).sum(axis = 0)
-        extra = (cextra * inparams['mass']).sum()
+        spec = (cspec * params['mass'][:,None]).sum(axis = 0)    
+        phot = (cphot * params['mass'][:,None]).sum(axis = 0)
+        extra = (cextra * params['mass']).sum()
         return spec, phot, extra
     
     
@@ -48,7 +48,7 @@ class StellarPopBasis(object):
 
         params['outwave'] = outwave
         self.update(params)            
-        return self.basis_spec, getSED(self.basis_wave, self.basis_spec * to_cgs, filters), self.basis_mass
+        return self.basis_spec, 10**(-0.4 *getSED(self.basis_wave, self.basis_spec * to_cgs, filters)), self.basis_mass
     
 
     def build_basis(self, outwave):
@@ -78,12 +78,9 @@ class StellarPopBasis(object):
                 
                 #and attenuate by dust unless missing any dust parameters
                 #This is ugly - should use a hook into ADD_DUST
-                try:
-                    dust = ((tage < self.params['dust_tesc']) * self.params['dust1']  +
-                            (tage >= self.params['dust_tesc']) * self.params['dust2'])
-                    spec *= np.exp(-self.params['dust_curve'][0](inwave))
-                except KeyError:
-                    pass
+                dust = ((tage < self.params['dust_tesc']) * self.params['dust1']  +
+                        (tage >= self.params['dust_tesc']) * self.params['dust2'])
+                spec *= np.exp(-self.params['dust_curve'][0](inwave) * dust)
                 # Redshift and put on the proper wavelength grid
                 # Eventually this should probably do proper integration within
                 # the output wavelength bins.

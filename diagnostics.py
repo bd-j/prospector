@@ -45,8 +45,11 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
     except (KeyError):
         model = inmod
         model.theta_desc = sample_results['theta']
-    for k, v in model.sps_fixed_params.iteritems():
-        sps.params[k] = v
+    for k, v in model.params.iteritems():
+        try:
+            sps.params[k] = v
+        except KeyError:
+            pass
     parnames = theta_labels(model.theta_desc)
         
     chain = sample_results['chain'][:,start::thin,:]
