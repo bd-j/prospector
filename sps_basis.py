@@ -28,11 +28,11 @@ class StellarPopBasis(object):
         self.basis_params = ['sigma_smooth','tage','zmet','dust1','dust2','dust_tesc','zred','outwave','dust_curve']
         self.basis_dirty =True
         
-    def get_spectrum(self, inparams, outwave, filters):
+    def get_spectrum(self, params, outwave, filters):
         """
         Return a spectrum for the given parameters.
         """
-        cspec, cphot, cextra = self.get_components(inparams, outwave, filters)
+        cspec, cphot, cextra = self.get_components(params, outwave, filters)
 
         spec = (cspec * inparams['mass'][:,None]).sum(axis = 0)    
         phot = (cphot * inparams['mass'][:,None]).sum(axis = 0)
@@ -40,14 +40,14 @@ class StellarPopBasis(object):
         return spec, phot, extra
     
     
-    def get_components(self, inparams, outwave, filters):
+    def get_components(self, params, outwave, filters):
         """
         Return the component spectra for the given parameters,
         making sure to update the components if necessary
         """
 
-        inparams['outwave'] = outwave
-        self.update(inparams)            
+        params['outwave'] = outwave
+        self.update(params)            
         return self.basis_spec, getSED(self.basis_wave, self.basis_spec * to_cgs, filters), self.basis_mass
     
 
