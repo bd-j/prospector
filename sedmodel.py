@@ -1,7 +1,5 @@
 import numpy as np
 
-from observate import getSED
-
 class ThetaParameters(object):
 
     def __init__(self, theta_desc = None, theta_init = None, **kwargs):
@@ -79,6 +77,18 @@ class ThetaParameters(object):
         if self.verbose: print('theta out={0}'.format(theta))            
         return theta, sign, oob
 
+
+    def bounds(self):
+        bounds = self.ndim * [(0.,0.)]
+        for p, v in self.theta_desc.iteritems():
+            sz = np.size(v['prior_args']['mini'])
+            if sz == 1:
+                bounds[v['i0']] = (v['prior_args']['mini'], v['prior_args']['maxi'])
+            else:
+                for k in range(sz):
+                    bounds[v['i0']+k] = (v['prior_args']['mini'][k], v['prior_args']['maxi'][k])
+        return bounds
+                
 
 class SedModel(ThetaParameters):
 

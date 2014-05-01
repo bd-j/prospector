@@ -2,8 +2,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import astropy.constants as constants
 import fsps
-from observate import getSED, broaden
-from sfhutils import weights_1DLinear
+from observate import getSED, vac2air, air2vac
 
 lsun = constants.L_sun.cgs.value
 pc = constants.pc.cgs.value
@@ -53,7 +52,7 @@ class StellarPopBasis(object):
         # Eventually this should probably do proper integration within
         # the output wavelength bins.
         a1 = (1 + self.params.get('zred', 0.0))
-        cspec = interp1d( self.ssp.wavelengths * a1,  self.basis_spec / a1, axis = -1)(outwave)
+        cspec = interp1d( vac2air(self.ssp.wavelengths * a1),  self.basis_spec / a1, axis = -1)(outwave)
         #get the photometry
         cphot = 10**(-0.4 *getSED( self.ssp.wavelengths * a1, self.basis_spec / a1 * to_cgs, filters))
         

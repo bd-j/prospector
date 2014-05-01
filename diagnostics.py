@@ -95,10 +95,11 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
                 res = sample_results['gp'].predict( (obs['spectrum'] - ypred)[mask] )
                 pl.plot(obs['wavelength'][mask], np.zeros(mask.sum()) + res,
                         linewidth = 0.5, color = 'red', alpha = 0.5)
+                pl.plot(obs['wavelength'], model.calibration(),
+                        color = 'magenta', linewidth = 0.5)
             else:
                 res = 0
                 mask = np.arange(len(obs['wavelength']))
-#                print(mask.sum())
             pl.plot(obs['wavelength'][mask], ypred[mask] + res,
                     marker = marker[photflag], color = 'green', alpha = 0.5)
                       
@@ -106,8 +107,8 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
         #pl.plot(obs['wavelength'], point_model[photflag],
         #        marker = marker[photflag], color = 'red', label = 'model (mean params)')
         
-        pl.plot(obs['wavelength'], point_cal,
-                marker = marker[photflag], color = 'magenta', label = 'calibration poly (mean)', linewidth = 0.5)
+        #pl.plot(obs['wavelength'], point_cal,
+        #        marker = marker[photflag], color = 'magenta', label = 'calibration poly (mean)', linewidth = 0.5)
         
         pl.plot(obs['wavelength'], model.model(sample_results['initial_center'], sps =sps)[photflag],
                 marker = marker[photflag], color = 'cyan', label = 'initial', alpha = 0.5, linewidth = 0.3)
