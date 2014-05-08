@@ -14,3 +14,4 @@ vsm_results/
 modeldefs/
 runscripts/
 src/todo/
+*/*/*.p
