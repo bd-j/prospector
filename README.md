@@ -1,11 +1,13 @@
 bsfh
 =====
 
-use Bayesian MCMC to constrain the linear combination of spectral components that are present in a galaxy
+use Bayesian MCMC to constrain the linear combination of spectral
+components that are present in a galaxy using Hybrid Monte Carlo.
 
-usage example: recover_angst_lowres.py -- given the parameters in the pars dictionary at the beginning of the file, this piece of code will return some diagnostics and plots of the MCMC results for a given galaxy.  Assumes a single metallicity and no dust (for now).
+Additionally, conduct principled inference of stellar population
+properties from a combination of spectral and photometric data,
+reducing the need for standard spectrophotometric calibration procedures.
 
-relies on emcee.
 
 
 

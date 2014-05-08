@@ -9,9 +9,6 @@ text/*bib
 *.pyc
 */*.pyc
 junk*
-archived_20140116/
-vsm_results/
-modeldefs/
-runscripts/
+detritus/
 src/todo/
 */*/*.p

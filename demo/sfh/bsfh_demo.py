@@ -132,7 +132,7 @@ for k in range(nsegmax):
 print('production_run')
 afrac = sampler.accepted.sum()*1.0/sampler.chain.shape[0]
 if afrac < 0.6:
-    eps = eps/2.0
+    eps = eps/1.5
 
 hpos, hprob, eps = sampler.sample(hinitial, model, iterations = 5000,
                                    epsilon = eps, length = 800,
