@@ -10,7 +10,7 @@ import hmc, priors
 import observate, attenuation
 import sps_basis, sedmodel
 
-snr = 50.  #Signal/Noise ratio
+snr = 50.  #Signal/Noise ratio of the mock
 nage = 10  #number of ages to model
 logt0 = 7.0
 dlogt = (np.log10(13.7e9) - 7.0) / (nage-1)
@@ -149,7 +149,7 @@ results['obs'] = model.obs
 results['theta'] = model.theta_desc
 results['initial_center'] = hinitial
 results['chain'] = sampler.chain
-results['lnprobability'] = sampler.lnprobability
+results['lnprobability'] = sampler.lnprob
 results['acceptance'] = sampler.acceptance_fraction
 results['duration'] = dur
 model.sps = None

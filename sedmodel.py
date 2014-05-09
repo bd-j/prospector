@@ -10,22 +10,24 @@ class ThetaParameters(object):
             self.set_parameters(theta_init)
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
-            
+
+        self._ndim = None
+        
     @property
     def ndim(self):
         #should probably cache this
-        ndim = 0
-        for p, v in self.theta_desc.iteritems():
-            ndim += v['N']
-        return ndim
+        if self._ndim is None:
+            self._ndim = 0
+            for p, v in self.theta_desc.iteritems():
+                self._ndim += v['N']
+        return self._ndim
             
     def set_parameters(self, theta):
-        """Propagate theta into the model parameters"""
+        """Propagate theta into the model parameters."""
         assert len(theta) == self.ndim
         for p, v in self.theta_desc.iteritems():
             start, end = v['i0'], v['i0'] + v['N']
             self.params[p] = np.array(theta[start:end])
-
         
     def prior_product(self, theta):
         """

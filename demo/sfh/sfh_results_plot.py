@@ -5,20 +5,21 @@ import triangle
 
 
 
-def results_plot(sample_file, outname = 'demo', nspec = 10, nsfh = 20, sps =None, start =0, thin =1):
+def results_plot(sample_file, outname = 'demo', nspec = 10, nsfh = 40, sps =None, start =0, thin =1):
     
     sample_results = pickle.load( open(sample_file, 'rb'))
     model = sample_results['model']
     parnames = theta_labels(model.theta_desc)
-    chain = sample_results['chain'][start::thin,:]
-    nchain, ndim = chain.shape
-    flatchain = chain.reshape(nchain, ndim)
+    flatchain = sample_results['chain'][start::thin,:]
+    nchain, ndim = flatchain.shape
+    #flatchain = chain.reshape(nchain, ndim)
     obs = sample_results['obs']
-    model.sps = sps
+    sps.update(model.params)
+
 #plot a triangle plot
     fig = triangle.corner(flatchain,labels = parnames,
-                        quantiles=[0.16, 0.5, 0.84], verbose =False,
-                        truths = sample_results['mock_input_theta'])
+                          quantiles=[0.16, 0.5, 0.84], verbose =False,
+                          truths = sample_results['mock_input_theta'])
     fig.savefig('{0}_triangle.png'.format(outname))
     pl.close()
 
@@ -39,7 +40,7 @@ def results_plot(sample_file, outname = 'demo', nspec = 10, nsfh = 20, sps =None
 
     pl.xlabel('log Age (years)')
     pl.ylabel(r'Stellar mass formed (M$_\odot$)')
-    pl.legend(loc = 'upper right')
+    pl.legend(loc = 'upper left')
     pl.xlim(6.5, 10.5)
     pl.savefig('{0}_sfh.png'.format(outname))
     pl.close(1)
@@ -49,7 +50,7 @@ def results_plot(sample_file, outname = 'demo', nspec = 10, nsfh = 20, sps =None
     rindex = np.random.uniform(0, nchain, nspec).astype( int )
 
     pl.plot(obs['wavelength'], obs['spectrum'],
-            color = 'blue', linewidth = 1.5, label = 'observed')
+            color = 'blue', linewidth = 1.5, label = 'observed, S/N=50')
     pl.plot(obs['wavelength'], model.model(flatchain[rindex[0],:], sps =sps)[0]*0.,
             color = 'green', alpha = 0.5, label = 'model ({0} samples)'.format(nspec))
     for i in range(nspec-1):
@@ -63,8 +64,35 @@ def results_plot(sample_file, outname = 'demo', nspec = 10, nsfh = 20, sps =None
     pl.legend()
     pl.savefig('{0}_spectrum.png'.format(outname), dpi = 300)
     pl.close()
-    
 
+#plot components
+    ncolors = len(sps.params['tage'])
+    cm = pl.get_cmap('gist_rainbow')
+    fig = pl.figure()
+    ax = fig.add_subplot(111)
+    ax.set_color_cycle([cm(1.*i/ncolors) for i in range(ncolors)])
+
+    ax.plot(obs['wavelength'],model.model(sample_results['mock_input_theta'], sps =sps)[0],
+            label = 'total spectrum', color ='black')
+    for i,(t,m) in enumerate(zip(sps.params['tage'], sample_results['mock_input_theta'])):
+        color = cm(1.*(ncolors-i -1)/ncolors)
+        ax.plot(sps.ssp.wavelengths, m * sps.basis_spec[i,:],
+                label = 'log(Age) = {0:4.2f}'.format(np.log10(t*1e9)),
+                color =color)
+        
+    ax.set_ylabel(r'L$_\odot/\AA$')
+    ax.set_xlabel(r'wavelength ($\AA$)')
+    ax.set_xlim(3000,10000)
+    ax.legend(loc ='lower right', prop ={'size':8})
+    ax.set_yscale('log')
+    ax.set_ylim(1e-6,1e-1)
+    ax.set_title('Components of the total spectrum')
+    pl.savefig('{0}_components.png'.format(outname), dpi = 300)
+    pl.close()
+
+    return sample_results, flatchain, model
+
+    
 def theta_labels(desc):
     label, index = [], []
     for p in desc.keys():

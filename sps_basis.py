@@ -11,7 +11,10 @@ lightspeed = 2.998e18 #AA/s
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
 class StellarPopBasis(object):
-
+    """A class that wraps the python-fsps StellarPopulation object in order to include
+    more functionality and to allow 'fast' model generation in some situations by storing
+    an easily accessible spectral grid."""
+    
     def __init__(self, smooth_velocity = True):
         #this is a StellarPopulation object from fsps
         self.ssp = fsps.StellarPopulation(smooth_velocity = smooth_velocity)
@@ -29,7 +32,31 @@ class StellarPopBasis(object):
         
     def get_spectrum(self, params, outwave, filters):
         """
-        Return a spectrum for the given parameters.
+        Return a spectrum for the given parameters.  If necessary the SSPs are
+        updated, and if necessary the component spectra are updated, before
+        being combined here.
+
+        :params params:
+            A dictionary-like of the model parameters.
+            
+        :params outwave: 
+            The output wavelength points at which model estimates are
+            desired, ndarray of shape (nwave,)
+            
+        :params filters:
+             A list of filters in which synthetic photometry is desired.
+             List of length (nfilt,)
+
+        :returns spec:
+            The spectrum at the wavelength points given by outwave, ndarray
+            of shape (nwave,).  Units are L_sun/AA
+            
+        :returns phot:
+            The synthetc photometry through the provided filters, ndarray
+            of shape (nfilt,).  Note, the units are *absolute maggies*.
+
+        :returns extra:
+            Any extra parameters (like stellar mass) that you want to return
         """
         cspec, cphot, cextra = self.get_components(params, outwave, filters)
 
@@ -42,7 +69,29 @@ class StellarPopBasis(object):
     def get_components(self, params, outwave, filters):
         """
         Return the component spectra for the given parameters,
-        making sure to update the components if necessary
+        making sure to update the components if necessary.
+
+        :params params:
+            A dictionary-like of the model parameters.
+            
+        :params outwave: 
+            The output wavelength points at which model estimates are
+            desired, ndarray of shape (nwave,)
+            
+        :params filters:
+             A list of filters in which synthetic photometry is desired.
+             List of length (nfilt,)
+
+        :returns cspec:
+            The spectrum at the wavelength points given by outwave, ndarray
+            of shape (ncomp,nwave).  Units are L_sun/AA
+            
+        :returns phot:
+            The synthetc photometry through the provided filters, ndarray
+            of shape (ncomp,nfilt).  Note, the units are *absolute maggies*.
+
+        :returns extra:
+            Any extra parameters (like stellar mass) that you want to return
         """
 
         params['outwave'] = outwave
@@ -65,7 +114,14 @@ class StellarPopBasis(object):
         This is basically a proxy for COMPSP from FSPS, with a few small differences.
         In particular, there is interpolation in metallicity and the redshift and
         the output wavelength grid are taken into account.  The dust treatment is
-        less sophiticated.
+        less sophisticated.
+
+        This method is only called by self.update if necessary.
+
+        :params outwave: 
+            The output wavelength points at which model estimates are
+            desired, ndarray of shape (nwave,)
+
         """
         #setup the internal component basis arrays
         inwave = self.ssp.wavelengths
@@ -100,10 +156,10 @@ class StellarPopBasis(object):
         
     def update(self, inparams):
         """Update the parameters, recording whether it was new
-        for the ssp or basis parameters.  If those changed,
+        for the ssp or basis parameters.  If either of those changed,
         regenerate the relevant spectral grid(s).
         """
-        ssp_dirty, basis_dirty = False, False
+        
         for k,v in inparams.iteritems():
             if k in self.ssp_params:
                 try:
