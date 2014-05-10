@@ -120,14 +120,24 @@ class SedModel(ThetaParameters):
         return spec, phot, extras
 
     def nebular(self):
+        """ If the emission_rest_wavelengths parameter is present, return a nebular
+        emission line spectrum.  Currently uses several approximations for the
+        velocity broadening and should probably be moved to within the sps object as an
+        additional component.  Currently does *not* affect photometry, but would if it
+        was part of the sps object
 
+        :returns nebspec:
+            The nebular emission in the rest frame, at the wavelengths specified by
+            the obs['wavelength']
+            
+        """
         if 'emission_rest_wavelengths' in self.params:
             mu = self.params['emission_rest_wavelengths']
             #for now assume same redshift for stars and gas
             a1 = self.params.get('zred', 0.0) + 1.0
             A =  self.params.get('emission_luminosity',0.)
             #this is an approximation, but should work much of the time
-            sigma = mu * self.params['emission_veldisp'] / 2.998e5
+            sigma = mu * self.params.get('emission_veldisp',10.) / 2.998e5
             
             return gauss(self.obs['wavelength'], mu * a1, A, sigma * a1)
         
@@ -214,8 +224,8 @@ class SedModel(ThetaParameters):
         
         self.set_parameters(theta)
         comp_spec, comp_phot, comp_extra = sps.get_components(self.params, self.obs['wavelength'], self.obs['filters'])
-        cal = self.calibration()
-        spec = (comp_spec  * self.params['mass'][:,None]).sum(axis = 0) * cal
+        cal, neb, sky = self.calibration(), self.nebular(), self.sky()
+        spec = ((comp_spec  * self.params['mass'][:,None]).sum(axis = 0) + neb + sky) * cal
         phot = (comp_phot  * self.params['mass'][:,None]).sum(axis = 0)
 
         gradp_spec = {} # Spectroscopy terms
