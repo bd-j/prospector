@@ -1,5 +1,12 @@
 import numpy as np
 
+def gauss(x, mu, A, sigma):
+    """Lay down mutiple gaussians on the x-axis""" 
+    mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
+    val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
+    return val.sum(axis = -1)
+
+
 class ThetaParameters(object):
 
     def __init__(self, theta_desc = None, theta_init = None, **kwargs):
@@ -11,11 +18,11 @@ class ThetaParameters(object):
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
 
+        #caching.  only works if theta_desc is not allowed to change after intialization
         self._ndim = None
         
     @property
     def ndim(self):
-        #should probably cache this
         if self._ndim is None:
             self._ndim = 0
             for p, v in self.theta_desc.iteritems():
@@ -108,9 +115,28 @@ class SedModel(ThetaParameters):
             sps = self.sps
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(self.params.copy(), self.obs['wavelength'], self.obs['filters'])
-        spec *= self.calibration()
+        spec = (spec + self.nebular() + self.sky()) * self.calibration()
+        
         return spec, phot, extras
 
+    def nebular(self):
+
+        if 'emission_rest_wavelengths' in self.params:
+            mu = self.params['emission_rest_wavelengths']
+            #for now assume same redshift for stars and gas
+            a1 = self.params.get('zred', 0.0) + 1.0
+            A =  self.params.get('emission_luminosity',0.)
+            #this is an approximation, but should work much of the time
+            sigma = mu * self.params['emission_veldisp'] / 2.998e5
+            
+            return gauss(self.obs['wavelength'], mu * a1, A, sigma * a1)
+        
+        else:
+            return 0.
+
+    def sky(self):
+        return 0.
+        
     def calibration(self):
         """
         Implements a polynomial calibration model.
@@ -118,14 +144,17 @@ class SedModel(ThetaParameters):
         :returns cal:
            a polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M 'poly_coeffs'[m-1] x**m)
         """
-            
-        x = self.obs['wavelength']/self.params['pivot_wave'] - 1.0
-        poly = np.zeros_like(x)
-        powers = np.arange( len(self.params['poly_coeffs']) ) + 1
-        poly = (x[None,:] ** powers[:,None] * self.params['poly_coeffs'][:,None]).sum(axis = 0)
+        #should find a way to make this more generic
+        if 'pivot_wave' in self.params:
+            x = self.obs['wavelength']/self.params['pivot_wave'] - 1.0
+            poly = np.zeros_like(x)
+            powers = np.arange( len(self.params['poly_coeffs']) ) + 1
+            poly = (x[None,:] ** powers[:,None] * self.params['poly_coeffs'][:,None]).sum(axis = 0)
         
-        return (1.0 + poly) * self.params['spec_norm']
-
+            return (1.0 + poly) * self.params['spec_norm']
+        else:
+            return 1.0
+        
     def lnprob(self, theta, **extras):
         """
         Given a theta vector, return the ln of the posterior probability.
