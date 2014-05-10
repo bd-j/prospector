@@ -122,15 +122,16 @@ class SedModel(ThetaParameters):
     def nebular(self):
         """ If the emission_rest_wavelengths parameter is present, return a nebular
         emission line spectrum.  Currently uses several approximations for the
-        velocity broadening and should probably be moved to within the sps object as an
-        additional component.  Currently does *not* affect photometry, but would if it
-        was part of the sps object
+        velocity broadening and should probably be moved to within the sps object
+        as an additional component.  Currently does *not* affect photometry, ...
+        but would if it was part of the sps object.  That would also help with
+        emission line smoothing and rebinning issues.
 
         :returns nebspec:
             The nebular emission in the rest frame, at the wavelengths specified by
             the obs['wavelength']
-            
         """
+        
         if 'emission_rest_wavelengths' in self.params:
             mu = self.params['emission_rest_wavelengths']
             #for now assume same redshift for stars and gas
