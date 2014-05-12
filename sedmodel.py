@@ -35,7 +35,17 @@ class ThetaParameters(object):
         for p, v in self.theta_desc.iteritems():
             start, end = v['i0'], v['i0'] + v['N']
             self.params[p] = np.array(theta[start:end])
-        
+
+    def theta_from_params(self):
+        """ Generate a Theta vector from the parameter list
+        and the theta descriptor. """
+
+        theta = np.zeros(self.ndim)
+        for p, v in self.theta_desc.iteritems():
+            start, end = v['i0'], v['i0'] + v['N']
+            theta[start:end] = self.params[p]
+        return theta
+
     def prior_product(self, theta):
         """
         Return a scalar which is the ln of the prioduct of the prior
@@ -146,6 +156,7 @@ class SedModel(ThetaParameters):
             return 0.
 
     def sky(self):
+        """Model for the sky emission."""
         return 0.
         
     def calibration(self):
