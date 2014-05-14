@@ -148,8 +148,8 @@ class SedModel(ThetaParameters):
             #for now assume same redshift for stars and gas
             a1 = self.params.get('zred', 0.0) + 1.0
             A =  self.params.get('emission_luminosity',0.)
-            sigma = self.params.get('emission_veldisp',10.)
-            if self.params['smooth_velocity']:
+            sigma = self.params.get('emission_disp',10.)
+            if self.params.get('smooth_velocity', True):
                 #This is an approximation to get the dispersion in terms of
                 # wavelength at the central line wavelength, but should work much of the time
                 sigma = mu * sigma / 2.998e5

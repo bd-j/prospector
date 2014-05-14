@@ -10,9 +10,10 @@ def results_plot(sample_file, outname = 'demo', nspec = 10, nsfh = 40, sps =None
     sample_results = pickle.load( open(sample_file, 'rb'))
     model = sample_results['model']
     parnames = theta_labels(model.theta_desc)
-    flatchain = sample_results['chain'][start::thin,:]
-    nchain, ndim = flatchain.shape
-    #flatchain = chain.reshape(nchain, ndim)
+    chain = sample_results['chain'][:,start::thin,:]
+    nwalk, nchain, ndim = chain.shape
+    flatchain = chain.reshape(nchain*nwalk, ndim)
+    #flatchain[:,-2] = np.random.uniform(0., 0.1,nchain*nwalk)
     obs = sample_results['obs']
     sps.update(model.params)
 
