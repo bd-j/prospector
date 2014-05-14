@@ -153,7 +153,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
         if photflag == 0:
             [a.set_xlim(3700,8000) for a in axes]
         fig.savefig('{0}_{1}_residuals.png'.format(outname, outn[photflag]), dpi = 300)
-        fig.clf()
+        pl.close()
 
     # Plot parameters versus step
     #
@@ -177,7 +177,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
         ax.set_title(parnames[i])
         #ax.set_xlabel('step #')
     fig.savefig('{0}_x_vs_step.png'.format(outname))
-    fig.clf()
+    pl.close()
     
     # Plot lnprob vs step (with a zoom-in)
     #
@@ -199,7 +199,8 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
                           quantiles=[0.16, 0.5, 0.84], verbose =False,
                           truths = sample_results['initial_center'])
     fig.savefig('{0}_triangle.png'.format(outname))
-
+    pl.close()
+    
     return powell_results, sample_results, model
 
 def theta_labels(desc):

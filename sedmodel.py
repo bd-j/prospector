@@ -1,4 +1,5 @@
 import numpy as np
+from observate import vac2air
 
 def gauss(x, mu, A, sigma):
     """Lay down mutiple gaussians on the x-axis""" 
@@ -143,13 +144,15 @@ class SedModel(ThetaParameters):
         """
         
         if 'emission_rest_wavelengths' in self.params:
-            mu = self.params['emission_rest_wavelengths']
+            mu = vac2air(self.params['emission_rest_wavelengths'])
             #for now assume same redshift for stars and gas
             a1 = self.params.get('zred', 0.0) + 1.0
             A =  self.params.get('emission_luminosity',0.)
-            #this is an approximation, but should work much of the time
-            sigma = mu * self.params.get('emission_veldisp',10.) / 2.998e5
-            
+            sigma = self.params.get('emission_veldisp',10.)
+            if self.params['smooth_velocity']:
+                #This is an approximation to get the dispersion in terms of
+                # wavelength at the central line wavelength, but should work much of the time
+                sigma = mu * sigma / 2.998e5
             return gauss(self.obs['wavelength'], mu * a1, A, sigma * a1)
         
         else:

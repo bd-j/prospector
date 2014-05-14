@@ -34,8 +34,8 @@ def load_obs(rp):
         obs['spectrum'] = dat[0,:] * fluxconv
         obs['unc'] = np.sqrt(dat[1,:]) * fluxconv
         #Masking.  should move to a function that reads a mask definition file
-        obs['mask'] =  ((obs['wavelength'] >= 3750 ) & (obs['wavelength'] <= 7000.))
-        obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 6555) | (obs['wavelength'] >= 6590)) #mask NII & Halpha
+        obs['mask'] =  ((obs['wavelength'] >= 3750 ) & (obs['wavelength'] <= 7200.))
+        #obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 6555) | (obs['wavelength'] >= 6590)) #mask NII & Halpha
         obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 5570) | (obs['wavelength'] >= 5590)) #mask OI sky line
         obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in ["F275W", "F336W", "F475W", "F814W"]] +
                                                 ['wfc3_ir_'+b.lower() for b in ["F110W", "F160W"]])

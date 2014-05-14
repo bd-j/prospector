@@ -99,7 +99,7 @@ class StellarPopBasis(object):
 
         # Redshift and put on the proper wavelength grid
         # Eventually this should probably do proper integration within
-        # the output wavelength bins.
+        # the output wavelength bins, and deal with non-uniform line-spread functions
         a1 = (1 + self.params.get('zred', 0.0))
         cspec = interp1d( vac2air(self.ssp.wavelengths * a1),  self.basis_spec / a1, axis = -1)(outwave)
         #get the photometry
