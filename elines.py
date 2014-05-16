@@ -27,6 +27,13 @@ wavelength ={'Ha': 6564.61,
              'ArIII_7137': 7137.8,
              'ArIII_7753': 7753.2,
 
+             
+             'CaII_K': 3934.777,
+             'CaII_H': 3969.588,
+             
+             'NaI_D': 5895.6,
+             
 
+            
 
              'units':'vacuum AA'}

@@ -173,7 +173,7 @@ class StellarPopBasis(object):
                     self.basis_dirty = True
             #now update params
             self.params[k] = np.copy(np.atleast_1d(v))
-            
+
         if self.basis_dirty | (self.ssp.params.dirtiness == 2):
             self.build_basis(inparams['outwave'])
 

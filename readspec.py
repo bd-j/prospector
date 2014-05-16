@@ -19,14 +19,16 @@ def query_phatcat(objname, phottable = 'data/f2_apcanfinal_6phot_v2.fits',
     and their uncertainties. Can take either AP numbers or ALTIDs"""
     
     ap = pyfits.getdata(phottable)
-    if type(objname) is str:
+
+    if objname[0:2].upper() == 'AP':
+        objname = int(objname[2:])
+        ind = (ap['id'] == objname)
+    else:
         if crosstable is None:
             crosstable = phottable.replace('canfinal_6phot_v2', 'match_known')
         cross = pyfits.getdata(crosstable)
         ind = (cross['altid'] == objname)
         ind = (ap['id'] == cross[ind]['id'][0])
-    else:
-        ind = ap['id'] == objname
     
     dat = ap[ind][0]
     mags = np.array([dat['MAG'+f] for f in filtcols]).flatten()

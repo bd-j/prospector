@@ -10,7 +10,7 @@ try:
 except(ImportError):
     import pyfits
 
-import observate, attenuation
+import observate, attenuation, elines
 import sps_basis, sedmodel
 from priors import tophat
 from gp import GaussianProcess
@@ -23,7 +23,7 @@ import fitterutils
 rp = {'verbose':True, 'powell_results':None, 
       'file':'data/mmt/DAO69.fits', 'dist':0.783, 'vel':0.,
       'ftol':3., 'maxfev':10000, 'nsamplers':1,
-      'walker_factor':10, 'nthreads':1, 'nburn':10 * [100], 'niter': 500, 'initial_disp':0.1,
+      'walker_factor':8, 'nthreads':4, 'nburn':5 * [100], 'niter': 500, 'initial_disp':0.01,
       'imf3':2.3}
     
 rp['outfile'] = 'results/' + os.path.basename(rp['file']).split('.')[0].lower()
@@ -47,6 +47,9 @@ obs['filters'] = obs['filters'][0:4]
 if rp['verbose']:
     print('Setting up model')
 
+linelist = ['Ha', 'NII_6585','SII_6718','SII_6732']
+nlines = len(linelist)
+    
 masstheta = {'i0':0, 'N': 1, 'dtype':'<f8', 
              'prior_function':tophat,
              'prior_args':{'mini':1e2, 'maxi': 1e6}}
@@ -65,7 +68,7 @@ dusttheta = {'i0':3, 'N': 1, 'dtype':'<f8',
 
 veltheta = {'i0':4, 'N': 1, 'dtype':'<f8', 
              'prior_function':tophat,
-             'prior_args':{'mini':100.0, 'maxi':200.0}}
+             'prior_args':{'mini':1.0, 'maxi':6.0}}
 
 redtheta = {'i0':5, 'N':1, 'dtype':'<f8',
             'prior_function':tophat,
@@ -75,16 +78,25 @@ order = 2 #up to x**2
 polytheta = {'i0':6, 'N':order, 'dtype':'<f8',
             'prior_function':tophat,
             'prior_args':{'mini':np.array([-3,-5]), 'maxi':np.array([3,5])}}
-
+    
 normtheta = {'i0':6+order, 'N':1, 'dtype':'<f8',
             'prior_function':tophat,
             'prior_args':{'mini':0.1, 'maxi':10}}
 
+elumtheta = {'i0':7+order, 'N': nlines, 'dtype':'<f8',
+            'prior_function':tophat,
+            'prior_args':{'mini':np.zeros(nlines), 'maxi':np.zeros(nlines) + 100.}}
+ewave = [elines.wavelength[l] for l in linelist]
+    
+eveltheta = {'i0':7+order+nlines, 'N': 1, 'dtype':'<f8',
+            'prior_function':tophat,
+            'prior_args':{'mini':1.0, 'maxi':6.0}}
+    
 #imftheta = {'i0':7+order, 'N':1, 'dtype':'<f8',
 #            'prior_function':tophat,
 #            'prior_args':{'mini':1.3, 'maxi':3.5}}
 
-#photjtheta = {'i0':7+order, 'N':1, 'dtype':'<f8',
+#phottheta = {'i0':7+order, 'N':1, 'dtype':'<f8',
 #            'prior_function':tophat,
 #            'prior_args':{'mini':0.0, 'maxi':0.2}}
 
@@ -92,10 +104,14 @@ theta_desc = {'mass':masstheta, 'tage': agestheta, 'dust2':dusttheta,
               'zmet':zmetstheta,'zred':redtheta,'sigma_smooth':veltheta,
               #'phot_jitter':photjtheta,
               #'imf3':imftheta,
-              'poly_coeffs':polytheta,'spec_norm':normtheta}
+              'poly_coeffs':polytheta,'spec_norm':normtheta,
+              'emission_luminosity':elumtheta, 'emission_disp':eveltheta}
     
 fixed_params = {'sfh':0, 'dust_type': 1,'dust_curve':attenuation.cardelli,
-                'imf_type': 2, 'imf3': rp['imf3']}
+                'imf_type': 2, 'imf3': rp['imf3'],
+                'min_wave_smooth': 3700., 'max_wave_smooth': 7400.,
+                'smooth_velocity': False,
+                'emission_rest_wavelengths': np.array(ewave)}
 
 # SED Model
 model = sedmodel.SedModel(theta_desc = theta_desc, **fixed_params)
@@ -106,13 +122,15 @@ model.verbose = rp['verbose']
 #model.verbose = False
 
 #SPS Model
-sps = sps_basis.StellarPopBasis(smooth_velocity = True)
+sps = sps_basis.StellarPopBasis(smooth_velocity = fixed_params['smooth_velocity'])
 
 #Gaussian Process
-gp_pars = {'s':0, 'a': 1.0, 'l':100}
+gp_pars = {'s':0, 'a': 0.5, 'l':100}
 mask = model.obs['mask']
 gp = GaussianProcess(model.obs['wavelength'][mask], model.obs['unc'][mask])
 gp.factor(gp_pars['s'], gp_pars['a'], gp_pars['l'])
+
+initial_center = np.array([8e3, 4e-2, 0.0, 0.5, 2.2, 0.00001, 0.1, 0.1, 1.0, 1, 1, 1, 1, 2.2])
 
 #LnP function
 def lnprobfn(theta, mod):
@@ -166,17 +184,25 @@ model.params['pivot_wave'] = 4750.
 if rp['verbose']:
     print('spectral normalization guess = {0}'.format(norm))
 
+initial_center[model.theta_desc['spec_norm']['i0']] = norm
+    
 #################
 #INITIAL GUESS USING POWELL MINIMIZATION
 #################
-initial_center = np.array([8e3, 2e-2, 0.0, 0.5, 160., -0.0002, 0.1, 0.1, norm])
+
+#sys.exit()
 
 def chi2(theta):
     """A sort of chi2 function that allows for maximization of lnP using minimization routines"""
     return -lnprobfn(theta, model)
 
-powell_opt = {'ftol':rp['ftol']/model.ndof * 2., 'maxfev':rp['maxfev']}
+powell_opt = {'ftol':rp['ftol']/model.ndof/3, 'maxfev':rp['maxfev']}
 powell_guess = minimize(chi2, initial_center.copy(), method = 'powell',options = powell_opt)
+#sys.exit()
+
+#bounds = model.bounds()
+#bfgs_opt = {'ftol':1e-30, 'gtol':1e-30, 'maxiter':1e4}
+#powell_guess = minimize(chi2, initial_center, method = 'L-BFGS-B',options = bfgs_opt, jac = False, bounds = bounds)
 
 ###################
 #SAMPLE
