@@ -64,6 +64,8 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     #one should really never mask in the rest frame - that should be modeled!
     obs['mask'] =  ((obs['wavelength'] >= wlo ) & (obs['wavelength'] <= whi))
     obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 5570) | (obs['wavelength'] >= 5590)) #mask OI sky line
+    obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 6170) | (obs['wavelength'] >= 6180)) #mask...something.
+
     obs['wavelength'] /= (1.0 + redshift)
 
     ######## PHOTOMETRY ########
