@@ -123,38 +123,11 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
    
     # Plot spectral and SED residuals
     #
-    for photflag in pflag:
-        obs = allobs[photflag]
-        fig, axes = pl.subplots(3,1)
-        axes[0].axhline(1,linestyle = ':', color ='black')
-        axes[1].axhline(0,linestyle = ':', color ='black')
-        axes[2].axhline(0,linestyle = ':', color ='black')
-        axes[0].set_ylabel('obs/model (mean)')
-        axes[0].set_ylim(0.5,1.5)
-        axes[1].set_ylabel(r'(obs-model)/$\sigma$')
-        axes[1].set_ylim(-10,10)
-        axes[2].set_ylabel(r'(obs-model)')
- 
-        for i in range(nspec-1):
-            spec = model.model(flatchain[rindex[i+1],:], sps =sps)[photflag]
-            if  (photflag == 0) and sample_results.has_key('gp'):
-                mask = obs['mask']
-                res = sample_results['gp'].predict( (obs['spectrum'] - spec)[mask] )
-            else:
-                mask = np.arange(len(obs['wavelength']))
-                res = 0
-            axes[0].plot(obs['wavelength'][mask], obs['spectrum'][mask] / (spec[mask]+res),
-                         marker = marker[photflag], alpha = 0.3, color = 'blue')
-            axes[1].plot(obs['wavelength'][mask], (obs['spectrum'][mask] - spec[mask]-res) / obs['unc'][mask],
-                         marker = marker[photflag], alpha = 0.3, color = 'blue')
-            axes[2].plot(obs['wavelength'][mask], (obs['spectrum'][mask] - spec[mask]-res),
-                         marker = marker[photflag], alpha = 0.3, color = 'blue')
-        
-        if photflag == 0:
-            [a.set_xlim(3700,8000) for a in axes]
-        fig.savefig('{0}_{1}_residuals.png'.format(outname, outn[photflag]), dpi = 300)
-        pl.close()
-
+    residuals(sample_results, sps, photflag = 0, outname = outname, nsample = nspec,
+              linewidth = 0.5, alpha = 0.3, color = 'blue', marker = None)
+    residuals(sample_results, sps, photflag = 1, outname = outname, nsample = 15,
+              linewidth = 0.5, alpha = 0.3, color = 'blue', marker = 'o')
+    
     # Plot parameters versus step
     #
     param_evol(sample_results, outname = outname)
@@ -180,6 +153,125 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
         
     return outname, sample_results, model
 
+
+def model_obs(sample_results, sps, photflag = 0):
+    
+    flatchain = sample_results['chain'][:,start:,:]
+    flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
+                                  flatchain.shape[2])
+    #draw samples
+    if rindex is None:
+        rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
+    #set up the observation dictionary for spectrum or SED
+    obs, outn, marker = obsdict(sample_results, photflag)
+
+    # set up plot window and legend
+    pl.figure()
+    pl.plot(obs['wavelength'], obs['spectrum'],
+            marker = marker, linewidth = 0.5, color = 'blue',
+            label = 'observed')
+    ymini = sample_results['model'].model(sample_results['initial_center'], sps =sps)
+    pl.plot(obs['wavelength'], ymini[photflag],
+                marker = marker, alpha = 0.5, linewidth = 0.3, color = 'cyan',
+                label = 'minimization result (w/o GP)')
+    
+    for i in range(nsample):
+        if i == 0:
+            label = ['model (posterior sample)', 'calibration poly', 'GP']
+        else:
+            label = 3 * [None]
+        
+        ypred = sample_results['model'].model(flatchain[rindex[i],:], sps =sps)[photflag]
+        mask = obs['mask']
+        
+        if (photflag == 0) and sample_results.has_key('gp'):
+            
+            res = sample_results['gp'].predict( (obs['spectrum'] - ypred)[mask] )
+            pl.plot(obs['wavelength'][mask], np.zeros(mask.sum()) + res,
+                    linewidth = 0.5, alpha = 0.5, color = 'red',
+                    label = label[2])
+            pl.plot(obs['wavelength'], model.calibration(),
+                    linewidth = 0.5, color = 'magenta',
+                    label = label[1])
+        else:
+            mask = np.arange(len(obs['wavelength']))
+            res = 0
+            
+        pl.plot(obs['wavelength'][mask], ypred[mask] + res,
+                marker = marker, alpha = 0.5 , color = 'green',
+                label = label[0])
+    
+        
+        pl.legend(loc = 'lower left', fontsize = 'small', bbox_to_anchor = (0.7,0.8), mode="expand")        
+
+
+
+def residuals(sample_results, sps, photflag = 0, outname = None,
+              nsample = 5, rindex = None, start = 0,
+              wlo = 3600, whi = 7500, **kwargs):
+    """
+    Plot residuals of the observations from samples of the model posterior.
+    This is done in terms of relative, uncertainty normalized, and absolute
+    residuals.  Extra keywords are passed to plot(). 
+    """
+    
+    flatchain = sample_results['chain'][:,start:,:]
+    flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
+                                  flatchain.shape[2])
+    #draw samples
+    if rindex is None:
+        rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
+            
+    #set up the observation dictionary for spectrum or SED
+    obs, outn, marker = obsdict(sample_results, photflag)
+            
+    #set up plot window
+    fig, axes = pl.subplots(3,1)
+    #draw guidelines
+    [a.axhline( int(i==0), linestyle = ':', color ='black') for i,a in enumerate(axes)]
+    axes[0].set_ylabel('obs/model (mean)')
+    axes[0].set_ylim(0.5,1.5)
+    axes[1].set_ylabel(r'(obs-model)/$\sigma$')
+    axes[1].set_ylim(-10,10)
+    axes[2].set_ylabel(r'(obs-model)')
+
+    #loop over the drawn samples
+    for i in range(nsample):
+        theta = flatchain[rindex[i],:]
+        spec = sample_results['model'].model(theta, sps =sps)[photflag]
+        if  (photflag == 0) and sample_results.has_key('gp'):
+            mask = obs['mask']
+            res = sample_results['gp'].predict( (obs['spectrum'] - spec)[mask] )
+        else:
+            mask = np.ones(len(obs['wavelength']), dtype = bool)
+            res = 0
+        wave, ospec, mod = obs['wavelength'][mask],  obs['spectrum'][mask], (spec[mask]+res)
+        axes[0].plot(wave, ospec / mod, **kwargs)
+        axes[1].plot(wave, (ospec - mod) / obs['unc'][mask], **kwargs)
+        axes[2].plot(wave, (ospec - mod), **kwargs)
+        
+    if photflag == 0:
+        [a.set_xlim(wlo,whi) for a in axes]
+    if outname is not None:
+        fig.savefig('{0}_{1}_residuals.png'.format(outname, outn), dpi = 300)
+        pl.close()
+        
+def obsdict(sample_results, photflag):
+    if photflag == 0:
+        outn = 'spectrum'
+        marker = None
+        obs = sample_results['obs']            
+    elif photflag == 1:
+        outn = 'sed'
+        marker = 'o'
+        obs = sample_results['obs'].copy()
+        obs['wavelength'] = np.array([f.wave_effective for f in obs['filters']])
+        obs['spectrum'] = 10**(0-0.4 * obs['mags'])
+        obs['unc'] = obs['mags_unc'] * obs['spectrum']
+        obs['mask'] = obs['mags_unc'] >= 0
+        
+    return obs, outn, marker
+        
 def param_evol(sample_results, outname =None, showpars =None, start = 0):
     """
     Plot the evolution of each parameter value with
@@ -198,7 +290,8 @@ def param_evol(sample_results, outname =None, showpars =None, start = 0):
 
     #set up plot windows
     ndim = len(parnames)
-    nx, ny = int(np.floor(np.sqrt(ndim))), int(np.ceil(ndim*1.0/nx))
+    nx = int(np.floor(np.sqrt(ndim)))
+    ny = int(np.ceil(ndim*1.0/nx))
     sz = np.array([nx,ny])
     factor = 2.0           # size of one side of one panel
     lbdim = 0.7 * factor   # size of left/bottom margin
