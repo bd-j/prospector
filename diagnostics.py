@@ -111,7 +111,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
         #        marker = marker[photflag], color = 'magenta', label = 'calibration poly (mean)', linewidth = 0.5)
         
         pl.plot(obs['wavelength'], model.model(sample_results['initial_center'], sps =sps)[photflag],
-                marker = marker[photflag], color = 'cyan', label = 'initial', alpha = 0.5, linewidth = 0.3)
+                marker = marker[photflag], color = 'cyan', label = 'minimization result', alpha = 0.5, linewidth = 0.3)
         
         pl.legend(loc = 'lower left', fontsize = 'small', bbox_to_anchor = (0.7,0.8), mode="expand")        
         pl.ylabel(ylabel[photflag])
@@ -157,27 +157,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
 
     # Plot parameters versus step
     #
-    nx = int(np.floor(np.sqrt(ndim)))
-    ny = int(np.ceil(ndim*1.0/nx))
-    sz = np.array([nx,ny])
-    factor = 2.0           # size of one side of one panel
-    lbdim = 0.7 * factor   # size of left/bottom margin
-    trdim = 0.2 * factor   # size of top/right margin
-    whspace = 0.05         # w/hspace size
-    plotdim = factor * sz + factor *(sz-1)* whspace
-    dim = lbdim + plotdim + trdim
-    
-    print(nx,ny)
-    fig, axes = pl.subplots(nx, ny, figsize = (dim[1], dim[0]))
-
-    for i in range(ndim):
-        ax = axes.flatten()[i]
-        for j in range(nwalk):
-            ax.plot(sample_results['chain'][j,:,i])
-        ax.set_title(parnames[i])
-        #ax.set_xlabel('step #')
-    fig.savefig('{0}_x_vs_step.png'.format(outname))
-    pl.close()
+    param_evol(sample_results, outname = outname)
     
     # Plot lnprob vs step (with a zoom-in)
     #
@@ -195,15 +175,86 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
     
     # Triangle plot
     #
-    fig = triangle.corner(flatchain,labels = parnames,
-                          quantiles=[0.16, 0.5, 0.84], verbose =False,
-                          truths = sample_results['initial_center'])
-    fig.savefig('{0}_triangle.png'.format(outname))
-    pl.close()
+    subtriangle(sample_results, outname = outname,
+                start = start, thin = thin)
+        
+    return outname, sample_results, model
+
+def param_evol(sample_results, outname =None, showpars =None, start = 0):
+    """
+    Plot the evolution of each parameter value with
+    iteration #, for each chain.
+    """
     
-    return powell_results, sample_results, model
+    chain = sample_results['chain'][:,start:,:]
+    nwalk = chain.shape[0]
+    parnames = np.array(theta_labels(sample_results['model'].theta_desc))
+
+    #restrict to desired parameters
+    if showpars is not None:
+        ind_show = np.array([p in showpars for p in parnames], dtype = bool)
+        parnames = parnames[ind_show]
+        chain = chain[:,:,ind_show]
+
+    #set up plot windows
+    ndim = len(parnames)
+    nx, ny = int(np.floor(np.sqrt(ndim))), int(np.ceil(ndim*1.0/nx))
+    sz = np.array([nx,ny])
+    factor = 2.0           # size of one side of one panel
+    lbdim = 0.7 * factor   # size of left/bottom margin
+    trdim = 0.2 * factor   # size of top/right margin
+    whspace = 0.05         # w/hspace size
+    plotdim = factor * sz + factor *(sz-1)* whspace
+    dim = lbdim + plotdim + trdim
+    
+    fig, axes = pl.subplots(nx, ny, figsize = (dim[1], dim[0]))
+
+    #sequentially plot the chains in each parameter
+    for i in range(ndim):
+        ax = axes.flatten()[i]
+        for j in range(nwalk):
+            ax.plot(chain[j,:,i])
+        ax.set_title(parnames[i])
+    if outname is not None:
+        fig.savefig('{0}_x_vs_step.png'.format(outname))
+        pl.close()
+
+
+def subtriangle(sample_results, outname =None, showpars =None,
+             start = 0, thin = 1):
+    """
+    Make a triangle plot of the (thinned, latter) samples of the posterior
+    parameter space.  Optionally make the plot only for a supplied subset
+    of the parameters.
+    """
+
+    #pull out the parameter names and flatten the thinned chains
+    parnames = np.array(theta_labels(sample_results['model'].theta_desc))
+    flatchain = sample_results['chain'][:,start::thin,:]
+    flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
+                                  flatchain.shape[2])
+    truths = sample_results['initial_center']
+
+    #restrict to parameters you want to show
+    if showpars is not None:
+        ind_show = np.array([p in showpars for p in parnames], dtype = bool)
+        flatchain = flatchain[:,ind_show]
+        truths = truths[ind_show]
+        parnames= parnames[ind_show]
+        
+    fig = triangle.corner(flatchain, labels = parnames,
+                          quantiles=[0.16, 0.5, 0.84], verbose =False,
+                          truths = truths)
+    if outname is not None:
+        fig.savefig('{0}_triangle.png'.format(outname))
+        pl.close()
+
 
 def theta_labels(desc):
+    """
+    Using the theta_desc parameter dictionary, return a list of the model
+    parameter names that has the same aorder as the sampling chain array
+    """
     label, index = [], []
     for p in desc.keys():
         nt = desc[p]['N']
