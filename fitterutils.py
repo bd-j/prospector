@@ -74,7 +74,7 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp):
     return esampler
 
 def restart_sampler(sample_results):
-    
+    pass
 
         
 def initialize_params(chi2, pminimize, model, sps, rp, powell_opt):
