@@ -73,6 +73,9 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp):
     epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0 =state)
     return esampler
 
+def restart_sampler(sample_results):
+    
+
         
 def initialize_params(chi2, pminimize, model, sps, rp, powell_opt):
     """A kind of tempered minimization"""
