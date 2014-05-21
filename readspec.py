@@ -56,7 +56,12 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     hdr = pyfits.getheader(filename)
     
     crpix = (hdr['CRPIX1'] -1) #convert from FITS to numpy indexing
-    obs['wavelength'] = (np.arange(dat.shape[1]) - crpix) * hdr['CDELT1'] + hdr['CRVAL1']
+    try:
+        cd = hdr['CDELT1']
+    except (KeyError):
+        cd = hdr['CD1_1']
+
+    obs['wavelength'] = (np.arange(dat.shape[1]) - crpix) * cd + hdr['CRVAL1']
     obs['spectrum'] = dat[0,:] * fluxconv
     obs['unc'] = np.sqrt(dat[1,:]) * fluxconv
     
