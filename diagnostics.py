@@ -60,19 +60,19 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
     point_model = model.model(point, sps =sps)
 
     # Plot spectra and SEDs
-    model_obs(sample_results, sps, photflag = 0, outname = outname,
-              wlo = 3500, whi = 9e3)
-    model_obs(sample_results, sps, photflag = 0, outname = outname,
-              wlo = 3600, whi = 4350, extraname = '_blue')
-    model_obs(sample_results, sps, photflag = 1, outname = outname,
-              wlo = 2500, whi = 9e3)
+    rindex = model_obs(sample_results, sps, photflag = 0, outname = outname, nsample =nspec,
+                       wlo = 3400, whi = 10e3, start =start)
+    _ = model_obs(sample_results, sps, photflag = 0, outname = outname, rindex = rindex,
+                 wlo = 3600, whi = 4350, extraname = '_blue', start =start)
+    _ = model_obs(sample_results, sps, photflag = 1, outname = outname, rindex = rindex,
+                  wlo = 2500, whi = 9e3, start = start)
 
     # Plot spectral and SED residuals
     #
     residuals(sample_results, sps, photflag = 0, outname = outname, nsample = nspec,
-              linewidth = 0.5, alpha = 0.3, color = 'blue', marker = None)
+              linewidth = 0.5, alpha = 0.3, color = 'blue', marker = None, start = start, rindex =rindex)
     residuals(sample_results, sps, photflag = 1, outname = outname, nsample = 15,
-              linewidth = 0.5, alpha = 0.3, color = 'blue', marker = 'o')
+              linewidth = 0.5, alpha = 0.3, color = 'blue', marker = 'o', start = start, rindex = rindex)
     
     # Plot parameters versus step
     #
@@ -100,7 +100,8 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
     return outname, sample_results, model
 
 
-def model_obs(sample_results, sps, photflag = 0, outname = outname,
+def model_obs(sample_results, sps, photflag = 0, outname = None,
+              start = 0, rindex =None, nsample = 10,
               wlo = 3500, whi = 9e3, extraname =None):
     
     flatchain = sample_results['chain'][:,start:,:]
@@ -114,6 +115,7 @@ def model_obs(sample_results, sps, photflag = 0, outname = outname,
 
     # set up plot window and plot data
     pl.figure()
+    pl.axhline( 0, linestyle = ':', color ='black') 
     pl.plot(obs['wavelength'], obs['spectrum'],
             marker = marker, linewidth = 0.5, color = 'blue',label = 'observed')
     #plot the minimization result
@@ -134,11 +136,12 @@ def model_obs(sample_results, sps, photflag = 0, outname = outname,
                 marker = marker, alpha = 0.5 , color = 'green',label = label[0])
         label = 3 * [None]
         
-    pl.legend(loc = 'lower left', fontsize = 'small', bbox_to_anchor = (0.7,0.8), mode="expand")
-    pl.set_xlim(wlo, whi)      
+    pl.legend(loc = 'top right', fontsize = 'small')
+    pl.xlim(wlo, whi)      
     if outname is not None:
-        fig.savefig('{0}_{1}{3}.png'.format(outname, outn, extraname), dpi = 300)
+        pl.savefig('{0}_{1}{2}.png'.format(outname, outn, extraname), dpi = 300)
         pl.close()
+    return rindex
 
 def model_components(theta, sample_results, obs, sps, photflag = 0):
     ypred = sample_results['model'].model(theta, sps =sps)[photflag]
@@ -152,7 +155,8 @@ def model_components(theta, sample_results, obs, sps, photflag = 0):
             res = sample_results['gp'].predict(spec - ypred)
     else:
         mask = np.ones(len(obs['wavelength']), dtype = bool)
-
+        cal = np.zeros(len(obs['wavelength']))
+        
     return ypred, res, cal, mask
 
 def residuals(sample_results, sps, photflag = 0, outname = None,
@@ -170,7 +174,8 @@ def residuals(sample_results, sps, photflag = 0, outname = None,
     #draw samples
     if rindex is None:
         rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
-            
+    nsample = len(rindex)
+        
     #set up the observation dictionary for spectrum or SED
     obs, outn, marker = obsdict(sample_results, photflag)
             

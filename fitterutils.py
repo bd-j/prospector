@@ -70,10 +70,17 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp):
     initial = epos
     esampler.reset()
 
-    epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0 =state)
+    epos, eprob, state = esampler.run_mcmc(initial, niter)
+    
+    
     return esampler
 
-def restart_sampler(sample_results):
+def restart_sampler(sample_results, lnprobfn, sps, niter, nthreads = 1):
+    model = sample_results['model']
+    initial = sample_results['chain'][:,-1,:]
+    nwalkers, ndim = initial.shape
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn, threads = nthreads, args = [model])
+    epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0 =state)
     pass
 
         
