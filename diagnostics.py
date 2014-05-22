@@ -31,8 +31,9 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
             the evolution of the walkers in likelihood
         triangle  -
                 a corner plot of parameter covariances    
-
     """
+
+    #read a pickle file with stored model and results
     if powell_file:
         powell_results = pickle.load( open(powell_file, 'rb'))
     else:
@@ -50,38 +51,32 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
             sps.params[k] = v
         except KeyError:
             pass
-    parnames = theta_labels(model.theta_desc)
-        
-    chain = sample_results['chain'][:,start::thin,:]
-    nwalk, nchain, ndim = chain.shape
-    flatchain = chain.reshape(nwalk * nchain, ndim)
-    rindex = np.random.uniform(0,nwalk * nchain, nspec).astype( int )
-    point = chain.mean(axis = 0).mean(axis = 0)
-    point_model = model.model(point, sps =sps)
 
-    # Plot spectra and SEDs
+    ## Plot spectra and SEDs
+    ##
     rindex = model_obs(sample_results, sps, photflag = 0, outname = outname, nsample =nspec,
                        wlo = 3400, whi = 10e3, start =start)
     _ = model_obs(sample_results, sps, photflag = 0, outname = outname, rindex = rindex,
-                 wlo = 3600, whi = 4350, extraname = '_blue', start =start)
+                 wlo = 3600, whi = 4450, extraname = '_blue', start =start)
     _ = model_obs(sample_results, sps, photflag = 1, outname = outname, rindex = rindex,
-                  wlo = 2500, whi = 9e3, start = start)
+                  wlo = 2500, whi = 8.5e3, start = start)
 
-    # Plot spectral and SED residuals
-    #
+    ## Plot spectral and SED residuals
+    ##
     residuals(sample_results, sps, photflag = 0, outname = outname, nsample = nspec,
               linewidth = 0.5, alpha = 0.3, color = 'blue', marker = None, start = start, rindex =rindex)
     residuals(sample_results, sps, photflag = 1, outname = outname, nsample = 15,
               linewidth = 0.5, alpha = 0.3, color = 'blue', marker = 'o', start = start, rindex = rindex)
     
-    # Plot parameters versus step
-    #
+    ## Plot parameters versus step
+    ##
     param_evol(sample_results, outname = outname)
     
-    # Plot lnprob vs step (with a zoom-in)
-    #
+    ## Plot lnprob vs step (with a zoom-in)
+    ##
     pl.figure(1)
     pl.clf()
+    nwalk = sample_results['lnprobability'].shape[0]
     for j in range(nwalk):
         pl.plot(sample_results['lnprobability'][j,:])
         pl.ylabel('lnP')
@@ -92,8 +87,8 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
     pl.savefig('{0}_lnP_vs_step_zoom.png'.format(outname))
     pl.close()
     
-    # Triangle plot
-    #
+    ## Triangle plot
+    ##
     subtriangle(sample_results, outname = outname,
                 start = start, thin = thin)
         
@@ -102,7 +97,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
 
 def model_obs(sample_results, sps, photflag = 0, outname = None,
               start = 0, rindex =None, nsample = 10,
-              wlo = 3500, whi = 9e3, extraname =None):
+              wlo = 3500, whi = 9e3, extraname = ''):
     
     flatchain = sample_results['chain'][:,start:,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
@@ -124,7 +119,7 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
     pl.plot(obs['wavelength'][mask], ypred + res,
             marker = marker, alpha = 0.5, linewidth = 0.3, color = 'cyan', label = 'minimization result')
     #loop over drawn samples and plot the model components
-    label = ['model (posterior sample)', 'calib.', 'GP']
+    label = ['full model', 'calib.', 'GP']
     for i in range(nsample):
         theta = flatchain[rindex[i],:]
         ypred, res, cal, mask = model_components(theta, sample_results, obs, sps, photflag = photflag)
@@ -137,7 +132,10 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
         label = 3 * [None]
         
     pl.legend(loc = 'top right', fontsize = 'small')
-    pl.xlim(wlo, whi)      
+    pl.xlim(wlo, whi)
+    pl.xlabel(r'$\AA$')
+    pl.ylabel('Flux')
+     
     if outname is not None:
         pl.savefig('{0}_{1}{2}.png'.format(outname, outn, extraname), dpi = 300)
         pl.close()
@@ -183,12 +181,15 @@ def residuals(sample_results, sps, photflag = 0, outname = None,
     fig, axes = pl.subplots(3,1)
     #draw guidelines
     [a.axhline( int(i==0), linestyle = ':', color ='black') for i,a in enumerate(axes)]
-    axes[0].set_ylabel('obs/model (mean)')
+    axes[0].set_ylabel('obs/model')
     axes[0].set_ylim(0.5,1.5)
+    axes[0].set_xticklabels([])
     axes[1].set_ylabel(r'(obs-model)/$\sigma$')
     axes[1].set_ylim(-10,10)
+    axes[1].set_xticklabels([])
     axes[2].set_ylabel(r'(obs-model)')
-
+    axes[2].set_xlabel(r'$\AA$')
+    
     #loop over the drawn samples
     for i in range(nsample):
         theta = flatchain[rindex[i],:]
@@ -200,6 +201,8 @@ def residuals(sample_results, sps, photflag = 0, outname = None,
         
     if photflag == 0:
         [a.set_xlim(wlo,whi) for a in axes]
+
+    fig.subplots_adjust(hspace =0)
     if outname is not None:
         fig.savefig('{0}_{1}_residuals.png'.format(outname, outn), dpi = 300)
         pl.close()
