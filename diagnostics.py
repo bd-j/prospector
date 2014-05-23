@@ -21,6 +21,8 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
         sed -
             as for spectrum, but f_nu at the effective wavelngth of the
             filters is shown instead.
+        stars -
+            just the stellar  dust model for samples of the posterior.
         spectrum_residuals -
             plots of spectrum residuals for a given number of samples of the posterior
         sed_residuals -
@@ -61,6 +63,10 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
     _ = model_obs(sample_results, sps, photflag = 1, outname = outname, rindex = rindex,
                   wlo = 2500, whi = 8.5e3, start = start)
 
+    stellar_pop(sample_results, sps, outname = outname, nsample = nspec,
+                  wlo = 3500, whi = 9.5e3, start = start,
+                  alpha = 0.5, color = 'green')
+    
     ## Plot spectral and SED residuals
     ##
     residuals(sample_results, sps, photflag = 0, outname = outname, nsample = nspec,
@@ -98,7 +104,12 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
 def model_obs(sample_results, sps, photflag = 0, outname = None,
               start = 0, rindex =None, nsample = 10,
               wlo = 3500, whi = 9e3, extraname = ''):
-    
+
+    """
+    Plot the observed spectrum and overlay samples of the model posterior, including
+    different components of that model.
+    """
+    title = ['Spectrum', 'SED (photometry)']
     flatchain = sample_results['chain'][:,start:,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
@@ -115,14 +126,14 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
             marker = marker, linewidth = 0.5, color = 'blue',label = 'observed')
     #plot the minimization result
     theta = sample_results['initial_center']
-    ypred, res, cal, mask = model_components(theta, sample_results, obs, sps, photflag = photflag)
+    ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag = photflag)
     pl.plot(obs['wavelength'][mask], ypred + res,
             marker = marker, alpha = 0.5, linewidth = 0.3, color = 'cyan', label = 'minimization result')
     #loop over drawn samples and plot the model components
     label = ['full model', 'calib.', 'GP']
     for i in range(nsample):
         theta = flatchain[rindex[i],:]
-        ypred, res, cal, mask = model_components(theta, sample_results, obs, sps, photflag = photflag)
+        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag = photflag)
         pl.plot(obs['wavelength'][mask], np.zeros(mask.sum()) + res,
                 linewidth = 0.5, alpha = 0.5, color = 'red', label = label[2])
         pl.plot(obs['wavelength'], cal,
@@ -134,28 +145,71 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
     pl.legend(loc = 'top right', fontsize = 'small')
     pl.xlim(wlo, whi)
     pl.xlabel(r'$\AA$')
-    pl.ylabel('Flux')
-     
+    pl.ylabel('Rate')
+    pl.title(title[photflag])
     if outname is not None:
         pl.savefig('{0}_{1}{2}.png'.format(outname, outn, extraname), dpi = 300)
         pl.close()
     return rindex
 
+def stellar_pop(sample_results, sps, outname = None, normalize_by =None,
+                start = 0, rindex =None, nsample = 10,
+                wlo = 3500, whi = 9e3, extraname = '', **kwargs):
+
+    flatchain = sample_results['chain'][:,start:,:]
+    flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
+                                  flatchain.shape[2])
+    #draw samples
+    if rindex is None:
+        rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
+    #set up the observation dictionary for spectrum or SED
+    obs, outn, marker = obsdict(sample_results, 0)
+
+    # set up plot window and plot data
+    pl.figure()
+    pl.axhline( 0, linestyle = ':', color ='black') 
+    #loop over drawn samples and plot the model components
+    label = ['Stars & Dust']
+    xl = ''
+    for i in range(nsample):
+        theta = flatchain[rindex[i],:]
+        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag =0)
+        if normalize_by is not None:
+            spop /= spop[normalize_by]
+            xl = '/C'
+        pl.plot(obs['wavelength'], spop,
+                label = label[0], **kwargs)
+        label = 3 * [None]
+        
+    pl.legend(loc = 'top right', fontsize = 'small')
+    pl.xlim(wlo, whi)
+    pl.xlabel(r'$\AA$')
+    pl.ylabel(r'L$_\lambda {0}$ (L$_\odot/\AA$)'.format(xl))
+    if outname is not None:
+        pl.savefig('{0}_{1}{2}.png'.format(outname, 'stars', extraname), dpi = 300)
+        pl.close()
+
 def model_components(theta, sample_results, obs, sps, photflag = 0):
-    ypred = sample_results['model'].model(theta, sps =sps)[photflag]
+    """
+    Generate and return various components of the total model for a given
+    set of parameters
+    """
+    full_pred = sample_results['model'].model(theta, sps =sps)[photflag]
     res = 0
     spec = obs['spectrum']
     mask = obs['mask']
-    ypred, spec = ypred[mask], spec[mask]
+    ypred, spec = full_pred[mask], spec[mask]
     if photflag == 0:
         cal = sample_results['model'].calibration()
         if  sample_results.has_key('gp'):
             res = sample_results['gp'].predict(spec - ypred)
+        spop = full_pred/cal - sample_results['model'].nebular()
     else:
         mask = np.ones(len(obs['wavelength']), dtype = bool)
         cal = np.zeros(len(obs['wavelength']))
+        spop = None
         
-    return ypred, res, cal, mask
+    return ypred, res, cal, mask, spop
 
 def residuals(sample_results, sps, photflag = 0, outname = None,
               nsample = 5, rindex = None, start = 0,
@@ -193,7 +247,7 @@ def residuals(sample_results, sps, photflag = 0, outname = None,
     #loop over the drawn samples
     for i in range(nsample):
         theta = flatchain[rindex[i],:]
-        ypred, res, cal, mask = model_components(theta, sample_results, obs, sps, photflag = photflag)
+        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag = photflag)
         wave, ospec, mod = obs['wavelength'][mask],  obs['spectrum'][mask], (ypred + res)
         axes[0].plot(wave, ospec / mod, **kwargs)
         axes[1].plot(wave, (ospec - mod) / obs['unc'][mask], **kwargs)

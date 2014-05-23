@@ -43,4 +43,4 @@ wavelength ={'Ha': 6564.61,
              'HeI_4923': 4923.305,
              'HeI_5017': 5017.077,
 
-             'units':'vacuum AA'}
+             'units':'vacuum angstroms'}
