@@ -145,8 +145,9 @@ class SedModel(ThetaParameters):
         
         if 'emission_rest_wavelengths' in self.params:
             mu = vac2air(self.params['emission_rest_wavelengths'])
-            #for now assume same redshift for stars and gas
-            a1 = self.params.get('zred', 0.0) + 1.0
+            #try to get a nebular redshift, otherwise use stellar redshift, otherwise
+            # use no redshift
+            a1 = self.params.get('zred_emission', self.params.get('zred', 0.0)) + 1.0
             A =  self.params.get('emission_luminosity',0.)
             sigma = self.params.get('emission_disp',10.)
             if self.params.get('smooth_velocity', True):

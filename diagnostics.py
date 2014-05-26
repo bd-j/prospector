@@ -35,19 +35,11 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
                 a corner plot of parameter covariances    
     """
 
-    #read a pickle file with stored model and results
-    if powell_file:
-        powell_results = pickle.load( open(powell_file, 'rb'))
-    else:
-        powell_results = None
-    sample_results = pickle.load( open(sample_file, 'rb'))
+    #read results and set up model
     if outname is None:
         outname = sample_file#''.join(sample_file.split('.')[:-1])
-    try:
-        model = sample_results['model']
-    except (KeyError):
-        model = inmod
-        model.theta_desc = sample_results['theta']
+    sample_results, pr, model = read_pickles(sample_file, powell_file = powell_file,
+                                             inmod = inmod)
     for k, v in model.params.iteritems():
         try:
             sps.params[k] = v
@@ -100,6 +92,21 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
         
     return outname, sample_results, model
 
+
+def read_pickles(sample_file, powell_file = None, inmod = None):
+    """
+    Read a pickle file with stored model and results.
+    """
+    sample_results = pickle.load( open(sample_file, 'rb'))
+    if powell_file:
+        powell_results = pickle.load( open(powell_file, 'rb'))
+    try:
+        model = sample_results['model']
+    except (KeyError):
+        model = inmod
+        model.theta_desc = sample_results['theta']
+        
+    return sample_results, powell_results, model
 
 def model_obs(sample_results, sps, photflag = 0, outname = None,
               start = 0, rindex =None, nsample = 10,
@@ -155,7 +162,11 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
 def stellar_pop(sample_results, sps, outname = None, normalize_by =None,
                 start = 0, rindex =None, nsample = 10,
                 wlo = 3500, whi = 9e3, extraname = '', **kwargs):
-
+    """
+    Plot samples of the posteriro for just the stellar population
+    and dust model
+    """
+    
     flatchain = sample_results['chain'][:,start:,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
@@ -262,6 +273,8 @@ def residuals(sample_results, sps, photflag = 0, outname = None,
         pl.close()
         
 def obsdict(sample_results, photflag):
+    """Return a dictionary of observational data, generated
+    depending on whether you're matching photometry or spectroscopy"""
     if photflag == 0:
         outn = 'spectrum'
         marker = None
