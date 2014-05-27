@@ -15,8 +15,10 @@ def query_phatcat(objname, phottable = 'data/f2_apcanfinal_6phot_v2.fits',
                       crosstable = None,
                       filtcols = ['275','336','475','814','110','160']):
     
-    """Read LCJ's catalog for a certain object and return the magnitudes
-    and their uncertainties. Can take either AP numbers or ALTIDs"""
+    """
+    Read LCJ's catalog for a certain object and return the magnitudes
+    and their uncertainties. Can take either AP numbers or ALTIDs
+    """
     
     ap = pyfits.getdata(phottable)
 
@@ -42,7 +44,10 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
                   wlo = 3750., whi = 7200., verbose = False,
                   phottable = 'data/f2_apcanfinal_6phot_v2.fits',
                   **kwargs):
-
+    """
+    Read one of Caldwell's MMT spectra and find the matching PHAT
+    photometry, return a dictionary containing the observations.
+    """
     obs ={}
 
     ####### SPECTRUM #######
@@ -89,7 +94,10 @@ def load_obs_lris(filename = None, objname = None, dist = 1e-5, vel = 0.0,
                   wlo = 3550., whi = 5500., verbose = False,
                   phottable = 'data/f2_apcanfinal_6phot_v2.fits',
                   **kwargs):
-
+    """
+    Read one of the Keck LRIS spectra and find the matching PHAT
+    photometry, return a dictionary containing the observations.
+    """
     obs ={}
     
     ####### SPECTRUM #######

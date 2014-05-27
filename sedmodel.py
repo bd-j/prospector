@@ -31,15 +31,19 @@ class ThetaParameters(object):
         return self._ndim
             
     def set_parameters(self, theta):
-        """Propagate theta into the model parameters."""
+        """
+        Propagate theta into the model parameters.
+        """
         assert len(theta) == self.ndim
         for p, v in self.theta_desc.iteritems():
             start, end = v['i0'], v['i0'] + v['N']
             self.params[p] = np.array(theta[start:end])
 
     def theta_from_params(self):
-        """ Generate a Theta vector from the parameter list
-        and the theta descriptor. """
+        """
+        Generate a theta vector from the parameter list and the theta
+        descriptor.
+        """
 
         theta = np.zeros(self.ndim)
         for p, v in self.theta_desc.iteritems():
@@ -50,8 +54,8 @@ class ThetaParameters(object):
     def prior_product(self, theta):
         """
         Return a scalar which is the ln of the prioduct of the prior
-        probabilities for each element of theta.  Requires that the prior 
-        functions are defined in the theta descriptor.
+        probabilities for each element of theta.  Requires that the
+        prior  functions are defined in the theta descriptor.
         """
         lnp_prior = 0
         for p, v in self.theta_desc.iteritems():
@@ -61,8 +65,9 @@ class ThetaParameters(object):
 
     def lnp_prior_grad(self, theta):
         """
-        Return a vector of gradients in the prior probability.  Requires 
-        that functions giving the gradients are given in the theta descriptor.
+        Return a vector of gradients in the prior probability.
+        Requires  that functions giving the gradients are given in the
+        theta descriptor.
         """
         lnp_prior_grad = np.zeros_like(theta)
         for p, v in self.theta_desc.iteritems():
@@ -72,10 +77,11 @@ class ThetaParameters(object):
 
     def check_constrained(self, theta):
         """
-        For HMC, check if the trajectory has hit a wall in any parameter.  
-        If so, reflect the momentum and update the parameter position in the 
-        opposite direction until the parameter is within the bounds. Bounds 
-        are specified via the 'upper' and 'lower' keys of the theta descriptor
+        For HMC, check if the trajectory has hit a wall in any
+        parameter.   If so, reflect the momentum and update the
+        parameter position in the  opposite direction until the
+        parameter is within the bounds. Bounds  are specified via the
+        'upper' and 'lower' keys of the theta descriptor
         """
         oob = True
         sign = np.ones_like(theta)
@@ -106,7 +112,8 @@ class ThetaParameters(object):
                 bounds[v['i0']] = (v['prior_args']['mini'], v['prior_args']['maxi'])
             else:
                 for k in range(sz):
-                    bounds[v['i0']+k] = (v['prior_args']['mini'][k], v['prior_args']['maxi'][k])
+                    bounds[v['i0']+k] = (v['prior_args']['mini'][k],
+                                         v['prior_args']['maxi'][k])
         return bounds
                 
 
@@ -120,6 +127,24 @@ class SedModel(ThetaParameters):
         """
         Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass).
+
+        :params theta:
+            ndarray of parameter values.
+            
+        :params sps:
+            A StellarPopulation or StellarPopBasis object to be used
+            in the model generation.
+
+        :returns spec:
+            The model spectrum for these parameters, at the wavelengths
+            specified by obs['wavelength'].
+            
+        :returns phot:
+            The model photometry for these parameters, for the filters
+            specified in obs['filters'].
+            
+        :returns extras:
+            Any extra aspects of the model that are returned.
         """
         
         if sps is None:
@@ -131,16 +156,19 @@ class SedModel(ThetaParameters):
         return spec, phot, extras
 
     def nebular(self):
-        """ If the emission_rest_wavelengths parameter is present, return a nebular
-        emission line spectrum.  Currently uses several approximations for the
-        velocity broadening and should probably be moved to within the sps object
-        as an additional component.  Currently does *not* affect photometry, ...
-        but would if it was part of the sps object.  That would also help with
-        emission line smoothing and rebinning issues.
+        """
+        If the emission_rest_wavelengths parameter is present, return
+        a nebular emission line spectrum.  Currently uses several
+        approximations for the velocity broadening and should probably
+        be moved to within the sps object as an additional component.
+        Currently does *not* affect photometry, ...  but would if it
+        was part of the sps object.  That would also help with
+        emission line smoothing and rebinning issues, as well as
+        interstellar absorption lines.
 
         :returns nebspec:
-            The nebular emission in the rest frame, at the wavelengths specified by
-            the obs['wavelength']
+            The nebular emission in the rest frame, at the wavelengths
+            specified by the obs['wavelength'].
         """
         
         if 'emission_rest_wavelengths' in self.params:
@@ -168,7 +196,8 @@ class SedModel(ThetaParameters):
         Implements a polynomial calibration model.
 
         :returns cal:
-           a polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M 'poly_coeffs'[m-1] x**m)
+           a polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M
+           'poly_coeffs'[m-1] x**m)
         """
         #should find a way to make this more generic
         if 'pivot_wave' in self.params:
@@ -183,7 +212,8 @@ class SedModel(ThetaParameters):
         
     def lnprob(self, theta, **extras):
         """
-        Given a theta vector, return the ln of the posterior probability.
+        Given a theta vector, return the ln of the posterior
+        probability.
         
         """
 
@@ -226,9 +256,10 @@ class SedModel(ThetaParameters):
   
     def lnprob_grad(self, theta, sps = None):
         """
-        Given theta, return a vector of gradients in lnP along the theta directions.
-        Theta can *only* include amplitudes in this formulation, though potentially dust
-        and calibration parameters might be added.
+        Given theta, return a vector of gradients in lnP along the
+        theta directions.  Theta can *only* include amplitudes in this
+        formulation, though potentially dust and calibration
+        parameters might be added.
         """
         if sps is None:
             sps = self.sps

@@ -83,7 +83,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
     pl.savefig('{0}_lnP_vs_step.png'.format(outname))
     yl = sample_results['lnprobability'].max() + np.array([-3.0 * sample_results['lnprobability'][:,-1].std(), 10])
     pl.ylim(yl[0], yl[1])
-    pl.savefig('{0}_lnP_vs_step_zoom.png'.format(outname))
+    pl.savefig('{0}.lnP_vs_step_zoom.png'.format(outname))
     pl.close()
     
     ## Triangle plot
@@ -115,8 +115,8 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
               wlo = 3500, whi = 9e3, extraname = ''):
 
     """
-    Plot the observed spectrum and overlay samples of the model posterior, including
-    different components of that model.
+    Plot the observed spectrum and overlay samples of the model
+    posterior, including different components of that model.
     """
     title = ['Spectrum', 'SED (photometry)']
     flatchain = sample_results['chain'][:,start:,:]
@@ -157,7 +157,7 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
     pl.ylabel('Rate')
     pl.title(title[photflag])
     if outname is not None:
-        pl.savefig('{0}_{1}{2}.png'.format(outname, outn, extraname), dpi = 300)
+        pl.savefig('{0}.{1}{2}.png'.format(outname, outn, extraname), dpi = 300)
         pl.close()
     return rindex
 
@@ -165,8 +165,8 @@ def stellar_pop(sample_results, sps, outname = None, normalize_by =None,
                 start = 0, rindex =None, nsample = 10,
                 wlo = 3500, whi = 9e3, extraname = '', **kwargs):
     """
-    Plot samples of the posteriro for just the stellar population
-    and dust model
+    Plot samples of the posteriro for just the stellar population and
+    dust model.
     """
     
     flatchain = sample_results['chain'][:,start:,:]
@@ -199,13 +199,13 @@ def stellar_pop(sample_results, sps, outname = None, normalize_by =None,
     pl.xlabel(r'$\AA$')
     pl.ylabel(r'L$_\lambda {0}$ (L$_\odot/\AA$)'.format(xl))
     if outname is not None:
-        pl.savefig('{0}_{1}{2}.png'.format(outname, 'stars', extraname), dpi = 300)
+        pl.savefig('{0}.{1}{2}.png'.format(outname, 'stars', extraname), dpi = 300)
         pl.close()
 
 def model_components(theta, sample_results, obs, sps, photflag = 0):
     """
-    Generate and return various components of the total model for a given
-    set of parameters
+    Generate and return various components of the total model for a
+    given set of parameters
     """
     full_pred = sample_results['model'].model(theta, sps =sps)[photflag]
     res = 0
@@ -228,9 +228,10 @@ def residuals(sample_results, sps, photflag = 0, outname = None,
               nsample = 5, rindex = None, start = 0,
               wlo = 3600, whi = 7500, **kwargs):
     """
-    Plot residuals of the observations from samples of the model posterior.
-    This is done in terms of relative, uncertainty normalized, and absolute
-    residuals.  Extra keywords are passed to plot(). 
+    Plot residuals of the observations from samples of the model
+    posterior.  This is done in terms of relative, uncertainty
+    normalized, and absolute residuals.  Extra keywords are passed to
+    plot().
     """
     
     flatchain = sample_results['chain'][:,start:,:]
@@ -271,12 +272,14 @@ def residuals(sample_results, sps, photflag = 0, outname = None,
 
     fig.subplots_adjust(hspace =0)
     if outname is not None:
-        fig.savefig('{0}_{1}_residuals.png'.format(outname, outn), dpi = 300)
+        fig.savefig('{0}.{1}_residuals.png'.format(outname, outn), dpi = 300)
         pl.close()
         
 def obsdict(sample_results, photflag):
-    """Return a dictionary of observational data, generated
-    depending on whether you're matching photometry or spectroscopy"""
+    """
+    Return a dictionary of observational data, generated depending on
+    whether you're matching photometry or spectroscopy.
+    """
     if photflag == 0:
         outn = 'spectrum'
         marker = None
@@ -294,8 +297,8 @@ def obsdict(sample_results, photflag):
         
 def param_evol(sample_results, outname =None, showpars =None, start = 0):
     """
-    Plot the evolution of each parameter value with
-    iteration #, for each chain.
+    Plot the evolution of each parameter value with iteration #, for
+    each chain.
     """
     
     chain = sample_results['chain'][:,start:,:]
@@ -329,7 +332,7 @@ def param_evol(sample_results, outname =None, showpars =None, start = 0):
             ax.plot(chain[j,:,i])
         ax.set_title(parnames[i])
     if outname is not None:
-        fig.savefig('{0}_x_vs_step.png'.format(outname))
+        fig.savefig('{0}.x_vs_step.png'.format(outname))
         pl.close()
 
 
