@@ -7,8 +7,9 @@ import matplotlib.pyplot as pl
 import triangle
 import pickle
 
-def diagnostic_plots(sample_file, sps, powell_file = None,
-                     nspec = 5, thin = 10, start = 0, outname = None, inmod = None):
+def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
+                     showpars = None,
+                     nspec = 5, thin = 10, start = 0, outname = None):
     """
     Plots a number of diagnostics.  These include:
         spectrum -
@@ -68,7 +69,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
     
     ## Plot parameters versus step
     ##
-    param_evol(sample_results, outname = outname)
+    param_evol(sample_results, outname = outname, showpars = showpars)
     
     ## Plot lnprob vs step (with a zoom-in)
     ##
@@ -88,6 +89,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None,
     ## Triangle plot
     ##
     subtriangle(sample_results, outname = outname,
+                showpars =showpars,
                 start = start, thin = thin)
         
     return outname, sample_results, model
