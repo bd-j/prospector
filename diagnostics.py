@@ -80,11 +80,11 @@ def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
         pl.plot(sample_results['lnprobability'][j,:])
         pl.ylabel('lnP')
         pl.xlabel('step #')
-    pl.savefig('{0}_lnP_vs_step.png'.format(outname))
-    yl = sample_results['lnprobability'].max() + np.array([-3.0 * sample_results['lnprobability'][:,-1].std(), 10])
-    pl.ylim(yl[0], yl[1])
-    pl.savefig('{0}.lnP_vs_step_zoom.png'.format(outname))
-    pl.close()
+    pl.savefig('{0}.lnP_vs_step.png'.format(outname))
+    #yl = sample_results['lnprobability'].max() + np.array([-3.0 * sample_results['lnprobability'][:,-1].std(), 10])
+    #pl.ylim(yl[0], yl[1])
+    #pl.savefig('{0}.lnP_vs_step_zoom.png'.format(outname))
+    #pl.close()
     
     ## Triangle plot
     ##
@@ -102,6 +102,8 @@ def read_pickles(sample_file, powell_file = None, inmod = None):
     sample_results = pickle.load( open(sample_file, 'rb'))
     if powell_file:
         powell_results = pickle.load( open(powell_file, 'rb'))
+    else:
+        powell_results = None
     try:
         model = sample_results['model']
     except (KeyError):
@@ -151,7 +153,7 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
                 marker = marker, alpha = 0.5 , color = 'green',label = label[0])
         label = 3 * [None]
         
-    pl.legend(loc = 'top right', fontsize = 'small')
+    pl.legend(loc =0, fontsize = 'small')
     pl.xlim(wlo, whi)
     pl.xlabel(r'$\AA$')
     pl.ylabel('Rate')
@@ -194,7 +196,7 @@ def stellar_pop(sample_results, sps, outname = None, normalize_by =None,
                 label = label[0], **kwargs)
         label = 3 * [None]
         
-    pl.legend(loc = 'top right', fontsize = 'small')
+    pl.legend(loc = 0, fontsize = 'small')
     pl.xlim(wlo, whi)
     pl.xlabel(r'$\AA$')
     pl.ylabel(r'L$_\lambda {0}$ (L$_\odot/\AA$)'.format(xl))
