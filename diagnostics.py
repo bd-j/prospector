@@ -73,7 +73,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
     
     ## Plot lnprob vs step (with a zoom-in)
     ##
-    pl.figure(1)
+    pl.figure()
     pl.clf()
     nwalk = sample_results['lnprobability'].shape[0]
     for j in range(nwalk):
@@ -81,6 +81,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
         pl.ylabel('lnP')
         pl.xlabel('step #')
     pl.savefig('{0}.lnP_vs_step.png'.format(outname))
+    pl.close()
     #yl = sample_results['lnprobability'].max() + np.array([-3.0 * sample_results['lnprobability'][:,-1].std(), 10])
     #pl.ylim(yl[0], yl[1])
     #pl.savefig('{0}.lnP_vs_step_zoom.png'.format(outname))
@@ -318,14 +319,18 @@ def param_evol(sample_results, outname =None, showpars =None, start = 0):
     nx = int(np.floor(np.sqrt(ndim)))
     ny = int(np.ceil(ndim*1.0/nx))
     sz = np.array([nx,ny])
-    factor = 2.0           # size of one side of one panel
-    lbdim = 0.7 * factor   # size of left/bottom margin
+    factor = 3.0           # size of one side of one panel
+    lbdim = 0.2 * factor   # size of left/bottom margin
     trdim = 0.2 * factor   # size of top/right margin
-    whspace = 0.05         # w/hspace size
+    whspace = 0.05*factor         # w/hspace size
     plotdim = factor * sz + factor *(sz-1)* whspace
     dim = lbdim + plotdim + trdim
     
     fig, axes = pl.subplots(nx, ny, figsize = (dim[1], dim[0]))
+    lb = lbdim / dim
+    tr = (lbdim + plotdim) / dim
+    fig.subplots_adjust(left=lb[1], bottom=lb[0], right=tr[1], top=tr[0],
+                        wspace=whspace, hspace=whspace)
 
     #sequentially plot the chains in each parameter
     for i in range(ndim):
