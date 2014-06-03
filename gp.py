@@ -6,9 +6,9 @@ class GaussianProcess(object):
     def __init__(self, wave, sigma ):
         """initialize the relevant parameters for the gaussian process.
 
-        :params wave:
+        :param wave:
            the wavelength scale for which
-        :params sigma:
+        :param sigma:
            the uncertainty estimate at each wavelength
         """
         self.wave = wave
@@ -19,11 +19,11 @@ class GaussianProcess(object):
         
     def factor(self, s, a, l, check_finite = True):
         """
-        :params s:
+        :param s:
             jitter term
-        :params a:
+        :param a:
             amplitude of covariance gaussian (in units of flux)
-        :params l:
+        :param l:
             length scale of gaussian covarince function
             
         """
@@ -41,7 +41,7 @@ class GaussianProcess(object):
                 
     def lnlike(self, residual, check_finite = True):
         """
-        :params residual: ndarray, shape (nwave,)
+        :param residual: ndarray, shape (nwave,)
             vector of residuals (y_data - mean_model)
         """
         return  -0.5* (np.dot(residual,

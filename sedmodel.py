@@ -1,5 +1,5 @@
 import numpy as np
-from observate import vac2air
+from sedpy.observate import vac2air
 
 def gauss(x, mu, A, sigma):
     """Lay down mutiple gaussians on the x-axis""" 
@@ -9,7 +9,15 @@ def gauss(x, mu, A, sigma):
 
 
 class ThetaParameters(object):
+    """
+    Object describing a model parameter set, and conversions between a
+    parameter dictionary and a theta vector (for use in MCMC sampling).
+    Also contains a method for computing the prior probability of a given
+    theta vector.
 
+    It must be intialized with a theta_desc, a description of the theta
+    vector including the prior functions for each theta.
+    """
     def __init__(self, theta_desc = None, theta_init = None, **kwargs):
         self.theta_desc = theta_desc
 
@@ -20,6 +28,7 @@ class ThetaParameters(object):
             self.params[k] = np.atleast_1d(v)
 
         #caching.  only works if theta_desc is not allowed to change after intialization
+        #so, might as well set it here.
         self._ndim = None
         
     @property
@@ -55,7 +64,7 @@ class ThetaParameters(object):
         """
         Return a scalar which is the ln of the prioduct of the prior
         probabilities for each element of theta.  Requires that the
-        prior  functions are defined in the theta descriptor.
+        prior functions are defined in the theta descriptor.
         """
         lnp_prior = 0
         for p, v in self.theta_desc.iteritems():
@@ -128,10 +137,10 @@ class SedModel(ThetaParameters):
         Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass).
 
-        :params theta:
+        :param theta:
             ndarray of parameter values.
             
-        :params sps:
+        :param sps:
             A StellarPopulation or StellarPopBasis object to be used
             in the model generation.
 

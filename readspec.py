@@ -5,7 +5,7 @@ try:
 except(ImportError):
     import pyfits
 sys.path.append('/home/bjohnson/pfs/apps/clusterfitter')
-import observate
+from sedpy import observate
 
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
 to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )

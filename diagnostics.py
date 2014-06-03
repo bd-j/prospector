@@ -20,7 +20,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
         spectrum_blue -
             same as above but for the blue region of the spectrum                       
         sed -
-            as for spectrum, but f_nu at the effective wavelngth of the
+            as for spectrum, but f_nu at the effective wavelength of the
             filters is shown instead.
         stars -
             just the stellar  dust model for samples of the posterior.
@@ -98,7 +98,7 @@ def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
 
 def read_pickles(sample_file, powell_file = None, inmod = None):
     """
-    Read a pickle file with stored model and results.
+    Read a pickle file with stored model and MCMC chains.
     """
     sample_results = pickle.load( open(sample_file, 'rb'))
     if powell_file:
@@ -121,10 +121,13 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
     Plot the observed spectrum and overlay samples of the model
     posterior, including different components of that model.
     """
+    
     title = ['Spectrum', 'SED (photometry)']
+    start = np.min([start, sample_results['chain'].shape[1]])
     flatchain = sample_results['chain'][:,start:,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
+    
     #draw samples
     if rindex is None:
         rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
@@ -171,7 +174,7 @@ def stellar_pop(sample_results, sps, outname = None, normalize_by =None,
     Plot samples of the posteriro for just the stellar population and
     dust model.
     """
-    
+    start = np.min([start, sample_results['chain'].shape[1]])
     flatchain = sample_results['chain'][:,start:,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
@@ -237,6 +240,7 @@ def residuals(sample_results, sps, photflag = 0, outname = None,
     plot().
     """
     
+    start = np.min([start, sample_results['chain'].shape[1]])
     flatchain = sample_results['chain'][:,start:,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
@@ -369,7 +373,7 @@ def subtriangle(sample_results, outname =None, showpars =None,
                           quantiles=[0.16, 0.5, 0.84], verbose =False,
                           truths = truths)
     if outname is not None:
-        fig.savefig('{0}_triangle.png'.format(outname))
+        fig.savefig('{0}.triangle.png'.format(outname))
         pl.close()
 
 

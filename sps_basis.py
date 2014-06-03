@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import astropy.constants as constants
 import fsps
-from observate import getSED, vac2air, air2vac
+from sedpy.observate import getSED, vac2air, air2vac
 
 lsun = constants.L_sun.cgs.value
 pc = constants.pc.cgs.value
@@ -39,14 +39,14 @@ class StellarPopBasis(object):
         SSPs are updated, and if necessary the component spectra are
         updated, before being combined here.
 
-        :params params:
+        :param params:
             A dictionary-like of the model parameters.
             
-        :params outwave: 
+        :param outwave: 
             The output wavelength points at which model estimates are
             desired, ndarray of shape (nwave,)
             
-        :params filters:
+        :param filters:
              A list of filters in which synthetic photometry is
              desired.  List of length (nfilt,)
 
@@ -76,14 +76,14 @@ class StellarPopBasis(object):
         Return the component spectra for the given parameters, making
         sure to update the components if necessary.
 
-        :params params:
+        :param params:
             A dictionary-like of the model parameters.
             
-        :params outwave: 
+        :param outwave: 
             The output wavelength points at which model estimates are
             desired, ndarray of shape (nwave,)
             
-        :params filters:
+        :param filters:
              A list of filters in which synthetic photometry is
              desired.  List of length (nfilt,)
 
@@ -127,7 +127,7 @@ class StellarPopBasis(object):
 
         This method is only called by self.update if necessary.
 
-        :params outwave: 
+        :param outwave: 
             The output wavelength points at which model estimates are
             desired, ndarray of shape (nwave,)
 
@@ -189,7 +189,7 @@ class StellarPopBasis(object):
 
 
 def selftest():
-    from observate import load_filters
+    from sedpy.observate import load_filters
     sps = sps_basis.StellarPopBasis()
     params = {}
     params['tage'] = np.array([1,2,3,4.])
