@@ -3,6 +3,7 @@ import multiprocessing
 import numpy as np
 import emcee
 from scipy.optimize import minimize
+from functools import partial
 try:
     import astropy.io.fits as pyfits
 except(ImportError):
@@ -106,7 +107,7 @@ def parallel_minimize(model, sps, chi2, initial_center, rp, powell_opt):
                 ginitial[:,start:stop] = np.array([np.random.uniform(h, l, nthreads - 1)
                                                    for h,l in zip(hi,lo)]).T
             else:
-                ginitial[:,start] = np.random.uniform(hi, lo, nguess)
+                ginitial[:,start] = np.random.uniform(hi, lo, nthreads - 1)
         pinitial += ginitial.tolist()
         
     # Do quick Powell, then start refining the best of them
