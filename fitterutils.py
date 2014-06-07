@@ -79,7 +79,8 @@ def restart_sampler(sample_results, lnprobfn, sps, niter, nthreads = 1):
     pass
 
         
-def parallel_minimize(model, sps, chi2, initial_center, rp, powell_opt):
+def parallel_minimize(model, sps, chi2, initial_center, rp,
+                      optpars, method = 'powell', **kwargs):
     """
     Do as many minimizations as you have threads.  Always use
     initial_center for one of the minimization streams, the rest will
@@ -93,7 +94,7 @@ def parallel_minimize(model, sps, chi2, initial_center, rp, powell_opt):
     else:
         M = map
 
-    pminimize = partial(minimize, chi2, method = 'powell',options = powell_opt)
+    pminimize = partial(minimize, chi2, method = method, options = optpars, **kwargs)
         
     pinitial = [initial_center.tolist()]
     # Setup a 'grid' of parameter values uniformly distributed between min and max
