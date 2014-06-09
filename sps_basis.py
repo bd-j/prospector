@@ -104,6 +104,9 @@ class StellarPopBasis(object):
         params['outwave'] = outwave
         self.update(params)
 
+        #dist10 = self.params.get('lumdist', 1e-5)/1e-5 #distance in units of 10s of pcs
+        #dfactor = (dist10)**2
+        
         # Redshift and put on the proper wavelength grid
         # Eventually this should probably do proper integration within
         # the output wavelength bins, and deal with non-uniform line-spread functions

@@ -161,7 +161,6 @@ class SedModel(ThetaParameters):
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(self.params.copy(), self.obs['wavelength'], self.obs['filters'])
         spec = (spec + self.nebular() + self.sky()) * self.calibration()
-        
         return spec, phot, extras
 
     def nebular(self):
@@ -197,7 +196,7 @@ class SedModel(ThetaParameters):
             return 0.
 
     def sky(self):
-        """Model for the sky emission."""
+        """Model for the sky emission/absorption"""
         return 0.
         
     def calibration(self):

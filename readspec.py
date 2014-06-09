@@ -10,7 +10,6 @@ from sedpy import observate
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
 to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )
 
-
 def query_phatcat(objname, phottable = 'data/f2_apcanfinal_6phot_v2.fits',
                       crosstable = None,
                       filtcols = ['275','336','475','814','110','160']):
@@ -85,7 +84,7 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     
     obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in ["F275W", "F336W", "F475W", "F814W"]] +
                                             ['wfc3_ir_'+b.lower() for b in ["F110W", "F160W"]])
-    obs['mags'] = mags - (5.0 * np.log10(dist) + 25) - np.array([f.ab_to_vega for f in obs['filters']])
+    obs['mags'] = mags - np.array([f.ab_to_vega for f in obs['filters']]) - (5.0 * np.log10(dist) + 25)
     obs['mags_unc'] = mags_unc
 
     return obs
@@ -124,7 +123,7 @@ def load_obs_lris(filename = None, objname = None, dist = 1e-5, vel = 0.0,
      
     obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in ["F336W", "F475W", "F814W"]] +
                                             ['wfc3_ir_'+b.lower() for b in ["F110W", "F160W"]])
-    obs['mags'] = mags - (5.0 * np.log10(dist) + 25) - np.array([f.ab_to_vega for f in obs['filters']])
+    obs['mags'] = mags - np.array([f.ab_to_vega for f in obs['filters']]) - (5.0 * np.log10(dist) + 25)
     obs['mags_unc'] = mags_unc
 
     return obs
