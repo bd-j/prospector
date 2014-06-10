@@ -89,7 +89,7 @@ class StellarPopBasis(object):
 
         :returns cspec:
             The spectrum at the wavelength points given by outwave,
-            ndarray of shape (ncomp,nwave).  Units are L_sun/AA
+            ndarray of shape (ncomp,nwave).  Units are erg/s/cm^2/AA
             
         :returns phot:
             The synthetc photometry through the provided filters,
@@ -100,22 +100,25 @@ class StellarPopBasis(object):
             Any extra parameters (like stellar mass) that you want to
             return.
         """
-
+        
         params['outwave'] = outwave
         self.update(params)
 
-        #dist10 = self.params.get('lumdist', 1e-5)/1e-5 #distance in units of 10s of pcs
-        #dfactor = (dist10)**2
+        #distance dimming
+        dist10 = self.params.get('lumdist', 1e-5)/1e-5 #distance in units of 10s of pcs
+        dfactor = to_cgs / dist10**2
         
         # Redshift and put on the proper wavelength grid
         # Eventually this should probably do proper integration within
         # the output wavelength bins, and deal with non-uniform line-spread functions
         a1 = (1 + self.params.get('zred', 0.0))
-        cspec = interp1d( vac2air(self.ssp.wavelengths * a1),  self.basis_spec / a1, axis = -1)(outwave)
+        cspec = interp1d( vac2air(self.ssp.wavelengths * a1),
+                          self.basis_spec / a1 * dfactor, axis = -1)(outwave)
         #get the photometry
-        cphot = 10**(-0.4 *getSED( self.ssp.wavelengths * a1, self.basis_spec / a1 * to_cgs, filters))
+        cphot = 10**(-0.4 *getSED( self.ssp.wavelengths * a1,
+                                   self.basis_spec / a1 * dfactor, filters))
         
-        return cspec, cphot, self.basis_mass
+        return cspec, cphot , self.basis_mass
     
 
     def build_basis(self, outwave):

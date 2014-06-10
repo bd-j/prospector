@@ -128,9 +128,14 @@ class ThetaParameters(object):
 
 class SedModel(ThetaParameters):
 
-    def add_obs(self, obs):
+    def add_obs(self, obs, linescale = False):
         self.filters = obs['filters']
         self.obs = obs
+        #add a parameter that causes
+        # all emission and absorption lines to be given
+        # in terms of the median unmasked observed flux value
+        if linescale:
+            self.params['linescale'] = np.median(obs['spectrum'][obs['mask']])
 
     def model(self, theta, sps = None, **kwargs):
         """
@@ -174,17 +179,23 @@ class SedModel(ThetaParameters):
         emission line smoothing and rebinning issues, as well as
         interstellar absorption lines.
 
+        In order to avoid underflows when using scipy's minimization
+        routines, there is an optional scaling, so that emission line
+        luminosities are given in terms of the averge observed flux
+        value.  This is horrendous.
+
         :returns nebspec:
             The nebular emission in the rest frame, at the wavelengths
             specified by the obs['wavelength'].
         """
-        
+
+
         if 'emission_rest_wavelengths' in self.params:
             mu = vac2air(self.params['emission_rest_wavelengths'])
             #try to get a nebular redshift, otherwise use stellar redshift, otherwise
             # use no redshift
             a1 = self.params.get('zred_emission', self.params.get('zred', 0.0)) + 1.0
-            A =  self.params.get('emission_luminosity',0.)
+            A =  self.params.get('emission_luminosity',0.) * self.params.get('linescale',1.0)
             sigma = self.params.get('emission_disp',10.)
             if self.params.get('smooth_velocity', True):
                 #This is an approximation to get the dispersion in terms of

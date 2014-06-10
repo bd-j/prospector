@@ -151,7 +151,7 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
         ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag = photflag)
         pl.plot(obs['wavelength'][mask], np.zeros(mask.sum()) + res,
                 linewidth = 0.5, alpha = 0.5, color = 'red', label = label[2])
-        pl.plot(obs['wavelength'], cal,
+        pl.plot(obs['wavelength'], cal * sample_results['model'].params.get('linescale', 1.0),
                 linewidth = 0.5, color = 'magenta', label = label[1])
         pl.plot(obs['wavelength'][mask], ypred + res,
                 marker = marker, alpha = 0.5 , color = 'green',label = label[0])

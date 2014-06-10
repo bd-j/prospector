@@ -16,7 +16,8 @@ def query_phatcat(objname, phottable = 'data/f2_apcanfinal_6phot_v2.fits',
     
     """
     Read LCJ's catalog for a certain object and return the magnitudes
-    and their uncertainties. Can take either AP numbers or ALTIDs
+    and their uncertainties. Can take either AP numbers (starting with
+    'AP') or ALTIDs.
     """
     
     ap = pyfits.getdata(phottable)
@@ -53,8 +54,9 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     if verbose:
         print('Loading data from {0}'.format(filename))
 
-    fluxconv = np.pi * 4. * (dist * 1e6 * pc)**2 / lsun #erg/s/AA/cm^2 to L_sun/AA
-    fluxconv *= 5.0e-20 #approximate counts to erg/s/AA/cm^2
+    scale = 1e0 #testing
+    #fluxconv = np.pi * 4. * (dist * 1e6 * pc)**2 / lsun #erg/s/AA/cm^2 to L_sun/AA
+    fluxconv =  5.0e-20 * scale #approximate counts to erg/s/AA/cm^2
     redshift = vel / 2.998e8
     dat = pyfits.getdata(filename)
     hdr = pyfits.getheader(filename)
@@ -84,7 +86,7 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     
     obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in ["F275W", "F336W", "F475W", "F814W"]] +
                                             ['wfc3_ir_'+b.lower() for b in ["F110W", "F160W"]])
-    obs['mags'] = mags - np.array([f.ab_to_vega for f in obs['filters']]) - (5.0 * np.log10(dist) + 25)
+    obs['mags'] = mags - np.array([f.ab_to_vega for f in obs['filters']]) -2.5*np.log10(scale)#- (5.0 * np.log10(dist) + 25)
     obs['mags_unc'] = mags_unc
 
     return obs
@@ -103,7 +105,8 @@ def load_obs_lris(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     if verbose:
         print('Loading data from {0}'.format())
 
-    fluxconv = np.pi * 4. * (dist * 1e6 * pc)**2 / lsun #erg/s/AA/cm^2 to L_sun/AA
+    #fluxconv = np.pi * 4. * (dist * 1e6 * pc)**2 / lsun #erg/s/AA/cm^2 to L_sun/AA
+    fluxconv = 1.0
     redshift = vel / 2.998e8
     dat = pyfits.getdata(filename)
     hdr = pyfits.getheader(filename)
