@@ -4,12 +4,15 @@ from scipy.linalg import cho_factor, cho_solve
 class GaussianProcess(object):
 
     def __init__(self, wave, sigma ):
-        """initialize the relevant parameters for the gaussian process.
+        """
+        Initialize the relevant parameters for the gaussian process.
 
         :param wave:
-           the wavelength scale for which
+            The wavelength scale of the points for which you want
+            estimates.
+           
         :param sigma:
-           the uncertainty estimate at each wavelength
+            The uncertainty estimate at each wavelength point.
         """
         self.wave = wave
         self.sigma = sigma
@@ -20,11 +23,14 @@ class GaussianProcess(object):
     def factor(self, s, a, l, check_finite = True):
         """
         :param s:
-            jitter term
+            Jitter (diagonal) term
+            
         :param a:
-            amplitude of covariance gaussian (in units of flux)
+            Amplitude of covariance gaussian (in units of flux).
+            
         :param l:
-            length scale of gaussian covarince function
+            Length scale of gaussian covariance kernel, in units of
+            wavelength.
             
         """
         if (s == self.s) & (a == self.a) & (l == self.l):
@@ -41,14 +47,22 @@ class GaussianProcess(object):
                 
     def lnlike(self, residual, check_finite = True):
         """
+        Compute the ln of the likelihood.
+        
         :param residual: ndarray, shape (nwave,)
-            vector of residuals (y_data - mean_model)
+            Vector of residuals (y_data - mean_model).
         """
         return  -0.5* (np.dot(residual,
                               cho_solve(self.factorized_Sigma, residual, check_finite = True))
                               + self.log_det)
 
     def predict(self, residual):
+        """
+        For a given residual vector, give the GP mean prediction at each wavelength.
+
+        :param residual:
+            Vector of residuals (y_data - mean_model).
+        """
         Sigma = self.a**2 * np.exp(-(self.wave[:,None] -self.wave[None,:])**2/(2*self.l**2))
         Sigma[np.diag_indices_from(Sigma)] += ( self.s**2)        
         return np.dot(Sigma, cho_solve(self.factorized_Sigma, residual))

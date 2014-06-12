@@ -39,11 +39,12 @@ def parse_args(argv, rp):
         print('Number of threads  = {0}'.format(rp['nthreads']))
     return rp
 
-def run_a_sampler(model, sps, lnprobfn, initial_center, rp):
+def run_a_sampler(model, sps, lnprobfn, initial_center, rp, pool = None):
     """
     Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the sampler.
     """
+    #parse input parameters
     ndim = rp['ndim']
     walker_factor = int(rp['walker_factor'])
     nburn = rp['nburn']
@@ -52,14 +53,18 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp):
     initial_disp = rp['initial_disp']
     nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
 
+    #set up initial positions
     initial = np.zeros([nwalkers, ndim])
     for p, d in model.theta_desc.iteritems():
         start, stop = d['i0'], d['i0']+d['N']
         hi, lo = d['prior_args']['maxi'], d['prior_args']['mini']
-        initial[:, start:stop] = np.random.normal(1, initial_disp, nwalkers)[:,None] * initial_center[start:stop]
+        initial[:, start:stop] = (np.random.normal(1, initial_disp, nwalkers)[:,None] *
+                                  initial_center[start:stop])
+    #initialize sampler
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn,
+                                     threads = nthreads, args = [model], pool = pool)
 
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn, threads = nthreads, args = [model])
-
+    #loop over the number of burn-in reintializitions
     for iburn in nburn[:-1]:
         epos, eprob, state = esampler.run_mcmc(initial, iburn)
         # Reinitialize, tossing the worst half of the walkers and resetting
@@ -71,25 +76,35 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp):
         initial = epos[best,:] * (1 + np.random.normal(0, 1, epos.shape) * relative_scatter[None,:]) 
         esampler.reset()
 
+    #do the final burn-in
     epos, eprob, state = esampler.run_mcmc(initial, nburn[-1])
     initial = epos
     esampler.reset()
 
+    # Production run
     epos, eprob, state = esampler.run_mcmc(initial, niter)
 
     return esampler
 
-def restart_sampler(sample_results, lnprobfn, sps, niter, nthreads = 1):
+def restart_sampler(sample_results, lnprobfn, sps, niter,
+                    nthreads = 1, pool = None):
+    """
+    Restart a sampler from its last position and run it for a
+    specified number of iterations.  The sampler chain should be given
+    in the sample_results dictionary.  Note that lnprobfn and sps must
+    be defined at the global level in the same way as the sampler originally ran.
+    """
     model = sample_results['model']
     initial = sample_results['chain'][:,-1,:]
     nwalkers, ndim = initial.shape
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn, threads = nthreads, args = [model])
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn,
+                                     threads = nthreads, args = [model], pool = pool)
     epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0 =state)
     pass
 
         
 def parallel_minimize(model, sps, chi2, initial_center, rp,
-                      optpars, method = 'powell', **kwargs):
+                      optpars, method = 'powell', pool = None, **kwargs):
     """
     Do as many minimizations as you have threads.  Always use
     initial_center for one of the minimization streams, the rest will
@@ -97,8 +112,10 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
     """
     #distribute the separate minimizations over processes
     nthreads = int(rp['nthreads'])
-    if nthreads > 1:
+
+    if (pool is None) and nthreads > 1:
         pool = multiprocessing.Pool( nthreads )
+    if pool is not None:
         M = pool.map
     else:
         M = map
