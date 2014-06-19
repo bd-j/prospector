@@ -1,13 +1,6 @@
 import numpy as np
 from sedpy.observate import vac2air
 
-def gauss(x, mu, A, sigma):
-    """Lay down mutiple gaussians on the x-axis""" 
-    mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
-    val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
-    return val.sum(axis = -1)
-
-
 class ThetaParameters(object):
     """
     Object describing a model parameter set, and conversions between a
@@ -27,8 +20,8 @@ class ThetaParameters(object):
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
 
-        #caching.  only works if theta_desc is not allowed to change after intialization
-        #so, might as well set it here.
+        #caching.  only works if theta_desc is not allowed to change
+        #after intialization so, might as well set it here.
         self._ndim = None
         
     @property
@@ -131,9 +124,9 @@ class SedModel(ThetaParameters):
     def add_obs(self, obs, linescale = False):
         self.filters = obs['filters']
         self.obs = obs
-        #add a parameter that causes
-        # all emission and absorption lines to be given
-        # in terms of the median unmasked observed flux value
+        # Add a parameter that causes all emission and absorption
+        # lines to be given in terms of the median unmasked observed
+        # flux value
         if linescale:
             self.params['linescale'] = np.median(obs['spectrum'][obs['mask']])
 
@@ -189,17 +182,17 @@ class SedModel(ThetaParameters):
             specified by the obs['wavelength'].
         """
 
-
         if 'emission_rest_wavelengths' in self.params:
             mu = vac2air(self.params['emission_rest_wavelengths'])
-            #try to get a nebular redshift, otherwise use stellar redshift, otherwise
-            # use no redshift
+            # try to get a nebular redshift, otherwise use stellar
+            # redshift, otherwise use no redshift
             a1 = self.params.get('zred_emission', self.params.get('zred', 0.0)) + 1.0
             A =  self.params.get('emission_luminosity',0.) * self.params.get('linescale',1.0)
             sigma = self.params.get('emission_disp',10.)
             if self.params.get('smooth_velocity', True):
-                #This is an approximation to get the dispersion in terms of
-                # wavelength at the central line wavelength, but should work much of the time
+                #This is an approximation to get the dispersion in
+                # terms of wavelength at the central line wavelength,
+                # but should work much of the time
                 sigma = mu * sigma / 2.998e5
             return gauss(self.obs['wavelength'], mu * a1, A, sigma * a1)
         
@@ -326,4 +319,12 @@ class SedModel(ThetaParameters):
                 gradp[start:stop] += g.get(p, 0)
 
         return gradp
+
+def gauss(x, mu, A, sigma):
+    """
+    Lay down mutiple gaussians on the x-axis.
+    """ 
+    mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
+    val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
+    return val.sum(axis = -1)
 

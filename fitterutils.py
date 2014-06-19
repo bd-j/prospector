@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 from scipy.optimize import minimize
 import emcee
+from readspec import *
 
 try:
     import astropy.io.fits as pyfits
@@ -12,20 +13,19 @@ try:
     import multiprocessing
 except:
     pass
-
-from readspec import *
     
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
 to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )
 
 def run_command(cmd):
-    """Open a child process, and return its exit status and stdout"""
+    """
+    Open a child process, and return its exit status and stdout
+    """
     child = subprocess.Popen(cmd, shell =True, stderr = subprocess.PIPE, 
                              stdin=subprocess.PIPE, stdout = subprocess.PIPE)
     out = [s for s in child.stdout]
     w = child.wait()
     return os.WEXITSTATUS(w), out
-
 
 def parse_args(argv, rp):
     
@@ -72,9 +72,8 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp, pool = None):
     #loop over the number of burn-in reintializitions
     for iburn in nburn[:-1]:
         epos, eprob, state = esampler.run_mcmc(initial, iburn)
-        # Reinitialize, tossing the worst half of the walkers and resetting
-        #   them based on the the other half of the walkers
-        #or just choose the best walker and build a ball around it based on the other walkers
+        # Choose the best walker and build a ball around it based on
+        #   the other walkers
         tmp = np.percentile(epos, [0.25, 0.5, 0.75], axis = 0)
         relative_scatter = np.abs(1.5 * (tmp[2] -tmp[0])/tmp[1])
         best = np.argmax(eprob)
@@ -97,7 +96,8 @@ def restart_sampler(sample_results, lnprobfn, sps, niter,
     Restart a sampler from its last position and run it for a
     specified number of iterations.  The sampler chain should be given
     in the sample_results dictionary.  Note that lnprobfn and sps must
-    be defined at the global level in the same way as the sampler originally ran.
+    be defined at the global level in the same way as the sampler
+    originally ran.
     """
     model = sample_results['model']
     initial = sample_results['chain'][:,-1,:]
@@ -113,7 +113,8 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
     """
     Do as many minimizations as you have threads.  Always use
     initial_center for one of the minimization streams, the rest will
-    be sampled from the prior for each parameter.  Returns each of the minimizations    
+    be sampled from the prior for each parameter.  Returns each of the
+    minimizations
     """
     #distribute the separate minimizations over processes
     nthreads = int(rp['nthreads'])

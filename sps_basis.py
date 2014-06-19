@@ -103,13 +103,14 @@ class StellarPopBasis(object):
         params['outwave'] = outwave
         self.update(params)
 
-        #distance dimming
+        #distance dimming and conversion to cgs
         dist10 = self.params.get('lumdist', 1e-5)/1e-5 #distance in units of 10s of pcs
         dfactor = to_cgs / dist10**2
         
-        # Redshift and put on the proper wavelength grid
-        # Eventually this should probably do proper integration within
-        # the output wavelength bins, and deal with non-uniform line-spread functions
+        # Redshift and put on the proper wavelength grid. Eventually
+        # this should probably do proper integration within the output
+        # wavelength bins, and deal with non-uniform line-spread
+        # functions
         a1 = (1 + self.params.get('zred', 0.0))
         cspec = interp1d( vac2air(self.ssp.wavelengths * a1),
                           self.basis_spec / a1 * dfactor, axis = -1)(outwave)
@@ -167,7 +168,6 @@ class StellarPopBasis(object):
                 
         self.basis_dirty = False
 
-        
     def update(self, inparams):
         """
         Update the parameters, recording whether it was new for the
