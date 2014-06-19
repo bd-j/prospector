@@ -1,13 +1,18 @@
 import sys, os, getopt, subprocess
-import multiprocessing
-import numpy as np
-import emcee
-from scipy.optimize import minimize
 from functools import partial
+import numpy as np
+from scipy.optimize import minimize
+import emcee
+
 try:
     import astropy.io.fits as pyfits
 except(ImportError):
     import pyfits
+try:
+    import multiprocessing
+except:
+    pass
+
 from readspec import *
     
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs

@@ -1,11 +1,10 @@
 import numpy as np
 from scipy.interpolate import interp1d
-import astropy.constants as constants
 import fsps
 from sedpy.observate import getSED, vac2air, air2vac
 
-lsun = constants.L_sun.cgs.value
-pc = constants.pc.cgs.value
+lsun = 3.846e33
+pc = 3.085677581467192e18
 lightspeed = 2.998e18 #AA/s
 #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
