@@ -143,7 +143,7 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
                 ginitial[:,start] = np.random.uniform(hi, lo, nthreads - 1)
         pinitial += ginitial.tolist()
         
-    # Do quick Powell, then start refining the best of them
+    # Do quick Powell
     powell_guesses = list( M(pminimize,  [p for p in pinitial]) )
 
     if rp['verbose']:

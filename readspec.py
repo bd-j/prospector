@@ -40,7 +40,7 @@ def query_phatcat(objname, phottable = 'data/f2_apcanfinal_6phot_v2.fits',
     return mags, mags_unc, flags
         
 
-def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
+def load_obs_mmt(filename = None, objname = None, #dist = 1e-5, vel = 0.0,
                   wlo = 3750., whi = 7200., verbose = False,
                   phottable = 'data/f2_apcanfinal_6phot_v2.fits',
                   **kwargs):
@@ -57,7 +57,7 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     scale = 1e0 #testing
     #fluxconv = np.pi * 4. * (dist * 1e6 * pc)**2 / lsun #erg/s/AA/cm^2 to L_sun/AA
     fluxconv =  5.0e-20 * scale #approximate counts to erg/s/AA/cm^2
-    redshift = vel / 2.998e8
+    #redshift = 0.0 #vel / 2.998e8
     dat = pyfits.getdata(filename)
     hdr = pyfits.getheader(filename)
     
@@ -77,7 +77,7 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 5570) | (obs['wavelength'] >= 5590)) #mask OI sky line
     obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 6170) | (obs['wavelength'] >= 6180)) #mask...something.
 
-    obs['wavelength'] /= (1.0 + redshift)
+    #obs['wavelength'] /= (1.0 + redshift)
 
     ######## PHOTOMETRY ########
     if verbose:
@@ -91,7 +91,7 @@ def load_obs_mmt(filename = None, objname = None, dist = 1e-5, vel = 0.0,
 
     return obs
 
-def load_obs_lris(filename = None, objname = None, dist = 1e-5, vel = 0.0,
+def load_obs_lris(filename = None, objname = None, #dist = 1e-5, vel = 0.0,
                   wlo = 3550., whi = 5500., verbose = False,
                   phottable = 'data/f2_apcanfinal_6phot_v2.fits',
                   **kwargs):
@@ -107,7 +107,7 @@ def load_obs_lris(filename = None, objname = None, dist = 1e-5, vel = 0.0,
 
     #fluxconv = np.pi * 4. * (dist * 1e6 * pc)**2 / lsun #erg/s/AA/cm^2 to L_sun/AA
     fluxconv = 1.0
-    redshift = vel / 2.998e8
+    #redshift = vel / 2.998e8
     dat = pyfits.getdata(filename)
     hdr = pyfits.getheader(filename)
     
@@ -116,7 +116,7 @@ def load_obs_lris(filename = None, objname = None, dist = 1e-5, vel = 0.0,
     obs['unc'] = 1./np.sqrt(dat[0]['ivar'])
     #masking
     obs['mask'] =  ((obs['wavelength'] >= wlo ) & (obs['wavelength'] <= whi))
-    obs['wavelength'] /= (1.0 + redshift)
+    #obs['wavelength'] /= (1.0 + redshift)
     
 
     ######## PHOTOMETRY ######

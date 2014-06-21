@@ -20,18 +20,12 @@ class ThetaParameters(object):
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
 
-        #caching.  only works if theta_desc is not allowed to change
+        #caching. No. only works if theta_desc is not allowed to change
         #after intialization so, might as well set it here.
-        self._ndim = None
+        self.ndim = 0
+        for p, v in self.theta_desc.iteritems():
+                self.ndim += v['N']
         
-    @property
-    def ndim(self):
-        if self._ndim is None:
-            self._ndim = 0
-            for p, v in self.theta_desc.iteritems():
-                self._ndim += v['N']
-        return self._ndim
-            
     def set_parameters(self, theta):
         """
         Propagate theta into the model parameters.
@@ -58,7 +52,15 @@ class ThetaParameters(object):
         Return a scalar which is the ln of the prioduct of the prior
         probabilities for each element of theta.  Requires that the
         prior functions are defined in the theta descriptor.
+
+        :param theta:
+            Iterable containing the free model parameter values.
+
+        :returns lnp_prior:
+            The log of the product of the prior probabilities for
+            these parameter values.
         """
+        
         lnp_prior = 0
         for p, v in self.theta_desc.iteritems():
             start, stop = v['i0'], v['i0'] + v['N']
@@ -175,7 +177,9 @@ class SedModel(ThetaParameters):
         In order to avoid underflows when using scipy's minimization
         routines, there is an optional scaling, so that emission line
         luminosities are given in terms of the averge observed flux
-        value.  This is horrendous.
+        value.  This is horrendous.  One should give them in terms of
+        L_sun and then apply distance and cgs as was done for stellar
+        spectra
 
         :returns nebspec:
             The nebular emission in the rest frame, at the wavelengths

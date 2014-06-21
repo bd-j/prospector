@@ -7,10 +7,31 @@ from gp import GaussianProcess
 def parse_argv(argv, **kwargs):
     return rp
 
-def read_params(parfile):
+def read_params(parfilename):
     """
-    Return a list of dictionaries
+    Return a list of dictionaries after reading parameter names and values from the parameter definition file
     """
+    parlist = []
+    parf = open(parfilename, "r")
+    for i, line in enumerate(parf)
+        line.strip()
+        if line[0] == '#':
+            continue #it was a comment
+        fields = line.split()
+        free = fields[1].lower() == 'free'
+        par= {'name': fields[0].lower(),
+              'free': free,
+              'N': int(fields[2]),
+              'value':,
+              'units':
+              }
+        if free:
+              par['prior_function'] = 
+              par['prior_args'] = 
+              
+              }
+        parlist += par
+            
     return parlist
 
 def initialize_model(rp, obs):
