@@ -20,8 +20,8 @@ class ThetaParameters(object):
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
 
-        #caching. No. only works if theta_desc is not allowed to change
-        #after intialization so, might as well set it here.
+        # Caching. No. only works if theta_desc is not allowed to
+        #  change after intialization so, might as well set it here.
         self.ndim = 0
         for p, v in self.theta_desc.iteritems():
                 self.ndim += v['N']
@@ -168,45 +168,45 @@ class SedModel(ThetaParameters):
         spec = (spec + self.sky()) * self.calibration()
         return spec, phot, extras
 
-    def nebular(self):
-        """
-        If the emission_rest_wavelengths parameter is present, return
-        a nebular emission line spectrum.  Currently uses several
-        approximations for the velocity broadening and should probably
-        be moved to within the sps object as an additional component.
-        Currently does *not* affect photometry, ...  but would if it
-        was part of the sps object.  That would also help with
-        emission line smoothing and rebinning issues, as well as
-        interstellar absorption lines.
+    ## def nebular(self):
+    ##     """
+    ##     If the emission_rest_wavelengths parameter is present, return
+    ##     a nebular emission line spectrum.  Currently uses several
+    ##     approximations for the velocity broadening and should probably
+    ##     be moved to within the sps object as an additional component.
+    ##     Currently does *not* affect photometry, ...  but would if it
+    ##     was part of the sps object.  That would also help with
+    ##     emission line smoothing and rebinning issues, as well as
+    ##     interstellar absorption lines.
 
-        In order to avoid underflows when using scipy's minimization
-        routines, there is an optional scaling, so that emission line
-        luminosities are given in terms of the averge observed flux
-        value.  This is horrendous.  One should give them in terms of
-        L_sun and then apply distance and cgs as was done for stellar
-        spectra
+    ##     In order to avoid underflows when using scipy's minimization
+    ##     routines, there is an optional scaling, so that emission line
+    ##     luminosities are given in terms of the averge observed flux
+    ##     value.  This is horrendous.  One should give them in terms of
+    ##     L_sun and then apply distance and cgs as was done for stellar
+    ##     spectra
 
-        :returns nebspec:
-            The nebular emission in the rest frame, at the wavelengths
-            specified by the obs['wavelength'].
-        """
+    ##     :returns nebspec:
+    ##         The nebular emission in the rest frame, at the wavelengths
+    ##         specified by the obs['wavelength'].
+    ##     """
 
-        if 'emission_rest_wavelengths' in self.params:
-            mu = vac2air(self.params['emission_rest_wavelengths'])
-            # try to get a nebular redshift, otherwise use stellar
-            # redshift, otherwise use no redshift
-            a1 = self.params.get('zred_emission', self.params.get('zred', 0.0)) + 1.0
-            A =  self.params.get('emission_luminosity',0.) * self.params.get('linescale',1.0)
-            sigma = self.params.get('emission_disp',10.)
-            if self.params.get('smooth_velocity', True):
-                #This is an approximation to get the dispersion in
-                # terms of wavelength at the central line wavelength,
-                # but should work much of the time
-                sigma = mu * sigma / 2.998e5
-            return gauss(self.obs['wavelength'], mu * a1, A, sigma * a1)
+    ##     if 'emission_rest_wavelengths' in self.params:
+    ##         mu = vac2air(self.params['emission_rest_wavelengths'])
+    ##         # try to get a nebular redshift, otherwise use stellar
+    ##         # redshift, otherwise use no redshift
+    ##         a1 = self.params.get('zred_emission', self.params.get('zred', 0.0)) + 1.0
+    ##         A =  self.params.get('emission_luminosity',0.) * self.params.get('linescale',1.0)
+    ##         sigma = self.params.get('emission_disp',10.)
+    ##         if self.params.get('smooth_velocity', True):
+    ##             #This is an approximation to get the dispersion in
+    ##             # terms of wavelength at the central line wavelength,
+    ##             # but should work much of the time
+    ##             sigma = mu * sigma / 2.998e5
+    ##         return gauss(self.obs['wavelength'], mu * a1, A, sigma * a1)
         
-        else:
-            return 0.
+    ##     else:
+    ##         return 0.
 
     def sky(self):
         """Model for the sky emission/absorption"""
@@ -339,17 +339,19 @@ class Parameter(object):
     """
     def __init__(self, name, **kwargs):
         self.name = name
-        self.prior_function = None
-        self.prior_grad_function = None
+        self.prior_function_name = None
+        self.prior_grad_function_name = None
         self.prior_args = {}
         self.isfree = False
         for k, v in kwargs.iteritems():
             setattr(self,k,v)
 
+    #def _prior_function
+            
     def lnp_prior(self, theta):
         try:
             return self.prior_function(theta, **self.prior_args)
-        except:
+        except(AttributeError):
             return 0
         
     @property

@@ -1,15 +1,16 @@
 import json
 from sedpy import observate, attenuation
 import elines, sedmodel, gp
+import priors
 from priors import tophat
 
 rp = {'verbose':True,
       'filename':'data/mmt/nocal/020.B192-G242.s.fits',
       'objname': 'B192-G242',
-      'outfile':'.',
+      'outfile':'results/test_',
       'wlo':3750., 'whi': 7200.,
       'ftol':0.5e-5, 'maxfev':500, 'nsamplers':1,
-      'walker_factor':8, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.01
+      'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.01
       }
 
 parlist = []
@@ -208,19 +209,54 @@ parlist.append({'name': 'emission_disp', 'N': 1, 'isfree': True,
                 'prior_function':tophat,
                 'prior_args':{'mini':1.0, 'maxi':6.0}})
 
-#class NumpyAwareJSONEncoder(json.JSONEncoder):
-#    def default(self, obj):
-#        if isinstance(obj, numpy.ndarray) and obj.ndim == 1:
-#                return [x for x in obj]
-#        return json.JSONEncoder.default(self, obj)
 
 def write_plist(plist, runpars, filename):
-    pass
+    """
+    Write the list of parameter dictionaries to a JSON file,
+    taking care to replace functions with their names.
+    """
+    for p in plist:
+        #replace prior functions with names of those function
+        pf = p.get('prior_function', None)
+        cond = ((pf in priors.__dict__.values()) and 
+                (pf is not None))
+        if cond:
+            p['prior_function_name'] = pf.func_name
+        else:
+            p.pop('prior_function_name', None)
+        _ = p.pop('prior_function', None)
+        
+        #replace dust curve functions with name of function
+        if p['name'] == 'dust_curve':
+            df = p.get('init', None)
+            cond = ((df is not None) and
+                    (df in attenuation.__dict__.values()))
+            if cond:
+                p['dust_curve_name'] = df.func_name
+
+    f = open(filename + '.params', 'w')
+    json.dump([rp, p], f)
+    f.close()    
 
 def read_plist(filename):
-#    return plist, runpars
-    pass
+    """
+    Read a JSON file into a list of parameter dictionaries,
+    taking care to add actual functions when given their names.
+    """
 
+    f = open(filename, 'r')
+    rp, plist = json.load(f)
+    for p in plist:
+        #put the dust curve function in
+        if 'dust_curve_name' in p:
+            p['init'] = attenuation.__dict__[p['dust_curve_name']]
+        #put the prior function in
+        if 'prior_function_name' in p:
+            p['prior_function'] = priors.__dict__[p['prior_function_name']]
+        else:
+            p['prior_function'] = None
+    return parlist, rp
+    
 def initialize_model(rp, plist, obs):    
     theta_desc, fixed_params  = {}, {}
     initial_theta = []

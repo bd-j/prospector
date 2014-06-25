@@ -97,20 +97,20 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     model = sample_results['model']
     initial = sample_results['chain'][:,-1,:]
     nwalkers, ndim = initial.shape
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
-                                     threads = nthreads, args = [model], pool = pool)
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf, args = [model],
+                                     threads = nthreads,  pool = pool)
     epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0 =state)
     pass
 
         
-def parallel_minimize(function, model, initial_center,
-                      method ='powell', opts = None,
-                      pool = None, nthreads = 1):
+def pminimize(function, model, initial_center, method ='powell', opts = None,
+              pool = None, nthreads = 1):
     """
-    Do as many minimizations as you have threads.  Always use
-    initial_center for one of the minimization streams, the rest will
-    be sampled from the prior for each parameter.  Returns each of the
-    minimizations
+    Do as many minimizations as you have threads, in parallel.  Always
+    use initial_center for one of the minimization streams, the rest
+    will be sampled from the prior for each parameter.  Returns each
+    of the minimization result dictionaries, as well as the starting
+    positions.
     """
     
     # Initialize the minimizer

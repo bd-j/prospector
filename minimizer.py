@@ -8,7 +8,7 @@ class Pminimize(object):
         self.method = method
         self.opts = opts
         self.model = model
-        self.threads =nthreads
+        self.threads = nthreads
 
         self.minimize = _function_wrapper(minimize, [chi2, model, method, opts])
         
