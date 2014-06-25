@@ -9,7 +9,7 @@ rp = {'verbose':True,
       'outfile':'.',
       'wlo':3750., 'whi': 7200.,
       'ftol':0.5e-5, 'maxfev':500, 'nsamplers':1,
-      'walker_factor':8, 'nthreads':1, 'nburn':3 * [50], 'niter': 200, 'initial_disp':0.01
+      'walker_factor':8, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.01
       }
 
 parlist = []
@@ -305,39 +305,4 @@ def norm_spectrum(model, initial_center, band_name = 'f475w'):
  
     return model, initial_center
 
-class Parameter(object):
-    """
-    For a possible switch from dictionaries to specialized objects for
-    the parameters.  This would require a massive rewrite of
-    ThetaParameters() and seems unnecessary, though a little cleaner
-    and of cource more OO
-    """
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.prior_function = None
-        self.prior_grad_function = None
-        self.prior_args = {}
-        self.isfree = False
-        for k, v in kwargs.iteritems():
-            setattr(self,k,v)
 
-    def lnp_prior(self, theta):
-        try:
-            return self.prior_function(theta, **self.prior_args)
-        except:
-            return 0
-        
-    @property
-    def N(self):
-        try:
-            return len(self.value)
-        except TypeError:
-            return 1
-
-    @property
-    def bounds(self):
-        pass
-
-    #@property
-    #def isfree(self):
-    #    return self.free

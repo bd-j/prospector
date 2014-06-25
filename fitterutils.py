@@ -1,14 +1,9 @@
 import sys, os, getopt, subprocess
-from functools import partial
 import numpy as np
-from scipy.optimize import minimize
+import minimizer
 import emcee
 from readspec import *
 
-try:
-    import astropy.io.fits as pyfits
-except(ImportError):
-    import pyfits
 try:
     import multiprocessing
 except(ImportError):
@@ -44,12 +39,12 @@ def parse_args(argv, rp):
         print('Number of threads  = {0}'.format(rp['nthreads']))
     return rp
 
-def run_a_sampler(model, sps, lnprobfn, initial_center, rp, pool = None):
+def run_a_sampler(model, sps, lnprobf, initial_center, rp, pool = None):
     """
     Run an emcee sampler, including iterations of burn-in and
-    re-initialization.  Returns the sampler.
+    re-initialization.  Returns the production sampler.
     """
-    #parse input parameters
+    # Parse input parameters
     ndim = rp['ndim']
     walker_factor = int(rp['walker_factor'])
     nburn = rp['nburn']
@@ -58,18 +53,18 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp, pool = None):
     initial_disp = rp['initial_disp']
     nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
 
-    #set up initial positions
+    # Set up initial positions
     initial = np.zeros([nwalkers, ndim])
     for p, d in model.theta_desc.iteritems():
         start, stop = d['i0'], d['i0']+d['N']
         hi, lo = d['prior_args']['maxi'], d['prior_args']['mini']
         initial[:, start:stop] = (np.random.normal(1, initial_disp, nwalkers)[:,None] *
                                   initial_center[start:stop])
-    #initialize sampler
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn,
+    # Initialize sampler
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      threads = nthreads, args = [model], pool = pool)
 
-    #loop over the number of burn-in reintializitions
+    # Loop over the number of burn-in reintializitions
     for iburn in nburn[:-1]:
         epos, eprob, state = esampler.run_mcmc(initial, iburn)
         # Choose the best walker and build a ball around it based on
@@ -80,7 +75,7 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp, pool = None):
         initial = epos[best,:] * (1 + np.random.normal(0, 1, epos.shape) * relative_scatter[None,:]) 
         esampler.reset()
 
-    #do the final burn-in
+    # Do the final burn-in
     epos, eprob, state = esampler.run_mcmc(initial, nburn[-1])
     initial = epos
     esampler.reset()
@@ -90,7 +85,7 @@ def run_a_sampler(model, sps, lnprobfn, initial_center, rp, pool = None):
 
     return esampler
 
-def restart_sampler(sample_results, lnprobfn, sps, niter,
+def restart_sampler(sample_results, lnprobf, sps, niter,
                     nthreads = 1, pool = None):
     """
     Restart a sampler from its last position and run it for a
@@ -102,29 +97,31 @@ def restart_sampler(sample_results, lnprobfn, sps, niter,
     model = sample_results['model']
     initial = sample_results['chain'][:,-1,:]
     nwalkers, ndim = initial.shape
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn,
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      threads = nthreads, args = [model], pool = pool)
     epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0 =state)
     pass
 
         
-def parallel_minimize(model, initial_center, 
-                      nthreads = 1, **kwargs):
+def parallel_minimize(function, model, initial_center,
+                      method ='powell', opts = None,
+                      pool = None, nthreads = 1):
     """
     Do as many minimizations as you have threads.  Always use
     initial_center for one of the minimization streams, the rest will
     be sampled from the prior for each parameter.  Returns each of the
     minimizations
     """
-    #distribute the separate minimizations over processes
-    #nthreads = int(rp['nthreads'])
-
-
-#    pminimize = partial(minimize, chi2, method = method, options = optpars, **kwargs)
-        
+    
+    # Initialize the minimizer
+    mini = minimizer.Pminimize(function, method, opts, model,
+                               pool = pool, nthreads = 1)
+    
+    # Get initial positions to start minimizations
     pinitial = [initial_center]
-    # Setup a 'grid' of parameter values uniformly distributed between min and max
-    #  More generally, this should sample from the prior for each parameter
+    # Setup a 'grid' of parameter values uniformly distributed between
+    #  min and max More generally, this should sample from the prior
+    #  for each parameter
     if nthreads > 1:
         ginitial = np.zeros( [nthreads -1, model.ndim] )
         for p, d in model.theta_desc.iteritems():
@@ -137,8 +134,9 @@ def parallel_minimize(model, initial_center,
                 ginitial[:,start] = np.random.uniform(hi, lo, nthreads - 1)
         pinitial += ginitial.tolist()
     print(nthreads, len(pinitial))
-    # Do quick Powell
-    #powell_guesses = list( M(pminimize,  [[np.array(p), model, method, optpars] for p in pinitial]) )
+
+    #Actually run the minimizer
+    powell_guesses = mini.run(pinitial)
+
+    return [powell_guesses, pinitial]
     
-    #return [powell_guesses, pinitial]
-    return pinitial

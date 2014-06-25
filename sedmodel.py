@@ -329,6 +329,44 @@ class SedModel(ThetaParameters):
 
         return gradp
 
+
+class Parameter(object):
+    """
+    For a possible switch from dictionaries to specialized objects for
+    the parameters.  This would require a massive rewrite of
+    ThetaParameters() and seems unnecessary, though a little cleaner
+    and of cource more OO.
+    """
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.prior_function = None
+        self.prior_grad_function = None
+        self.prior_args = {}
+        self.isfree = False
+        for k, v in kwargs.iteritems():
+            setattr(self,k,v)
+
+    def lnp_prior(self, theta):
+        try:
+            return self.prior_function(theta, **self.prior_args)
+        except:
+            return 0
+        
+    @property
+    def N(self):
+        try:
+            return len(self.value)
+        except TypeError:
+            return 1
+
+    @property
+    def bounds(self):
+        pass
+
+    #@property
+    #def isfree(self):
+    #    return self.free
+    
 def gauss(x, mu, A, sigma):
     """
     Lay down mutiple gaussians on the x-axis.
