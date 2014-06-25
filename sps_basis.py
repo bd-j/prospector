@@ -71,8 +71,8 @@ class StellarPopBasis(object):
         if nebular:
             spec += neb
             
-        phot  = 10**(-0.4 *getSED( outwave, spec, filters))
-        #phot = (cphot * params['mass'][:,None]).sum(axis = 0)
+        #phot  = 10**(-0.4 *getSED( outwave, spec, filters))
+        phot = (cphot * params['mass'][:,None]).sum(axis = 0)
         extra = (cextra * params['mass']).sum()
         
         return spec, phot, extra

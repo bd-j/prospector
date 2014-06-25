@@ -108,8 +108,8 @@ def restart_sampler(sample_results, lnprobfn, sps, niter,
     pass
 
         
-def parallel_minimize(model, sps, chi2, initial_center, rp,
-                      optpars, method = 'powell', pool = None, **kwargs):
+def parallel_minimize(model, initial_center, 
+                      nthreads = 1, **kwargs):
     """
     Do as many minimizations as you have threads.  Always use
     initial_center for one of the minimization streams, the rest will
@@ -117,31 +117,9 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
     minimizations
     """
     #distribute the separate minimizations over processes
-    nthreads = int(rp['nthreads'])
-
-    if (pool is None) and nthreads > 1:
-        pool = multiprocessing.Pool( nthreads )
-    if pool is not None:
-        M = pool.map
-        nthreads = pool.size
-    else:
-        M = map
-
-    #create a minimization function that only takes one argument
-    # i.e. all other options already set.
-    #def chi2(theta):
-        #"""
-        #A sort of chi2 function that allows for maximization of lnP using
-        #minimization routines.
-        #"""
-        #return -lnprobfn(theta, model)
+    #nthreads = int(rp['nthreads'])
 
 
-    def pminimize(theta):
-        #theta, mod = args[0], args[1]
-        result = minimize(chi2, theta, args = (model,),
-                          method = method, options = optpars, **kwargs)
-        return result
 #    pminimize = partial(minimize, chi2, method = method, options = optpars, **kwargs)
         
     pinitial = [initial_center]
@@ -158,11 +136,9 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
             else:
                 ginitial[:,start] = np.random.uniform(hi, lo, nthreads - 1)
         pinitial += ginitial.tolist()
-        
+    print(nthreads, len(pinitial))
     # Do quick Powell
-    powell_guesses = list( M(pminimize,  [np.array(p) for p in pinitial]) )
-
-    if rp['verbose']:
-        print('done Powell')
-
-    return [powell_guesses, pinitial]
+    #powell_guesses = list( M(pminimize,  [[np.array(p), model, method, optpars] for p in pinitial]) )
+    
+    #return [powell_guesses, pinitial]
+    return pinitial

@@ -6,8 +6,9 @@ from priors import tophat
 rp = {'verbose':True,
       'filename':'data/mmt/nocal/020.B192-G242.s.fits',
       'objname': 'B192-G242',
+      'outfile':'.',
       'wlo':3750., 'whi': 7200.,
-      'ftol':0.5e-5, 'maxfev':50000, 'nsamplers':1,
+      'ftol':0.5e-5, 'maxfev':500, 'nsamplers':1,
       'walker_factor':8, 'nthreads':1, 'nburn':3 * [50], 'niter': 200, 'initial_disp':0.01
       }
 

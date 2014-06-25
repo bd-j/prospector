@@ -135,7 +135,7 @@ class SedModel(ThetaParameters):
         else:
             self.obs['scale'] = 1.0
 
-    def model(self, theta, sps = None, **kwargs):
+    def mean_model(self, theta, sps = None, **kwargs):
         
         """
         Given a theta vector, generate a spectrum, photometry, and any
@@ -164,6 +164,7 @@ class SedModel(ThetaParameters):
             sps = self.sps
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(self.params.copy(), self.obs['wavelength'], self.obs['filters'])
+        spec *= self.params.get('normalization_guess',1.0)
         spec = (spec + self.sky()) * self.calibration()
         return spec, phot, extras
 
