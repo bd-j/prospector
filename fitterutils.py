@@ -137,9 +137,9 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
         #return -lnprobfn(theta, model)
 
 
-    def pminimize(args):
-        theta, mod = args[0], args[1]
-        result = minimize(chi2, theta, args = (mod,),
+    def pminimize(theta):
+        #theta, mod = args[0], args[1]
+        result = minimize(chi2, theta, args = (model,),
                           method = method, options = optpars, **kwargs)
         return result
 #    pminimize = partial(minimize, chi2, method = method, options = optpars, **kwargs)
@@ -160,7 +160,7 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
         pinitial += ginitial.tolist()
         
     # Do quick Powell
-    powell_guesses = list( M(pminimize,  [(np.array(p), model) for p in pinitial]) )
+    powell_guesses = list( M(pminimize,  [np.array(p) for p in pinitial]) )
 
     if rp['verbose']:
         print('done Powell')

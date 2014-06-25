@@ -23,21 +23,21 @@ parlist.append({'name': 'lumdist', 'N': 1,
 
 parlist.append({'name': 'mass', 'N': 1,
                 'isfree': True,
-                'init': 1e3,
+                'init': 10e3,
                 'units': r'M$_\odot$',
                 'prior_function': tophat,
                 'prior_args': {'mini':1e2, 'maxi': 1e6}})
 
 parlist.append({'name': 'tage', 'N': 1,
                 'isfree': True,
-                'init': 0.500,
+                'init': 0.250,
                 'units': 'Gyr',
                 'prior_function':tophat,
                 'prior_args':{'mini':0.001, 'maxi':2.5}})
 
 parlist.append({'name': 'zmet', 'N': 1,
                 'isfree': True,
-                'init': -0.5,
+                'init': -0.2,
                 'units:': r'$\log (Z/Z_\odot)$',
                 'prior_function': tophat,
                 'prior_args': {'mini':-1, 'maxi':0.19}})
@@ -281,7 +281,7 @@ def norm_spectrum(model, initial_center, band_name = 'f475w'):
     # Factor by which model spectra should be multiplied to give you
     #  the photometry, using the F475W filter as truth
     norm = 10**(-0.4*(synphot[norm_band] - model.obs['mags'][norm_band]))
-do something here
+    model.params['normalization_guess'] = norm
     
     #model.obs['spectrum'] *= norm
     #model.obs['unc'] *= norm

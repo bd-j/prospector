@@ -71,11 +71,11 @@ class StellarPopBasis(object):
         if nebular:
             spec += neb
             
-        #phot  = 10**(-0.4 *getSED( outwave, spec, filters))
-        phot = (cphot * params['mass'][:,None]).sum(axis = 0)
+        phot  = 10**(-0.4 *getSED( outwave, spec, filters))
+        #phot = (cphot * params['mass'][:,None]).sum(axis = 0)
         extra = (cextra * params['mass']).sum()
+        
         return spec, phot, extra
-    
     
     def get_components(self, params, outwave, filters):
         """
@@ -95,7 +95,7 @@ class StellarPopBasis(object):
 
         :returns cspec:
             The spectrum at the wavelength points given by outwave,
-            ndarray of shape (ncomp,nwave).  Units are erg/s/cm^2/AA
+            ndarray of shape (ncomp,nwave).  Units are erg/s/cm^2/AA/M_sun
             
         :returns phot:
             The synthetc photometry through the provided filters,
@@ -131,7 +131,7 @@ class StellarPopBasis(object):
                                    self.basis_spec / a1 * dfactor, filters))
 
         
-        return cspec, neb, cphot , self.basis_mass
+        return cspec, neb, cphot, self.basis_mass
     
     def nebular(self, params, outwave):
         """
@@ -187,12 +187,8 @@ class StellarPopBasis(object):
         nbasis = len(np.atleast_1d(self.params['zmet'])) * len(np.atleast_1d(self.params['tage']))
         self.basis_spec = np.zeros([nbasis, len(inwave)])
         self.basis_mass = np.zeros(nbasis)
+
         i = 0
-        
-        #scale factor from redshift
-        #a1 = (1 + self.params.get('zred', 0.0))
-        #self.basis_wave = self.params['outwave']
-        
         #should vectorize this set of loops
         for j,zmet in enumerate(self.params['zmet']):
             for k,tage in enumerate(self.params['tage']):
