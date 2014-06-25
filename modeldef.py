@@ -1,6 +1,6 @@
 import json
-from sedpy import attenuation
-import elines, sedmodel
+from sedpy import observate, attenuation
+import elines, sedmodel, gp
 from priors import tophat
 
 rp = {'verbose':True,
@@ -44,7 +44,7 @@ parlist.append({'name': 'zmet', 'N': 1,
 
 parlist.append({'name': 'sfh', 'N':1,
                 'isfree': False,
-                'init:': 0,
+                'init': 0,
                 'units': None})
 
 ###### DUST ##################
@@ -213,18 +213,18 @@ parlist.append({'name': 'emission_disp', 'N': 1, 'isfree': True,
 #                return [x for x in obj]
 #        return json.JSONEncoder.default(self, obj)
 
-def pars_to_json(plist, runpars):
-    
+def write_plist(plist, runpars, filename):
     pass
 
-def json_to_pars(filename):
-    return plist, runpars
+def read_plist(filename):
+#    return plist, runpars
+    pass
 
-def initialize_model(rp, parlist, obs):    
+def initialize_model(rp, plist, obs):    
     theta_desc, fixed_params  = {}, {}
     initial_theta = []
     count = 0
-    for i, par in enumerate(parlist):
+    for i, par in enumerate(plist):
         if par['isfree']:
             par['i0'] = count
             name = par.pop('name')
@@ -245,19 +245,19 @@ def initialize_model(rp, parlist, obs):
             #  parameter vector
             initial_theta += v
         else:
-            fixed_params[par['name']] = par['value']
+            fixed_params[par['name']] = par['init']
 
     # SED Model
     model = sedmodel.SedModel(theta_desc = theta_desc, **fixed_params)
+    model.add_obs(obs)
+    model, initial_theta = norm_spectrum(model, initial_theta)
     model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
     model.verbose = rp['verbose']
-    model.add_obs(obs)
-    model, initial_theta = norm_spectrum(model, initial_center)
 
     #Add Gaussian Process
     mask = model.obs['mask']
-    model.gp = GaussianProcess(model.obs['wavelength'][mask],
-                               model.obs['unc'][mask])
+    model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
+                                  model.obs['unc'][mask])
 
     return model, initial_theta
 
@@ -266,9 +266,9 @@ def norm_spectrum(model, initial_center, band_name = 'f475w'):
     """
     Initial guess of spectral normalization using photometry.
 
-    Should modify this to change the *observed* spectra and uncertainties
-    if otherwise the norm parameter will cause floating point errors in
-    the minimization routines.
+    This multiplies the observed spectrum by the factor required
+    to reproduce the photometry.  Default is to produce a spectrum
+    that is approximately in erg/s/cm^2/AA (Lsun/AA/Mpc**2).
     """
     #use f475w for normalization
     norm_band = [i for i,f in enumerate(model.obs['filters'])
@@ -279,23 +279,28 @@ def norm_spectrum(model, initial_center, band_name = 'f475w'):
                                model.obs['filters'])
 
     # Factor by which model spectra should be multiplied to give you
-    #  the observed spectra, using the F475W filter as truth
+    #  the photometry, using the F475W filter as truth
     norm = 10**(-0.4*(synphot[norm_band] - model.obs['mags'][norm_band]))
-
+do something here
+    
+    #model.obs['spectrum'] *= norm
+    #model.obs['unc'] *= norm
+    #model.obs['scale'] = model.obs.get('scale', 1.0) * norm
+    
     # Assume you've got this right to within some factor after
     #  marginalized over everything that changes spectral shape within
     #  the band (polynomial terms, dust, age, etc)
-    fudge = (1 + 10 * model.obs['mags_unc'][norm_band]/1.086)
+    #fudge = (1 + 10 * model.obs['mags_unc'][norm_band]/1.086)
     fudge = 3.0
-    model.theta_desc['spec_norm']['prior_args'] = {'mini':norm/fudge,
-                                                   'maxi':norm * fudge}
+    model.theta_desc['spec_norm']['prior_args'] = {'mini':1 / fudge,
+                                                   'maxi':fudge }
 
     # Pivot the polynomial near the filter used for approximate
     # normalization
     model.params['pivot_wave'] =  model.obs['filters'][norm_band].wave_effective 
     model.params['pivot_wave'] = 4750.
  
-    initial_center[model.theta_desc['spec_norm']['i0']] = norm
+    initial_center[model.theta_desc['spec_norm']['i0']] = 1.0
  
     return model, initial_center
 

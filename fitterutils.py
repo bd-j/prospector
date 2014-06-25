@@ -11,7 +11,7 @@ except(ImportError):
     import pyfits
 try:
     import multiprocessing
-except:
+except(ImportError):
     pass
     
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
@@ -123,12 +123,28 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
         pool = multiprocessing.Pool( nthreads )
     if pool is not None:
         M = pool.map
+        nthreads = pool.size
     else:
         M = map
 
-    pminimize = partial(minimize, chi2, method = method, options = optpars, **kwargs)
+    #create a minimization function that only takes one argument
+    # i.e. all other options already set.
+    #def chi2(theta):
+        #"""
+        #A sort of chi2 function that allows for maximization of lnP using
+        #minimization routines.
+        #"""
+        #return -lnprobfn(theta, model)
+
+
+    def pminimize(args):
+        theta, mod = args[0], args[1]
+        result = minimize(chi2, theta, args = (mod,),
+                          method = method, options = optpars, **kwargs)
+        return result
+#    pminimize = partial(minimize, chi2, method = method, options = optpars, **kwargs)
         
-    pinitial = [initial_center.tolist()]
+    pinitial = [initial_center]
     # Setup a 'grid' of parameter values uniformly distributed between min and max
     #  More generally, this should sample from the prior for each parameter
     if nthreads > 1:
@@ -144,7 +160,7 @@ def parallel_minimize(model, sps, chi2, initial_center, rp,
         pinitial += ginitial.tolist()
         
     # Do quick Powell
-    powell_guesses = list( M(pminimize,  [p for p in pinitial]) )
+    powell_guesses = list( M(pminimize,  [(np.array(p), model) for p in pinitial]) )
 
     if rp['verbose']:
         print('done Powell')

@@ -18,4 +18,4 @@ def tophat(theta, mini = 0.0, maxi = 1.0, **extras):
     return lnp
 
 def normal(theta, mean = 0.0, sigma = 1.0, **extras):
-    pass
+    return np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)

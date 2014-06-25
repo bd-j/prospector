@@ -123,16 +123,20 @@ class ThetaParameters(object):
 
 class SedModel(ThetaParameters):
 
-    def add_obs(self, obs, linescale = False):
+    def add_obs(self, obs, rescale = True):
         self.filters = obs['filters']
         self.obs = obs
-        # Add a parameter that causes all emission and absorption
-        # lines to be given in terms of the median unmasked observed
-        # flux value
-        if linescale:
-            self.params['linescale'] = np.median(obs['spectrum'][obs['mask']])
+        #rescale the spectrum to avoid floating point errors
+        if rescale:
+            sc = np.median(obs['spectrum'][obs['mask']])
+            self.obs['scale'] = sc
+            self.obs['spectrum'] /= sc
+            self.obs['unc'] /= sc
+        else:
+            self.obs['scale'] = 1.0
 
     def model(self, theta, sps = None, **kwargs):
+        
         """
         Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass).
