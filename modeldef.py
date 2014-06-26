@@ -13,119 +13,119 @@ rp = {'verbose':True,
       'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.01
       }
 
-parlist = []
-parlist.append({'name': 'lumdist', 'N': 1,
-                'isfree': False,
-                'init': 0.783,
-                'units': 'Mpc',
-                'prior_function': None,
-                'prior_args': None})
+defualt_parlist = []
+defualt_parlist.append({'name': 'lumdist', 'N': 1,
+                        'isfree': False,
+                        'init': 0.783,
+                        'units': 'Mpc',
+                        'prior_function': None,
+                        'prior_args': None})
 
 ###### SFH ################
 
-parlist.append({'name': 'mass', 'N': 1,
-                'isfree': True,
-                'init': 10e3,
-                'units': r'M$_\odot$',
-                'prior_function': tophat,
-                'prior_args': {'mini':1e2, 'maxi': 1e6}})
+default_parlist.append({'name': 'mass', 'N': 1,
+                        'isfree': True,
+                        'init': 10e3,
+                        'units': r'M$_\odot$',
+                        'prior_function': tophat,
+                        'prior_args': {'mini':1e2, 'maxi': 1e6}})
 
-parlist.append({'name': 'tage', 'N': 1,
-                'isfree': True,
-                'init': 0.250,
-                'units': 'Gyr',
-                'prior_function':tophat,
-                'prior_args':{'mini':0.001, 'maxi':2.5}})
+default_parlist.append({'name': 'tage', 'N': 1,
+                        'isfree': True,
+                        'init': 0.250,
+                        'units': 'Gyr',
+                        'prior_function':tophat,
+                        'prior_args':{'mini':0.001, 'maxi':2.5}})
 
-parlist.append({'name': 'zmet', 'N': 1,
-                'isfree': True,
-                'init': -0.2,
-                'units:': r'$\log (Z/Z_\odot)$',
-                'prior_function': tophat,
-                'prior_args': {'mini':-1, 'maxi':0.19}})
+default_parlist.append({'name': 'zmet', 'N': 1,
+                        'isfree': True,
+                        'init': -0.2,
+                        'units:': r'$\log (Z/Z_\odot)$',
+                        'prior_function': tophat,
+                        'prior_args': {'mini':-1, 'maxi':0.19}})
 
-parlist.append({'name': 'sfh', 'N':1,
-                'isfree': False,
-                'init': 0,
-                'units': None})
+default_parlist.append({'name': 'sfh', 'N':1,
+                        'isfree': False,
+                        'init': 0,
+                        'units': None})
 
 ###### DUST ##################
 
-parlist.append({'name': 'dust_curve', 'N': 1,
-                'isfree': False,
-                'init': attenuation.cardelli,
-                'units': None})
+default_parlist.append({'name': 'dust_curve', 'N': 1,
+                        'isfree': False,
+                        'init': attenuation.cardelli,
+                        'units': None})
 
-parlist.append({'name': 'dust2', 'N': 1,
-                'isfree': True,
-                'init': 0.5,
-                'units': r'$\tau_V$',
-                'prior_function': tophat,
-                'prior_args': {'mini':0.0, 'maxi':2.5}})
+default_parlist.append({'name': 'dust2', 'N': 1,
+                        'isfree': True,
+                        'init': 0.5,
+                        'units': r'$\tau_V$',
+                        'prior_function': tophat,
+                        'prior_args': {'mini':0.0, 'maxi':2.5}})
 
-parlist.append({'name': 'dust1', 'N': 1,
-                'isfree': False,
-                'init': 0.0,
-                'units': r'$\tau_V$',
-                'prior_function': None,
-                'prior_args': None})
+default_parlist.append({'name': 'dust1', 'N': 1,
+                        'isfree': False,
+                        'init': 0.0,
+                        'units': r'$\tau_V$',
+                        'prior_function': None,
+                        'prior_args': None})
 
-parlist.append({'name': 'dust_tesc', 'N': 1,
-                'isfree': False,
-                'init': 0.01,
-                'units': 'Gyr',
-                'prior_function': None,
-                'prior_args': None})
+default_parlist.append({'name': 'dust_tesc', 'N': 1,
+                        'isfree': False,
+                        'init': 0.01,
+                        'units': 'Gyr',
+                        'prior_function': None,
+                        'prior_args': None})
 
-parlist.append({'name': 'dust_type', 'N': 1,
-                'isfree': False,
-                'init': 1,
-                'units': 'NOT USED'})
+default_parlist.append({'name': 'dust_type', 'N': 1,
+                        'isfree': False,
+                        'init': 1,
+                        'units': 'NOT USED'})
 
 ###### IMF ###################
 
-parlist.append({'name': 'imf_type', 'N': 1,
-                'isfree': False,
-                'init': 2, #2 = kroupa
-                'units': None})
+default_parlist.append({'name': 'imf_type', 'N': 1,
+                        'isfree': False,
+                        'init': 2, #2 = kroupa
+                        'units': None})
 
-parlist.append({'name': 'imf3', 'N':1,
-                'isfree': False,
-                'init': 2.3,
-                'units': None,
-                'prior_function':tophat,
-                'prior_args':{'mini':1.3, 'maxi':3.5}})
+default_parlist.append({'name': 'imf3', 'N':1,
+                        'isfree': False,
+                        'init': 2.3,
+                        'units': None,
+                        'prior_function':tophat,
+                        'prior_args':{'mini':1.3, 'maxi':3.5}})
 
 ###### WAVELENGTH SCALE ######
 
-parlist.append({'name': 'zred', 'N':1,
-                'isfree': True,
-                'init': 0.00001,
-                'units': None,
-                'prior_function': tophat,
-                'prior_args': {'mini':-0.001, 'maxi':0.001}})
+default_parlist.append({'name': 'zred', 'N':1,
+                        'isfree': True,
+                        'init': 0.00001,
+                        'units': None,
+                        'prior_function': tophat,
+                        'prior_args': {'mini':-0.001, 'maxi':0.001}})
 
-parlist.append({'name': 'sigma_smooth', 'N': 1,
-                'isfree': True,
-                'init': 2.2,
-                'units': r'$\AA$',
-                'prior_function': tophat,
-                'prior_args': {'mini':1.0, 'maxi':6.0}})
+default_parlist.append({'name': 'sigma_smooth', 'N': 1,
+                        'isfree': True,
+                        'init': 2.2,
+                        'units': r'$\AA$',
+                        'prior_function': tophat,
+                        'prior_args': {'mini':1.0, 'maxi':6.0}})
 
-parlist.append({'name': 'smooth_velocity', 'N': 1,
-                'isfree': False,
-                'init': True,
-                'units': None})
+default_parlist.append({'name': 'smooth_velocity', 'N': 1,
+                        'isfree': False,
+                        'init': True,
+                        'units': None})
 
-parlist.append({'name': 'min_wave_smooth', 'N': 1,
-                'isfree': False,
-                'init': 3700.0,
-                'units': r'$\AA$'})
+default_parlist.append({'name': 'min_wave_smooth', 'N': 1,
+                        'isfree': False,
+                        'init': 3700.0,
+                        'units': r'$\AA$'})
 
-parlist.append({'name': 'max_wave_smooth', 'N': 1,
-                'isfree': False,
-                'init': 7300.0,
-                'units': r'$\AA$'})
+default_parlist.append({'name': 'max_wave_smooth', 'N': 1,
+                        'isfree': False,
+                        'init': 7300.0,
+                        'units': r'$\AA$'})
 
 ###### CALIBRATION ###########
 
@@ -134,47 +134,47 @@ polymin = [-5, -50]
 polymax = [5, 50]
 polyinit = [0.1, 0.1]
 
-parlist.append({'name': 'poly_coeffs', 'N': polyorder,
-                'isfree': True,
-                'init': polyinit,
-                'units': None,
-                'prior_function': tophat,
-                'prior_args': {'mini':polymin, 'maxi':polymax}})
+default_parlist.append({'name': 'poly_coeffs', 'N': polyorder,
+                        'isfree': True,
+                        'init': polyinit,
+                        'units': None,
+                        'prior_function': tophat,
+                        'prior_args': {'mini':polymin, 'maxi':polymax}})
     
-parlist.append({'name': 'spec_norm', 'N':1,
-                'isfree': True,
-                'init':1,
-                'units': None,
-                'prior_function': tophat,
-                'prior_args': {'mini':0.1, 'maxi':10}})
+default_parlist.append({'name': 'spec_norm', 'N':1,
+                        'isfree': True,
+                        'init':1,
+                        'units': None,
+                        'prior_function': tophat,
+                        'prior_args': {'mini':0.1, 'maxi':10}})
 
-parlist.append({'name': 'gp_jitter', 'N':1,
-                'isfree': True,
-                'init': 0.,
-                'units': 'spec units',
-                'prior_function': tophat,
-                'prior_args': {'mini':0.0, 'maxi':0.1}})
+default_parlist.append({'name': 'gp_jitter', 'N':1,
+                        'isfree': True,
+                        'init': 0.,
+                        'units': 'spec units',
+                        'prior_function': tophat,
+                        'prior_args': {'mini':0.0, 'maxi':0.1}})
 
-parlist.append({'name': 'gp_amplitude', 'N':1,
-                'isfree': True,
-                'init': 0.04,
-                'units': 'spec units',
-                'prior_function': tophat,
-                'prior_args': {'mini':0.0, 'maxi':3}})
+default_parlist.append({'name': 'gp_amplitude', 'N':1,
+                        'isfree': True,
+                        'init': 0.04,
+                        'units': 'spec units',
+                        'prior_function': tophat,
+                        'prior_args': {'mini':0.0, 'maxi':3}})
 
-parlist.append({'name': 'gp_length', 'N':1,
-                'isfree': True,
-                'init': 50.0,
-                'units': r'$\AA$',
-                'prior_function': tophat,
-                'prior_args': {'mini':20.0, 'maxi':200}})
+default_parlist.append({'name': 'gp_length', 'N':1,
+                        'isfree': True,
+                        'init': 50.0,
+                        'units': r'$\AA$',
+                        'prior_function': tophat,
+                        'prior_args': {'mini':20.0, 'maxi':200}})
 
-parlist.append({'name': 'phot_jitter', 'N':1,
-                'isfree': False,
-                'init': 0.0,
-                'units': 'maggies',
-                'prior_function': tophat,
-                'prior_args': {'mini':0.0, 'maxi':0.2}})
+default_parlist.append({'name': 'phot_jitter', 'N':1,
+                        'isfree': False,
+                        'init': 0.0,
+                        'units': 'maggies',
+                        'prior_function': tophat,
+                        'prior_args': {'mini':0.0, 'maxi':0.2}})
 
 ###### EMISSION ##############
 
@@ -189,25 +189,25 @@ lineinit = 3 * [-0.1 ] + 4 * [1.0 ] + 8 * [0.1 ]
 nlines = len(linelist)
 ewave = [elines.wavelength[l] for l in linelist]
 
-parlist.append({'name': 'emission_rest_wavelengths', 'N': nlines,
-                'isfree': False,
-                'init': ewave,
-                'line_names': linelist,
-                'units': r'$\AA$'})
+default_parlist.append({'name': 'emission_rest_wavelengths', 'N': nlines,
+                        'isfree': False,
+                        'init': ewave,
+                        'line_names': linelist,
+                        'units': r'$\AA$'})
 
-parlist.append({'name': 'emission_luminosity', 'N': nlines,
-                'isfree': True,
-                'init': lineinit,
-                'units': r'$L_\odot$',
-                'prior_function':tophat,
-                'line_names': linelist,
-                'prior_args':{'mini': linemin, 'maxi': linemax}})
+default_parlist.append({'name': 'emission_luminosity', 'N': nlines,
+                        'isfree': True,
+                        'init': lineinit,
+                        'units': r'$L_\odot$',
+                        'prior_function':tophat,
+                        'line_names': linelist,
+                        'prior_args':{'mini': linemin, 'maxi': linemax}})
 
-parlist.append({'name': 'emission_disp', 'N': 1, 'isfree': True,
-                'init': 2.2,
-                'units': r'$\AA$',
-                'prior_function':tophat,
-                'prior_args':{'mini':1.0, 'maxi':6.0}})
+default_parlist.append({'name': 'emission_disp', 'N': 1, 'isfree': True,
+                        'init': 2.2,
+                        'units': r'$\AA$',
+                        'prior_function':tophat,
+                        'prior_args':{'mini':1.0, 'maxi':6.0}})
 
 
 def write_plist(plist, runpars, filename):
@@ -215,6 +215,7 @@ def write_plist(plist, runpars, filename):
     Write the list of parameter dictionaries to a JSON file,
     taking care to replace functions with their names.
     """
+    
     for p in plist:
         #replace prior functions with names of those function
         pf = p.get('prior_function', None)
@@ -244,7 +245,7 @@ def read_plist(filename):
     Read a JSON file into a list of parameter dictionaries,
     taking care to add actual functions when given their names.
     """
-
+    
     f = open(filename, 'r')
     rp, plist = json.load(f)
     f.close()
@@ -259,7 +260,12 @@ def read_plist(filename):
             p['prior_function'] = None
     return rp, plist
     
-def initialize_model(rp, plist, obs):    
+def initialize_model(rp, plist, obs):
+    """
+    Take a run parameter dictionary and a model parameter list and
+    return a SedModel object, as well as a vector of initial values.
+    """
+    
     theta_desc, fixed_params  = {}, {}
     initial_theta = []
     count = 0
@@ -321,11 +327,7 @@ def norm_spectrum(model, initial_center, band_name = 'f475w'):
     #  the photometry, using the F475W filter as truth
     norm = 10**(-0.4*(synphot[norm_band] - model.obs['mags'][norm_band]))
     model.params['normalization_guess'] = norm
-    
-    #model.obs['spectrum'] *= norm
-    #model.obs['unc'] *= norm
-    #model.obs['scale'] = model.obs.get('scale', 1.0) * norm
-    
+       
     # Assume you've got this right to within some factor after
     #  marginalized over everything that changes spectral shape within
     #  the band (polynomial terms, dust, age, etc)
