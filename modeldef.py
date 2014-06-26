@@ -233,9 +233,10 @@ def write_plist(plist, runpars, filename):
                     (df in attenuation.__dict__.values()))
             if cond:
                 p['dust_curve_name'] = df.func_name
-
+                _ = p.pop('init', None)
+        
     f = open(filename + '.params', 'w')
-    json.dump([rp, p], f)
+    json.dump([rp, plist], f)
     f.close()    
 
 def read_plist(filename):
@@ -246,6 +247,7 @@ def read_plist(filename):
 
     f = open(filename, 'r')
     rp, plist = json.load(f)
+    f.close()
     for p in plist:
         #put the dust curve function in
         if 'dust_curve_name' in p:
@@ -255,7 +257,7 @@ def read_plist(filename):
             p['prior_function'] = priors.__dict__[p['prior_function_name']]
         else:
             p['prior_function'] = None
-    return parlist, rp
+    return rp, plist
     
 def initialize_model(rp, plist, obs):    
     theta_desc, fixed_params  = {}, {}
