@@ -22,7 +22,7 @@ def run_command(cmd):
     w = child.wait()
     return os.WEXITSTATUS(w), out
 
-def parse_args(argv, rp = {'param_file':''}):
+def parse_args(argv, rp={'param_file':''}):
     
     shortopt = ''
     try:
@@ -39,7 +39,7 @@ def parse_args(argv, rp = {'param_file':''}):
         print('reading parameters from {0}'.format(rp['param_file']))
     return rp
 
-def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool = None):
+def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
     """
     Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the production sampler.
@@ -86,7 +86,7 @@ def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool = None):
     return esampler
 
 def restart_sampler(sample_results, lnprobf, sps, niter,
-                    nthreads = 1, pool = None):
+                    nthreads=1, pool=None):
     """
     Restart a sampler from its last position and run it for a
     specified number of iterations.  The sampler chain should be given
@@ -103,8 +103,8 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     pass
 
         
-def pminimize(function, model, initial_center, method ='powell', opts = None,
-              pool = None, nthreads = 1):
+def pminimize(function, model, initial_center, method='powell', opts=None,
+              pool=None, nthreads=1):
     """
     Do as many minimizations as you have threads, in parallel.  Always
     use initial_center for one of the minimization streams, the rest
@@ -114,8 +114,9 @@ def pminimize(function, model, initial_center, method ='powell', opts = None,
     """
     
     # Instantiate the minimizer
-    mini = minimizer.Pminimize(function, method, opts, model,
-                               pool = pool, nthreads = 1)
+    mini = minimizer.Pminimize(function, opts, model,
+                               method=method,
+                               pool=pool, nthreads=1)
     size = mini.size
     # Get initial positions to start minimizations
     pinitial = [initial_center]
