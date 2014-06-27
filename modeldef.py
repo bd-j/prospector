@@ -13,8 +13,8 @@ rp = {'verbose':True,
       'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.01
       }
 
-defualt_parlist = []
-defualt_parlist.append({'name': 'lumdist', 'N': 1,
+default_parlist = []
+default_parlist.append({'name': 'lumdist', 'N': 1,
                         'isfree': False,
                         'init': 0.783,
                         'units': 'Mpc',
@@ -307,7 +307,7 @@ def initialize_model(rp, plist, obs):
     return model, initial_theta
 
 
-def norm_spectrum(model, initial_center, band_name = 'f475w'):
+def norm_spectrum(model, initial_center, band_name='f475w'):
     """
     Initial guess of spectral normalization using photometry.
 

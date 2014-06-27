@@ -22,21 +22,21 @@ def run_command(cmd):
     w = child.wait()
     return os.WEXITSTATUS(w), out
 
-def parse_args(argv, rp):
+def parse_args(argv, rp = {'param_file':''}):
     
     shortopt = ''
     try:
         opts, args = getopt.getopt(argv[1:],shortopt,[k+'=' for k in rp.keys()])
     except getopt.GetoptError:
-        print 'bsfh_mmt_hyades.py --nthreads <nthreads> --outfile <outfile>'
+        print 'bsfh.py -- param_file <filename>'
         sys.exit(2)
     for o, a in opts:
         try:
             rp[o[2:]] = float(a)
         except:
             rp[o[2:]] = a
-    if rp['verbose']:
-        print('Number of threads  = {0}'.format(rp['nthreads']))
+    if rp.get('verbose', False):
+        print('reading parameters from {0}'.format(rp['param_file']))
     return rp
 
 def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool = None):
@@ -113,28 +113,28 @@ def pminimize(function, model, initial_center, method ='powell', opts = None,
     positions.
     """
     
-    # Initialize the minimizer
+    # Instantiate the minimizer
     mini = minimizer.Pminimize(function, method, opts, model,
                                pool = pool, nthreads = 1)
-    
+    size = mini.size
     # Get initial positions to start minimizations
     pinitial = [initial_center]
     # Setup a 'grid' of parameter values uniformly distributed between
     #  min and max More generally, this should sample from the prior
     #  for each parameter
-    if nthreads > 1:
-        ginitial = np.zeros( [nthreads -1, model.ndim] )
+    if size > 1:
+        ginitial = np.zeros( [size -1, model.ndim] )
         for p, d in model.theta_desc.iteritems():
             start, stop = d['i0'], d['i0']+d['N']
             hi, lo = d['prior_args']['maxi'], d['prior_args']['mini']
             if d['N'] > 1:
-                ginitial[:,start:stop] = np.array([np.random.uniform(h, l, nthreads - 1)
+                ginitial[:,start:stop] = np.array([np.random.uniform(h, l,size - 1)
                                                    for h,l in zip(hi,lo)]).T
             else:
-                ginitial[:,start] = np.random.uniform(hi, lo, nthreads - 1)
+                ginitial[:,start] = np.random.uniform(hi, lo, size - 1)
         pinitial += ginitial.tolist()
-    print(nthreads, len(pinitial))
-
+    print(mini.pool.size, mini.pool is None, len(pinitial))
+    #sys.exit()
     #Actually run the minimizer
     powell_guesses = mini.run(pinitial)
 

@@ -8,14 +8,17 @@ class Pminimize(object):
         self.method = method
         self.opts = opts
         self.model = model
-        self.threads = nthreads
+        self._size = None
+        #self.threads = nthreads
 
         self.minimize = _function_wrapper(minimize, [chi2, model, method, opts])
         
         self.pool = pool
-        if self.threads > 1 and self.pool is None:
-            self.pool = multiprocessing.Pool(self.threads)
-
+        if nthreads > 1 and self.pool is None:
+            self.pool = multiprocessing.Pool(nthreads)
+            self._size = nthreads
+            #print(self._size)
+        #print(self.size)
     def run(self, pinit):
 
         if self.pool is not None:
@@ -25,11 +28,16 @@ class Pminimize(object):
 
         results = list( M(self.minimize,  [np.array(p) for p in pinit]) )
         return results
-        
-#    def _minimize(self, theta):
-#        result = minimize(self.chi2, theta,
-#                          method = self.method, options = self.opts)
-#        return result
+
+    @property
+    def size(self):
+        if self.pool is None:
+            return 1
+        elif self._size is not None:
+        #    print('uhoh')
+            return self._size
+        else:
+            return self.pool.size
     
 
 class _function_wrapper(object):
