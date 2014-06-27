@@ -39,7 +39,7 @@ def parse_args(argv, rp):
         print('Number of threads  = {0}'.format(rp['nthreads']))
     return rp
 
-def run_a_sampler(model, sps, lnprobf, initial_center, rp, pool = None):
+def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool = None):
     """
     Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the production sampler.
