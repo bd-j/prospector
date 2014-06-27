@@ -17,7 +17,7 @@ class StellarPopBasis(object):
     spectral grid.
     """
     
-    def __init__(self, smooth_velocity = True, debug =False):
+    def __init__(self, smooth_velocity=True, debug=False):
 
         self.debug = debug
         
@@ -35,7 +35,7 @@ class StellarPopBasis(object):
         self.basis_params = ['sigma_smooth','tage','zmet','dust1','dust2','dust_tesc','zred','outwave','dust_curve']
         self.basis_dirty =True
         
-    def get_spectrum(self, params, outwave, filters, nebular = True):
+    def get_spectrum(self, params, outwave, filters, nebular=True):
         """
         Return a spectrum for the given parameters.  If necessary the
         SSPs are updated, and if necessary the component spectra are
@@ -51,6 +51,11 @@ class StellarPopBasis(object):
         :param filters:
              A list of filters in which synthetic photometry is
              desired.  List of length (nfilt,)
+
+        :param nebular: (Default: True)
+            If True, add a nebular spectrum to the total spectrum.
+            Note that this is currently not added to the photometry as
+            well
 
         :returns spec:
             The spectrum at the wavelength points given by outwave,
@@ -71,7 +76,7 @@ class StellarPopBasis(object):
         if nebular:
             spec += neb
             
-        #phot  = 10**(-0.4 *getSED( outwave, spec, filters))
+        #phot  = 10**(-0.4 *getSED( outwave, spec, filters)) #can't do because wavelngth grid is truncated
         phot = (cphot * params['mass'][:,None]).sum(axis = 0)
         extra = (cextra * params['mass']).sum()
         

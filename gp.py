@@ -20,7 +20,7 @@ class GaussianProcess(object):
         self.a = None
         self.l = None
         
-    def factor(self, s, a, l, check_finite = True):
+    def factor(self, s, a, l, check_finite=True):
         """
         :param s:
             Jitter (diagonal) term
@@ -45,7 +45,7 @@ class GaussianProcess(object):
             self.log_det = np.sum(2 * np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
                 
-    def lnlike(self, residual, check_finite = True):
+    def lnlike(self, residual, check_finite=True):
         """
         Compute the ln of the likelihood.
         

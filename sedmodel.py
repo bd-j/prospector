@@ -11,7 +11,7 @@ class ThetaParameters(object):
     It must be intialized with a theta_desc, a description of the theta
     vector including the prior functions for each theta.
     """
-    def __init__(self, theta_desc = None, theta_init = None, **kwargs):
+    def __init__(self, theta_desc=None, theta_init=None, **kwargs):
         self.theta_desc = theta_desc
 
         self.params = {}
@@ -275,7 +275,7 @@ class SedModel(ThetaParameters):
         else:
             return -np.infty
   
-    def lnprob_grad(self, theta, sps = None):
+    def lnprob_grad(self, theta, sps=None):
         """
         Given theta, return a vector of gradients in lnP along the
         theta directions.  Theta can *only* include amplitudes in this
@@ -328,7 +328,6 @@ class SedModel(ThetaParameters):
                 gradp[start:stop] += g.get(p, 0)
 
         return gradp
-
 
 class Parameter(object):
     """

@@ -10,9 +10,9 @@ from sedpy import observate
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
 to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )
 
-def query_phatcat(objname, phottable = 'data/f2_apcanfinal_6phot_v2.fits',
-                      crosstable = None,
-                      filtcols = ['275','336','475','814','110','160']):
+def query_phatcat(objname, phottable='data/f2_apcanfinal_6phot_v2.fits',
+                      crosstable=None,
+                      filtcols=['275','336','475','814','110','160']):
     
     """
     Read LCJ's catalog for a certain object and return the magnitudes
@@ -40,9 +40,9 @@ def query_phatcat(objname, phottable = 'data/f2_apcanfinal_6phot_v2.fits',
     return mags, mags_unc, flags
         
 
-def load_obs_mmt(filename = None, objname = None, #dist = 1e-5, vel = 0.0,
-                  wlo = 3750., whi = 7200., verbose = False,
-                  phottable = 'data/f2_apcanfinal_6phot_v2.fits',
+def load_obs_mmt(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
+                  wlo=3750., whi=7200., verbose=False,
+                  phottable='data/f2_apcanfinal_6phot_v2.fits',
                   **kwargs):
     """
     Read one of Caldwell's MMT spectra and find the matching PHAT
@@ -91,9 +91,9 @@ def load_obs_mmt(filename = None, objname = None, #dist = 1e-5, vel = 0.0,
 
     return obs
 
-def load_obs_lris(filename = None, objname = None, #dist = 1e-5, vel = 0.0,
-                  wlo = 3550., whi = 5500., verbose = False,
-                  phottable = 'data/f2_apcanfinal_6phot_v2.fits',
+def load_obs_lris(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
+                  wlo=3550., whi=5500., verbose=False,
+                  phottable='data/f2_apcanfinal_6phot_v2.fits',
                   **kwargs):
     """
     Read one of the Keck LRIS spectra and find the matching PHAT
