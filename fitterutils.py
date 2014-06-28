@@ -134,7 +134,7 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
             else:
                 ginitial[:,start] = np.random.uniform(hi, lo, size - 1)
         pinitial += ginitial.tolist()
-    print(mini.pool.size, mini.pool is None, len(pinitial))
+    #print(mini.pool.size, mini.pool is None, len(pinitial))
     #sys.exit()
     #Actually run the minimizer
     powell_guesses = mini.run(pinitial)
