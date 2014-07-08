@@ -7,9 +7,10 @@ import matplotlib.pyplot as pl
 import triangle
 import pickle
 
-def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
-                     showpars = None,
-                     nspec = 5, thin = 10, start = 0, outname = None):
+def diagnostic_plots(sample_file, sps, model_file=None,
+                     powell_file=None, inmod=None,
+                     showpars=None,
+                     nspec=5, thin=10, start=0, outname=None):
     """
     Plots a number of diagnostics.  These include:
         spectrum -
@@ -39,8 +40,8 @@ def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
     #read results and set up model
     if outname is None:
         outname = sample_file#''.join(sample_file.split('.')[:-1])
-    sample_results, pr, model = read_pickles(sample_file, powell_file = powell_file,
-                                             inmod = inmod)
+    sample_results, pr, model = read_pickles(sample_file, model_file = model_file
+                                             powell_file = powell_file, inmod = inmod)
     for k, v in model.params.iteritems():
         try:
             sps.params[k] = v
@@ -96,26 +97,32 @@ def diagnostic_plots(sample_file, sps, powell_file = None, inmod = None,
     return outname, sample_results, model
 
 
-def read_pickles(sample_file, powell_file = None, inmod = None):
+def read_pickles(sample_file, model_file=None,
+                 powell_file=None, inmod=None):
     """
     Read a pickle file with stored model and MCMC chains.
     """
     sample_results = pickle.load( open(sample_file, 'rb'))
+    powell_results = None
+    if model_file:
+        mf = pickle.load( open(model_file, 'rb'))
+        inmod = mf['model']
+        powell_results = mf['powell']
     if powell_file:
         powell_results = pickle.load( open(powell_file, 'rb'))
-    else:
-        powell_results = None
+
     try:
         model = sample_results['model']
     except (KeyError):
         model = inmod
         model.theta_desc = sample_results['theta']
+        sample_results['model'] = model
         
     return sample_results, powell_results, model
 
-def model_obs(sample_results, sps, photflag = 0, outname = None,
-              start = 0, rindex =None, nsample = 10,
-              wlo = 3500, whi = 9e3, extraname = ''):
+def model_obs(sample_results, sps, photflag=0, outname=None,
+              start=0, rindex =None, nsample=10,
+              wlo=3500, whi=9e3, extraname=''):
 
     """
     Plot the observed spectrum and overlay samples of the model
@@ -167,9 +174,9 @@ def model_obs(sample_results, sps, photflag = 0, outname = None,
         pl.close()
     return rindex
 
-def stellar_pop(sample_results, sps, outname = None, normalize_by =None,
-                start = 0, rindex =None, nsample = 10,
-                wlo = 3500, whi = 9e3, extraname = '', **kwargs):
+def stellar_pop(sample_results, sps, outname=None, normalize_by=None,
+                start=0, rindex=None, nsample=10,
+                wlo=3500, whi=9e3, extraname='', **kwargs):
     """
     Plot samples of the posteriro for just the stellar population and
     dust model.
@@ -208,12 +215,12 @@ def stellar_pop(sample_results, sps, outname = None, normalize_by =None,
         pl.savefig('{0}.{1}{2}.png'.format(outname, 'stars', extraname), dpi = 300)
         pl.close()
 
-def model_components(theta, sample_results, obs, sps, photflag = 0):
+def model_components(theta, sample_results, obs, sps, photflag=0):
     """
     Generate and return various components of the total model for a
     given set of parameters
     """
-    full_pred = sample_results['model'].model(theta, sps =sps)[photflag]
+    full_pred = sample_results['model'].mean_model(theta, sps =sps)[photflag]
     res = 0
     spec = obs['spectrum']
     mask = obs['mask']
@@ -230,9 +237,9 @@ def model_components(theta, sample_results, obs, sps, photflag = 0):
         
     return ypred, res, cal, mask, spop
 
-def residuals(sample_results, sps, photflag = 0, outname = None,
-              nsample = 5, rindex = None, start = 0,
-              wlo = 3600, whi = 7500, **kwargs):
+def residuals(sample_results, sps, photflag=0, outname=None,
+              nsample=5, rindex=None, start=0,
+              wlo=3600, whi=7500, **kwargs):
     """
     Plot residuals of the observations from samples of the model
     posterior.  This is done in terms of relative, uncertainty
@@ -302,7 +309,7 @@ def obsdict(sample_results, photflag):
         
     return obs, outn, marker
         
-def param_evol(sample_results, outname =None, showpars =None, start = 0):
+def param_evol(sample_results, outname=None, showpars=None, start=0):
     """
     Plot the evolution of each parameter value with iteration #, for
     each chain.
@@ -347,8 +354,8 @@ def param_evol(sample_results, outname =None, showpars =None, start = 0):
         pl.close()
 
 
-def subtriangle(sample_results, outname =None, showpars =None,
-             start = 0, thin = 1):
+def subtriangle(sample_results, outname=None, showpars=None,
+                start=0, thin=1):
     """
     Make a triangle plot of the (thinned, latter) samples of the posterior
     parameter space.  Optionally make the plot only for a supplied subset
@@ -398,7 +405,8 @@ def theta_labels(desc):
     return [l for (i,l) in sorted(zip(index,label))]
 
 
-def sample_photometry(sample_results, sps, filterlist, start = 0, wthin = 16, tthin = 10):
+def sample_photometry(sample_results, sps, filterlist,
+                      start=0, wthin=16, tthin=10):
 
     chain, model = sample_results['chain'], sample_results['model']
     for k, v in model.sps_fixed_params.iteritems():

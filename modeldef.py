@@ -7,7 +7,7 @@ from priors import tophat
 rp = {'verbose':True,
       'filename':'data/mmt/nocal/020.B192-G242.s.fits',
       'objname': 'B192-G242',
-      'outfile':'results/test_',
+      'outfile':'results/test',
       'wlo':3750., 'whi': 7200.,
       'ftol':0.5e-5, 'maxfev':500, 'nsamplers':1,
       'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.01
@@ -219,6 +219,7 @@ def write_plist(plist, runpars, filename):
     for p in plist:
         #replace prior functions with names of those function
         pf = p.get('prior_function', None)
+        #print(p['name'], pf)
         cond = ((pf in priors.__dict__.values()) and 
                 (pf is not None))
         if cond:
@@ -236,7 +237,7 @@ def write_plist(plist, runpars, filename):
                 p['dust_curve_name'] = df.func_name
                 _ = p.pop('init', None)
         
-    f = open(filename + '.params', 'w')
+    f = open(filename + '.bpars.json', 'w')
     json.dump([rp, plist], f)
     f.close()    
 
@@ -250,12 +251,14 @@ def read_plist(filename):
     rp, plist = json.load(f)
     f.close()
     for p in plist:
+        #print(p['name'], p.get('prior_function_name','nope'))
         #put the dust curve function in
         if 'dust_curve_name' in p:
             p['init'] = attenuation.__dict__[p['dust_curve_name']]
         #put the prior function in
         if 'prior_function_name' in p:
             p['prior_function'] = priors.__dict__[p['prior_function_name']]
+            print(p['prior_function_name'], p['prior_function'])
         else:
             p['prior_function'] = None
     return rp, plist
