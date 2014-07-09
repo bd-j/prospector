@@ -40,7 +40,7 @@ def diagnostic_plots(sample_file, sps, model_file=None,
     #read results and set up model
     if outname is None:
         outname = sample_file#''.join(sample_file.split('.')[:-1])
-    sample_results, pr, model = read_pickles(sample_file, model_file = model_file
+    sample_results, pr, model = read_pickles(sample_file, model_file = model_file,
                                              powell_file = powell_file, inmod = inmod)
     for k, v in model.params.iteritems():
         try:
@@ -115,7 +115,7 @@ def read_pickles(sample_file, model_file=None,
         model = sample_results['model']
     except (KeyError):
         model = inmod
-        model.theta_desc = sample_results['theta']
+        #model.theta_desc = sample_results['theta']
         sample_results['model'] = model
         
     return sample_results, powell_results, model
@@ -178,7 +178,7 @@ def stellar_pop(sample_results, sps, outname=None, normalize_by=None,
                 start=0, rindex=None, nsample=10,
                 wlo=3500, whi=9e3, extraname='', **kwargs):
     """
-    Plot samples of the posteriro for just the stellar population and
+    Plot samples of the posterior for just the stellar population and
     dust model.
     """
     start = np.min([start, sample_results['chain'].shape[1]])
@@ -227,9 +227,16 @@ def model_components(theta, sample_results, obs, sps, photflag=0):
     ypred, spec = full_pred[mask], spec[mask]
     if photflag == 0:
         cal = sample_results['model'].calibration()
-        if  sample_results.has_key('gp'):
-            res = sample_results['gp'].predict(spec - ypred)
-        spop = full_pred/cal - sample_results['model'].nebular()
+        #try:
+        gp = sample_results['model'].gp
+        s = sample_results['model'].params['gp_jitter']
+        a = sample_results['model'].params['gp_amplitude']
+        l = sample_results['model'].params['gp_length']
+        gp.factor(s, a, l, check_finite = False)
+        res = gp.predict(spec - ypred)
+        #except:
+        #    res = 0
+        spop = full_pred/cal #- sample_results['model'].nebular()
     else:
         mask = np.ones(len(obs['wavelength']), dtype = bool)
         cal = np.zeros(len(obs['wavelength']))
