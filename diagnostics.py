@@ -45,8 +45,8 @@ def diagnostic_plots(sample_file, sps, model_file=None,
     #read results and set up model
     if outname is None:
         outname = sample_file#''.join(sample_file.split('.')[:-1])
-    sample_results, pr, model = read_pickles(sample_file, model_file = model_file,
-                                             powell_file = powell_file, inmod = inmod)
+    sample_results, pr, model = read_pickles(sample_file, model_file=model_file,
+                                             powell_file=powell_file, inmod=inmod)
     for k, v in model.params.iteritems():
         try:
             sps.params[k] = v
@@ -55,27 +55,27 @@ def diagnostic_plots(sample_file, sps, model_file=None,
 
     ## Plot spectra and SEDs
     ##
-    rindex = model_obs(sample_results, sps, photflag = 0, outname = outname, nsample =nspec,
-                       wlo = 3400, whi = 10e3, start =start)
-    _ = model_obs(sample_results, sps, photflag = 0, outname = outname, rindex = rindex,
-                 wlo = 3600, whi = 4450, extraname = '_blue', start =start)
-    _ = model_obs(sample_results, sps, photflag = 1, outname = outname, nsample = 15,
-                  wlo = 2500, whi = 8.5e3, start = start)
+    rindex = model_obs(sample_results, sps, photflag=0, outname=outname, nsample=nspec,
+                       wlo=3400, whi =10e3, start=start)
+    _ = model_obs(sample_results, sps, photflag=0, outname=outname, rindex=rindex,
+                 wlo=3600, whi=4450, extraname='_blue', start=start)
+    _ = model_obs(sample_results, sps, photflag=1, outname=outname, nsample=15,
+                  wlo=2500, whi=8.5e3, start=start)
 
-    stellar_pop(sample_results, sps, outname = outname, nsample = nspec,
-                  wlo = 3500, whi = 9.5e3, start = start,
+    stellar_pop(sample_results, sps, outname=outname, nsample=nspec,
+                  wlo=3500, whi=9.5e3, start=start,
                   alpha = 0.5, color = 'green')
     
     ## Plot spectral and SED residuals
     ##
-    residuals(sample_results, sps, photflag = 0, outname = outname, nsample = nspec,
-              linewidth = 0.5, alpha = 0.3, color = 'blue', marker = None, start = start, rindex =rindex)
-    residuals(sample_results, sps, photflag = 1, outname = outname, nsample = 15,
-              linewidth = 0.5, alpha = 0.3, color = 'blue', marker = 'o', start = start, rindex = rindex)
+    residuals(sample_results, sps, photflag=0, outname=outname, nsample=nspec,
+              linewidth=0.5, alpha=0.3, color='blue', marker=None, start=start, rindex=rindex)
+    residuals(sample_results, sps, photflag=1, outname = outname, nsample = 15,
+              linewidth=0.5, alpha=0.3, color='blue', marker='o', start=start, rindex=rindex)
     
     ## Plot parameters versus step
     ##
-    param_evol(sample_results, outname = outname, showpars = showpars)
+    param_evol(sample_results, outname=outname, showpars=showpars)
     
     ## Plot lnprob vs step (with a zoom-in)
     ##
@@ -95,9 +95,9 @@ def diagnostic_plots(sample_file, sps, model_file=None,
     
     ## Triangle plot
     ##
-    subtriangle(sample_results, outname = outname,
-                showpars =showpars,
-                start = start, thin = thin)
+    subtriangle(sample_results, outname=outname,
+                showpars=showpars,
+                start=start, thin=thin)
         
     return outname, sample_results, model
 
@@ -141,44 +141,49 @@ def model_obs(sample_results, sps, photflag=0, outname=None,
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
     
-    #draw samples
+    # draw samples
     if rindex is None:
         rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
     else:
         nsample = len(rindex)
-    #set up the observation dictionary for spectrum or SED
+    # set up the observation dictionary for spectrum or SED
     obs, outn, marker = obsdict(sample_results, photflag)
 
     # set up plot window and plot data
     pl.figure()
     pl.axhline( 0, linestyle = ':', color ='black') 
     pl.plot(obs['wavelength'], obs['spectrum'],
-            marker = marker, linewidth = 0.5, color = 'blue',label = 'observed')
-    #plot the minimization result
+            marker=marker, linewidth=0.5,
+            color='blue', label='observed')
+    
+    # plot the minimization result
     theta = sample_results['initial_center']
-    ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag = photflag)
+    ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag=photflag)
     pl.plot(obs['wavelength'][mask], ypred + res,
-            marker = marker, alpha = 0.5, linewidth = 0.3, color = 'cyan', label = 'minimization result')
-    #loop over drawn samples and plot the model components
+            marker=marker, alpha=0.5, linewidth=0.3,
+            color='cyan', label='minimization result')
+    
+    # loop over drawn samples and plot the model components
     label = ['full model', 'calib.', 'GP']
     for i in range(nsample):
         theta = flatchain[rindex[i],:]
-        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag = photflag)
+        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag=photflag)
+        
         pl.plot(obs['wavelength'][mask], np.zeros(mask.sum()) + res,
-                linewidth = 0.5, alpha = 0.5, color = 'red', label = label[2])
+                linewidth=0.5, alpha=0.5, color='red', label=label[2])
         pl.plot(obs['wavelength'], cal * sample_results['model'].params.get('linescale', 1.0),
-                linewidth = 0.5, color = 'magenta', label = label[1])
+                linewidth=0.5, color='magenta', label=label[1])
         pl.plot(obs['wavelength'][mask], ypred + res,
-                marker = marker, alpha = 0.5 , color = 'green',label = label[0])
+                marker=marker, alpha=0.5 , color='green', label=label[0])
         label = 3 * [None]
         
-    pl.legend(loc =0, fontsize = 'small')
+    pl.legend(loc=0, fontsize='small')
     pl.xlim(wlo, whi)
     pl.xlabel(r'$\AA$')
     pl.ylabel('Rate')
     pl.title(title[photflag])
     if outname is not None:
-        pl.savefig('{0}.{1}{2}.png'.format(outname, outn, extraname), dpi = 300)
+        pl.savefig('{0}.{1}{2}.png'.format(outname, outn, extraname), dpi=300)
         pl.close()
     return rindex
 
@@ -193,21 +198,22 @@ def stellar_pop(sample_results, sps, outname=None, normalize_by=None,
     flatchain = sample_results['chain'][:,start:,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
-    #draw samples
+    # draw samples
     if rindex is None:
         rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
-    #set up the observation dictionary for spectrum or SED
+    # set up the observation dictionary for spectrum or SED
     obs, outn, marker = obsdict(sample_results, 0)
 
-    # set up plot window and plot data
+    # set up plot window 
     pl.figure()
-    pl.axhline( 0, linestyle = ':', color ='black') 
-    #loop over drawn samples and plot the model components
+    pl.axhline( 0, linestyle=':', color='black')
+    
+    # loop over drawn samples and plot the model components
     label = ['Stars & Dust']
     xl = ''
     for i in range(nsample):
         theta = flatchain[rindex[i],:]
-        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag =0)
+        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag=0)
         if normalize_by is not None:
             spop /= spop[normalize_by]
             xl = '/C'
@@ -220,7 +226,7 @@ def stellar_pop(sample_results, sps, outname=None, normalize_by=None,
     pl.xlabel(r'$\AA$')
     pl.ylabel(r'L$_\lambda {0}$ (L$_\odot/\AA$)'.format(xl))
     if outname is not None:
-        pl.savefig('{0}.{1}{2}.png'.format(outname, 'stars', extraname), dpi = 300)
+        pl.savefig('{0}.{1}{2}.png'.format(outname, 'stars', extraname), dpi=300)
         pl.close()
 
 def model_components(theta, sample_results, obs, sps, photflag=0):
@@ -228,7 +234,7 @@ def model_components(theta, sample_results, obs, sps, photflag=0):
     Generate and return various components of the total model for a
     given set of parameters
     """
-    full_pred = sample_results['model'].mean_model(theta, sps =sps)[photflag]
+    full_pred = sample_results['model'].mean_model(theta, sps=sps)[photflag]
     res = 0
     spec = obs['spectrum']
     mask = obs['mask']
@@ -246,7 +252,7 @@ def model_components(theta, sample_results, obs, sps, photflag=0):
             res = 0
         spop = full_pred/cal #- sample_results['model'].nebular()
     else:
-        mask = np.ones(len(obs['wavelength']), dtype = bool)
+        mask = np.ones(len(obs['wavelength']), dtype= bool)
         cal = np.zeros(len(obs['wavelength']))
         spop = None
         
@@ -266,18 +272,18 @@ def residuals(sample_results, sps, photflag=0, outname=None,
     flatchain = sample_results['chain'][:,start:,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
-    #draw samples
+    # draw samples
     if rindex is None:
         rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
     nsample = len(rindex)
         
-    #set up the observation dictionary for spectrum or SED
+    # set up the observation dictionary for spectrum or SED
     obs, outn, marker = obsdict(sample_results, photflag)
             
-    #set up plot window
+    # set up plot window
     fig, axes = pl.subplots(3,1)
-    #draw guidelines
-    [a.axhline( int(i==0), linestyle = ':', color ='black') for i,a in enumerate(axes)]
+    # draw guidelines
+    [a.axhline( int(i==0), linestyle=':', color='black') for i,a in enumerate(axes)]
     axes[0].set_ylabel('obs/model')
     axes[0].set_ylim(0.5,1.5)
     axes[0].set_xticklabels([])
@@ -287,10 +293,10 @@ def residuals(sample_results, sps, photflag=0, outname=None,
     axes[2].set_ylabel(r'(obs-model)')
     axes[2].set_xlabel(r'$\AA$')
     
-    #loop over the drawn samples
+    # loop over the drawn samples
     for i in range(nsample):
         theta = flatchain[rindex[i],:]
-        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag = photflag)
+        ypred, res, cal, mask, spop = model_components(theta, sample_results, obs, sps, photflag=photflag)
         wave, ospec, mod = obs['wavelength'][mask],  obs['spectrum'][mask], (ypred + res)
         axes[0].plot(wave, ospec / mod, **kwargs)
         axes[1].plot(wave, (ospec - mod) / obs['unc'][mask], **kwargs)
@@ -301,7 +307,7 @@ def residuals(sample_results, sps, photflag=0, outname=None,
 
     fig.subplots_adjust(hspace =0)
     if outname is not None:
-        fig.savefig('{0}.{1}_residuals.png'.format(outname, outn), dpi = 300)
+        fig.savefig('{0}.{1}_residuals.png'.format(outname, outn), dpi=300)
         pl.close()
         
 def obsdict(sample_results, photflag):
@@ -336,7 +342,7 @@ def param_evol(sample_results, outname=None, showpars=None, start=0):
 
     #restrict to desired parameters
     if showpars is not None:
-        ind_show = np.array([p in showpars for p in parnames], dtype = bool)
+        ind_show = np.array([p in showpars for p in parnames], dtype= bool)
         parnames = parnames[ind_show]
         chain = chain[:,:,ind_show]
 
@@ -377,22 +383,22 @@ def subtriangle(sample_results, outname=None, showpars=None,
     of the parameters.
     """
 
-    #pull out the parameter names and flatten the thinned chains
+    # pull out the parameter names and flatten the thinned chains
     parnames = np.array(theta_labels(sample_results['model'].theta_desc))
     flatchain = sample_results['chain'][:,start::thin,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
     truths = sample_results['initial_center']
 
-    #restrict to parameters you want to show
+    # restrict to parameters you want to show
     if showpars is not None:
-        ind_show = np.array([p in showpars for p in parnames], dtype = bool)
+        ind_show = np.array([p in showpars for p in parnames], dtype= bool)
         flatchain = flatchain[:,ind_show]
         truths = truths[ind_show]
         parnames= parnames[ind_show]
         
     fig = triangle.corner(flatchain, labels = parnames,
-                          quantiles=[0.16, 0.5, 0.84], verbose =False,
+                          quantiles=[0.16, 0.5, 0.84], verbose=False,
                           truths = truths)
     if outname is not None:
         fig.savefig('{0}.triangle.png'.format(outname))
@@ -408,7 +414,8 @@ def theta_labels(desc):
     for p in desc.keys():
         nt = desc[p]['N']
         name = p
-        if p is 'amplitudes': name = 'A'
+        if p is 'amplitudes':
+            name = 'A'
         if nt is 1:
             label.append(name)
             index.append(desc[p]['i0'])
@@ -433,7 +440,7 @@ def sample_photometry(sample_results, sps, filterlist,
     phot = np.zeros( len(wit), len(tit), len(filterlist)) #build storage
     for i in wit:
         for j in tit:
-            s, p, m = model.model(chain[i,j,:], sps =sps)
+            s, p, m = model.model(chain[i,j,:], sps=sps)
             phot[i,j,:] = p
             #mass[i,j] = m
     return phot, wit, tit
