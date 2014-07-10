@@ -1,7 +1,7 @@
 import json
 from sedpy import observate, attenuation
 import elines, sedmodel, gp
-import priors
+#import priors
 from priors import tophat
 
 rp = {'verbose':True,
@@ -241,7 +241,7 @@ def write_plist(plist, runpars, filename):
     json.dump([rp, plist], f)
     f.close()    
 
-def read_plist(filename):
+def read_plist(filename, raw_json  = False):
     """
     Read a JSON file into a list of parameter dictionaries,
     taking care to add actual functions when given their names.
@@ -250,6 +250,9 @@ def read_plist(filename):
     f = open(filename, 'r')
     rp, plist = json.load(f)
     f.close()
+    if raw_json:
+        return rp, plist
+    
     for p in plist:
         #print(p['name'], p.get('prior_function_name','nope'))
         #put the dust curve function in

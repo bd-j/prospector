@@ -6,6 +6,11 @@ import numpy as np
 import matplotlib.pyplot as pl
 import triangle
 import pickle
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
+
 
 def diagnostic_plots(sample_file, sps, model_file=None,
                      powell_file=None, inmod=None,
@@ -54,7 +59,7 @@ def diagnostic_plots(sample_file, sps, model_file=None,
                        wlo = 3400, whi = 10e3, start =start)
     _ = model_obs(sample_results, sps, photflag = 0, outname = outname, rindex = rindex,
                  wlo = 3600, whi = 4450, extraname = '_blue', start =start)
-    _ = model_obs(sample_results, sps, photflag = 1, outname = outname, rindex = rindex,
+    _ = model_obs(sample_results, sps, photflag = 1, outname = outname, nsample = 15,
                   wlo = 2500, whi = 8.5e3, start = start)
 
     stellar_pop(sample_results, sps, outname = outname, nsample = nspec,
@@ -105,7 +110,8 @@ def read_pickles(sample_file, model_file=None,
     sample_results = pickle.load( open(sample_file, 'rb'))
     powell_results = None
     if model_file:
-        mf = pickle.load( open(model_file, 'rb'))
+        #mf = pickle.load( open(model_file, 'rb'))
+        mf = load(open(model_file, 'rb'))
         inmod = mf['model']
         powell_results = mf['powell']
     if powell_file:
@@ -138,6 +144,8 @@ def model_obs(sample_results, sps, photflag=0, outname=None,
     #draw samples
     if rindex is None:
         rindex = np.random.uniform(0, flatchain.shape[0], nsample).astype( int )
+    else:
+        nsample = len(rindex)
     #set up the observation dictionary for spectrum or SED
     obs, outn, marker = obsdict(sample_results, photflag)
 
@@ -227,15 +235,15 @@ def model_components(theta, sample_results, obs, sps, photflag=0):
     ypred, spec = full_pred[mask], spec[mask]
     if photflag == 0:
         cal = sample_results['model'].calibration()
-        #try:
-        gp = sample_results['model'].gp
-        s = sample_results['model'].params['gp_jitter']
-        a = sample_results['model'].params['gp_amplitude']
-        l = sample_results['model'].params['gp_length']
-        gp.factor(s, a, l, check_finite = False)
-        res = gp.predict(spec - ypred)
-        #except:
-        #    res = 0
+        try:
+            gp = sample_results['model'].gp
+            s = sample_results['model'].params['gp_jitter']
+            a = sample_results['model'].params['gp_amplitude']
+            l = sample_results['model'].params['gp_length']
+            gp.factor(s, a, l, check_finite = False)
+            res = gp.predict(spec - ypred)
+        except:
+            res = 0
         spop = full_pred/cal #- sample_results['model'].nebular()
     else:
         mask = np.ones(len(obs['wavelength']), dtype = bool)
@@ -429,3 +437,26 @@ def sample_photometry(sample_results, sps, filterlist,
             phot[i,j,:] = p
             #mass[i,j] = m
     return phot, wit, tit
+
+## All this because scipy changed
+# the name of one class, which shouldn't even be a class.
+
+renametable = {
+    'Result': 'OptimizeResult',
+    }
+
+def mapname(name):
+    if name in renametable:
+        return renametable[name]
+    return name
+
+def mapped_load_global(self):
+    module = mapname(self.readline()[:-1])
+    name = mapname(self.readline()[:-1])
+    klass = self.find_class(module, name)
+    self.append(klass)
+
+def load(file):
+    unpickler = pickle.Unpickler(file)
+    unpickler.dispatch[pickle.GLOBAL] = mapped_load_global
+    return unpickler.load()
