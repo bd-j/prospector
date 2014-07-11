@@ -1,7 +1,7 @@
 import json
 from sedpy import observate, attenuation
 import elines, sedmodel, gp
-#import priors
+import priors
 from priors import tophat
 
 rp = {'verbose':True,
