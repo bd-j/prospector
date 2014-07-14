@@ -261,7 +261,7 @@ def read_plist(filename, raw_json  = False):
         #put the prior function in
         if 'prior_function_name' in p:
             p['prior_function'] = priors.__dict__[p['prior_function_name']]
-            print(p['prior_function_name'], p['prior_function'])
+            #print(p['prior_function_name'], p['prior_function'])
         else:
             p['prior_function'] = None
     return rp, plist
