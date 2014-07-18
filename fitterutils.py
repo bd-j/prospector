@@ -70,7 +70,7 @@ def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
         # Choose the best walker and build a ball around it based on
         #   the other walkers
         tmp = np.percentile(epos, [0.25, 0.5, 0.75], axis = 0)
-        relative_scatter = np.abs(1.5 * (tmp[2] -tmp[0])/tmp[1])
+        relative_scatter = np.abs((tmp[2] -tmp[0]) / tmp[1] / 1.35)
         best = np.argmax(eprob)
         initial = epos[best,:] * (1 + np.random.normal(0, 1, epos.shape) * relative_scatter[None,:]) 
         esampler.reset()
@@ -89,10 +89,11 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
                     nthreads=1, pool=None):
     """
     Restart a sampler from its last position and run it for a
-    specified number of iterations.  The sampler chain should be given
-    in the sample_results dictionary.  Note that lnprobfn and sps must
-    be defined at the global level in the same way as the sampler
-    originally ran.
+    specified number of iterations.  The sampler chain and the model
+    object should be given in the sample_results dictionary.  Note
+    that lnprobfn and sps must be defined at the global level in the
+    same way as the sampler originally ran, or your results will be
+    super weird (and wrong)!
     """
     model = sample_results['model']
     initial = sample_results['chain'][:,-1,:]
@@ -100,7 +101,7 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf, args = [model],
                                      threads = nthreads,  pool = pool)
     epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0 =state)
-    pass
+    return esampler
 
         
 def pminimize(function, model, initial_center, method='powell', opts=None,
@@ -141,3 +142,46 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
 
     return [powell_guesses, pinitial]
     
+def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
+    """
+    Run a (single) HMC chain, performing initial steps to adjust the epsilon.
+    """
+    import hmc
+
+    sampler = hmc.BasicHMC() 
+    eps = 0.
+    ##need to fix this:
+    length = None
+    niter = None
+    nsegmax= None
+    nchains = None
+    
+    #initial conditions and calulate initial epsilons
+    pos, prob, thiseps = sampler.sample(initial_center, model, iterations = 10, epsilon = None,
+                                    length = length, store_trajectories = False, nadapt = 0)
+    eps = thiseps
+
+    # Adaptation of stepsize
+    for k in range(nsegmax):
+        #advance each sampler after adjusting step size
+        afrac = sampler.accepted.sum()*1.0/sampler.chain.shape[0]
+        if afrac >= 0.9:
+            shrink = 2.0
+        elif afrac <= 0.6:
+            shrink = 1/2.0
+        else:
+            shrink = 1.00
+        
+        eps *= shrink
+        pos, prob, thiseps = sampler.sample(sampler.chain[-1,:], model, iterations = iterations,
+                                        epsilon = eps, length = length, store_trajectories = False, nadapt = 0)
+        alleps[k] = thiseps #this should not have actually changed during the sampling
+
+    #main run
+    afrac = sampler.accepted.sum()*1.0/sampler.chain.shape[0]
+    if afrac < 0.6:
+        eps = eps/1.5
+    hpos, hprob, eps = sampler.sample(initial_center, model, iterations = niter,
+                                      epsilon = eps, length = length,
+                                      store_trajectories = False, nadapt = 0)
+    return sampler

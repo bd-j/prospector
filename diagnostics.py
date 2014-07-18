@@ -99,7 +99,7 @@ def diagnostic_plots(sample_file, sps, model_file=None,
                 showpars=showpars,
                 start=start, thin=thin)
         
-    return outname, sample_results, model
+    return outname, sample_results, model, pr
 
 
 def read_pickles(sample_file, model_file=None,
@@ -109,6 +109,7 @@ def read_pickles(sample_file, model_file=None,
     """
     sample_results = pickle.load( open(sample_file, 'rb'))
     powell_results = None
+    model = None
     if model_file:
         #mf = pickle.load( open(model_file, 'rb'))
         mf = load(open(model_file, 'rb'))
