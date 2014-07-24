@@ -243,12 +243,11 @@ def model_components(theta, sample_results, obs, sps, photflag=0):
     if photflag == 0:
         cal = sample_results['model'].calibration()
         try:
-            gp = sample_results['model'].gp
             s = sample_results['model'].params['gp_jitter']
             a = sample_results['model'].params['gp_amplitude']
             l = sample_results['model'].params['gp_length']
-            gp.factor(s, a, l, check_finite = False)
-            res = gp.predict(spec - ypred)
+            sample_results['model'].gp.factor(s, a, l, check_finite = False)
+            res = sample_results['model'].gp.predict(spec - ypred)
         except:
             res = 0
         spop = full_pred/cal #- sample_results['model'].nebular()

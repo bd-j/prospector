@@ -56,14 +56,43 @@ class GaussianProcess(object):
                               cho_solve(self.factorized_Sigma, residual, check_finite = True))
                               + self.log_det)
 
-    def predict(self, residual):
+    def predict(self, residual, wave=None):
         """
         For a given residual vector, give the GP mean prediction at each wavelength.
 
         :param residual:
             Vector of residuals (y_data - mean_model).
+            
+        :param wave: default None
+            Wavelengths at which variance estimates are desired.
+            Defaults to the input wavelengths.
         """
-        Sigma = self.a**2 * np.exp(-(self.wave[:,None] -self.wave[None,:])**2/(2*self.l**2))
+        
+        if wave is None:
+            wave = self.wave
+        Sigma = self.a**2 * np.exp(-(wave[:,None] -self.wave[None,:])**2/(2*self.l**2))
         Sigma[np.diag_indices_from(Sigma)] += ( self.s**2)        
         return np.dot(Sigma, cho_solve(self.factorized_Sigma, residual))
 
+    def predict_var(self, wave=None):
+        """
+       Give the GP prediction variance at each wavelength.
+
+        :param wave: default None
+            Wavelengths at which variance estimates are desired.
+            Defaults to the input wavelengths.
+        """
+        
+        if wave is None:
+            inwave = self.wave
+        else:
+            inwave = wave
+        Sigma = self.a**2 * np.exp(-(inwave[:,None] -self.wave[None,:])**2/(2*self.l**2))
+        Sigma[np.diag_indices_from(Sigma)] += ( self.s**2)
+        if wave is None:
+            Sigma_star = Sigma
+        else:
+            Sigma_star = self.a**2 * np.exp(-(inwave[:,None] - inwave[None,:])**2/(2*self.l**2))
+            Sigma_star[np.diag_indices_from(Sigma_star)] += ( self.s**2)
+       
+        return Sigma_star - np.dot(Sigma, cho_solve(self.factorized_Sigma, Sigma))
