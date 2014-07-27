@@ -80,7 +80,8 @@ class GaussianProcess(object):
 
         :param wave: default None
             Wavelengths at which variance estimates are desired.
-            Defaults to the input wavelengths.
+            Defaults to the input wavelengths - the variance is zero
+            in theis case.
         """
         
         if wave is None:
