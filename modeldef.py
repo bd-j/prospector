@@ -40,7 +40,7 @@ default_parlist.append({'name': 'tage', 'N': 1,
 default_parlist.append({'name': 'zmet', 'N': 1,
                         'isfree': True,
                         'init': -0.2,
-                        'units:': r'$\log (Z/Z_\odot)$',
+                        'units': r'$\log (Z/Z_\odot)$',
                         'prior_function': tophat,
                         'prior_args': {'mini':-1, 'maxi':0.19}})
 
