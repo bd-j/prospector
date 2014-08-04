@@ -59,11 +59,11 @@ class StellarPopBasis(object):
 
         :returns spec:
             The spectrum at the wavelength points given by outwave,
-            ndarray of shape (nwave,).  Units are L_sun/AA
+            ndarray of shape (nwave,).  Units are erg/s/cm^2/AA
             
         :returns phot:
             The synthetc photometry through the provided filters,
-            ndarray of shape (nfilt,).  Note, the units are *absolute
+            ndarray of shape (nfilt,).  Note, the units are *apparent
             maggies*.
 
         :returns extra:
@@ -100,12 +100,13 @@ class StellarPopBasis(object):
 
         :returns cspec:
             The spectrum at the wavelength points given by outwave,
-            ndarray of shape (ncomp,nwave).  Units are erg/s/cm^2/AA/M_sun
+            ndarray of shape (ncomp,nwave).  Units are
+            erg/s/cm^2/AA/M_sun
             
         :returns phot:
             The synthetc photometry through the provided filters,
-            ndarray of shape (ncomp,nfilt).  Note, the units are
-            *absolute maggies*.
+            ndarray of shape (ncomp,nfilt).  Units are
+            *apparent maggies*.
 
         :returns extra:
             Any extra parameters (like stellar mass) that you want to

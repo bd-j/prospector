@@ -127,6 +127,40 @@ def read_pickles(sample_file, model_file=None,
         
     return sample_results, powell_results, model
 
+
+def model_components(theta, sample_results, obs, sps,
+                     photflag=0, multiplicative=False):
+    """
+    Generate and return various components of the total model for a
+    given set of parameters
+    """
+    mask = obs['mask']
+    fmu = sample_results['model'].mean_model(theta, sps=sps)[photflag][mask]
+    spec = obs['spectrum'][mask]
+    
+    if photflag == 0:
+        cal = sample_results['model'].calibration()[mask]
+        mu = fmu/cal
+        try:
+            s = sample_results['model'].params['gp_jitter']
+            a = sample_results['model'].params['gp_amplitude']
+            l = sample_results['model'].params['gp_length']
+            sample_results['model'].gp.factor(s, a, l, check_finite = False)
+            if multiplicative:
+                delta = sample_results['model'].gp.predict(spec/mu - cal)
+            else:
+                delta = sample_results['model'].gp.predict(spec - mu*cal)
+        except:
+            delta = 0
+    else:
+        mu = fmu
+        mask = np.ones(len(obs['wavelength']), dtype= bool)
+        cal = np.ones(len(obs['wavelength']))
+        delta = np.zeros(len(obs['wavelength']))
+        
+    return mu, cal, delta, mask
+
+
 def model_obs(sample_results, sps, photflag=0, outname=None,
               start=0, rindex =None, nsample=10,
               wlo=3500, whi=9e3, extraname=''):
@@ -230,33 +264,6 @@ def stellar_pop(sample_results, sps, outname=None, normalize_by=None,
         pl.savefig('{0}.{1}{2}.png'.format(outname, 'stars', extraname), dpi=300)
         pl.close()
 
-def model_components(theta, sample_results, obs, sps, photflag=0):
-    """
-    Generate and return various components of the total model for a
-    given set of parameters
-    """
-    full_pred = sample_results['model'].mean_model(theta, sps=sps)[photflag]
-    res = 0
-    spec = obs['spectrum']
-    mask = obs['mask']
-    ypred, spec = full_pred[mask], spec[mask]
-    if photflag == 0:
-        cal = sample_results['model'].calibration()
-        try:
-            s = sample_results['model'].params['gp_jitter']
-            a = sample_results['model'].params['gp_amplitude']
-            l = sample_results['model'].params['gp_length']
-            sample_results['model'].gp.factor(s, a, l, check_finite = False)
-            res = sample_results['model'].gp.predict(spec - ypred)
-        except:
-            res = 0
-        spop = full_pred/cal #- sample_results['model'].nebular()
-    else:
-        mask = np.ones(len(obs['wavelength']), dtype= bool)
-        cal = np.zeros(len(obs['wavelength']))
-        spop = None
-        
-    return ypred, res, cal, mask, spop
 
 def residuals(sample_results, sps, photflag=0, outname=None,
               nsample=5, rindex=None, start=0,

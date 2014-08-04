@@ -10,7 +10,7 @@ rp = {'verbose':True,
       'outfile':'results/test',
       'wlo':3750., 'whi': 7200.,
       'ftol':0.5e-5, 'maxfev':500, 'nsamplers':1,
-      'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.01
+      'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.1
       }
 
 default_parlist = []
@@ -150,7 +150,7 @@ default_parlist.append({'name': 'spec_norm', 'N':1,
 
 default_parlist.append({'name': 'gp_jitter', 'N':1,
                         'isfree': True,
-                        'init': 0.,
+                        'init': 0.001,
                         'units': 'spec units',
                         'prior_function': tophat,
                         'prior_args': {'mini':0.0, 'maxi':0.1}})
@@ -160,21 +160,21 @@ default_parlist.append({'name': 'gp_amplitude', 'N':1,
                         'init': 0.04,
                         'units': 'spec units',
                         'prior_function': tophat,
-                        'prior_args': {'mini':0.0, 'maxi':3}})
+                        'prior_args': {'mini':0.0, 'maxi':0.2}})
 
 default_parlist.append({'name': 'gp_length', 'N':1,
                         'isfree': True,
-                        'init': 50.0,
+                        'init': 100.0,
                         'units': r'$\AA$',
                         'prior_function': tophat,
-                        'prior_args': {'mini':20.0, 'maxi':200}})
+                        'prior_args': {'mini':20.0, 'maxi':500}})
 
 default_parlist.append({'name': 'phot_jitter', 'N':1,
-                        'isfree': False,
-                        'init': 0.0,
-                        'units': 'maggies',
+                        'isfree': True,
+                        'init': 0.01,
+                        'units': 'mags',
                         'prior_function': tophat,
-                        'prior_args': {'mini':0.0, 'maxi':0.2}})
+                        'prior_args': {'mini':0.0, 'maxi':0.1}})
 
 ###### EMISSION ##############
 
@@ -329,7 +329,7 @@ def norm_spectrum(model, initial_center, band_name='f475w'):
                                model.obs['spectrum'],
                                model.obs['filters'])
 
-    # Factor by which model spectra should be multiplied to give you
+    # Factor by which the observed spectra should be multiplied to give you
     #  the photometry, using the F475W filter as truth
     norm = 10**(-0.4*(synphot[norm_band] - model.obs['mags'][norm_band]))
     model.params['normalization_guess'] = norm
