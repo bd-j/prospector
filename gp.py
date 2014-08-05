@@ -20,7 +20,7 @@ class GaussianProcess(object):
         self.a = None
         self.l = None
         
-    def factor(self, s, a, l, check_finite=True):
+    def factor(self, s, a, l, check_finite=True,force=False):
         """
         :param s:
             Jitter (diagonal) term
@@ -33,7 +33,7 @@ class GaussianProcess(object):
             wavelength.
             
         """
-        if (s == self.s) & (a == self.a) & (l == self.l):
+        if (s == self.s) & (a == self.a) & (l == self.l) & (not force):
             return
         else:
             self.s = s
@@ -41,9 +41,14 @@ class GaussianProcess(object):
             self.l = l
             Sigma = a**2 * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*l**2))
             Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + s**2)
-            self.factorized_Sigma  = cho_factor(Sigma, overwrite_a  = True, check_finite = check_finite)
+            self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True, check_finite=check_finite)
             self.log_det = np.sum(2 * np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
+            
+            print(self.s, self.a, self.l)
+            fstring = '{}'
+            print(np.median(self.sigma**2), (self.sigma**2).sum(), (self.sigma**2).mean())
+            print(self.log_det)
                 
     def lnlike(self, residual, check_finite=True):
         """

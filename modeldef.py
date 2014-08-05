@@ -330,7 +330,7 @@ def norm_spectrum(model, initial_center, band_name='f475w'):
                                model.obs['filters'])
 
     # Factor by which the observed spectra should be multiplied to give you
-    #  the photometry, using the F475W filter as truth
+    #  the photometry (or the cgs apparent spectrum), using the F475W filter as truth
     norm = 10**(-0.4*(synphot[norm_band] - model.obs['mags'][norm_band]))
     model.params['normalization_guess'] = norm
        

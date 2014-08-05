@@ -55,23 +55,23 @@ def diagnostic_plots(sample_file, sps, model_file=None,
 
     ## Plot spectra and SEDs
     ##
-    rindex = model_obs(sample_results, sps, photflag=0, outname=outname, nsample=nspec,
-                       wlo=3400, whi =10e3, start=start)
-    _ = model_obs(sample_results, sps, photflag=0, outname=outname, rindex=rindex,
-                 wlo=3600, whi=4450, extraname='_blue', start=start)
-    _ = model_obs(sample_results, sps, photflag=1, outname=outname, nsample=15,
-                  wlo=2500, whi=8.5e3, start=start)
+    #rindex = model_obs(sample_results, sps, photflag=0, outname=outname, nsample=nspec,
+    #                   wlo=3400, whi =10e3, start=start)
+    #_ = model_obs(sample_results, sps, photflag=0, outname=outname, rindex=rindex,
+    #             wlo=3600, whi=4450, extraname='_blue', start=start)
+    #_ = model_obs(sample_results, sps, photflag=1, outname=outname, nsample=15,
+    #              wlo=2500, whi=8.5e3, start=start)
 
-    stellar_pop(sample_results, sps, outname=outname, nsample=nspec,
-                  wlo=3500, whi=9.5e3, start=start,
-                  alpha = 0.5, color = 'green')
+    #stellar_pop(sample_results, sps, outname=outname, nsample=nspec,
+    #              wlo=3500, whi=9.5e3, start=start,
+    #              alpha = 0.5, color = 'green')
     
     ## Plot spectral and SED residuals
     ##
-    residuals(sample_results, sps, photflag=0, outname=outname, nsample=nspec,
-              linewidth=0.5, alpha=0.3, color='blue', marker=None, start=start, rindex=rindex)
-    residuals(sample_results, sps, photflag=1, outname = outname, nsample = 15,
-              linewidth=0.5, alpha=0.3, color='blue', marker='o', start=start, rindex=rindex)
+    #residuals(sample_results, sps, photflag=0, outname=outname, nsample=nspec,
+    #          linewidth=0.5, alpha=0.3, color='blue', marker=None, start=start, rindex=rindex)
+    #residuals(sample_results, sps, photflag=1, outname = outname, nsample = 15,
+    #          linewidth=0.5, alpha=0.3, color='blue', marker='o', start=start, rindex=rindex)
     
     ## Plot parameters versus step
     ##
@@ -159,6 +159,42 @@ def model_components(theta, sample_results, obs, sps,
         delta = np.zeros(len(obs['wavelength']))
         
     return mu, cal, delta, mask
+
+
+def model_comp(theta, model, sps, photflag=0, multiplicative=False):
+    """
+    Generate and return various components of the total model for a
+    given set of parameters
+    """
+    obs=model.obs
+    mask = obs['mask']
+    fmu = model.mean_model(theta, sps=sps)[photflag][mask]
+    spec = obs['spectrum'][mask]
+    wave = obs['wavelength'][mask]
+    
+    if photflag == 0:
+        cal = model.calibration()[mask]
+        mu = fmu/cal
+        try:
+            model.gp.sigma = obs['unc'][mask]/mu
+            s = model.params['gp_jitter']
+            a = model.params['gp_amplitude']
+            l = model.params['gp_length']
+            model.gp.factor(s, a, l, check_finite = False, force=True)
+            if multiplicative:
+                delta = smodel.gp.predict(spec/mu - cal)
+            else:
+                delta = model.gp.predict(spec - mu*cal)
+        except:
+            delta = 0
+    else:
+        mu = fmu
+        mask = np.ones(len(obs['wavelength']), dtype= bool)
+        cal = np.ones(len(obs['wavelength']))
+        delta = np.zeros(len(obs['wavelength']))
+        
+    return mu, cal, delta, mask, wave
+
 
 
 def model_obs(sample_results, sps, photflag=0, outname=None,
