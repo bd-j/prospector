@@ -48,17 +48,17 @@ def lnprobfn(theta, mod):
         phot_var = maggies**2 * ((mod.obs['mags_unc']**2 + jitter**2)/1.086**2)
         lnp_phot =  -0.5*( (phot - maggies)**2 / phot_var ).sum()
         lnp_phot +=  -0.5*np.log(phot_var).sum()
-
+        #print(lnp_spec, lnp_phot, lnp_prior)
         if mod.verbose:
             print(theta)
-            print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
+            #print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
             fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
             values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
             print(fstring.format(*values))
 
-            fstring = 'chi2_phot = {0}, nphot = {1}, chi2_spec = {2}, nspec = {3}'
-            print(fstring.format(-lnp_phot, len(mod.obs['mags']), chi2_spec, mask.sum()  )) 
-            print('<r**2>={0}'.format((r**2).mean()))
+            #fstring = 'chi2_phot = {0}, nphot = {1}, chi2_spec = {2}, nspec = {3}'
+            #print(fstring.format(-lnp_phot, len(mod.obs['mags']), chi2_spec, mask.sum()  )) 
+            #print('<r**2>={0}'.format((r**2).mean()))
         return lnp_prior + lnp_phot + lnp_spec
     else:
         return -np.infty
