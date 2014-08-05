@@ -114,11 +114,9 @@ if __name__ == "__main__":
     model.params['smooth_velocity'] = smooth_velocity
     rp['ndim'] = model.ndim
     
-    
-    #nsamplers = int(rp['nsamplers'])
     theta = np.array(initial_center)
     lnprobfn(theta, model)
-    #print('hello')
+    
     theta[0] *= 10
     lnprobfn(theta, model)
  
