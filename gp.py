@@ -46,8 +46,9 @@ class GaussianProcess(object):
             assert np.isfinite(self.log_det)
             
             fstring = 's={0}, a={1}, l={2}'
-            print('<sigma**2>={0}'.format( (self.sigma**2).mean() ))
             print(fstring.format(self.s, self.a, self.l))
+            print('<sigma**2>={0}'.format( (self.sigma**2).mean() ))
+            
             #print(self.log_det)
                 
     def lnlike(self, residual, check_finite=True):
@@ -58,11 +59,16 @@ class GaussianProcess(object):
             Vector of residuals (y_data - mean_model).
         """
         print('<r**2>={0}'.format((residual**2).mean()))
-        
-        lnL=  -0.5* (np.dot(residual,
+
+        first_term = np.dot(residual,
                               cho_solve(self.factorized_Sigma, residual, check_finite = True))
+        lnL=  -0.5* (first_term
                               + self.log_det)
         print('lnlike(r) = {0}'.format(lnL))
+        print('log_det={0}'.format(self.log_det))
+        print('dot(r, solve(C,r))={0}'.format(first_term))
+        print('N_p={0}'.format(len(residual)))
+        
         return lnL
               
     def predict(self, residual, wave=None):
