@@ -45,10 +45,10 @@ class GaussianProcess(object):
             self.log_det = np.sum(2 * np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
             
-            print(self.s, self.a, self.l)
-            fstring = '{}'
-            print(np.median(self.sigma**2), (self.sigma**2).sum(), (self.sigma**2).mean())
-            print(self.log_det)
+            fstring = 's={0}, a={1}, l={2}'
+            print('<sigma**2>={0}'.format( (self.sigma**2).mean() ))
+            print(fstring.format(self.s, self.a, self.l))
+            #print(self.log_det)
                 
     def lnlike(self, residual, check_finite=True):
         """
@@ -57,10 +57,14 @@ class GaussianProcess(object):
         :param residual: ndarray, shape (nwave,)
             Vector of residuals (y_data - mean_model).
         """
-        return  -0.5* (np.dot(residual,
+        print('<r**2>={0}'.format((residual**2).mean()))
+        
+        lnL=  -0.5* (np.dot(residual,
                               cho_solve(self.factorized_Sigma, residual, check_finite = True))
                               + self.log_det)
-
+        print('lnlike(r) = {0}'.format(lnL))
+        return lnL
+              
     def predict(self, residual, wave=None):
         """
         For a given residual vector, give the GP mean prediction at each wavelength.
