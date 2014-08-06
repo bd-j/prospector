@@ -302,6 +302,7 @@ def initialize_model(rp, plist, obs):
     model = sedmodel.SedModel(theta_desc = theta_desc, **fixed_params)
     model.add_obs(obs)
     model, initial_theta = norm_spectrum(model, initial_theta)
+    #model.params['pivot_wave'] = 4750.
     model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
     model.verbose = rp['verbose']
 
@@ -320,6 +321,9 @@ def norm_spectrum(model, initial_center, band_name='f475w'):
     This multiplies the observed spectrum by the factor required
     to reproduce the photometry.  Default is to produce a spectrum
     that is approximately in erg/s/cm^2/AA (Lsun/AA/Mpc**2).
+
+    The inverse of the multiplication factor is saved as a fixed
+    parameter to be used in producing the mean model.
     """
     #use f475w for normalization
     norm_band = [i for i,f in enumerate(model.obs['filters'])

@@ -165,14 +165,14 @@ class SedModel(ThetaParameters):
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(self.params.copy(), self.obs['wavelength'], self.obs['filters'])
         spec *= self.params.get('normalization_guess',1.0)
-        spec = (spec + self.sky()) * self.calibration()
+        #spec = (spec + self.sky()) * self.calibration()
         return spec, phot, extras
 
     def sky(self):
         """Model for the sky emission/absorption"""
         return 0.
         
-    def calibration(self):
+    def calibration(self, theta=None):
         """
         Implements a polynomial calibration model.  This only happens
         if `pivot_wave` is a defined model parameter, since the
@@ -183,6 +183,9 @@ class SedModel(ThetaParameters):
            a polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M
            'poly_coeffs'[m-1] x**m)
         """
+        if theta is not None:
+            self.set_parameters(theta)
+        
         #should find a way to make this more generic
         if 'pivot_wave' in self.params:
             x = self.obs['wavelength']/self.params['pivot_wave'] - 1.0

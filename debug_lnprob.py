@@ -8,6 +8,8 @@ import sps_basis
 import modeldef
 import fitterutils as utils
 
+import datautils as dutil
+
 #SPS Model as global
 smooth_velocity = False
 sps = sps_basis.StellarPopBasis(smooth_velocity = smooth_velocity)
@@ -24,25 +26,31 @@ def lnprobfn(theta, mod):
         print('mstar={0}'.format(theta[0]))
         # Generate model
         t1 = time.time()        
-        spec, phot, x = mod.mean_model(theta, sps = sps)
-        cal = mod.calibration()
-        mu = spec/cal
+        mu, phot, x = mod.mean_model(theta, sps = sps)
+        log_mu = np.log(mu)
+        #polynomial in the log
+        log_cal = mod.calibration(theta)
+        
         mask = mod.obs['mask']
         d1 = time.time() - t1
 
         # Spectroscopy term
         t2 = time.time()
         #mod.gp.sigma = (mod.obs['unc']/mod.obs['spectrum'])[mod.obs['mask']]
-        mod.gp.sigma = (mod.obs['unc'] / mu)[mask]
-        #use a residual that is multiplicative of the mu
-        r = (mod.obs['spectrum'] / mu - cal)[mask]
+        #mod.gp.sigma = (mod.obs['unc'] / mu)[mask]
+
+        #use a residual in log space
+        delta = (mod.obs['spectrum'] -log_mu - log_cal)[mask]
         mod.gp.factor(mod.params['gp_jitter'], mod.params['gp_amplitude'],
                       mod.params['gp_length'], check_finite=True, force=True)
-        lnp_spec = mod.gp.lnlike(r)
-        #delta = mod.gp.predict(r)
-        #chi2_spec = 0.5 * ((mu[mask] * (cal[mask] + delta) - mod.obs['spectrum'][mask])**2/mod.gp.sigma**2).sum()
+        lnp_spec = mod.gp.lnlike(delta)        
         d2 = time.time() - t2
 
+        #delta = mod.gp.predict(r)
+        #chi2_spec = 0.5 * ((mu[mask] * (cal[mask] + delta) -
+        #                    mod.obs['spectrum'][mask])**2/mod.gp.sigma**2).sum()
+
+        
         # Photometry term
         jitter = mod.params.get('phot_jitter',0)
         maggies = 10**(-0.4 * mod.obs['mags'])
@@ -51,7 +59,7 @@ def lnprobfn(theta, mod):
         lnp_phot +=  -0.5*np.log(phot_var).sum()
         #print(lnp_spec, lnp_phot, lnp_prior)
         if mod.verbose:
-            print(theta)
+            #print(theta)
             #print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
             fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
             values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
@@ -103,7 +111,10 @@ if __name__ == "__main__":
     obs['mags'] = obs['mags'][0:4]
     obs['mags_unc'] = obs['mags_unc'][0:4]
     obs['filters'] = obs['filters'][0:4]
-
+    
+    obs['spectrum'], obs['unc'], obs['mask'] = dutil.logify(obs['spectrum'],
+                                                            obs['unc'],
+                                                            obs['mask'])
     ###############
     #MODEL SET UP
     ##############
@@ -114,11 +125,16 @@ if __name__ == "__main__":
     model.params['smooth_velocity'] = smooth_velocity
     rp['ndim'] = model.ndim
     
-    theta = np.array(initial_center)
-    lnprobfn(theta, model)
-    
-    theta[0] *= 10
-    lnprobfn(theta, model)
+    for a in [0.01, 0.03, 0.1, 0.3]:
+        theta = np.array(initial_center)
+        theta[-1] = a
+        
+        lnprobfn(theta, model)
+        print('\n')
+        
+        theta[0] *= 10
+        lnprobfn(theta, model)
+        print('-------\n')
  
     try:
         pool.close()

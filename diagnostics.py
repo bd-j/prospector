@@ -128,73 +128,38 @@ def read_pickles(sample_file, model_file=None,
     return sample_results, powell_results, model
 
 
-def model_components(theta, sample_results, obs, sps,
-                     photflag=0, multiplicative=False):
+def model_comp(theta, model, sps, photflag=0, inlog=True):
     """
     Generate and return various components of the total model for a
     given set of parameters
     """
+    obs, _, _ = obsdict(model.obs, photflag=photflag)
     mask = obs['mask']
-    fmu = sample_results['model'].mean_model(theta, sps=sps)[photflag][mask]
-    spec = obs['spectrum'][mask]
-    
-    if photflag == 0:
-        cal = sample_results['model'].calibration()[mask]
-        mu = fmu/cal
-        try:
-            s = sample_results['model'].params['gp_jitter']
-            a = sample_results['model'].params['gp_amplitude']
-            l = sample_results['model'].params['gp_length']
-            sample_results['model'].gp.factor(s, a, l, check_finite = False)
-            if multiplicative:
-                delta = sample_results['model'].gp.predict(spec/mu - cal)
-            else:
-                delta = sample_results['model'].gp.predict(spec - mu*cal)
-        except:
-            delta = 0
-    else:
-        mu = fmu
-        mask = np.ones(len(obs['wavelength']), dtype= bool)
-        cal = np.ones(len(obs['wavelength']))
-        delta = np.zeros(len(obs['wavelength']))
-        
-    return mu, cal, delta, mask
-
-
-def model_comp(theta, model, sps, photflag=0, multiplicative=False):
-    """
-    Generate and return various components of the total model for a
-    given set of parameters
-    """
-    obs=model.obs
-    mask = obs['mask']
-    fmu = model.mean_model(theta, sps=sps)[photflag][mask]
+    mu = model.mean_model(theta, sps=sps)[photflag][mask]
     spec = obs['spectrum'][mask]
     wave = obs['wavelength'][mask]
     
     if photflag == 0:
         cal = model.calibration()[mask]
-        mu = fmu/cal
         try:
-            model.gp.sigma = obs['unc'][mask]/mu
+            #model.gp.sigma = obs['unc'][mask]/mu
             s = model.params['gp_jitter']
             a = model.params['gp_amplitude']
             l = model.params['gp_length']
             model.gp.factor(s, a, l, check_finite = False, force=True)
-            if multiplicative:
-                delta = smodel.gp.predict(spec/mu - cal)
+            if inlog:
+                mu = np.log(mu)
+                delta = model.gp.predict(spec - mu - cal)
             else:
                 delta = model.gp.predict(spec - mu*cal)
         except:
             delta = 0
     else:
-        mu = fmu
         mask = np.ones(len(obs['wavelength']), dtype= bool)
         cal = np.ones(len(obs['wavelength']))
         delta = np.zeros(len(obs['wavelength']))
         
     return mu, cal, delta, mask, wave
-
 
 
 def model_obs(sample_results, sps, photflag=0, outname=None,
@@ -353,19 +318,18 @@ def residuals(sample_results, sps, photflag=0, outname=None,
         fig.savefig('{0}.{1}_residuals.png'.format(outname, outn), dpi=300)
         pl.close()
         
-def obsdict(sample_results, photflag):
+def obsdict(inobs, photflag):
     """
     Return a dictionary of observational data, generated depending on
     whether you're matching photometry or spectroscopy.
     """
+    obs = inobs.copy()
     if photflag == 0:
         outn = 'spectrum'
         marker = None
-        obs = sample_results['obs']            
     elif photflag == 1:
         outn = 'sed'
         marker = 'o'
-        obs = sample_results['obs'].copy()
         obs['wavelength'] = np.array([f.wave_effective for f in obs['filters']])
         obs['spectrum'] = 10**(0-0.4 * obs['mags'])
         obs['unc'] = obs['mags_unc'] * obs['spectrum']

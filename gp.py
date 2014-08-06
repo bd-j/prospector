@@ -45,9 +45,9 @@ class GaussianProcess(object):
             self.log_det = np.sum(2 * np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
             
-            fstring = 's={0}, a={1}, l={2}'
-            print(fstring.format(self.s, self.a, self.l))
-            print('<sigma**2>={0}'.format( (self.sigma**2).mean() ))
+            #fstring = 's={0}, a={1}, l={2}'
+            #print(fstring.format(self.s, self.a, self.l))
+            #print('<sigma**2>={0}'.format( (self.sigma**2).mean() ))
             
             #print(self.log_det)
                 
@@ -58,16 +58,16 @@ class GaussianProcess(object):
         :param residual: ndarray, shape (nwave,)
             Vector of residuals (y_data - mean_model).
         """
-        print('<r**2>={0}'.format((residual**2).mean()))
+        #print('<r**2>={0}'.format((residual**2).mean()))
 
         first_term = np.dot(residual,
                               cho_solve(self.factorized_Sigma, residual, check_finite = True))
         lnL=  -0.5* (first_term
                               + self.log_det)
-        print('lnlike(r) = {0}'.format(lnL))
-        print('log_det={0}'.format(self.log_det))
-        print('dot(r, solve(C,r))={0}'.format(first_term))
-        print('N_p={0}'.format(len(residual)))
+        #print('lnlike(r) = {0}'.format(lnL))
+        #print('log_det={0}'.format(self.log_det))
+        #print('dot(r, solve(C,r))={0}'.format(first_term))
+        #print('N_p={0}'.format(len(residual)))
         
         return lnL
               
@@ -96,7 +96,7 @@ class GaussianProcess(object):
         :param wave: default None
             Wavelengths at which variance estimates are desired.
             Defaults to the input wavelengths - the variance is zero
-            in theis case.
+            in this case.
         """
         
         if wave is None:
