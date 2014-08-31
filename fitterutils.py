@@ -57,7 +57,6 @@ def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
     initial = np.zeros([nwalkers, ndim])
     for p, d in model.theta_desc.iteritems():
         start, stop = d['i0'], d['i0']+d['N']
-        hi, lo = d['prior_args']['maxi'], d['prior_args']['mini']
         initial[:, start:stop] = (np.random.normal(1, initial_disp, nwalkers)[:,None] *
                                   initial_center[start:stop])
     # Initialize sampler

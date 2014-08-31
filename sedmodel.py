@@ -12,8 +12,8 @@ class ThetaParameters(object):
     vector including the prior functions for each theta.
     """
     def __init__(self, theta_desc=None, theta_init=None, **kwargs):
+        
         self.theta_desc = theta_desc
-
         self.params = {}
         if theta_init:
             self.set_parameters(theta_init)
@@ -49,7 +49,7 @@ class ThetaParameters(object):
 
     def prior_product(self, theta):
         """
-        Return a scalar which is the ln of the prioduct of the prior
+        Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the
         prior functions are defined in the theta descriptor.
 
@@ -165,6 +165,10 @@ class SedModel(ThetaParameters):
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(self.params.copy(), self.obs['wavelength'], self.obs['filters'])
         spec *= self.params.get('normalization_guess',1.0)
+        #remove negative fluxes
+        tiny = 1.0/len(spec) * spec[spec > 0].min()
+        spec[ spec < tiny ] = tiny
+
         #spec = (spec + self.sky()) * self.calibration()
         return spec, phot, extras
 
@@ -200,7 +204,7 @@ class SedModel(ThetaParameters):
     def lnprob(self, theta, **extras):
         """
         Given a theta vector, return the ln of the posterior
-        probability.
+        probability.  Not actually used in bsfh.
         
         """
 
