@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+from bsfh.readspec import *
 
 def logify(data, sigma, mask):
     """

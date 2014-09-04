@@ -1,8 +1,7 @@
 import sys, os, getopt, subprocess
 import numpy as np
-import minimizer
 import emcee
-from readspec import *
+from bsfh import minimizer
 
 try:
     import multiprocessing

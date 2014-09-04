@@ -1,8 +1,8 @@
 import json
 from sedpy import observate, attenuation
-import elines, sedmodel, gp
-import priors
-from priors import tophat
+from bsfh import priors, sedmodel, elines, gp
+
+tophat = priors.tophat
 
 rp = {'verbose':True,
       'filename':'data/mmt/nocal/020.B192-G242.s.fits',
