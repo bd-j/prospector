@@ -2,6 +2,7 @@ import sys, os, getopt, subprocess
 import numpy as np
 import emcee
 from bsfh import minimizer
+from bsfh.priors import plotting_range
 
 try:
     import multiprocessing
@@ -126,7 +127,7 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
         ginitial = np.zeros( [size -1, model.ndim] )
         for p, d in model.theta_desc.iteritems():
             start, stop = d['i0'], d['i0']+d['N']
-            hi, lo = d['prior_args']['maxi'], d['prior_args']['mini']
+            hi, lo = plotting_range(d['prior_args'])#['maxi'], d['prior_args']['mini']
             if d['N'] > 1:
                 ginitial[:,start:stop] = np.array([np.random.uniform(h, l,size - 1)
                                                    for h,l in zip(hi,lo)]).T

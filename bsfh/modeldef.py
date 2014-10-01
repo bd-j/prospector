@@ -210,6 +210,24 @@ default_parlist.append({'name': 'emission_disp', 'N': 1, 'isfree': True,
                         'prior_args':{'mini':1.0, 'maxi':6.0}})
 
 
+class Params(object):
+    """
+    keep the parameters stored in an object.  experimental/under dev
+    """
+    def __init__(self, filename=None):
+        if filename is not None:
+            self.run_params, self.model_params = self.read_plist(filename)
+            self.run_params['param_file'] = filename
+        else:
+            self.run_params, self.model_params = rp, default_parlist
+
+    def __repr__(self):
+        pass
+    
+    def write_json(self, filename=None):
+        pass
+
+               
 def write_plist(plist, runpars, filename):
     """
     Write the list of parameter dictionaries to a JSON file,
