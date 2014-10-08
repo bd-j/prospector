@@ -52,7 +52,8 @@ def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
     nthreads = int(rp['nthreads'])
     initial_disp = rp['initial_disp']
     nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
-
+    if rp['verbose']:
+        print('number of walkers={}'.format(nwalkers))
     # Set up initial positions
     initial = np.zeros([nwalkers, ndim])
     for p, d in model.theta_desc.iteritems():
@@ -64,6 +65,7 @@ def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
                                      threads = nthreads, args = [model], pool = pool)
 
     # Loop over the number of burn-in reintializitions
+    k=0
     for iburn in nburn[:-1]:
         epos, eprob, state = esampler.run_mcmc(initial, iburn)
         # Choose the best walker and build a ball around it based on
@@ -73,14 +75,22 @@ def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
         best = np.argmax(eprob)
         initial = epos[best,:] * (1 + np.random.normal(0, 1, epos.shape) * relative_scatter[None,:]) 
         esampler.reset()
-
+        k+=1
+        if rp['verbose']:
+            print('done burn#'.format(k))
+    
     # Do the final burn-in
+    if rp['verbose']:
+        print('done all burn-in, starting production')
+
     epos, eprob, state = esampler.run_mcmc(initial, nburn[-1])
     initial = epos
     esampler.reset()
 
     # Production run
     epos, eprob, state = esampler.run_mcmc(initial, niter)
+    if rp['verbose']:
+        print('done production')
 
     return esampler
 
