@@ -39,7 +39,7 @@ def parse_args(argv, rp={'param_file':''}):
         print('reading parameters from {0}'.format(rp['param_file']))
     return rp
 
-def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
+def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
     """
     Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the production sampler.
@@ -64,7 +64,7 @@ def run_emcee_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      threads = nthreads, args = [model], pool = pool)
 
-    # Loop over the number of burn-in reintializitions
+    # Loop over the number of burn-in reintializations
     k=0
     for iburn in nburn[:-1]:
         epos, eprob, state = esampler.run_mcmc(initial, iburn)

@@ -3,6 +3,7 @@ from scipy.interpolate import interp1d
 import fsps
 from sedpy.observate import getSED, vac2air, air2vac
 
+# Useful constants
 lsun = 3.846e33
 pc = 3.085677581467192e18
 lightspeed = 2.998e18 #AA/s
@@ -22,18 +23,24 @@ class StellarPopBasis(object):
         self.debug = debug
         
         #this is a StellarPopulation object from fsps
-        self.ssp = fsps.StellarPopulation(smooth_velocity = smooth_velocity)
+        self.ssp = fsps.StellarPopulation(smooth_velocity=smooth_velocity,
+                                          add_agb_dust_model=True)
         
         #This is the main state vector for the model
-        self.params = {'dust_tesc':0.00, 'dust1':0., 'dust2':0.}
+        self.params = {'dust_tesc':0.00, 'dust1':0., 'dust2':0.,
+                       'mass':np.array([1.0]), 'zmet':np.array([0.0]),
+                       'outwave':self.ssp.wavelengths.copy()}
         
-        #These are the parameters whose change will force a regeneration of the SSPs (and basis) using fsps
+        #These are the parameters whose change will force a
+        #regeneration of the SSPs (and basis) using fsps
         self.ssp_params = ['imf_type','imf3','agb_dust']
         self.ssp_dirty = True
         
-        #These are the parameters whose change will force a regeneration of the basis from the SSPs
-        self.basis_params = ['sigma_smooth','tage','zmet','dust1','dust2','dust_tesc','zred','outwave','dust_curve']
-        self.basis_dirty =True
+        #These are the parameters whose change will force a
+        #regeneration of the basis from the SSPs
+        self.basis_params = ['sigma_smooth', 'tage', 'zmet', 'dust1', 'dust2',
+                             'dust_tesc', 'zred', 'outwave', 'dust_curve']
+        self.basis_dirty = True
         
     def get_spectrum(self, params, outwave, filters, nebular=True):
         """
@@ -42,7 +49,8 @@ class StellarPopBasis(object):
         updated, before being combined here.
 
         :param params:
-            A dictionary-like of the model parameters.
+            A dictionary-like of the model parameters.  Should contain
+            ``mass`` as a parameter.
             
         :param outwave: 
             The output wavelength points at which model estimates are
@@ -72,13 +80,12 @@ class StellarPopBasis(object):
         """
         cspec, neb, cphot, cextra = self.get_components(params, outwave, filters)
 
-        spec = (cspec * params['mass'][:,None]).sum(axis = 0)
+        spec = (cspec * self.params['mass'][:,None]).sum(axis = 0)
         if nebular:
             spec += neb
             
-        #phot  = 10**(-0.4 *getSED( outwave, spec, filters)) #can't do because wavelngth grid is truncated
-        phot = (cphot * params['mass'][:,None]).sum(axis = 0)
-        extra = (cextra * params['mass']).sum()
+        phot = (cphot * self.params['mass'][:,None]).sum(axis = 0)
+        extra = (cextra * self.params['mass']).sum()
         
         return spec, phot, extra
     
@@ -112,8 +119,8 @@ class StellarPopBasis(object):
             Any extra parameters (like stellar mass) that you want to
             return.
         """
-        
-        params['outwave'] = outwave
+        if outwave is not None:
+            params['outwave'] = outwave
         self.update(params)
 
         #distance dimming and conversion from Lsun/AA to cgs
@@ -126,16 +133,19 @@ class StellarPopBasis(object):
         # line-spread functions
         a1 = (1 + self.params.get('zred', 0.0))
         cspec = interp1d( vac2air(self.ssp.wavelengths * a1),
-                          self.basis_spec / a1 * dfactor, axis = -1)(outwave)
+                          self.basis_spec / a1 * dfactor,
+                          axis = -1, bounds_error=False)(self.params['outwave'])
 
         # Nebular component.  Should add this to spectra somehow
         # before generating photometry.
         neb = self.nebular(params, outwave) * dfactor
         
         #get the photometry
-        cphot = 10**(-0.4 *getSED( self.ssp.wavelengths * a1,
-                                   self.basis_spec / a1 * dfactor, filters))
-
+        if filters is not None:
+            cphot = 10**(-0.4 * getSED( self.ssp.wavelengths * a1,
+                                        self.basis_spec / a1 * dfactor, filters))
+        else:
+            cphot = 0.
         
         return cspec, neb, cphot, self.basis_mass
     
@@ -169,7 +179,6 @@ class StellarPopBasis(object):
         
         else:
             return 0.
-
 
     def build_basis(self, outwave):
         """
@@ -237,7 +246,7 @@ class StellarPopBasis(object):
             self.params[k] = np.copy(np.atleast_1d(v))
 
         if self.basis_dirty | (self.ssp.params.dirtiness == 2):
-            self.build_basis(inparams['outwave'])
+            self.build_basis(self.params['outwave'])
 
 
 def gauss(x, mu, A, sigma):
