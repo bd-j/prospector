@@ -248,7 +248,6 @@ class StellarPopBasis(object):
         if self.basis_dirty | (self.ssp.params.dirtiness == 2):
             self.build_basis(self.params['outwave'])
 
-
 def gauss(x, mu, A, sigma):
     """
     Lay down mutiple gaussians on the x-axis.
@@ -257,7 +256,6 @@ def gauss(x, mu, A, sigma):
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
     return val.sum(axis = -1)
 
-            
 
 def selftest():
     from sedpy.observate import load_filters

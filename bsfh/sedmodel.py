@@ -203,110 +203,13 @@ class SedModel(ThetaParameters):
         else:
             return 1.0
         
-    def lnprob(self, theta, **extras):
-        """
-        Given a theta vector, return the ln of the posterior
-        probability.  Not actually used in bsfh.
-        
-        """
-
-        # Determine prior probability for this theta
-        lnp_prior = self.prior_product(theta)
-        if self.verbose:
-            print('theta = {0}'.format(theta))
-            print('lnP_prior = {0}'.format(lnp_prior))
-
-        if np.isfinite(lnp_prior):  # Get likelihood if prior is finite   
-            spec, phot, other = self.model(theta, **extras)
-            
-            if self.obs['spectrum'] is not None:  # Spectroscopic term
-                jitter = self.params.get('jitter',0)
-                residual = (self.obs['spectrum'] - spec)
-                total_var_spec =  (self.obs['unc']**2 + (jitter * self.obs['spectrum'])**2)
-                mask = self.obs['mask']                
-                lnp_spec = -0.5* ( residual**2 / total_var_spec)[mask].sum()
-                if jitter != 0:  # Spectroscopic jitter term
-                    lnp_spec += log(2*pi*total_var_spec[mask]).sum()
-            else:
-                lnp_spec = 0
-                
-            if self.obs['filters'] is not None: # Photometry term
-                jitter = self.params.get('phot_jitter',0)
-                maggies = 10**(-0.4 * self.obs['mags'])
-                phot_var = maggies**2 * ((self.obs['mags_unc']/1.086)**2 + jitter**2)
-                lnp_phot =  -0.5*( (phot - maggies)**2 / phot_var ).sum()
-                if jitter != 0: # Photometric jitter term
-                    lnp_phot += log(2*pi*phot_var).sum()
-            else:
-                lnp_phot = 0
-
-            if self.verbose:
-                print('lnP = {0}'.format(lnp_spec + lnp_phot + lnp_prior))
-                
-            return lnp_spec + lnp_phot + lnp_prior
-        else:
-            return -np.infty
-  
-    def lnprob_grad(self, theta, sps=None):
-        """
-        Given theta, return a vector of gradients in lnP along the
-        theta directions.  Theta can *only* include amplitudes in this
-        formulation, though potentially dust and calibration
-        parameters might be added.
-        """
-        if sps is None:
-            sps = self.sps
-
-        status = ((len(theta) == self.theta_desc['mass']['N']) and
-                  (self.theta_desc.keys() == ['mass']))
-        if status is False:
-            raise ValueError('You are attempting to use gradients for parameters where they are not calculated!!!')
-        
-        self.set_parameters(theta)
-        comp_spec, comp_phot, comp_extra = sps.get_components(self.params, self.obs['wavelength'], self.obs['filters'])
-        cal, neb, sky = self.calibration(), self.nebular(), self.sky()
-        spec = ((comp_spec  * self.params['mass'][:,None]).sum(axis = 0) + neb + sky) * cal
-        phot = (comp_phot  * self.params['mass'][:,None]).sum(axis = 0)
-
-        gradp_spec = {} # Spectroscopy terms
-        if self.obs['spectrum'] is not None: 
-            jitter = self.params.get('jitter',0)
-            total_var_spec =  (self.obs['unc']**2 + (jitter * self.obs['spectrum'])**2)
-            mask = self.obs['mask']
-            delta = -(spec - self.obs['spectrum'])/total_var_spec 
-            
-            gradp_spec['mass'] = (delta[None,:] * cal * comp_spec )[:,mask].sum(axis = 1)
-            
-        gradp_jitter = {} #jitter terms
-        if self.params.get('jitter',0.) != 0: 
-            raise ValueError('gradients in jitter term not written')
-            
-        gradp_phot = {} # Photometry terms
-        if self.obs['filters'] is not None: 
-            jitter = self.params.get('phot_jitter',0)
-            maggies = 10**(-0.4 * self.obs['mags'])
-            phot_var = maggies**2 * ((self.obs['mags_unc']/1.086)**2 + jitter**2)
-            delta = -np.atleast_1d((phot - maggies) / phot_var)
-            
-            gradp_phot['mass'] = (delta[None,:] * comp_phot).sum(axis = 1)
-
-        # Sum the gradients
-        all_grads = [gradp_spec, gradp_phot, gradp_jitter]
-        #start with the gradients in the priors.  defaults to 0 if no gradients defined
-        gradp = self.lnp_prior_grad(theta)
-        for p in self.theta_desc.keys():
-            start, stop = self.theta_desc[p]['i0'], self.theta_desc[p]['i0'] + self.theta_desc[p]['N']
-            for g in all_grads:
-                gradp[start:stop] += g.get(p, 0)
-
-        return gradp
 
 class Parameter(object):
     """
     For a possible switch from dictionaries to specialized objects for
     the parameters.  This would require a massive rewrite of
     ThetaParameters() and seems unnecessary, though a little cleaner
-    and of cource more OO.
+    and of course more OO.
     """
     def __init__(self, name, **kwargs):
         self.name = name
@@ -327,10 +230,7 @@ class Parameter(object):
         
     @property
     def N(self):
-        try:
-            return len(self.value)
-        except TypeError:
-            return 1
+        return np.size(self.value)
 
     @property
     def bounds(self):

@@ -44,3 +44,30 @@ def plotting_range(prior_args):
         return np.exp(prior_args['log_mean'] + np.array([-3, 3.]) *  prior_args['sigma'])
     if 'mean' in prior_args:
         return prior_args['mean'] + np.array([-3, 3.]) *  prior_args['sigma']
+
+
+class Prior(object):
+    """
+    Encapsulate the priors in an object.  On initialization each prior
+    should have a function name and optioanl parameters specifiyfy
+    scale and location passed (e.g. min/max or mean/sigma).  When
+    called, the argument should be a variable and it should return the
+    prior probability of that value.  One should be able to sample
+    from the prior, and to get the gradient of the prior at any
+    variable value.  Methods should also be avilable to give a useful
+    plotting range and, if there are bounds, to return them.
+    """
+
+    def __init__( kind, *args):
+        pass
+    def __call__(theta):
+        pass
+    def sample(nsample):
+        pass
+    def gradient(theta):
+        pass
+    def range():
+        pass
+    @property
+    def bounds():
+        pass
