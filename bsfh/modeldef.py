@@ -212,7 +212,7 @@ default_parlist.append({'name': 'emission_disp', 'N': 1, 'isfree': True,
 
 class ProspectrParams(object):
     """
-    keep the parameters stored in an object.  experimental/under dev
+    Keep the parameters stored in an object.  experimental/under dev
     """
     def __init__(self, filename=None):
         if filename is not None:

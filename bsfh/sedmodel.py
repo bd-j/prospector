@@ -202,8 +202,31 @@ class SedModel(ThetaParameters):
             return (1.0 + poly) * self.params['spec_norm']
         else:
             return 1.0
-        
 
+
+class CSPModel(ThetaParameters):
+    """
+    For parameterized SFHs, and magnitudes only.
+    """
+    
+    def add_obs(self, obs, rescale = True):
+        self.filters = obs['filters']
+        self.obs = obs
+
+    def mean_model(self, theta, sps = None, **kwargs):
+        self.set_parameters(theta)
+        # Pass the model parameters through to the sps object
+        for k,v in self.params.iteritems():
+            if k in sps.params.all_params:
+                sps.params[k] = v
+        #now get the magnitudes
+        mags = sps.get_mags(redshift=sps.params['zred'],
+                            bands=self.obs['filters'])
+        return None, 10**(-0.4*mags), None
+
+    def calibration(self):
+        return 1.0
+    
 class Parameter(object):
     """
     For a possible switch from dictionaries to specialized objects for
