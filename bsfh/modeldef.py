@@ -227,6 +227,12 @@ class ProspectrParams(object):
     def write_json(self, filename=None):
         pass
 
+    def read_json(self, filename=None):
+        pass
+
+    @property
+    def isfree(self):
+        pass
                
 def write_plist(plist, runpars, filename):
     """

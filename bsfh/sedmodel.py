@@ -206,7 +206,7 @@ class SedModel(ThetaParameters):
 
 class CSPModel(ThetaParameters):
     """
-    For parameterized SFHs, and magnitudes only.
+    For parameterized SFHs and magnitudes only.
     """
     
     def add_obs(self, obs, rescale = True):
@@ -214,18 +214,35 @@ class CSPModel(ThetaParameters):
         self.obs = obs
 
     def mean_model(self, theta, sps = None, **kwargs):
+        """
+        :returns spec:
+            A None type object, only included for consistency with the
+            SedModel class.
+            
+        :returns phot:
+            The apparent maggies per unit surviving stellar mass (not
+            *formed* stellar mass) in each of the filters.
+
+        :returns extras:
+            A None type object, only included for consistency with the
+            SedModel class.
+        """
         self.set_parameters(theta)
         # Pass the model parameters through to the sps object
         for k,v in self.params.iteritems():
             if k in sps.params.all_params:
                 sps.params[k] = v
-        #now get the magnitudes
+        #now get the magnitudes and normalize by (current) stellar mass
         mags = sps.get_mags(redshift=sps.params['zred'],
                             bands=self.obs['filters'])
-        return None, 10**(-0.4*mags), None
+        mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
+        return None, mass * 10**(-0.4*mags), None
 
     def calibration(self):
         return 1.0
+    
+    def sky(self):
+        return 0.
     
 class Parameter(object):
     """
