@@ -12,7 +12,8 @@ rp = {'verbose':True,
       'outfile':'results/test',
       'wlo':3750., 'whi': 7200.,
       'ftol':0.5e-5, 'maxfev':500, 'nsamplers':1,
-      'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10, 'initial_disp':0.1
+      'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10,
+      'initial_disp':0.1
       }
 
 default_parlist = []
@@ -182,7 +183,8 @@ default_parlist.append({'name': 'phot_jitter', 'N':1,
 
 linelist = ['CaII_K', 'NaI_5891', 'NaI_5897',
             'Ha', 'NII_6585','SII_6718','SII_6732',
-            'HeI_3821','HeI_4010','HeI_4027','HeI_4145', 'HeI_4389','HeI_4473','HeI_4923','HeI_5017'
+            'HeI_3821','HeI_4010','HeI_4027','HeI_4145','HeI_4389',
+            'HeI_4473','HeI_4923','HeI_5017'
             ]
 linemin = 3 * [-100] + 4 * [0.]  + 8 * [-50.0 ]
 linemax = 3 * [0.] + 4 * [100.0 ] + 8 * [50.0 ]
@@ -223,9 +225,6 @@ class ProspectrParams(object):
             self.run_params = rp.copy()
             self.model_params = deepcopy(default_parlist)
             #self.model_params = plist_to_pdict(self.model_params)
-
-    #def __repr__(self):
-    #    pass
     
     def write_to_json(self, filename=None):
         if filename is not None:
@@ -239,20 +238,19 @@ class ProspectrParams(object):
         self.run_params, self.model_params = read_plist(self.filename)
         #self.model_params = plist_to_pdict(self.model_params)
 
-
     def get_theta_desc(self):
         plist = deepcopy(pdict_to_plist(self.model_params))
         return get_theta_desc(plist)
     
     @property
     def free_params(self):
-        return [k for k, v in self.model_params.iteritems()
-                if v['isfree']]
+        return [k['name'] for k in pdict_to_plist(self.model_params)
+                if k['isfree']]
             
     @property
     def fixed_params(self):
-        return [k for k, v in self.model_params.iteritems()
-                if (v['isfree']==False)]
+        return [k['name'] for k in pdict_to_plist(self.model_params)
+                if (k['isfree']==False)]
 
     def parindex(self, parname):
         return [p['name'] for p in
@@ -266,7 +264,31 @@ class ProspectrParams(object):
         finally:
             return self.model_params[self.parindex(parname)]
 
+    def initialize_model(modelclass, obs=None, logify=True,
+                         norm_spectrum=True, gaussian_process=True):
+        
+        tdesc, init, fixed = self.get_theta_desc()
+        model = modelclass(theta_desc=tdesc, **fixed)
+        if obs is not None:
+            model.add_obs(obs)
+            model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
+            if norm_spectrum:
+                model, init = norm_spectrum(model, init)
+            if gaussian_process:
+                mask = model.obs['mask']
+                model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
+                                              model.obs['unc'][mask])
+            if logify:
+                s, u, m = dutils.logify(model.obs['spectrum'], model.obs['unc'],
+                                        model.obs['mask'])
+                model.obs['spectrum'] = s
+                model.obs['unc'] = u
+                model.obs['mask'] = m
 
+        model.verbose = self.run_params['verbose']
+        return model, init
+
+        
 def plist_to_pdict(plist):
     """Convert from a parameter list to a parameter dictionary, where
     the keys of the cdictionary are the parameter names.
@@ -300,25 +322,7 @@ def write_plist(plist, runpars, filename):
     """
     runpars['param_file'] = filename
     for p in plist:
-        #replace prior functions with names of those function
-        pf = p.get('prior_function', None)
-        #print(p['name'], pf)
-        cond = ((pf in priors.__dict__.values()) and 
-                (pf is not None))
-        if cond:
-            p['prior_function_name'] = pf.func_name
-        else:
-            p.pop('prior_function_name', None)
-        _ = p.pop('prior_function', None)
-        
-        #replace dust curve functions with name of function
-        if p['name'] == 'dust_curve':
-            df = p.get('init', None)
-            cond = ((df is not None) and
-                    (df in attenuation.__dict__.values()))
-            if cond:
-                p['dust_curve_name'] = df.func_name
-                _ = p.pop('init', None)
+        p = functions_to_names(p)
         
     f = open(filename + '.bpars.json', 'w')
     json.dump([rp, plist], f)
@@ -346,7 +350,6 @@ def read_plist(filename, raw_json  = False):
 def names_to_functions(p):
     #print(p['name'], p.get('prior_function_name','nope'))
     #put the dust curve function in
-
     if 'dust_curve_name' in p:
         p['init'] = attenuation.__dict__[p['dust_curve_name']]
     #put the prior function in
@@ -355,6 +358,28 @@ def names_to_functions(p):
         #print(p['prior_function_name'], p['prior_function'])
     else:
         p['prior_function'] = None
+    return p
+
+def functions_to_names(p):
+    #replace prior functions with names of those function
+    pf = p.get('prior_function', None)
+    #print(p['name'], pf)
+    cond = ((pf in priors.__dict__.values()) and
+            (pf is not None))
+    if cond:
+        p['prior_function_name'] = pf.func_name
+    else:
+        p.pop('prior_function_name', None)
+    _ = p.pop('prior_function', None)
+        
+    #replace dust curve functions with name of function
+    if p['name'] == 'dust_curve':
+        df = p.get('init', None)
+        cond = ((df is not None) and
+                (df in attenuation.__dict__.values()))
+        if cond:
+            p['dust_curve_name'] = df.func_name
+            _ = p.pop('init', None)
     return p
 
 def get_theta_desc(model_params):
@@ -373,9 +398,9 @@ def get_theta_desc(model_params):
             n = len(init)
             if par['N'] != n:
                 raise TypeError("Parameter value vector of "\
-                    "{0} not same as declared size".format(name))
-                # Finally, append this to the initial
-                #  parameter vector
+                    "{0} not same as declared size".format(par['name']))
+            # Finally, append this to the initial
+            #  parameter vector
             theta_init += init
         else:
             fixed_params[par['name']] = par['init']
