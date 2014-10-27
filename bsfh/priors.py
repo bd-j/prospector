@@ -71,3 +71,6 @@ class Prior(object):
     @property
     def bounds():
         pass
+
+    def serialize():
+        pass

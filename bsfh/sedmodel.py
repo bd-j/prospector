@@ -145,7 +145,7 @@ class SedModel(ThetaParameters):
             ndarray of parameter values.
             
         :param sps:
-            A StellarPopulation or StellarPopBasis object to be used
+            A StellarPopBasis object to be used
             in the model generation.
 
         :returns spec:
@@ -197,7 +197,8 @@ class SedModel(ThetaParameters):
             x = self.obs['wavelength']/self.params['pivot_wave'] - 1.0
             poly = np.zeros_like(x)
             powers = np.arange( len(self.params['poly_coeffs']) ) + 1
-            poly = (x[None,:] ** powers[:,None] * self.params['poly_coeffs'][:,None]).sum(axis = 0)
+            poly = (x[None,:] ** powers[:,None] *
+                    self.params['poly_coeffs'][:,None]).sum(axis = 0)
         
             return (1.0 + poly) * self.params['spec_norm']
         else:
@@ -215,6 +216,16 @@ class CSPModel(ThetaParameters):
 
     def mean_model(self, theta, sps = None, **kwargs):
         """
+        Given a theta vector, generate photometry, and any
+        extras (e.g. stellar mass).
+
+        :param theta:
+            ndarray of parameter values.
+
+        :param sps:
+            A StellarPopulation object to be used for generating the
+            SED.
+
         :returns spec:
             A None type object, only included for consistency with the
             SedModel class.
@@ -249,7 +260,7 @@ class Parameter(object):
     For a possible switch from dictionaries to specialized objects for
     the parameters.  This would require a massive rewrite of
     ThetaParameters() and seems unnecessary, though a little cleaner
-    and of course more OO.
+    and of course more OO.  Experimental/under dev
     """
     def __init__(self, name, **kwargs):
         self.name = name

@@ -1,3 +1,5 @@
+from copy import deepcopy
+import numpy as np
 import json
 from sedpy import observate, attenuation
 from bsfh import priors, sedmodel, elines, gp
@@ -216,30 +218,87 @@ class ProspectrParams(object):
     """
     def __init__(self, filename=None):
         if filename is not None:
-            self.run_params, self.model_params = self.read_json(filename)
-            self.run_params['param_file'] = filename
+            self.read_from_json(filename=filename)
         else:
-            self.run_params, self.model_params = rp, default_parlist
+            self.run_params = rp.copy()
+            self.model_params = deepcopy(default_parlist)
+            #self.model_params = plist_to_pdict(self.model_params)
 
-    def __repr__(self):
-        pass
+    #def __repr__(self):
+    #    pass
     
-    def write_json(self, filename=None):
-        pass
+    def write_to_json(self, filename=None):
+        if filename is not None:
+            self.filename = filename
+        write_plist(pdict_to_plist(self.model_params),
+                    self.run_params, self.filename)
 
-    def read_json(self, filename=None):
-        pass
+    def read_from_json(self, filename=None):
+        if filename is not None:
+            self.filename = filename
+        self.run_params, self.model_params = read_plist(self.filename)
+        #self.model_params = plist_to_pdict(self.model_params)
 
+
+    def get_theta_desc(self):
+        plist = deepcopy(pdict_to_plist(self.model_params))
+        return get_theta_desc(plist)
+    
     @property
-    def isfree(self):
-        pass
-               
+    def free_params(self):
+        return [k for k, v in self.model_params.iteritems()
+                if v['isfree']]
+            
+    @property
+    def fixed_params(self):
+        return [k for k, v in self.model_params.iteritems()
+                if (v['isfree']==False)]
+
+    def parindex(self, parname):
+        return [p['name'] for p in
+                pdict_to_plist(self.model_params)].index(parname)
+        
+    def parinfo(self, parname):
+        try:
+            return self.run_params[parname]
+        except(KeyError):
+            return self.model_params[parname] 
+        finally:
+            return self.model_params[self.parindex(parname)]
+
+
+def plist_to_pdict(plist):
+    """Convert from a parameter list to a parameter dictionary, where
+    the keys of the cdictionary are the parameter names.
+    """
+    if type(plist) is dict:
+        return plist.copy()
+    pdict = {}
+    for p in plist:
+        name = p.pop('name')
+        pdict[name] = p
+    return pdict
+
+def pdict_to_plist(pdict):
+    """Convert from a parameter dictionary to a parameter list of
+    dictionaries, adding each key to each value dictionary as the
+    `name' keyword.
+    """
+
+    if type(pdict) is list:
+        return pdict[:]
+    plist = []
+    for k, v in pdict.iteritems():
+        v['name'] = k
+        plist += [v]
+    return plist
+
 def write_plist(plist, runpars, filename):
     """
     Write the list of parameter dictionaries to a JSON file,
     taking care to replace functions with their names.
     """
-    
+    runpars['param_file'] = filename
     for p in plist:
         #replace prior functions with names of those function
         pf = p.get('prior_function', None)
@@ -267,65 +326,74 @@ def write_plist(plist, runpars, filename):
 
 def read_plist(filename, raw_json  = False):
     """
-    Read a JSON file into a list of parameter dictionaries,
-    taking care to add actual functions when given their names.
+    Read a JSON file into a run_param dictionary and a list of model
+    parameter dictionaries, taking care to add actual functions when
+    given their names.
     """
     
     f = open(filename, 'r')
-    rp, plist = json.load(f)
+    runpars, modelpars = json.load(f)
     f.close()
+    rp['param_file'] = filename
     if raw_json:
-        return rp, plist
+        return runpars, modelpars
     
-    for p in plist:
-        #print(p['name'], p.get('prior_function_name','nope'))
-        #put the dust curve function in
-        if 'dust_curve_name' in p:
-            p['init'] = attenuation.__dict__[p['dust_curve_name']]
-        #put the prior function in
-        if 'prior_function_name' in p:
-            p['prior_function'] = priors.__dict__[p['prior_function_name']]
-            #print(p['prior_function_name'], p['prior_function'])
+    for p in modelpars:
+        p = names_to_functions(p)
+        
+    return runpars, modelpars
+
+def names_to_functions(p):
+    #print(p['name'], p.get('prior_function_name','nope'))
+    #put the dust curve function in
+
+    if 'dust_curve_name' in p:
+        p['init'] = attenuation.__dict__[p['dust_curve_name']]
+    #put the prior function in
+    if 'prior_function_name' in p:
+        p['prior_function'] = priors.__dict__[p['prior_function_name']]
+        #print(p['prior_function_name'], p['prior_function'])
+    else:
+        p['prior_function'] = None
+    return p
+
+def get_theta_desc(model_params):
+        
+    theta_desc, fixed_params  = {}, {}
+    theta_init = []
+    count = 0
+    for i, par in enumerate(model_params):
+        if par['isfree']:
+            par['i0'] = count
+            par = names_to_functions(par)
+            theta_desc[par['name']] = par
+            count += par['N']
+            #need to deal with iterables here
+            init = np.array(par['init']).flatten().tolist()
+            n = len(init)
+            if par['N'] != n:
+                raise TypeError("Parameter value vector of "\
+                    "{0} not same as declared size".format(name))
+                # Finally, append this to the initial
+                #  parameter vector
+            theta_init += init
         else:
-            p['prior_function'] = None
-    return rp, plist
-    
+            fixed_params[par['name']] = par['init']
+
+    return theta_desc, theta_init, fixed_params
+   
 def initialize_model(rp, plist, obs):
     """
     Take a run parameter dictionary and a model parameter list and
     return a SedModel object, as well as a vector of initial values.
     """
-    
-    theta_desc, fixed_params  = {}, {}
-    initial_theta = []
-    count = 0
-    for i, par in enumerate(plist):
-        if par['isfree']:
-            par['i0'] = count
-            name = par.pop('name')
-            theta_desc[name] = par
-            count += par['N']
-            #need to deal with iterables here
-            try:
-                n = len(par['init'])
-            except:
-                n =1
-                v = [par['init']]
-            else:
-                v = par['init']
-            if par['N'] != n:
-                raise TypeError("Parameter value vector of "\
-                                "{0} not same as declared size".format(name))
-            # Finally, append this to the initial
-            #  parameter vector
-            initial_theta += v
-        else:
-            fixed_params[par['name']] = par['init']
+
+    tdesc, init, fixed = get_theta_desc(deepcopy(plist))
 
     # SED Model
-    model = sedmodel.SedModel(theta_desc = theta_desc, **fixed_params)
+    model = sedmodel.SedModel(theta_desc = tdesc, **fixed)
     model.add_obs(obs)
-    model, initial_theta = norm_spectrum(model, initial_theta)
+    model, initial_theta = norm_spectrum(model, init)
     #model.params['pivot_wave'] = 4750.
     model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
     model.verbose = rp['verbose']
