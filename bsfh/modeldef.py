@@ -3,6 +3,7 @@ import numpy as np
 import json
 from sedpy import observate, attenuation
 from bsfh import priors, sedmodel, elines, gp
+from bsfh.datautils import logify
 
 rp = {'verbose':True,
       'filename':'data/mmt/nocal/020.B192-G242.s.fits',
@@ -22,7 +23,7 @@ from bsfh.default_params import default_parlist
 
 class ProspectrParams(object):
     """
-    Keep the parameters stored in an object.  experimental/under dev
+    Keep the parameters stored in an object.
     """
     def __init__(self, filename=None):
         if filename is not None:
@@ -70,31 +71,41 @@ class ProspectrParams(object):
         finally:
             return self.model_params[self.parindex(parname)]
 
-    def initialize_model(modelclass, obs=None, logify=True,
-                         norm_spectrum=True, gaussian_process=True):
+    def initialize_model(self, modelclass):
         
         tdesc, init, fixed = self.get_theta_desc()
         model = modelclass(theta_desc=tdesc, **fixed)
-        if obs is not None:
-            model.add_obs(obs)
-            model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
-            if norm_spectrum:
-                model, init = norm_spectrum(model, init)
-            if gaussian_process:
-                mask = model.obs['mask']
-                model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
-                                              model.obs['unc'][mask])
-            if logify:
-                s, u, m = dutils.logify(model.obs['spectrum'], model.obs['unc'],
-                                        model.obs['mask'])
-                model.obs['spectrum'] = s
-                model.obs['unc'] = u
-                model.obs['mask'] = m
-
         model.verbose = self.run_params['verbose']
+        
         return model, init
 
+def add_obs_to_model(model, obs, spec=True, phot=True,
+                     logify=True, norm_spectrum=True, gaussian_process=True):
+
+    model.add_obs(obs)
+    model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
+    
+    if norm_spectrum and spec:
+        model, init = norm_spectrum(model, init)
         
+    if gaussian_process and spec:
+        mask = model.obs['mask']
+        model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
+                                      model.obs['unc'][mask])
+    if logify and spec:
+        s, u, m = logify(model.obs['spectrum'], model.obs['unc'],
+                         model.obs['mask'])
+        model.obs['spectrum'] = s
+        model.obs['unc'] = u
+        model.obs['mask'] = m
+        
+    if not spec:
+        model.obs['spectrum'] = None
+        model.obs['unc'] = None
+    if not phot:
+        model.obs['mags'] = None
+        model.obs['mags_unc'] = None
+         
 def plist_to_pdict(plist):
     """Convert from a parameter list to a parameter dictionary, where
     the keys of the cdictionary are the parameter names.

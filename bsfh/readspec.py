@@ -130,3 +130,17 @@ def load_obs_lris(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
     obs['mags_unc'] = mags_unc
 
     return obs
+
+def load_obs_3dhst(filename, objnum):
+    with open(filename, 'r') as f:
+        hdr = f.readline().split()
+    dat = np.loadtxt(filename, comments = '#',
+                     dtype = np.dtype([(n, np.float) for n in hdr[1:]]))
+
+    flux_fields = [f for f in dat.dtype.names if f[0:2] == 'f_']
+    unc_fields = [f for f in dat.dtype.names if f[0:2] == 'e_']
+    filters = [f[2:] for f in flux_fields]
+    
+    mags = -2.5*np.log10(dat[flux_fields]
+    
+    return dat
