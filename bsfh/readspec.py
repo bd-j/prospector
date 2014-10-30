@@ -141,6 +141,6 @@ def load_obs_3dhst(filename, objnum):
     unc_fields = [f for f in dat.dtype.names if f[0:2] == 'e_']
     filters = [f[2:] for f in flux_fields]
     
-    mags = -2.5*np.log10(dat[flux_fields]
+    mags = -2.5*np.log10(dat[flux_fields])
     
     return dat
