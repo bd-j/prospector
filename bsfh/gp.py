@@ -41,7 +41,8 @@ class GaussianProcess(object):
             self.l = l
             Sigma = a**2 * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*l**2))
             Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + s**2)
-            self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True, check_finite=check_finite)
+            self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True,
+                                                check_finite=check_finite)
             self.log_det = np.sum(2 * np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
             
@@ -61,9 +62,9 @@ class GaussianProcess(object):
         #print('<r**2>={0}'.format((residual**2).mean()))
 
         first_term = np.dot(residual,
-                              cho_solve(self.factorized_Sigma, residual, check_finite = True))
-        lnL=  -0.5* (first_term
-                              + self.log_det)
+                            cho_solve(self.factorized_Sigma,
+                                      residual, check_finite = True))
+        lnL=  -0.5* (first_term + self.log_det)
         #print('lnlike(r) = {0}'.format(lnL))
         #print('log_det={0}'.format(self.log_det))
         #print('dot(r, solve(C,r))={0}'.format(first_term))

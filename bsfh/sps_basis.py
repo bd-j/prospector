@@ -42,7 +42,7 @@ class StellarPopBasis(object):
                              'dust_tesc', 'zred', 'outwave', 'dust_curve']
         self.basis_dirty = True
         
-    def get_spectrum(self, params, outwave, filters, nebular=True):
+    def get_spectrum(self, outwave, filters, nebular=True, **kwargs):
         """
         Return a spectrum for the given parameters.  If necessary the
         SSPs are updated, and if necessary the component spectra are
@@ -78,6 +78,7 @@ class StellarPopBasis(object):
             Any extra parameters (like stellar mass) that you want to
             return.
         """
+        params = kwargs
         cspec, neb, cphot, cextra = self.get_components(params, outwave, filters)
 
         spec = (cspec * self.params['mass'][:,None]).sum(axis = 0)

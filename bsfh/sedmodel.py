@@ -163,9 +163,10 @@ class SedModel(ThetaParameters):
         if sps is None:
             sps = self.sps
         self.set_parameters(theta)
-        spec, phot, extras = sps.get_spectrum(self.params.copy(),
-                                              self.obs['wavelength'],
-                                              self.obs['filters'])
+        spec, phot, extras = sps.get_spectrum(self.obs['wavelength'],
+                                              self.obs['filters'],
+                                              **self.params)
+        
         spec *= self.params.get('normalization_guess',1.0)
         #remove negative fluxes
         tiny = 1.0/len(spec) * spec[spec > 0].min()
