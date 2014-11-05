@@ -42,7 +42,7 @@ class StellarPopBasis(object):
                              'dust_tesc', 'zred', 'outwave', 'dust_curve']
         self.basis_dirty = True
         
-    def get_spectrum(self, outwave, filters, nebular=True, **kwargs):
+    def get_spectrum(self, outwave=None, filters=None, nebular=True, **kwargs):
         """
         Return a spectrum for the given parameters.  If necessary the
         SSPs are updated, and if necessary the component spectra are

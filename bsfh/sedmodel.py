@@ -163,8 +163,8 @@ class SedModel(ThetaParameters):
         if sps is None:
             sps = self.sps
         self.set_parameters(theta)
-        spec, phot, extras = sps.get_spectrum(self.obs['wavelength'],
-                                              self.obs['filters'],
+        spec, phot, extras = sps.get_spectrum(outwave=self.obs['wavelength'],
+                                              filters=self.obs['filters'],
                                               **self.params)
         
         spec *= self.params.get('normalization_guess',1.0)
@@ -245,10 +245,13 @@ class CSPModel(ThetaParameters):
             if k in sps.params.all_params:
                 sps.params[k] = v
         #now get the magnitudes and normalize by (current) stellar mass
-        mags = sps.get_mags(redshift=sps.params['zred'],
+        w, spec = sps.get_spectrum(tage=sps.params['tage'], peraa=False)
+        mags = sps.get_mags(tage=sps.params['tage'],
+                            #redshift=sps.params['zred'],
                             bands=self.obs['filters'])
         mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
-        return None, mass * 10**(-0.4*mags), None
+        
+        return mass_norm * spec, mass_norm * 10**(-0.4*mags), None
 
     def calibration(self):
         return 1.0
