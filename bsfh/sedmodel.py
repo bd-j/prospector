@@ -243,7 +243,11 @@ class CSPModel(ThetaParameters):
         # Pass the model parameters through to the sps object
         for k,v in self.params.iteritems():
             if k in sps.params.all_params:
-                sps.params[k] = v
+                if k == 'zmet':
+                    vv = np.abs(v - (np.arange( len(sps.zlegend))+1)).argmin()+1
+                else:
+                    vv = v.copy()
+                sps.params[k] = vv
         #now get the magnitudes and normalize by (current) stellar mass
         w, spec = sps.get_spectrum(tage=sps.params['tage'], peraa=False)
         mags = sps.get_mags(tage=sps.params['tage'],
