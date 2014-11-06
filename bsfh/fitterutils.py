@@ -49,7 +49,7 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
     walker_factor = int(rp['walker_factor'])
     nburn = rp['nburn']
     niter = int(rp['niter'])
-    nthreads = int(rp['nthreads'])
+    nthreads = int(rp.get('nthreads',1))
     initial_disp = rp['initial_disp']
     nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
     if rp['verbose']:
@@ -77,7 +77,7 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
         esampler.reset()
         k+=1
         if rp['verbose']:
-            print('done burn#'.format(k))
+            print('done burn #{}'.format(k))
     
     # Do the final burn-in
     if rp['verbose']:

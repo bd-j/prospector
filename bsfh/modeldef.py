@@ -5,21 +5,11 @@ from sedpy import observate, attenuation
 from bsfh import priors, sedmodel, elines, gp
 from bsfh.datautils import logify
 
-rp = {'verbose':True,
-      'filename':'data/mmt/nocal/020.B192-G242.s.fits',
-      'objname': 'B192-G242',
-      'outfile':'results/test',
-      'wlo':3750., 'whi': 7200.,
-      'ftol':0.5e-5, 'maxfev':500, 'nsamplers':1,
-      'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10,
-      'initial_disp':0.1
-      }
-
 param_template = {'name':'', 'N':1, 'isfree': False,
                   'init':0.0, 'units':'',
                   'prior_function_name': None, 'prior_args': None}
 
-from bsfh.default_params import default_parlist
+from bsfh.default_params import default_parlist, rp
 
 class ProspectrParams(object):
     """
@@ -39,10 +29,10 @@ class ProspectrParams(object):
         write_plist(pdict_to_plist(self.model_params),
                     self.run_params, self.filename)
 
-    def read_from_json(self, filename=None):
+    def read_from_json(self, filename=None, **kwargs):
         if filename is not None:
             self.filename = filename
-        self.run_params, self.model_params = read_plist(self.filename)
+        self.run_params, self.model_params = read_plist(self.filename, **kwargs)
         #self.model_params = plist_to_pdict(self.model_params)
 
     def get_theta_desc(self):
@@ -82,8 +72,11 @@ class ProspectrParams(object):
 def add_obs_to_model(model, obs, spec=True, phot=True,
                      logify=True, norm_spectrum=True, gaussian_process=True):
 
+    """ Needs to be rewritten to more gracefully determine whether
+    spec or phot data being fit
+    """
     model.add_obs(obs)
-    model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
+    model.ndof = 0
     
     if norm_spectrum and spec:
         model, init = norm_spectrum(model, init)
@@ -105,7 +98,12 @@ def add_obs_to_model(model, obs, spec=True, phot=True,
     if not phot:
         model.obs['mags'] = None
         model.obs['mags_unc'] = None
-         
+
+    if spec:
+        model.ndof += len(model.obs['spectrum'])
+    if phot:
+        model.ndof += len(model.obs['mags'])
+        
 def plist_to_pdict(plist):
     """Convert from a parameter list to a parameter dictionary, where
     the keys of the cdictionary are the parameter names.
@@ -132,29 +130,32 @@ def pdict_to_plist(pdict):
         plist += [v]
     return plist
 
-def write_plist(plist, runpars, filename):
+def write_plist(plist, runpars, filename=None):
     """
     Write the list of parameter dictionaries to a JSON file,
     taking care to replace functions with their names.
     """
-    runpars['param_file'] = filename
+    
     for p in plist:
         p = functions_to_names(p)
-        
-    f = open(filename + '.bpars.json', 'w')
-    json.dump([rp, plist], f)
-    f.close()    
 
-def read_plist(filename, raw_json  = False):
+    if filename is not None:
+        runpars['param_file'] = filename
+        f = open(filename + '.bpars.json', 'w')
+        json.dump([rp, plist], f)
+        f.close()    
+    else:
+        return json.dumps([rp, plist])
+    
+def read_plist(filename, raw_json=False):
     """
-    Read a JSON file into a run_param dictionary and a list of model
-    parameter dictionaries, taking care to add actual functions when
-    given their names.
+    Read a JSON file into a run_param dictionary and a list
+    of model parameter dictionaries, taking care to add actual
+    functions when given their names.
     """
     
-    f = open(filename, 'r')
-    runpars, modelpars = json.load(f)
-    f.close()
+    with open(filename, 'r') as f:
+        runpars, modelpars = json.load(f)
     rp['param_file'] = filename
     if raw_json:
         return runpars, modelpars

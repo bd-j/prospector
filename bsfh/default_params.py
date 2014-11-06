@@ -4,6 +4,21 @@ from bsfh import priors, elines
 
 tophat = priors.tophat
 
+
+rp = {'verbose':True,
+      'filename':'data/mmt/nocal/020.B192-G242.s.fits',
+      'objname': 'B192-G242',
+      'outfile':'results/test',
+      'wlo':3750., 'whi': 7200.,
+      'ftol':0.5e-5, 'maxfev':500, 'nsamplers':1,
+      'walker_factor':3, 'nthreads':1, 'nburn':3 * [10], 'niter': 10,
+      'initial_disp':0.1
+      }
+
+param_template = {'name':'', 'N':1, 'isfree': False,
+                  'init':0.0, 'units':'',
+                  'prior_function_name': None, 'prior_args': None}
+
 default_parlist = []
 
 ###### Distance ##########

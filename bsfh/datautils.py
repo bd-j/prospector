@@ -31,7 +31,7 @@ def generate_mock(model, sps, mock):
     
     obs = {'wavelengths': mock['wavelengths'], 'filters': mock['filters']}
     model.obs = obs
-    for k, v in mock['params']:
+    for k, v in mock['params'].iteritems():
         model.params[k] = np.atleast_1d(v)
     mock_theta = model.theta_from_params()
     s, p, x = model.mean_model(mock_theta, sps=sps)
@@ -40,7 +40,7 @@ def generate_mock(model, sps, mock):
         p_unc = p / mock['phot_snr']
         noisy_p = (p + p_unc * np.random.normal(size = len(p)))
         obs['mags'] = -2.5*np.log10(noisy_p)
-        obs['mags_unc'] = 1.086 * mock['phot_snr']
+        obs['mags_unc'] = 1.086 * p_unc/p
     else:
         obs['mags'] = None
         
