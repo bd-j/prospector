@@ -29,7 +29,7 @@ def generate_mock(model, sps, mock):
     grid, and filter set.
     """
     
-    obs = {'wavelengths': mock['wavelengths'], 'filters': mock['filters']}
+    obs = {'wavelength': mock['wavelengths'], 'filters': mock['filters']}
     model.obs = obs
     for k, v in mock['params'].iteritems():
         model.params[k] = np.atleast_1d(v)
