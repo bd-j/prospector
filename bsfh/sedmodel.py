@@ -1,5 +1,5 @@
 import numpy as np
-from sedpy.observate import vac2air
+from scipy.interpolate import interp1d
 
 class ThetaParameters(object):
     """
@@ -122,7 +122,10 @@ class ThetaParameters(object):
                 
 
 class SedModel(ThetaParameters):
-
+    """
+    For models composed of SSPs and sums of SSPs which use the
+    sps_basis.StellarPopBasis as the sps object.
+    """
     def add_obs(self, obs, rescale = True):
         self.filters = obs['filters']
         self.obs = obs
@@ -205,10 +208,10 @@ class SedModel(ThetaParameters):
         else:
             return 1.0
 
-
 class CSPModel(ThetaParameters):
     """
-    For parameterized SFHs and magnitudes only.
+    For parameterized SFHs where fsps.StellarPopulation is used as the
+    sps object.
     """
     
     def add_obs(self, obs, rescale = True):
@@ -254,7 +257,10 @@ class CSPModel(ThetaParameters):
                             #redshift=sps.params['zred'],
                             bands=self.obs['filters'])
         mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
-        
+        if self.obs['wavelength'] is not None:
+            spec = interp1d( w, spec, axis = -1,
+                             bounds_error=False)(self.obs['wavelength'])
+
         return mass_norm * spec, mass_norm * 10**(-0.4*mags), None
 
     def calibration(self):
@@ -263,41 +269,6 @@ class CSPModel(ThetaParameters):
     def sky(self):
         return 0.
     
-class Parameter(object):
-    """
-    For a possible switch from dictionaries to specialized objects for
-    the parameters.  This would require a massive rewrite of
-    ThetaParameters() and seems unnecessary, though a little cleaner
-    and of course more OO.  Experimental/under dev
-    """
-    def __init__(self, name, **kwargs):
-        self.name = name
-        self.prior_function_name = None
-        self.prior_grad_function_name = None
-        self.prior_args = {}
-        self.isfree = False
-        for k, v in kwargs.iteritems():
-            setattr(self,k,v)
-
-    #def _prior_function
-            
-    def lnp_prior(self, theta):
-        try:
-            return self.prior_function(theta, **self.prior_args)
-        except(AttributeError):
-            return 0
-        
-    @property
-    def N(self):
-        return np.size(self.value)
-
-    @property
-    def bounds(self):
-        pass
-
-    #@property
-    #def isfree(self):
-    #    return self.free
     
 def gauss(x, mu, A, sigma):
     """
