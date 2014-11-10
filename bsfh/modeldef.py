@@ -21,19 +21,20 @@ class ProspectrParams(object):
         else:
             self.run_params = rp.copy()
             self.model_params = deepcopy(default_parlist)
-            #self.model_params = plist_to_pdict(self.model_params)
+            self.run_params['param_file'] = None
     
     def write_to_json(self, filename=None):
         if filename is not None:
-            self.filename = filename
+            self.run_params['param_file'] = filename
         write_plist(pdict_to_plist(self.model_params),
-                    self.run_params, self.filename)
+                    self.run_params, self.run_params['param_file'])
 
     def read_from_json(self, filename=None, **kwargs):
         if filename is not None:
             self.filename = filename
-        self.run_params, self.model_params = read_plist(self.filename, **kwargs)
-        #self.model_params = plist_to_pdict(self.model_params)
+        self.run_params, self.model_params = read_plist(self.filename,
+                                                        **kwargs)
+        self.run_params['param_file'] = self.filename
 
     def get_theta_desc(self):
         plist = deepcopy(pdict_to_plist(self.model_params))
@@ -69,29 +70,37 @@ class ProspectrParams(object):
         
         return model, init
 
-def add_obs_to_model(model, obs, spec=True, phot=True,
-                     logify=True, norm_spectrum=True, gaussian_process=True):
+def add_obs_to_model(model, obs, initial_center,
+                     spec=True, phot=True,
+                     logify_spectrum=True, normalize_spectrum=True,
+                     add_gaussian_process=True):
 
     """ Needs to be rewritten to more gracefully determine whether
-    spec or phot data being fit
+    spec or phot data being fit.
     """
+    
     model.add_obs(obs)
     model.ndof = 0
     
-    if norm_spectrum and spec:
-        model, init = norm_spectrum(model, init)
+    if (normalize_spectrum and spec):
+        model, initial_center = norm_spectrum(model,
+                                              initial_center)
         
-    if gaussian_process and spec:
+    if (add_gaussian_process and spec):
         mask = model.obs['mask']
         model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
                                       model.obs['unc'][mask])
-    if logify and spec:
+    if (logify_spectrum and spec):
         s, u, m = logify(model.obs['spectrum'], model.obs['unc'],
                          model.obs['mask'])
         model.obs['spectrum'] = s
         model.obs['unc'] = u
         model.obs['mask'] = m
-        
+        if normalize_spectrum:
+            fudge = np.log(model.theta_desc['spec_norm']['prior_args']['maxi'])
+            model.theta_desc['spec_norm']['prior_args'] = {'mini':-fudge,
+                                                           'maxi':fudge }
+            initial_center[model.theta_desc['spec_norm']['i0']] = 1e-2
     if not spec:
         model.obs['spectrum'] = None
         model.obs['unc'] = None
@@ -260,7 +269,7 @@ def norm_spectrum(model, initial_center, band_name='f475w'):
     The inverse of the multiplication factor is saved as a fixed
     parameter to be used in producing the mean model.
     """
-    #use f475w for normalization
+    
     norm_band = [i for i,f in enumerate(model.obs['filters'])
                  if band_name in f.name][0]
     
@@ -284,7 +293,7 @@ def norm_spectrum(model, initial_center, band_name='f475w'):
     # Pivot the polynomial near the filter used for approximate
     # normalization
     model.params['pivot_wave'] =  model.obs['filters'][norm_band].wave_effective 
-    model.params['pivot_wave'] = 4750.
+    #model.params['pivot_wave'] = 4750.
  
     initial_center[model.theta_desc['spec_norm']['i0']] = 1.0
  

@@ -43,7 +43,7 @@ class GaussianProcess(object):
             Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + s**2)
             self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True,
                                                 check_finite=check_finite)
-            self.log_det = np.sum(2 * np.log(np.diag(self.factorized_Sigma[0])))
+            self.log_det = 2 * np.sum( np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
             
             #fstring = 's={0}, a={1}, l={2}'

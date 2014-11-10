@@ -112,7 +112,7 @@ def read_pickles(sample_file, model_file=None,
     model = None
     if model_file:
         #mf = pickle.load( open(model_file, 'rb'))
-        mf = load(open(model_file, 'rb'))
+        mf = pickle.load(open(model_file, 'rb'))
         inmod = mf['model']
         powell_results = mf['powell']
     if powell_file:
@@ -383,7 +383,7 @@ def param_evol(sample_results, outname=None, showpars=None, start=0):
 
 
 def subtriangle(sample_results, outname=None, showpars=None,
-                start=0, thin=1):
+                start=0, thin=1, truths=None):
     """
     Make a triangle plot of the (thinned, latter) samples of the posterior
     parameter space.  Optionally make the plot only for a supplied subset
@@ -395,7 +395,8 @@ def subtriangle(sample_results, outname=None, showpars=None,
     flatchain = sample_results['chain'][:,start::thin,:]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
-    truths = sample_results['initial_center']
+    if truths is None:
+        truths = sample_results['initial_center']
 
     # restrict to parameters you want to show
     if showpars is not None:
