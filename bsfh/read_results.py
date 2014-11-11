@@ -96,23 +96,3 @@ def obsdict(inobs, photflag):
         
     return obs, outn, marker
 
-def theta_labels(desc):
-    """
-    Using the theta_desc parameter dictionary, return a list of the model
-    parameter names that has the same aorder as the sampling chain array
-    """
-    label, index = [], []
-    for p in desc.keys():
-        nt = desc[p]['N']
-        name = p
-        if p is 'amplitudes':
-            name = 'A'
-        if nt is 1:
-            label.append(name)
-            index.append(desc[p]['i0'])
-        else:
-            for i in xrange(nt):
-                label.append(name+'{0}'.format(i+1))
-                index.append(desc[p]['i0']+i)
-
-    return [l for (i,l) in sorted(zip(index,label))]

@@ -4,15 +4,13 @@ try:
     import astropy.io.fits as pyfits
 except(ImportError):
     import pyfits
-#sys.path.append('/home/bjohnson/pfs/apps/clusterfitter')
-from sedpy import observate
 
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
 to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )
 
 def query_phatcat(objname, phottable='data/f2_apcanfinal_6phot_v2.fits',
-                      crosstable=None,
-                      filtcols=['275','336','475','814','110','160']):
+                  crosstable=None,
+                  filtcols=['275','336','475','814','110','160']):
     
     """
     Read LCJ's catalog for a certain object and return the magnitudes
@@ -48,6 +46,8 @@ def load_obs_mmt(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
     Read one of Caldwell's MMT spectra and find the matching PHAT
     photometry, return a dictionary containing the observations.
     """
+    from sedpy import observate
+
     obs ={}
 
     ####### SPECTRUM #######
@@ -99,6 +99,8 @@ def load_obs_lris(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
     Read one of the Keck LRIS spectra and find the matching PHAT
     photometry, return a dictionary containing the observations.
     """
+    from sedpy import observate
+
     obs ={}
     
     ####### SPECTRUM #######
@@ -132,6 +134,9 @@ def load_obs_lris(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
     return obs
 
 def load_obs_3dhst(filename, objnum):
+    """Load a 3D-HST data file and choose a particular object.  Unfinished.
+    """
+    obs ={}
     with open(filename, 'r') as f:
         hdr = f.readline().split()
     dat = np.loadtxt(filename, comments = '#',
@@ -143,4 +148,4 @@ def load_obs_3dhst(filename, objnum):
     
     mags = -2.5*np.log10(dat[flux_fields])
     
-    return dat
+    return obs

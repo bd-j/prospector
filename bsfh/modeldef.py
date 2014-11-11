@@ -1,7 +1,6 @@
 from copy import deepcopy
 import numpy as np
 import json
-from sedpy import observate, attenuation
 from bsfh import priors, sedmodel, elines, gp
 from bsfh.datautils import logify
 
@@ -178,6 +177,7 @@ def names_to_functions(p):
     #print(p['name'], p.get('prior_function_name','nope'))
     #put the dust curve function in
     if 'dust_curve_name' in p:
+        from sedpy import attenuation
         p['init'] = attenuation.__dict__[p['dust_curve_name']]
     #put the prior function in
     if 'prior_function_name' in p:
@@ -190,7 +190,6 @@ def names_to_functions(p):
 def functions_to_names(p):
     #replace prior functions with names of those function
     pf = p.get('prior_function', None)
-    #print(p['name'], pf)
     cond = ((pf in priors.__dict__.values()) and
             (pf is not None))
     if cond:
@@ -201,6 +200,7 @@ def functions_to_names(p):
         
     #replace dust curve functions with name of function
     if p['name'] == 'dust_curve':
+        from sedpy import attenuation
         df = p.get('init', None)
         cond = ((df is not None) and
                 (df in attenuation.__dict__.values()))
@@ -269,6 +269,7 @@ def norm_spectrum(model, initial_center, band_name='f475w'):
     The inverse of the multiplication factor is saved as a fixed
     parameter to be used in producing the mean model.
     """
+    from sedpy import observate
     
     norm_band = [i for i,f in enumerate(model.obs['filters'])
                  if band_name in f.name][0]

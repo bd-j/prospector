@@ -79,6 +79,29 @@ class ThetaParameters(object):
             lnp_prior_grad[start:stop] = v['prior_gradient_function'](theta[start:stop], **v['prior_args'])
         return lnp_prior_grad
 
+
+    def theta_labels(self):
+        """
+        Using the theta_desc parameter dictionary, return a list of the model
+        parameter names that has the same order as the sampling chain array
+        """
+        label, index = [], []
+        for p in self.theta_desc.keys():
+            nt = self.theta_desc[p]['N']
+            name = p
+            if p is 'amplitudes':
+                name = 'A'
+            if nt is 1:
+                label.append(name)
+                index.append(self.theta_desc[p]['i0'])
+            else:
+                for i in xrange(nt):
+                    label.append(name+'{0}'.format(i+1))
+                    index.append(self.theta_desc[p]['i0']+i)
+
+        return [l for (i,l) in sorted(zip(index,label))]
+
+    
     def check_constrained(self, theta):
         """
         For HMC, check if the trajectory has hit a wall in any
