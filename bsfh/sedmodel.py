@@ -8,8 +8,10 @@ class ThetaParameters(object):
     Also contains a method for computing the prior probability of a given
     theta vector.
 
-    It must be intialized with a theta_desc, a description of the theta
-    vector including the prior functions for each theta.
+    It must be intialized with a theta_desc, a description of the
+    theta vector including the prior functions for each theta.
+    Additional static parameters should be passed to kwargs at
+    instantiation.
     """
     def __init__(self, theta_desc=None, theta_init=None, **kwargs):
         
@@ -29,6 +31,10 @@ class ThetaParameters(object):
     def set_parameters(self, theta):
         """
         Propagate theta into the model parameters.
+
+        :param theta:
+            A theta parameter vector containing the desired
+            parameters.  ndarray of shape (ndim,)
         """
         assert len(theta) == self.ndim
         for p, v in self.theta_desc.iteritems():
@@ -39,6 +45,10 @@ class ThetaParameters(object):
         """
         Generate a theta vector from the parameter list and the theta
         descriptor.
+
+        :returns theta:
+            A theta parameter vector containing the current model
+            parameters, ndarray of shape (ndim,).
         """
 
         theta = np.zeros(self.ndim)
@@ -64,7 +74,8 @@ class ThetaParameters(object):
         lnp_prior = 0
         for p, v in self.theta_desc.iteritems():
             start, stop = v['i0'], v['i0'] + v['N']
-            lnp_prior += np.sum(v['prior_function'](theta[start:stop], **v['prior_args']))
+            lnp_prior += np.sum(v['prior_function'](theta[start:stop],
+                                                    **v['prior_args']))
         return lnp_prior
 
     def lnp_prior_grad(self, theta):
@@ -72,18 +83,28 @@ class ThetaParameters(object):
         Return a vector of gradients in the prior probability.
         Requires  that functions giving the gradients are given in the
         theta descriptor.
+
+        :param theta:
+            A theta parameter vector containing the desired
+            parameters.  ndarray of shape (ndim,)
+
         """
         lnp_prior_grad = np.zeros_like(theta)
         for p, v in self.theta_desc.iteritems():
             start, stop = v['i0'], v['i0'] + v['N']
-            lnp_prior_grad[start:stop] = v['prior_gradient_function'](theta[start:stop], **v['prior_args'])
+            lnp_prior_grad[start:stop] = v['prior_gradient_function'](theta[start:stop],
+                                                                      **v['prior_args'])
         return lnp_prior_grad
-
 
     def theta_labels(self):
         """
-        Using the theta_desc parameter dictionary, return a list of the model
-        parameter names that has the same order as the sampling chain array
+        Using the theta_desc parameter dictionary, return a list of
+        the model parameter names that has the same order as the
+        sampling chain array.
+
+        :returns labels:
+            A list of labels of the same length and order as the theta
+            vector.
         """
         label, index = [], []
         for p in self.theta_desc.keys():
@@ -108,7 +129,12 @@ class ThetaParameters(object):
         parameter.   If so, reflect the momentum and update the
         parameter position in the  opposite direction until the
         parameter is within the bounds. Bounds  are specified via the
-        'upper' and 'lower' keys of the theta descriptor
+        'upper' and 'lower' keys of the theta descriptor.
+
+        :param theta:
+            A theta parameter vector containing the desired
+            parameters.  ndarray of shape (ndim,)
+
         """
         oob = True
         sign = np.ones_like(theta)
@@ -198,7 +224,7 @@ class SedModel(ThetaParameters):
         tiny = 1.0/len(spec) * spec[spec > 0].min()
         spec[ spec < tiny ] = tiny
 
-        #spec = (spec + self.sky()) * self.calibration()
+        spec = (spec + self.sky()) #* self.calibration()
         return spec, phot, extras
 
     def sky(self):
@@ -250,8 +276,8 @@ class CSPModel(ThetaParameters):
             ndarray of parameter values.
 
         :param sps:
-            A StellarPopulation object to be used for generating the
-            SED.
+            A python-fsps StellarPopulation object to be used for
+            generating the SED.
 
         :returns spec:
             A None type object, only included for consistency with the
@@ -284,7 +310,7 @@ class CSPModel(ThetaParameters):
             spec = interp1d( w, spec, axis = -1,
                              bounds_error=False)(self.obs['wavelength'])
 
-        return mass_norm * spec, mass_norm * 10**(-0.4*mags), None
+        return mass_norm * spec + self.sky(), mass_norm * 10**(-0.4*mags), None
 
     def calibration(self):
         return 1.0

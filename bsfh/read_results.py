@@ -2,9 +2,14 @@ import sys
 import pickle
 import numpy as np
 
+"""Convenience functions for reading and reconstruction results from a
+fitting run, including reconstruction of the model for posterior
+samples"""
+
 
 def use_old_module_names():
-    # Fix module renames here if necessary for reading pickle files
+    """Fix module renames here if necessary for reading pickle files
+    """
     import bsfh.sedmodel as sedmodel
     import bsfh.gp as gp
     import bsfh.sps_basis as sps_basis

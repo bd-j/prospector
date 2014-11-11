@@ -12,7 +12,13 @@ from bsfh.default_params import default_parlist, rp
 
 class ProspectrParams(object):
     """
-    Keep the parameters stored in an object.
+    An object that stores the parameters for a fitting run.  This
+    object includes the `run_params` which encompass things like
+    filenames, number of emcee walkers and emcee iterations, etc., and
+    `model_params` which contains details of the parameters of the SED
+    model.  Methods are provided for reading and writing the
+    parameters to JSON files and for converting parameter lists to
+    dictionaries.
     """
     def __init__(self, filename=None):
         if filename is not None:
@@ -23,12 +29,18 @@ class ProspectrParams(object):
             self.run_params['param_file'] = None
     
     def write_to_json(self, filename=None):
+        """Write the current contents of the parameters to a file in
+        JSON format.
+        """
         if filename is not None:
             self.run_params['param_file'] = filename
         write_plist(pdict_to_plist(self.model_params),
                     self.run_params, self.run_params['param_file'])
 
     def read_from_json(self, filename=None, **kwargs):
+        """Read `run_params` and `model_params from JSON formatted
+        file.
+        """
         if filename is not None:
             self.filename = filename
         self.run_params, self.model_params = read_plist(self.filename,
@@ -36,22 +48,31 @@ class ProspectrParams(object):
         self.run_params['param_file'] = self.filename
 
     def get_theta_desc(self):
+        """Generate a theta_desc dictionary from the current
+        `model_params`.  This dictionary is suitable for initializing
+        sedmodel.ThetaParameters objects.
+        """
         plist = deepcopy(pdict_to_plist(self.model_params))
         return get_theta_desc(plist)
     
     @property
     def free_params(self):
+        """A list of the free model parameters.
+        """
         return [k['name'] for k in pdict_to_plist(self.model_params)
                 if k['isfree']]
             
     @property
     def fixed_params(self):
+        """A list of the fixed model parameters that are specified in
+        the `model_params`.
+        """
         return [k['name'] for k in pdict_to_plist(self.model_params)
                 if (k['isfree']==False)]
 
     def parindex(self, parname):
         return [p['name'] for p in
-                pdict_to_plist(self.model_params)].index(parname)
+                pdict_to_plist(deepcopy(self.model_params))].index(parname)
         
     def parinfo(self, parname):
         try:
@@ -62,7 +83,9 @@ class ProspectrParams(object):
             return self.model_params[self.parindex(parname)]
 
     def initialize_model(self, modelclass):
-        
+        """Instantiate and initialize a ThetaParameters object using
+        the theta_desc of the current `model_params`.
+        """
         tdesc, init, fixed = self.get_theta_desc()
         model = modelclass(theta_desc=tdesc, **fixed)
         model.verbose = self.run_params['verbose']
@@ -74,8 +97,10 @@ def add_obs_to_model(model, obs, initial_center,
                      logify_spectrum=True, normalize_spectrum=True,
                      add_gaussian_process=True):
 
-    """ Needs to be rewritten to more gracefully determine whether
-    spec or phot data being fit.
+    """ Add the `obs` dictionary to a model object, including spectral
+    normalization and logifying spectral data if desired. Needs to be
+    rewritten to more gracefully determine whether spec or phot data
+    being fit.
     """
     
     model.add_obs(obs)
@@ -129,7 +154,6 @@ def pdict_to_plist(pdict):
     dictionaries, adding each key to each value dictionary as the
     `name' keyword.
     """
-
     if type(pdict) is list:
         return pdict[:]
     plist = []
@@ -139,11 +163,9 @@ def pdict_to_plist(pdict):
     return plist
 
 def write_plist(plist, runpars, filename=None):
+    """Write the list of parameter dictionaries to a JSON file, taking
+    care to replace functions with their names.
     """
-    Write the list of parameter dictionaries to a JSON file,
-    taking care to replace functions with their names.
-    """
-    
     for p in plist:
         p = functions_to_names(p)
 
@@ -156,10 +178,9 @@ def write_plist(plist, runpars, filename=None):
         return json.dumps([rp, plist])
     
 def read_plist(filename, raw_json=False):
-    """
-    Read a JSON file into a run_param dictionary and a list
-    of model parameter dictionaries, taking care to add actual
-    functions when given their names.
+    """Read a JSON file into a run_param dictionary and a list of
+    model parameter dictionaries, taking care to add actual functions
+    when given their names.
     """
     
     with open(filename, 'r') as f:
@@ -174,7 +195,9 @@ def read_plist(filename, raw_json=False):
     return runpars, modelpars
 
 def names_to_functions(p):
-    #print(p['name'], p.get('prior_function_name','nope'))
+    """Replace names of functions in a parameter description with the
+    actual functions.
+    """
     #put the dust curve function in
     if 'dust_curve_name' in p:
         from sedpy import attenuation
@@ -188,7 +211,9 @@ def names_to_functions(p):
     return p
 
 def functions_to_names(p):
-    #replace prior functions with names of those function
+    """Replace prior and dust functions with the names of those
+    functions.
+    """
     pf = p.get('prior_function', None)
     cond = ((pf in priors.__dict__.values()) and
             (pf is not None))
@@ -210,7 +235,9 @@ def functions_to_names(p):
     return p
 
 def get_theta_desc(model_params):
-        
+    """Given a `model_params` list, gneerate a theta_desc dictionary
+    that can be used to initialize a sedmodel.ThetaParameters object.
+    """    
     theta_desc, fixed_params  = {}, {}
     theta_init = []
     count = 0
