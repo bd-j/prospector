@@ -22,22 +22,6 @@ def run_command(cmd):
     w = child.wait()
     return os.WEXITSTATUS(w), out
 
-def parse_args(argv, rp={'param_file':''}):
-    
-    shortopt = ''
-    try:
-        opts, args = getopt.getopt(argv[1:],shortopt,[k+'=' for k in rp.keys()])
-    except getopt.GetoptError:
-        print 'bsfh.py -- param_file <filename>'
-        sys.exit(2)
-    for o, a in opts:
-        try:
-            rp[o[2:]] = float(a)
-        except:
-            rp[o[2:]] = a
-    if rp.get('verbose', False):
-        print('reading parameters from {0}'.format(rp['param_file']))
-    return rp
 
 def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
     """

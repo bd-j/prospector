@@ -8,7 +8,6 @@ param_template = {'name':'', 'N':1, 'isfree': False,
                   'init':0.0, 'units':'',
                   'prior_function_name': None, 'prior_args': None}
 
-from bsfh.default_params import default_parlist, rp
 
 class ProspectrParams(object):
     """
@@ -16,18 +15,25 @@ class ProspectrParams(object):
     object includes the `run_params` which encompass things like
     filenames, number of emcee walkers and emcee iterations, etc., and
     `model_params` which contains details of the parameters of the SED
-    model.  Methods are provided for reading and writing the
-    parameters to JSON files and for converting parameter lists to
-    dictionaries.
+    model.
+
+    Methods are provided for reading and writing the parameters to
+    JSON files and for converting parameter lists to dictionaries.
+    Furthermore, methods are provided for generating model parameter
+    descriptors and models from the parameter lists.  Finally, methods
+    are provided for adding obs dictionaries to the models and doing
+    all the relevant parameter bookkeeping.
     """
-    def __init__(self, filename=None):
-        if filename is not None:
-            self.read_from_json(filename=filename)
-        else:
-            self.run_params = rp.copy()
-            self.model_params = deepcopy(default_parlist)
-            self.run_params['param_file'] = None
-    
+    def __init__(self, rp, mp):
+        self.run_params = rp.copy()
+        self.model_params = deepcopy(mp)
+        self.run_params['param_file'] = None
+        self.initial_theta = None
+
+    def add_obs_to_model(self, model, obs):
+        add_obs_to_model(model, obs, self.initial_theta,
+                         **self.run_params)
+        
     def write_to_json(self, filename=None):
         """Write the current contents of the parameters to a file in
         JSON format.
@@ -46,7 +52,8 @@ class ProspectrParams(object):
         self.run_params, self.model_params = read_plist(self.filename,
                                                         **kwargs)
         self.run_params['param_file'] = self.filename
-
+        self.initial_theta = None
+        
     def get_theta_desc(self):
         """Generate a theta_desc dictionary from the current
         `model_params`.  This dictionary is suitable for initializing
@@ -89,13 +96,14 @@ class ProspectrParams(object):
         tdesc, init, fixed = self.get_theta_desc()
         model = modelclass(theta_desc=tdesc, **fixed)
         model.verbose = self.run_params['verbose']
-        
-        return model, init
+        self.initial_theta = init
+        return model
 
 def add_obs_to_model(model, obs, initial_center,
                      spec=True, phot=True,
                      logify_spectrum=True, normalize_spectrum=True,
-                     add_gaussian_process=True):
+                     add_gaussian_process=False,
+                     **kwargs):
 
     """ Add the `obs` dictionary to a model object, including spectral
     normalization and logifying spectral data if desired. Needs to be
@@ -105,37 +113,38 @@ def add_obs_to_model(model, obs, initial_center,
     
     model.add_obs(obs)
     model.ndof = 0
-    
-    if (normalize_spectrum and spec):
-        model, initial_center = norm_spectrum(model,
-                                              initial_center)
-        
-    if (add_gaussian_process and spec):
-        mask = model.obs['mask']
-        model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
-                                      model.obs['unc'][mask])
-    if (logify_spectrum and spec):
-        s, u, m = logify(model.obs['spectrum'], model.obs['unc'],
-                         model.obs['mask'])
-        model.obs['spectrum'] = s
-        model.obs['unc'] = u
-        model.obs['mask'] = m
-        if normalize_spectrum:
-            fudge = np.log(model.theta_desc['spec_norm']['prior_args']['maxi'])
-            model.theta_desc['spec_norm']['prior_args'] = {'mini':-fudge,
-                                                           'maxi':fudge }
-            initial_center[model.theta_desc['spec_norm']['i0']] = 1e-2
-    if not spec:
-        model.obs['spectrum'] = None
-        model.obs['unc'] = None
-    if not phot:
-        model.obs['mags'] = None
-        model.obs['mags_unc'] = None
 
     if spec:
         model.ndof += len(model.obs['spectrum'])
+        
+        if (normalize_spectrum):
+            model, initial_center = norm_spectrum(model,
+                                                  initial_center)
+        
+        if (add_gaussian_process):
+            mask = model.obs['mask']
+            model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
+                                          model.obs['unc'][mask])
+        if (logify_spectrum):
+            s, u, m = logify(model.obs['spectrum'], model.obs['unc'],
+                            model.obs['mask'])
+            model.obs['spectrum'] = s
+            model.obs['unc'] = u
+            model.obs['mask'] = m
+            if normalize_spectrum:
+                fudge = np.log(model.theta_desc['spec_norm']['prior_args']['maxi'])
+                model.theta_desc['spec_norm']['prior_args'] = {'mini':-fudge,
+                                                               'maxi':fudge }
+                initial_center[model.theta_desc['spec_norm']['i0']] = 1e-2
+    else:
+        model.obs['spectrum'] = None
+        model.obs['unc'] = None
+
     if phot:
         model.ndof += len(model.obs['mags'])
+    else:
+        model.obs['mags'] = None
+        model.obs['mags_unc'] = None
         
 def plist_to_pdict(plist):
     """Convert from a parameter list to a parameter dictionary, where
@@ -172,10 +181,10 @@ def write_plist(plist, runpars, filename=None):
     if filename is not None:
         runpars['param_file'] = filename
         f = open(filename + '.bpars.json', 'w')
-        json.dump([rp, plist], f)
+        json.dump([runpars, plist], f)
         f.close()    
     else:
-        return json.dumps([rp, plist])
+        return json.dumps([runpars, plist])
     
 def read_plist(filename, raw_json=False):
     """Read a JSON file into a run_param dictionary and a list of
@@ -185,7 +194,7 @@ def read_plist(filename, raw_json=False):
     
     with open(filename, 'r') as f:
         runpars, modelpars = json.load(f)
-    rp['param_file'] = filename
+    runparsp['param_file'] = filename
     if raw_json:
         return runpars, modelpars
     
