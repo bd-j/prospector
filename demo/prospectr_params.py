@@ -1,6 +1,6 @@
 import numpy as np
 from sedpy import attenuation
-from bsfh import priors, elines, sedmodel
+from bsfh import priors, sedmodel, elines
 from bsfh.datautils import load_obs_mmt
 tophat = priors.tophat
 
@@ -18,7 +18,8 @@ run_params = {'verbose':True,
               'mock': False,
               'data_loading_function_name': "load_obs_mmt",
               'spec': True, 'phot':True,
-              'logify_spectrum':True, 'normalize_spectrum':True,
+              'logify_spectrum':True,
+              'normalize_spectrum':True,
               'filename':'/Users/bjohnson/projects/cetus/data/mmt/nocal/020.B192-G242.s.fits',
               "phottable":"/Users/bjohnson/Projects/cetus/data/f2_apcanfinal_6phot_v2.fits",
               'objname':'B192-G242',
@@ -30,6 +31,7 @@ run_params = {'verbose':True,
 #############
 obs = load_obs_mmt(**run_params)
 obs['phot_mask'] = np.array([True, True, True, True, False, False])
+
 #############
 # MODEL_PARAMS
 #############
@@ -157,8 +159,8 @@ model_params.append({'name': 'max_wave_smooth', 'N': 1,
 ###### CALIBRATION ###########
 
 polyorder = 2
-polymin = [-5, -50]
-polymax = [5, 50]
+polymin = [-50, -500]
+polymax = [50, 500]
 polyinit = [0.1, 0.1]
 
 model_params.append({'name': 'poly_coeffs', 'N': polyorder,
@@ -180,25 +182,25 @@ model_params.append({'name': 'gp_jitter', 'N':1,
                         'init': 0.001,
                         'units': 'spec units',
                         'prior_function': tophat,
-                        'prior_args': {'mini':0.0, 'maxi':0.1}})
+                        'prior_args': {'mini':0.0, 'maxi':0.2}})
 
 model_params.append({'name': 'gp_amplitude', 'N':1,
                         'isfree': True,
                         'init': 0.04,
                         'units': 'spec units',
                         'prior_function': tophat,
-                        'prior_args': {'mini':0.0, 'maxi':0.2}})
+                        'prior_args': {'mini':0.0, 'maxi':0.5}})
 
 model_params.append({'name': 'gp_length', 'N':1,
                         'isfree': True,
-                        'init': 100.0,
+                        'init': 60.0,
                         'units': r'$\AA$',
-                        'prior_function': tophat,
-                        'prior_args': {'mini':20.0, 'maxi':500}})
+                        'prior_function': priors.lognormal,
+                        'prior_args': {'log_mean':4.0, 'sigma':0.1}})
 
 model_params.append({'name': 'phot_jitter', 'N':1,
                         'isfree': False,
-                        'init': 0.00,
+                        'init': 0.0,
                         'units': 'mags',
                         'prior_function': tophat,
                         'prior_args': {'mini':0.0, 'maxi':0.1}})

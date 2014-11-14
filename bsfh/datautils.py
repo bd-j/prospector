@@ -17,8 +17,9 @@ def logify(data, sigma, mask):
         return np.log(data), sigma/data, mask
     
     else:
-        warnings.warn("Setting {0} datapoints to \
-        {1} to insure positivity.".format(nbad, tiny))
+        message = "Setting {0} datapoints to {1} to insure positivity.".format(nbad, tiny)
+        #warnings.warn(message)
+        print(message)
         data[bad] = tiny
         sigma[bad] = np.sqrt(sigma[bad]**2 + (data[bad] - tiny)**2)
         return np.log(data), sigma/data, mask    

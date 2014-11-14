@@ -11,6 +11,9 @@ from bsfh import model_setup
 
 #SPS Model as global
 sps = sps_basis.StellarPopBasis()
+#import fsps
+#sps = fsps.StellarPopulation()
+
 
 #GP instance as global
 gp = GaussianProcess(None, None)
@@ -90,9 +93,9 @@ if __name__ == "__main__":
     # SETUP
     ################
     inpar = model_setup.parse_args(sys.argv)
-    parset, model = model_setup.setup_model(inpar['param_file'])
+    parset, model = model_setup.setup_model(inpar['param_file'], sps=sps)
     parset.run_params['ndim'] = model.ndim
-    rp = parset.run_params #shortcut
+    rp = parset.run_params #shortname
     initial_theta = parset.initial_theta
     
     #################

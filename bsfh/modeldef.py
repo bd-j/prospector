@@ -13,9 +13,9 @@ class ProspectrParams(object):
     """
     An object that stores the parameters for a fitting run.  This
     object includes the `run_params` which encompass things like
-    filenames, number of emcee walkers and emcee iterations, etc., and
-    `model_params` which contains details of the parameters of the SED
-    model.
+    filenames, number of emcee walkers and emcee iterations, etc...,
+    and `model_params` which contains details of the parameters of the
+    SED model.
 
     Methods are provided for reading and writing the parameters to
     JSON files and for converting parameter lists to dictionaries.
@@ -23,6 +23,12 @@ class ProspectrParams(object):
     descriptors and models from the parameter lists.  Finally, methods
     are provided for adding obs dictionaries to the models and doing
     all the relevant parameter bookkeeping.
+
+    :param rp:
+        A dictionary of ``run parameters``.
+    :param mp:
+        A list of ``model parameters``.
+    
     """
     def __init__(self, rp, mp):
         self.run_params = rp.copy()
@@ -91,7 +97,7 @@ class ProspectrParams(object):
 
     def initialize_model(self, modelclass):
         """Instantiate and initialize a ThetaParameters object using
-        the theta_desc of the current `model_params`.
+        the theta_desc of the current ``model_params``.
         """
         tdesc, init, fixed = self.get_theta_desc()
         model = modelclass(theta_desc=tdesc, **fixed)
@@ -195,7 +201,7 @@ def read_plist(filename, raw_json=False):
     
     with open(filename, 'r') as f:
         runpars, modelpars = json.load(f)
-    runparsp['param_file'] = filename
+    runpars['param_file'] = filename
     if raw_json:
         return runpars, modelpars
     

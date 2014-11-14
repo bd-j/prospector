@@ -46,15 +46,15 @@ def setup_model(filename, sps=None):
     """
     ext = filename.split('.')[-1]
     if ext == 'py':
-        print('reading py script')
+        print('reading py script {}'.format(filename))
         setup_module = load_module_from_file(filename)
-        rp = setup_module.run_params
-        mp = setup_module.model_params
-        obs = getattr(setup_module, 'obs', None)
+        rp = deepcopy(setup_module.run_params)
+        mp = deepcopy(setup_module.model_params)
+        obs = deepcopy(getattr(setup_module, 'obs', None))
         model_type = getattr(setup_module, 'model_type', sedmodel.SedModel)
-        
+        print(np.median(obs['spectrum'][obs['mask']]))
     elif ext == 'json':
-        print('reading json')
+        print('reading json {}'.format(filename))
         rp, mp = modeldef.read_plist(filename)
         obs = None
         model_type = getattr(sedmodel,
@@ -80,9 +80,10 @@ def load_obs(model, sps=None,
         initial_center = model.theta_from_params()
         initial_center *= np.random.beta(2,2,size=model.ndim)*2.0
 
-    if loading_function_name is not None:
-        obsfunction = getattr(dutils, loading_function_name)
+    if data_loading_function_name is not None:
+        obsfunction = getattr(dutils, data_loading_function_name)
         obs = obsfunction(**kwargs)
+        obs['phot_mask'] = np.isfinite(obs.get('mags',np.inf))
     return obs
 
 def load_module_from_file(path_to_file):
@@ -91,9 +92,7 @@ def load_module_from_file(path_to_file):
     from importlib import import_module
     path, filename = os.path.split(path_to_file)
     modname = filename.replace('.py','')
-    print(modname, path)
-    sys.path.append(path)
-    print(sys.path)
+    sys.path.insert(0,path)
     user_module = import_module(modname)
     sys.path.remove(path)
     return user_module
