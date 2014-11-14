@@ -12,23 +12,47 @@ You will need:
 \end{itemize}
 
 \section{User Interaction}
-The primary user interaction is through a dictinary and a list that describe a number of parameters.  The dictionary and list can be specified in a json file, or in a python script, whichever is more convenient.
+The primary user interaction is through a dictinary and a list that describe a number of parameters, as well as a dictionary containing the observational data.  The parameter dictionary and list can be specified in a json file, or in a python script, whichever is more convenient.
 
 \subsection{Model parameter definitions: The \emph{model_params} list}
-Each model parameter is given an entry in a list called {\bf model_params}. Each list element is a dictionary which contains at minimum the keys {\it name, N, init, isfree} with values giving the parameter name, number of elements or length of the parameter (\texttt{1} for a scalar), initial value(s), and a boolean specifying whether the parameter is allowed to vary or not.  Note that the value of {\it init} can be a vector or list if {\it N}$>1$.
+Each model parameter is given an entry in a list called {\bf model_params}. Each list element is a dictionary which contains at minimum the keys {\it name, N, init, isfree} with values giving the parameter name, number of elements or length of the parameter (\texttt{1} for a scalar), initial value(s), and a boolean specifying whether the parameter is allowed to vary or not.  Note that the value of {\it init} can be a numpy array or list if {\it N}$>1$.
 
-For parameters with {\it isfree}=\texttt{True} the following additional keys of the dictionary are required: {\it prior_function_name} and {\it prior_args} with values consisting of a string giving the name of the prior function (e.g. \texttt{``tophat''}) and a dictionary of arguments to the prior function.
+For parameters with {\it isfree}=\texttt{True} the following additional keys of the dictionary are required: {\it prior_function_name} and {\it prior_args} with values consisting of a string giving the name of the prior function (e.g. \texttt{``tophat''}) and a dictionary of arguments to the prior function. It's also a good idea to have a {\it units} key, and maybe a {\it label} key.
 
-It's also a good idea to have a {\it units} key, and maybe a {\it label} key.
-
-All the model parameters will be passed to the model object on initialization.  The free parameters will be varied by the code during the optimization and sampling phases.  The initial value from which optimization is begun is set by the {\it init} values of each parameter.
+All the model parameters will be passed to the model object on initialization.  The free parameters will be varied by the code during the optimization and sampling phases.  The initial value from which optimization is begun is set by the {\it init} values of each parameter.  for fixed parameters the {\it init} value gives the value of that parameter that will be used during the optimization and MCMC phases.
 
 \subsection{Additonal parameters definition: The \emph{run_params} dictionary}
 Beyond {\bf model_params}, the following parameters conrol key aspects of the operation of the code, and a re stored in a special dictionary called {\bf run_params}
 \begin{itemize}
 \item {\it verbose} - Boolean
-\item {\it mock} - optional Boolean
+\item {\it model_type} - optional string
+\item {\it nburn} integer list
+\item {\it niter} integer
+\item {\it nwalkers} integer
+\item {\it walker_factor} integer, ignored if {\it nwalkers} is present.
+\item {\it initial_disp} float
+\item {\it ftol} float
+\item {\it maxfev} integer
+\item {\it outfile}
+\item {\it spec} optional boolean
+\item {\it phot} optional Boolean
+\item {\it logify_data} optional Boolean
+\item {\it normalize_spectrum} optional Boolean
 \end{item}
+
+For real data the following is required
+\begin{itemize}
+\item {\it data_loading_function_name} string
+\item {\it filename} string
+\item {\it ...} additional arguments to the data loading function (e.g. a list of filters to use, wavelength limits, etc.) 
+\end{itemize}
+The data_loading_function should return an {\bf obs} dictionary (see below) given the additional arguments provided in the {\bf run_params} dictionary.  Alternatively, if using a python script for the parameters, you can create the {\bf obs} dictionary directly in the top level of that script and it will be used without additional parameters required in the {\bf run_params} dictionary.
+
+For mock data the following are required
+\begin{itemize}
+\item {\it mock} - Boolean
+\item {\it mock_info} - a dictionary of information about the mock generation, see below
+\end{itemize}
 
 \subsection{Data format: The \emph{obs} dictionary}
 The code expects observed values or data to be in a dictionary (here called the {\bf obs} dictionary) with the following keys:
@@ -43,7 +67,7 @@ The code expects observed values or data to be in a dictionary (here called the 
 \item {\it phot_mask}
 \end{itemize}
 
-You should have a function that takes arguments from the {\bf run_params} dictionary and produces the {\bf obs}  dictionary.
+You should have a function that takes arguments from the {\bf run_params} dictionary and produces the {\bf obs}  dictionary.  Alternatively, the {\bf obs} dictionary can be generated directly in a python script if that is the method for parameter storage.
 
 
 \section{Advanced Usage}

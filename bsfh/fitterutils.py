@@ -152,8 +152,10 @@ def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
     nchains = None
     
     #initial conditions and calulate initial epsilons
-    pos, prob, thiseps = sampler.sample(initial_center, model, iterations = 10, epsilon = None,
-                                    length = length, store_trajectories = False, nadapt = 0)
+    pos, prob, thiseps = sampler.sample(initial_center, model,
+                                        iterations = 10, epsilon = None,
+                                        length = length, store_trajectories = False,
+                                        nadapt = 0)
     eps = thiseps
 
     # Adaptation of stepsize
@@ -168,8 +170,10 @@ def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
             shrink = 1.00
         
         eps *= shrink
-        pos, prob, thiseps = sampler.sample(sampler.chain[-1,:], model, iterations = iterations,
-                                        epsilon = eps, length = length, store_trajectories = False, nadapt = 0)
+        pos, prob, thiseps = sampler.sample(sampler.chain[-1,:], model,
+                                            iterations = iterations,
+                                            epsilon = eps, length = length,
+                                            store_trajectories = False, nadapt = 0)
         alleps[k] = thiseps #this should not have actually changed during the sampling
 
     #main run

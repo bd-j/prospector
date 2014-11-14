@@ -71,7 +71,8 @@ def setup_model(filename, sps=None):
 
 def load_obs(model, sps=None,
              mock=False, mock_info=None,
-             loading_function_name=None, **kwargs):
+             data_loading_function_name=None,
+             **kwargs):
     """Load or mock observations, and return an obs dictionary
     """
     if mock:
