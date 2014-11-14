@@ -11,18 +11,53 @@ You will need:
 \item \texttt{sedpy} (for nonparametric SFHs)
 \end{itemize}
 
+Then just git clone the repo and make sure it is somewhere in your
+python path.  BSFH is pure python.
+
 \section{User Interaction}
-The primary user interaction is through a dictinary and a list that describe a number of parameters, as well as a dictionary containing the observational data.  The parameter dictionary and list can be specified in a json file, or in a python script, whichever is more convenient.
+The primary user interaction is through a dictinary and a list that
+describe a number of parameters, as well as a dictionary containing
+the observational data.  The parameter dictionary and list can be
+specified in a json file, or in a python script, whichever is more
+convenient.
+
+Command line syntax is as follows, where either a python file or json
+file can be specified.
+\begin{center}
+\texttt{cd demo}
+\texttt{python prospectr.py --param_file prospectr_params.py}
+\texttt{python prospectr.py --param_file prospectr_params.json}
+\end{center}
 
 \subsection{Model parameter definitions: The \emph{model_params} list}
-Each model parameter is given an entry in a list called {\bf model_params}. Each list element is a dictionary which contains at minimum the keys {\it name, N, init, isfree} with values giving the parameter name, number of elements or length of the parameter (\texttt{1} for a scalar), initial value(s), and a boolean specifying whether the parameter is allowed to vary or not.  Note that the value of {\it init} can be a numpy array or list if {\it N}$>1$.
+Each model parameter is given an entry in a list called {\bf
+model_params}. Each list element is a dictionary which contains at
+minimum the keys {\it name, N, init, isfree} with values giving the
+parameter name, number of elements or length of the parameter
+(\texttt{1} for a scalar), initial value(s), and a boolean specifying
+whether the parameter is allowed to vary or not.  Note that the value
+of {\it init} can be a numpy array or list if {\it N}$>1$.
 
-For parameters with {\it isfree}=\texttt{True} the following additional keys of the dictionary are required: {\it prior_function_name} and {\it prior_args} with values consisting of a string giving the name of the prior function (e.g. \texttt{``tophat''}) and a dictionary of arguments to the prior function. It's also a good idea to have a {\it units} key, and maybe a {\it label} key.
+For parameters with {\it isfree}=\texttt{True} the following
+additional keys of the dictionary are required: {\it
+prior_function_name} and {\it prior_args} with values consisting of a
+string giving the name of the prior function
+(e.g. \texttt{``tophat''}) and a dictionary of arguments to the prior
+function. It's also a good idea to have a {\it units} key, and maybe a
+{\it label} key.
 
-All the model parameters will be passed to the model object on initialization.  The free parameters will be varied by the code during the optimization and sampling phases.  The initial value from which optimization is begun is set by the {\it init} values of each parameter.  for fixed parameters the {\it init} value gives the value of that parameter that will be used during the optimization and MCMC phases.
+All the model parameters will be passed to the model object on
+initialization.  The free parameters will be varied by the code during
+the optimization and sampling phases.  The initial value from which
+optimization is begun is set by the {\it init} values of each
+parameter.  for fixed parameters the {\it init} value gives the value
+of that parameter that will be used during the optimization and MCMC
+phases.
 
 \subsection{Additonal parameters definition: The \emph{run_params} dictionary}
-Beyond {\bf model_params}, the following parameters conrol key aspects of the operation of the code, and a re stored in a special dictionary called {\bf run_params}
+Beyond {\bf model_params}, the following parameters conrol key aspects
+of the operation of the code, and a re stored in a special dictionary
+called {\bf run_params}
 \begin{itemize}
 \item {\it verbose} - Boolean
 \item {\it model_type} - optional string
@@ -44,9 +79,16 @@ For real data the following is required
 \begin{itemize}
 \item {\it data_loading_function_name} string
 \item {\it filename} string
-\item {\it ...} additional arguments to the data loading function (e.g. a list of filters to use, wavelength limits, etc.) 
+\item {\it ...} additional arguments to the data loading function
+(e.g. a list of filters to use, wavelength limits, etc.)
 \end{itemize}
-The data_loading_function should return an {\bf obs} dictionary (see below) given the additional arguments provided in the {\bf run_params} dictionary.  Alternatively, if using a python script for the parameters, you can create the {\bf obs} dictionary directly in the top level of that script and it will be used without additional parameters required in the {\bf run_params} dictionary.
+
+The data_loading_function should return an {\bf obs} dictionary (see
+below) given the additional arguments provided in the {\bf run_params}
+dictionary.  Alternatively, if using a python script for the
+parameters, you can create the {\bf obs} dictionary directly in the
+top level of that script and it will be used without additional
+parameters required in the {\bf run_params} dictionary.
 
 For mock data the following are required
 \begin{itemize}
@@ -55,7 +97,8 @@ For mock data the following are required
 \end{itemize}
 
 \subsection{Data format: The \emph{obs} dictionary}
-The code expects observed values or data to be in a dictionary (here called the {\bf obs} dictionary) with the following keys:
+The code expects observed values or data to be in a dictionary (here
+called the {\bf obs} dictionary) with the following keys:
 \begin{itemize}
 \item {\it wavelengths}
 \item {\it spec}
@@ -67,16 +110,34 @@ The code expects observed values or data to be in a dictionary (here called the 
 \item {\it phot_mask}
 \end{itemize}
 
-You should have a function that takes arguments from the {\bf run_params} dictionary and produces the {\bf obs}  dictionary.  Alternatively, the {\bf obs} dictionary can be generated directly in a python script if that is the method for parameter storage.
-
+You should have a function that takes arguments from the {\bf
+run_params} dictionary and produces the {\bf obs} dictionary.
+Alternatively, the {\bf obs} dictionary can be generated directly in a
+python script if that is the method for parameter storage.
 
 \section{Advanced Usage}
+
 \subsection{Mock data}
-Really this should not be advanced.  Everyone should do it
+Really this should not be advanced.  Everyone should do mock data
+tests.  So we are trying to make it easy.
 
 \subsection{User defined models}
+The pre-packaged models suck!  You think you can do better.  Or, you
+have stars instead of stellar populations.  Or spectra of the IGM or
+planets or AGN or something. Or echelle data. What to do?
+
+Subclass sedmodel.ThetaParameters.  That's it.  It should just have a
+mean_model and calibration method that conversts an array of
+parameters into a model spectrum.  You'll have to write those.
 
 \subsection{MPI}
+This code is slow!  Get moar processors.
+
+Install some kind of MPI on your system (openMPI, mpich2, mvapich2), make sure mpi4py is also
+installed against this MPI installation, and use the syntax
+\texttt{mpirun -np <N> python prospectr.py --param_file <param_file>}
+
+Done.
 
 \end{document}
 
