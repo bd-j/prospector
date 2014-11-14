@@ -1,4 +1,4 @@
-import pickle, os, subprocess
+import pickle, os, subprocess, time
 import numpy as np
 from bsfh import modeldef
 

@@ -146,10 +146,11 @@ def add_obs_to_model(model, obs, initial_center,
         model.obs['mags'] = None
         model.obs['mags_unc'] = None
         
-def plist_to_pdict(plist):
+def plist_to_pdict(inplist):
     """Convert from a parameter list to a parameter dictionary, where
     the keys of the cdictionary are the parameter names.
     """
+    plist = deepcopy(inplist)
     if type(plist) is dict:
         return plist.copy()
     pdict = {}
@@ -216,7 +217,7 @@ def names_to_functions(p):
         p['prior_function'] = priors.__dict__[p['prior_function_name']]
         #print(p['prior_function_name'], p['prior_function'])
     else:
-        p['prior_function'] = None
+        p['prior_function'] = p.get('prior_function', None)
     return p
 
 def functions_to_names(p):
@@ -268,7 +269,7 @@ def get_theta_desc(model_params):
         else:
             fixed_params[par['name']] = par['init']
 
-    return theta_desc, theta_init, fixed_params
+    return theta_desc, np.array(theta_init), fixed_params
    
 def initialize_model(rp, plist, obs):
     """

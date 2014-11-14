@@ -4,7 +4,7 @@ import time, sys, os
 import numpy as np
 import pickle
 
-from bsfh import model_setup, sps_basis
+from bsfh import model_setup, sps_basis, write_results
 from bsfh.gp import GaussianProcess
 import bsfh.fitterutils as utils
 from bsfh import model_setup
@@ -90,10 +90,10 @@ if __name__ == "__main__":
     # SETUP
     ################
     inpar = model_setup.parse_args(sys.argv)
-    model, parset = model_setup.setup_model(inpar['param_file'])
+    parset, model = model_setup.setup_model(inpar['param_file'])
     parset.run_params['ndim'] = model.ndim
-    rp = parset.run_params
-    initial_theta = parsert.initial_theta
+    rp = parset.run_params #shortcut
+    initial_theta = parset.initial_theta
     
     #################
     #INITIAL GUESS USING POWELL MINIMIZATION

@@ -64,7 +64,7 @@ def setup_model(filename, sps=None):
     parset = modeldef.ProspectrParams(rp, mp)
     model = parset.initialize_model(model_type)
 
-    if obs is None:
+    if (obs is None) or (parset.run_params.get('mock', False)):
         obs = load_obs(model, sps=sps, **parset.run_params)
     parset.add_obs_to_model(model, obs)
     return parset, model

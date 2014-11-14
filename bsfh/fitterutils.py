@@ -19,14 +19,13 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
     """
     # Parse input parameters
     ndim = rp['ndim']
-    walker_factor = int(rp['walker_factor'])
+    walker_factor = int(rp.get('walker_factor',4))
     nburn = rp['nburn']
     niter = int(rp['niter'])
     nthreads = int(rp.get('nthreads',1))
     initial_disp = rp['initial_disp']
-    nwalkers = rp.get('nwalkers', 0)
-    if nwalkers == 0:
-        nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
+    nwalkers = rp.get('nwalkers',
+                      int(2 ** np.round(np.log2(ndim * walker_factor))))
     if rp['verbose']:
         print('number of walkers={}'.format(nwalkers))
     # Set up initial positions

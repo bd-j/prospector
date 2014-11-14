@@ -29,7 +29,7 @@ def generate_mock(model, sps, mock):
     grid, and filter set.
     """
     
-    obs = {'wavelength': mock['wavelengths'], 'filters': mock['filters']}
+    obs = {'wavelength': mock['wavelength'], 'filters': mock['filters']}
     model.obs = obs
     for k, v in mock['params'].iteritems():
         model.params[k] = np.atleast_1d(v)
@@ -44,7 +44,7 @@ def generate_mock(model, sps, mock):
     else:
         obs['mags'] = None
         
-    if mock['wavelengths'] is not None:
+    if mock['wavelength'] is not None:
         s_unc = s / mock.get('spec_snr', 1.0)
         noisy_s = (s + s_unc * np.random.normal(size = len(s)))
         obs['spec'] = noisy_s
