@@ -1,10 +1,10 @@
-text/*log
-text/*aux
-text/*dvi
-text/*ps
-text/xsede*
-text/apj*
-text/*bib
+*log
+*aux
+*dvi
+*ps
+xsede*
+apj*
+*bib
 *~
 *.pyc
 */*.pyc
