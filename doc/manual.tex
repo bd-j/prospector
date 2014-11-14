@@ -15,7 +15,7 @@ Then just git clone the repo and make sure it is somewhere in your
 python path.  BSFH is pure python.
 
 \section{User Interaction}
-The primary user interaction is through a dictinary and a list that
+The primary user interaction is through a dictionary and a list that
 describe a number of parameters, as well as a dictionary containing
 the observational data.  The parameter dictionary and list can be
 specified in a json file, or in a python script, whichever is more
@@ -124,11 +124,12 @@ tests.  So we are trying to make it easy.
 \subsection{User defined models}
 The pre-packaged models suck!  You think you can do better.  Or, you
 have stars instead of stellar populations.  Or spectra of the IGM or
-planets or AGN or something. Or echelle data. What to do?
+planets or AGN or something. Or Echelle data. What to do?
 
-Subclass sedmodel.ThetaParameters.  That's it.  It should just have a
-mean_model and calibration method that conversts an array of
-parameters into a model spectrum.  You'll have to write those.
+Subclass sedmodel.ThetaParameters.  That's it.  Your new subclass
+should have a mean_model() and a calibration() method that conversts
+an array of parameters into a model spectrum.  You'll have to write
+those.
 
 \subsection{MPI}
 This code is slow!  Get moar processors.
@@ -138,6 +139,9 @@ installed against this MPI installation, and use the syntax
 \texttt{mpirun -np <N> python prospectr.py --param_file <param_file>}
 
 Done.
+
+\subsection{Linear Algebra}
+This code is slow!  Get better math.
 
 \end{document}
 
