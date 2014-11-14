@@ -1,4 +1,4 @@
-import sys, os, getopt, subprocess
+import sys
 import numpy as np
 import emcee
 from bsfh import minimizer
@@ -11,17 +11,6 @@ except(ImportError):
     
 lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
 to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )
-
-def run_command(cmd):
-    """
-    Open a child process, and return its exit status and stdout
-    """
-    child = subprocess.Popen(cmd, shell =True, stderr = subprocess.PIPE, 
-                             stdin=subprocess.PIPE, stdout = subprocess.PIPE)
-    out = [s for s in child.stdout]
-    w = child.wait()
-    return os.WEXITSTATUS(w), out
-
 
 def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
     """

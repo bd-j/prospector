@@ -12,7 +12,7 @@ from bsfh import model_setup
 #SPS Model as global
 sps = sps_basis.StellarPopBasis()
 
-#Gp instance as global
+#GP instance as global
 gp = GaussianProcess(None, None)
 
 #LnP function as global
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     model, parset = model_setup.setup_model(inpar['param_file'])
     parset.run_params['ndim'] = model.ndim
     rp = parset.run_params
-    initial_center = parsert.initial_theta
+    initial_theta = parsert.initial_theta
     
     #################
     #INITIAL GUESS USING POWELL MINIMIZATION
@@ -101,11 +101,10 @@ if __name__ == "__main__":
     if rp['verbose']:
         print('Minimizing')
     ts = time.time()
-    powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6,
-                'maxfev':rp['maxfev']}
-    powell_guesses, pinit = utils.pminimize(chisqfn, model, initial_center,
+    powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
+    powell_guesses, pinit = utils.pminimize(chisqfn, model, initial_theta,
                                        method ='powell', opts=powell_opt,
-                                       pool = pool, nthreads = rp['nthreads'])
+                                       pool = pool, nthreads = rp.get('nthreads',1))
     
     best = np.argmin([p.fun for p in powell_guesses])
     best_guess = powell_guesses[best]
@@ -121,52 +120,18 @@ if __name__ == "__main__":
     if rp['verbose']:
         print('emcee...')
     tstart = time.time()
-    
-    #nsamplers = int(rp['nsamplers'])
-    theta_init = initial_center
-    initial_center = best_guess.x #np.array([8e3, 2e-2, 0.5, 0.1, 0.1, norm])
+    initial_center = best_guess.x
     esampler = utils.run_emcee_sampler(model, lnprobfn, initial_center, rp, pool = pool)
     edur = time.time() - tstart
+    if rp['verbose']:
+        print('done emcee in {0}s'.format(edur))
 
     ###################
     # PICKLE OUTPUT
     ###################
-    results, model_store = {}, {}
-    
-    results['run_params'] = rp
-    results['obs'] = model.obs
-    results['plist'] = parset.model_params
-    results['pardict'] =  modeldef.plist_to_pdict([modeldef.functions_to_names(p)
-                                                  for p in parset.model_params])
-    results['initial_center'] = initial_center
-    results['initial_theta'] = theta_init
-    
-    results['chain'] = esampler.chain
-    results['lnprobability'] = esampler.lnprobability
-    results['acceptance'] = esampler.acceptance_fraction
-    results['duration'] = edur
-    results['optimizer_duration'] = pdur
-
-    model_store['powell'] = powell_guesses
-    model_store['model'] = model
-    #pull out the git hash for bsfh here.
-    bsfh_dir = os.path.dirname(modeldef.__file__)
-    bgh = utils.run_command('cd ' + bsfh_dir +
-                           '\n git rev-parse HEAD')[1][0].replace('\n','')
-    cgh = utils.run_command('git rev-parse HEAD')[1][0].replace('\n','')
-
-    results['bsfh_version'] = bgh
-    results['cetus_version'] = cgh
-    model_store['bsfh_version'] = bgh
-    
-    tt = int(time.time())
-    out = open('{1}_{0}_mcmc'.format(tt, rp['outfile']), 'wb')
-    pickle.dump(results, out)
-    out.close()
-
-    out = open('{1}_{0}_model'.format(tt, rp['outfile']), 'wb')
-    pickle.dump(model_store, out)
-    out.close()
+    write_results.write_pickles(parset, model, esampler, powell_guesses,
+                                toptimize=pdur, tsample=edur,
+                                sampling_initial_center=initial_center)
     
     try:
         pool.close()

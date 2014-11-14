@@ -1,4 +1,4 @@
-import sys, os, json
+import sys, os, getopt, json
 from copy import deepcopy
 import numpy as np
 from bsfh import modeldef, sedmodel
