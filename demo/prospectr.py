@@ -4,16 +4,20 @@ import time, sys, os
 import numpy as np
 import pickle
 
-from bsfh import model_setup, sps_basis, write_results
+from bsfh import model_setup, write_results
 from bsfh.gp import GaussianProcess
 import bsfh.fitterutils as utils
 from bsfh import model_setup
 
-#SPS Model as global
-sps = sps_basis.StellarPopBasis()
-#import fsps
-#sps = fsps.StellarPopulation()
+sptype = model_setup.parse_args(sys.argv).get('sps_type', 'sps_basis')
 
+#SPS Model as global
+if sptype == 'sps_basis':
+    from bsfh import sps_basis
+    sps = sps_basis.StellarPopBasis()
+elif sptype == 'fsps':
+    import fsps
+    sps = fsps.StellarPopulation()
 
 #GP instance as global
 gp = GaussianProcess(None, None)
@@ -89,17 +93,19 @@ except(ValueError):
     
 if __name__ == "__main__":
 
-    #############
+    ################
     # SETUP
     ################
     inpar = model_setup.parse_args(sys.argv)
     parset, model = model_setup.setup_model(inpar['param_file'], sps=sps)
     parset.run_params['ndim'] = model.ndim
+    _ = model_setup.parse_args(sys.argv, argdict=parset.run_params)
+    parset.run_params['sys.argv'] = sys.argv
     rp = parset.run_params #shortname
     initial_theta = parset.initial_theta
     
     #################
-    #INITIAL GUESS USING POWELL MINIMIZATION
+    #INITIAL GUESS(ES) USING POWELL MINIMIZATION
     #################
     if rp['verbose']:
         print('Minimizing')

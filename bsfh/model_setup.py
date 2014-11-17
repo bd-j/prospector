@@ -9,15 +9,14 @@ model parameters and other info and return a parset, a model, and an
 initial_params vector
 """
 
-
-def parse_args(argv, rp={'param_file':''}):
+def parse_args_old(argv, rp={'param_file':'', 'sps':''}):
     """ Parse command line arguments given to prospectr.py
     """
     shortopt = ''
     try:
         opts, args = getopt.getopt(argv[1:],shortopt,[k+'=' for k in rp.keys()])
     except getopt.GetoptError:
-        print 'bsfh.py --param_file <filename>'
+        print 'bsfh.py --param_file <filename> --sps <sps_type>'
         sys.exit(2)
     for o, a in opts:
         try:
@@ -25,6 +24,28 @@ def parse_args(argv, rp={'param_file':''}):
         except:
             rp[o[2:]] = a
     return rp
+
+def parse_args(argv, argdict={'param_file':'', 'sps':''}):
+    print(argdict)
+    args = [sub for arg in argv[1:] for sub in arg.split('=')]
+    print(args, len(args))
+    for i, a in enumerate(args):
+        print(i,a)
+        if (a[0:2] == '--'):
+            abare = a[2:]
+            print(i,abare)
+        else:
+        #    pass
+            #print(i)
+            continue
+        if abare in argdict.keys():
+            apo = deepcopy(args[i+1])
+            func = type(argdict[abare])
+            print(i, abare, func, apo)
+            argdict[abare] = func(apo)
+        #    print(argdict[abare])
+        #    print(i, args)
+    return argdict
 
 def setup_model(filename, sps=None):
     """Use a .json file or a .py script to intialize a model and obs
