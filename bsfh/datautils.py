@@ -24,29 +24,36 @@ def logify(data, sigma, mask):
         sigma[bad] = np.sqrt(sigma[bad]**2 + (data[bad] - tiny)**2)
         return np.log(data), sigma/data, mask    
     
-def generate_mock(model, sps, mock):
+def generate_mock(model, sps, mock_info):
     """
     Generate a mock data set given model, mock parameters, wavelength
     grid, and filter set.
     """
-    
-    obs = {'wavelength': mock['wavelength'], 'filters': mock['filters']}
+
+    # Generate mock spectrum and photometry given mock parameters, and
+    # Apply calibration
+    obs = {'wavelength': mock_info['wavelength'],
+           'filters': mock_info['filters']}
     model.obs = obs
-    for k, v in mock['params'].iteritems():
+    for k, v in mock_info['params'].iteritems():
         model.params[k] = np.atleast_1d(v)
     mock_theta = model.theta_from_params()
     s, p, x = model.mean_model(mock_theta, sps=sps)
+    cal = model.calibration(mock_theta)
+    if mock_info.get('calibration',None) is not None:
+        cal = mock_info['calibration']
+    s *= cal
     
-    if mock['filters'] is not None:
-        p_unc = p / mock['phot_snr']
+    # Add noise to the mock data
+    if mock_info['filters'] is not None:
+        p_unc = p / mock_info['phot_snr']
         noisy_p = (p + p_unc * np.random.normal(size = len(p)))
         obs['mags'] = -2.5*np.log10(noisy_p)
         obs['mags_unc'] = 1.086 * p_unc/p
     else:
         obs['mags'] = None
-        
-    if mock['wavelength'] is not None:
-        s_unc = s / mock.get('spec_snr', 1.0)
+    if mock_info['wavelength'] is not None:
+        s_unc = s / mock_info.get('spec_snr', 10.0)
         noisy_s = (s + s_unc * np.random.normal(size = len(s)))
         obs['spec'] = noisy_s
         obs['unc'] = s_unc
