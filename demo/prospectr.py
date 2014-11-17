@@ -96,6 +96,7 @@ if __name__ == "__main__":
     ################
     # SETUP
     ################
+    aa =sys.argv
     inpar = model_setup.parse_args(sys.argv)
     parset, model = model_setup.setup_model(inpar['param_file'], sps=sps)
     parset.run_params['ndim'] = model.ndim

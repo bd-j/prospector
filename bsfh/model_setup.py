@@ -26,26 +26,33 @@ def parse_args_old(argv, rp={'param_file':'', 'sps':''}):
     return rp
 
 def parse_args(argv, argdict={'param_file':'', 'sps':''}):
-    print(argdict)
+    """ Parse command line arguments, allowing for optional arguments.
+    Simple/Fragile.
+    """
     args = [sub for arg in argv[1:] for sub in arg.split('=')]
-    print(args, len(args))
+    print(args)
     for i, a in enumerate(args):
-        print(i,a)
-        if (a[0:2] == '--'):
+        if (a[:2] == '--'):
             abare = a[2:]
-            print(i,abare)
+            if abare == 'help':
+                show_syntax(argv, argdict)
+                sys.exit()
         else:
-        #    pass
-            #print(i)
             continue
         if abare in argdict.keys():
+            print(abare)
             apo = deepcopy(args[i+1])
             func = type(argdict[abare])
-            print(i, abare, func, apo)
-            argdict[abare] = func(apo)
-        #    print(argdict[abare])
-        #    print(i, args)
+            try:
+                argdict[abare] = func(apo)
+            except TypeError:
+                argdict[abare] = apo
     return argdict
+
+def show_syntax(args, ad):
+    print('Usage:\n {0} '.format(args[0]) +
+          ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
+
 
 def setup_model(filename, sps=None):
     """Use a .json file or a .py script to intialize a model and obs
