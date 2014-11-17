@@ -29,6 +29,23 @@ file can be specified.
 \texttt{python prospectr.py --param_file prospectr_params.json}
 \end{center}
 
+\subsection{Stellar Population Models: The \emph{sps} variable}
+The likelihood function and SED models take a stellar population object
+as an argument.  This object is defined globally to enable
+multiprocessing, since they can't generally be serialized and sent to
+other processors.  Therefore, changes to the stellar population object
+being used must be made in the prospectr.py code.
+
+The SSP and `non-parameteric' SFHs (\texttt{SedModel}) rely on a
+\texttt{StellarPopBasis()} object described in the \texttt{sps_basis}
+module.  The composite or parameteric SFHs (\texttt{CSPModel}) rely on
+the \texttt{StellarPopulation()} object in the \texttt{fsps} module.
+Depending on the model you are using, one of these should be
+instantiated in the variable \texttt{sps}.
+
+In the future this may change so that a command line argument can be
+passed to prospectr.py to tell it which stellar population object to use.
+
 \subsection{Model parameter definitions: The \emph{model_params} list}
 Each model parameter is given an entry in a list called {\bf
 model_params}. Each list element is a dictionary which contains at
@@ -111,9 +128,11 @@ called the {\bf obs} dictionary) with the following keys:
 \end{itemize}
 
 You should have a function that takes arguments from the {\bf
-run_params} dictionary and produces the {\bf obs} dictionary.
-Alternatively, the {\bf obs} dictionary can be generated directly in a
-python script if that is the method for parameter storage.
+run_params} dictionary and produces the {\bf obs} dictionary.  The
+name of this function must be supplied in the {\bf run_params}, and it
+should be located in the readspec module. Alternatively, the {\bf obs}
+dictionary can be generated directly in a python script if that is the
+method for parameter storage.
 
 \section{Advanced Usage}
 
@@ -122,14 +141,23 @@ Really this should not be advanced.  Everyone should do mock data
 tests.  So we are trying to make it easy.
 
 \subsection{User defined models}
-The pre-packaged models suck!  You think you can do better.  Or, you
-have stars instead of stellar populations.  Or spectra of the IGM or
-planets or AGN or something. Or Echelle data. What to do?
+The pre-packaged models suck!  You can do better.  Or, you have stars
+instead of stellar populations.  Or spectra of the IGM or planets or
+AGN or something. Or Echelle data. What to do?
 
-Subclass sedmodel.ThetaParameters.  That's it.  Your new subclass
-should have a mean_model() and a calibration() method that conversts
-an array of parameters into a model spectrum.  You'll have to write
-those.
+Subclass \texttt{bsfh.sedmodel.ThetaParameters}.  That's it.  Your new
+subclass should have a mean_model() and a calibration() method that
+converts an array of parameters into a model spectrum.  You'll have to
+write those.  Then you should specify that model in the {\bf
+run_params} dictionary as {\it model_type}.
+
+\subsection{Linear Algebra}
+This code is slow!  Get better math.
+
+If you are fitting spectra, this code does lots of matrix inversions
+as part of the gaussian process.  This is very computationally
+intensive, and massive gains can be made by using optimized linear
+algebra libraries.
 
 \subsection{MPI}
 This code is slow!  Get moar processors.
@@ -139,9 +167,6 @@ installed against this MPI installation, and use the syntax
 \texttt{mpirun -np <N> python prospectr.py --param_file <param_file>}
 
 Done.
-
-\subsection{Linear Algebra}
-This code is slow!  Get better math.
 
 \end{document}
 
