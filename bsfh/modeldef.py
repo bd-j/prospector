@@ -147,10 +147,10 @@ def add_obs_to_model(model, obs, initial_center,
         model.obs['unc'] = None
 
     if phot:
-        model.ndof += len(model.obs['mags'])
+        model.ndof += len(model.obs['maggies'])        
     else:
-        model.obs['mags'] = None
-        model.obs['mags_unc'] = None
+        model.obs['maggies'] = None
+        model.obs['maggies_unc'] = None
         
 def plist_to_pdict(inplist):
     """Convert from a parameter list to a parameter dictionary, where
@@ -290,7 +290,7 @@ def initialize_model(rp, plist, obs):
     model.add_obs(obs)
     model, initial_theta = norm_spectrum(model, init)
     #model.params['pivot_wave'] = 4750.
-    model.ndof = len(model.obs['wavelength']) + len(model.obs['mags'])
+    model.ndof = len(model.obs['wavelength']) + len(model.obs['maggies'])
     model.verbose = rp['verbose']
 
     #Add Gaussian Process
@@ -323,13 +323,14 @@ def norm_spectrum(model, initial_center, band_name='f475w'):
 
     # Factor by which the observed spectra should be multiplied to give you
     #  the photometry (or the cgs apparent spectrum), using the F475W filter as truth
-    norm = 10**(-0.4*(synphot[norm_band] - model.obs['mags'][norm_band]))
+    norm = 10**(-0.4*(synphot[norm_band] -
+                      (-2.5*np.log10(model.obs['maggies'][norm_band])))
+                      )
     model.params['normalization_guess'] = norm
        
     # Assume you've got this right to within some factor after
     #  marginalized over everything that changes spectral shape within
     #  the band (polynomial terms, dust, age, etc)
-    #fudge = (1 + 10 * model.obs['mags_unc'][norm_band]/1.086)
     fudge = 3.0
     model.theta_desc['spec_norm']['prior_args'] = {'mini':1 / fudge,
                                                    'maxi':fudge }

@@ -21,7 +21,6 @@ def use_old_module_names():
     sys.modules['sps_basis'] = sps_basis
     sys.modules['elines'] = elines
     sys.modules['priors'] = priors
-
     
 def read_pickles(sample_file, model_file=None,
                  powell_file=None, inmod=None):
@@ -95,9 +94,9 @@ def obsdict(inobs, photflag):
         outn = 'sed'
         marker = 'o'
         obs['wavelength'] = np.array([f.wave_effective for f in obs['filters']])
-        obs['spectrum'] = 10**(0-0.4 * obs['mags'])
-        obs['unc'] = obs['mags_unc'] * obs['spectrum']
-        obs['mask'] = obs['mags_unc'] > 0
+        obs['spectrum'] = obs['maggies']
+        obs['unc'] = obs['maggies_unc'] 
+        obs['mask'] = obs['phot_mask'] > 0
         
     return obs, outn, marker
 

@@ -74,8 +74,10 @@ def load_obs_mmt(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
     #Masking.  should move to a function that reads a mask definition file
     #one should really never mask in the rest frame - that should be modeled!
     obs['mask'] =  ((obs['wavelength'] >= wlo ) & (obs['wavelength'] <= whi))
-    obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 5570) | (obs['wavelength'] >= 5590)) #mask OI sky line
-    obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 6170) | (obs['wavelength'] >= 6180)) #mask...something.
+    obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 5570) |
+                                 (obs['wavelength'] >= 5590)) #mask OI sky line
+    obs['mask'] = obs['mask'] & ((obs['wavelength'] <= 6170) |
+                                 (obs['wavelength'] >= 6180)) #mask...something.
 
     #obs['wavelength'] /= (1.0 + redshift)
 
@@ -84,10 +86,14 @@ def load_obs_mmt(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
         print('Loading mags from {0} for {1}'.format(phottable, objname))
     mags, mags_unc, flag = query_phatcat(objname, phottable = phottable)
     
-    obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in ["F275W", "F336W", "F475W", "F814W"]] +
-                                            ['wfc3_ir_'+b.lower() for b in ["F110W", "F160W"]])
-    obs['mags'] = mags - np.array([f.ab_to_vega for f in obs['filters']]) -2.5*np.log10(scale)#- (5.0 * np.log10(dist) + 25)
-    obs['mags_unc'] = mags_unc
+    obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in
+                                             ["F275W", "F336W", "F475W", "F814W"]] +
+                                             ['wfc3_ir_'+b.lower() for b in
+                                              ["F110W", "F160W"]])
+    obs['maggies'] = 10**(-0.4 * (mags -
+                                  np.array([f.ab_to_vega for f in obs['filters']]) -
+                                  2.5*np.log10(scale) ))
+    obs['maggies_unc'] = mags_unc * maggies / 1.086
 
     return obs
 
@@ -126,10 +132,14 @@ def load_obs_lris(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
         print('Loading mags from {0} for {1}'.format(phottable, objname))
     mags, mags_unc, flag = query_phatcat(objname, phottable = phottable)
      
-    obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in ["F336W", "F475W", "F814W"]] +
-                                            ['wfc3_ir_'+b.lower() for b in ["F110W", "F160W"]])
-    obs['mags'] = mags - np.array([f.ab_to_vega for f in obs['filters']]) - (5.0 * np.log10(dist) + 25)
-    obs['mags_unc'] = mags_unc
+    obs['filters'] = observate.load_filters(['wfc3_uvis_'+b.lower() for b in
+                                             ["F336W", "F475W", "F814W"]] +
+                                             ['wfc3_ir_'+b.lower() for b in
+                                              ["F110W", "F160W"]])
+    obs['maggies'] = 10**(-0.4 * (mags -
+                                  np.array([f.ab_to_vega for f in obs['filters']]) -
+                                  2.5*np.log10(scale) ))
+    obs['maggies_unc'] = mags_unc * maggies / 1.086
 
     return obs
 

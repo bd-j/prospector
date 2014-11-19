@@ -48,10 +48,10 @@ def generate_mock(model, sps, mock_info):
     if mock_info['filters'] is not None:
         p_unc = p / mock_info['phot_snr']
         noisy_p = (p + p_unc * np.random.normal(size = len(p)))
-        obs['mags'] = -2.5*np.log10(noisy_p)
-        obs['mags_unc'] = 1.086 * p_unc/p
+        obs['maggies'] = noisy_p
+        obs['maggies_unc'] = p_unc
     else:
-        obs['mags'] = None
+        obs['maggies'] = None
     if mock_info['wavelength'] is not None:
         s_unc = s / mock_info.get('spec_snr', 10.0)
         noisy_s = (s + s_unc * np.random.normal(size = len(s)))

@@ -111,7 +111,7 @@ def load_obs(model, sps=None,
     if data_loading_function_name is not None:
         obsfunction = getattr(dutils, data_loading_function_name)
         obs = obsfunction(**kwargs)
-        obs['phot_mask'] = np.isfinite(obs.get('mags',np.inf))
+        obs['phot_mask'] = np.isfinite(obs.get('maggies',np.inf))
     return obs
 
 def load_module_from_file(path_to_file):

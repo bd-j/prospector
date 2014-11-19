@@ -55,10 +55,10 @@ def lnprobfn(theta, mod):
         # Photometry term
         if mod.obs['mags'] is not None:
             pmask = mod.obs.get('phot_mask',
-                                np.ones(len(mod.obs['mags']), dtype= bool))
+                                np.ones(len(mod.obs['maggies']), dtype= bool))
             jitter = mod.params.get('phot_jitter',0)
-            maggies = 10**(-0.4 * mod.obs['mags'])
-            phot_var = maggies**2 * ((mod.obs['mags_unc']**2 + jitter**2)/1.086**2)
+            maggies = mod.obs['maggies']
+            phot_var = (mod.obs['maggies_unc'] + jitter)**2
             lnp_phot =  -0.5*( (phot - maggies)**2 / phot_var )[pmask].sum()
             lnp_phot +=  -0.5*np.log(phot_var[pmask]).sum()
         else:
