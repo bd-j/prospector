@@ -136,6 +136,6 @@ def custom_filter_dict(filename):
     with open(filename, 'r') as f:
         for line in f:
             ind, name = line.split()
-            filter_dict[name.lower()] = Bunch(index = int(ind))
+            filter_dict[name.lower()] = Bunch(index = int(ind)-1)
             
     return filter_dict
