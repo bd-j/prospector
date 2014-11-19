@@ -56,7 +56,7 @@ def lnprobfn(theta, mod):
             lnp_spec = 0.0
 
         # Photometry term
-        if mod.obs['mags'] is not None:
+        if mod.obs['maggies'] is not None:
             pmask = mod.obs.get('phot_mask',
                                 np.ones(len(mod.obs['maggies']), dtype= bool))
             jitter = mod.params.get('phot_jitter',0)

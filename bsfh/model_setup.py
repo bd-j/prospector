@@ -30,7 +30,6 @@ def parse_args(argv, argdict={'param_file':'', 'sps':''}):
     Simple/Fragile.
     """
     args = [sub for arg in argv[1:] for sub in arg.split('=')]
-    print(args)
     for i, a in enumerate(args):
         if (a[:2] == '--'):
             abare = a[2:]
@@ -40,7 +39,6 @@ def parse_args(argv, argdict={'param_file':'', 'sps':''}):
         else:
             continue
         if abare in argdict.keys():
-            print(abare)
             apo = deepcopy(args[i+1])
             func = type(argdict[abare])
             try:
@@ -59,7 +57,7 @@ def setup_model(filename, sps=None):
     dictionary.
 
     :param filename:
-        (Absolute) path tot he .json or .py file
+        (Absolute) path to the .json or .py file
 
     :param sps: (optional)
         SPS object, required if data is being mocked.

@@ -93,7 +93,7 @@ def load_obs_mmt(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
     obs['maggies'] = 10**(-0.4 * (mags -
                                   np.array([f.ab_to_vega for f in obs['filters']]) -
                                   2.5*np.log10(scale) ))
-    obs['maggies_unc'] = mags_unc * maggies / 1.086
+    obs['maggies_unc'] = mags_unc * obs['maggies'] / 1.086
 
     return obs
 
@@ -139,7 +139,7 @@ def load_obs_lris(filename=None, objname=None, #dist = 1e-5, vel = 0.0,
     obs['maggies'] = 10**(-0.4 * (mags -
                                   np.array([f.ab_to_vega for f in obs['filters']]) -
                                   2.5*np.log10(scale) ))
-    obs['maggies_unc'] = mags_unc * maggies / 1.086
+    obs['maggies_unc'] = mags_unc * obs['maggies'] / 1.086
 
     return obs
 
