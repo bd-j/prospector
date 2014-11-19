@@ -10,7 +10,7 @@ import bsfh.fitterutils as utils
 from bsfh import model_setup
 
 sptype = model_setup.parse_args(sys.argv).get('sps_type', 'sps_basis')
-
+    
 #SPS Model as global
 if sptype == 'sps_basis':
     from bsfh import sps_basis
@@ -18,7 +18,10 @@ if sptype == 'sps_basis':
 elif sptype == 'fsps':
     import fsps
     sps = fsps.StellarPopulation()
-
+    custom_filter_keys = model_setup.parse_args(sys.argv).get('custom_filter_keys', None)
+    if filterfile is not None:
+        fsps.filters.FILTERS = model_setup.custom_filter_dict(custom_filter_keys)
+        
 #GP instance as global
 gp = GaussianProcess(None, None)
 

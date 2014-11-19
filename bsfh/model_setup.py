@@ -124,3 +124,18 @@ def load_module_from_file(path_to_file):
     user_module = import_module(modname)
     sys.path.remove(path)
     return user_module
+
+class Bunch(object):
+    """ Simple storage.
+    """
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+def custom_filter_dict(filename):
+    filter_dict = {}
+    with open(filename, 'r') as f:
+        for line in f:
+            ind, name = line.split()
+            filter_dict[name.lower()] = Bunch(index = int(ind))
+            
+    return filter_dict
