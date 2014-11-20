@@ -43,7 +43,7 @@ def lnprobfn(theta, mod):
         t2 = time.time()
         if mod.obs['spectrum'] is not None:
             mask = mod.obs['mask']
-            gp.wave, gp.sigma = mod.obs['spectrum'][mask], mod.obs['unc'][mask]
+            gp.wave, gp.sigma = mod.obs['wavelength'][mask], mod.obs['unc'][mask]
             #use a residual in log space
             log_mu = np.log(mu)
             #polynomial in the log

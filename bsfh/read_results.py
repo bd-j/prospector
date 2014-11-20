@@ -23,20 +23,30 @@ def use_old_module_names():
     sys.modules['priors'] = priors
     
 def read_pickles(sample_file, model_file=None,
-                 powell_file=None, inmod=None):
+                 old_scipy=False, inmod=None):
     """
     Read a pickle file with stored model and MCMC chains.
+
+    :returns sample_results:
+        A dictionary of various results including the sampling chain'.
+
+    :returns powell_results:
+        A list of the optimizer results
+
+    :returns model:
+        The bsfh.sedmodel object. 
     """
     sample_results = pickle.load( open(sample_file, 'rb'))
     powell_results = None
     model = None
     if model_file:
-        mf = pickle.load( open(model_file, 'rb'))
-        #mf = load(open(model_file, 'rb'))
+        if old_scipy:
+            mf = load( open(model_file, 'rb'))
+        else:
+            mf = pickle.load( open(model_file, 'rb'))
+       
         inmod = mf['model']
         powell_results = mf['powell']
-    if powell_file:
-        powell_results = pickle.load( open(powell_file, 'rb'))
 
     try:
         model = sample_results['model']
@@ -100,3 +110,26 @@ def obsdict(inobs, photflag):
         
     return obs, outn, marker
 
+
+## All this because scipy changed
+# the name of one class, which shouldn't even be a class.
+
+renametable = {
+    'Result': 'OptimizeResult',
+    }
+
+def mapname(name):
+    if name in renametable:
+        return renametable[name]
+    return name
+
+def mapped_load_global(self):
+    module = mapname(self.readline()[:-1])
+    name = mapname(self.readline()[:-1])
+    klass = self.find_class(module, name)
+    self.append(klass)
+
+def load(file):
+    unpickler = pickle.Unpickler(file)
+    unpickler.dispatch[pickle.GLOBAL] = mapped_load_global
+    return unpickler.load()
