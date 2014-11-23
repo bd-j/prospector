@@ -5,22 +5,6 @@ import numpy as np
 """Convenience functions for reading and reconstruction results from a
 fitting run, including reconstruction of the model for posterior
 samples"""
-
-
-def use_old_module_names():
-    """Fix module renames here if necessary for reading pickle files
-    """
-    import bsfh.sedmodel as sedmodel
-    import bsfh.gp as gp
-    import bsfh.sps_basis as sps_basis
-    import bsfh.elines as elines
-    import bsfh.priors as priors
-
-    sys.modules['sedmodel'] = sedmodel
-    sys.modules['gp'] = gp
-    sys.modules['sps_basis'] = sps_basis
-    sys.modules['elines'] = elines
-    sys.modules['priors'] = priors
     
 def read_pickles(sample_file, model_file=None,
                  inmod=None):
@@ -56,7 +40,6 @@ def read_pickles(sample_file, model_file=None,
         sample_results['model'] = model
         
     return sample_results, powell_results, model
-
 
 def model_comp(theta, model, sps, photflag=0, inlog=True):
     """
@@ -123,8 +106,6 @@ def subtriangle(sample_results, outname=None, showpars=None,
     else:
         return fig
 
-
-
 def obsdict(inobs, photflag):
     """
     Return a dictionary of observational data, generated depending on
@@ -144,9 +125,23 @@ def obsdict(inobs, photflag):
         
     return obs, outn, marker
 
+def use_old_module_names():
+    """Fix module renames here if necessary for reading pickle files
+    """
+    import bsfh.sedmodel as sedmodel
+    import bsfh.gp as gp
+    import bsfh.sps_basis as sps_basis
+    import bsfh.elines as elines
+    import bsfh.priors as priors
 
-## All this because scipy changed
-# the name of one class, which shouldn't even be a class.
+    sys.modules['sedmodel'] = sedmodel
+    sys.modules['gp'] = gp
+    sys.modules['sps_basis'] = sps_basis
+    sys.modules['elines'] = elines
+    sys.modules['priors'] = priors
+
+# All this because scipy changed the name of one class, which
+# shouldn't even be a class.
 
 renametable = {
     'Result': 'OptimizeResult',

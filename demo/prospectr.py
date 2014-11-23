@@ -99,7 +99,7 @@ if __name__ == "__main__":
     ################
     # SETUP
     ################
-    aa =sys.argv
+
     inpar = model_setup.parse_args(sys.argv)
     parset, model = model_setup.setup_model(inpar['param_file'], sps=sps)
     parset.run_params['ndim'] = model.ndim
@@ -107,7 +107,9 @@ if __name__ == "__main__":
     parset.run_params['sys.argv'] = sys.argv
     rp = parset.run_params #shortname
     initial_theta = parset.initial_theta
-    
+    if rp.get('debug', False):
+        sys.exit()
+        
     #################
     #INITIAL GUESS(ES) USING POWELL MINIMIZATION
     #################
