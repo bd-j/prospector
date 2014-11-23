@@ -102,32 +102,6 @@ def diagnostic_plots(sample_file, sps, model_file=None,
     return outname, sample_results, model, pr
 
 
-def read_pickles(sample_file, model_file=None,
-                 powell_file=None, inmod=None):
-    """
-    Read a pickle file with stored model and MCMC chains.
-    """
-    sample_results = pickle.load( open(sample_file, 'rb'))
-    powell_results = None
-    model = None
-    if model_file:
-        #mf = pickle.load( open(model_file, 'rb'))
-        mf = pickle.load(open(model_file, 'rb'))
-        inmod = mf['model']
-        powell_results = mf['powell']
-    if powell_file:
-        powell_results = pickle.load( open(powell_file, 'rb'))
-
-    try:
-        model = sample_results['model']
-    except (KeyError):
-        model = inmod
-        #model.theta_desc = sample_results['theta']
-        sample_results['model'] = model
-        
-    return sample_results, powell_results, model
-
-
 def model_comp(theta, model, sps, photflag=0, inlog=True):
     """
     Generate and return various components of the total model for a
@@ -381,8 +355,6 @@ def param_evol(sample_results, outname=None, showpars=None, start=0):
         fig.savefig('{0}.x_vs_step.png'.format(outname))
         pl.close()
 
-
-
 def theta_labels(desc):
     """
     Using the theta_desc parameter dictionary, return a list of the model
@@ -403,7 +375,6 @@ def theta_labels(desc):
                 index.append(desc[p]['i0']+i)
 
     return [l for (i,l) in sorted(zip(index,label))]
-
 
 def sample_photometry(sample_results, sps, filterlist,
                       start=0, wthin=16, tthin=10):

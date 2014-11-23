@@ -23,15 +23,15 @@ def use_old_module_names():
     sys.modules['priors'] = priors
     
 def read_pickles(sample_file, model_file=None,
-                 old_scipy=False, inmod=None):
+                 inmod=None):
     """
     Read a pickle file with stored model and MCMC chains.
 
     :returns sample_results:
-        A dictionary of various results including the sampling chain'.
+        A dictionary of various results including the sampling chain.
 
     :returns powell_results:
-        A list of the optimizer results
+        A list of the optimizer results for each of the starting conditions.
 
     :returns model:
         The bsfh.sedmodel object. 
@@ -40,10 +40,10 @@ def read_pickles(sample_file, model_file=None,
     powell_results = None
     model = None
     if model_file:
-        if old_scipy:
-            mf = load( open(model_file, 'rb'))
-        else:
+        try:
             mf = pickle.load( open(model_file, 'rb'))
+        except(AttributeError):
+            mf = load( open(model_file, 'rb'))
        
         inmod = mf['model']
         powell_results = mf['powell']
