@@ -382,38 +382,6 @@ def param_evol(sample_results, outname=None, showpars=None, start=0):
         pl.close()
 
 
-def subtriangle(sample_results, outname=None, showpars=None,
-                start=0, thin=1, truths=None):
-    """
-    Make a triangle plot of the (thinned, latter) samples of the posterior
-    parameter space.  Optionally make the plot only for a supplied subset
-    of the parameters.
-    """
-
-    # pull out the parameter names and flatten the thinned chains
-    parnames = np.array(theta_labels(sample_results['model'].theta_desc))
-    flatchain = sample_results['chain'][:,start::thin,:]
-    flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
-                                  flatchain.shape[2])
-    if truths is None:
-        truths = sample_results['initial_center']
-
-    # restrict to parameters you want to show
-    if showpars is not None:
-        ind_show = np.array([p in showpars for p in parnames], dtype= bool)
-        flatchain = flatchain[:,ind_show]
-        truths = truths[ind_show]
-        parnames= parnames[ind_show]
-        
-    fig = triangle.corner(flatchain, labels = parnames,
-                          quantiles=[0.16, 0.5, 0.84], verbose=False,
-                          truths = truths)
-    if outname is not None:
-        fig.savefig('{0}.triangle.png'.format(outname))
-        pl.close()
-    else:
-        return fig
-
 
 def theta_labels(desc):
     """
