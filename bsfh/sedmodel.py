@@ -1,5 +1,9 @@
 import numpy as np
 from scipy.interpolate import interp1d
+try:
+    from astropy.cosmology import WMAP9 as cosmo
+except(ImportError):
+    pass
 
 class ThetaParameters(object):
     """
@@ -262,7 +266,11 @@ class CSPModel(ThetaParameters):
     For parameterized SFHs where fsps.StellarPopulation is used as the
     sps object.
     """
-    
+    lsun = 3.846e33
+    pc = 3.085677581467192e18
+    #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
+    to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
+
     def add_obs(self, obs, rescale = True):
         self.filters = obs['filters']
         self.obs = obs
@@ -284,8 +292,7 @@ class CSPModel(ThetaParameters):
             SedModel class.
             
         :returns phot:
-            The apparent maggies per unit surviving stellar mass (not
-            *formed* stellar mass) in each of the filters.
+            The apparent maggies in each of the filters.
 
         :returns extras:
             A None type object, only included for consistency with the
@@ -300,17 +307,21 @@ class CSPModel(ThetaParameters):
                 else:
                     vv = v.copy()
                 sps.params[k] = vv
-        #now get the magnitudes and normalize by (current) stellar mass
+        #now get the magnitudes and spectrum
         w, spec = sps.get_spectrum(tage=sps.params['tage'], peraa=False)
         mags = sps.get_mags(tage=sps.params['tage'],
                             #redshift=sps.params['zred'],
                             bands=self.obs['filters'])
-        mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
         if self.obs['wavelength'] is not None:
             spec = interp1d( w, spec, axis = -1,
                              bounds_error=False)(self.obs['wavelength'])
-
-        return mass_norm * spec + self.sky(), mass_norm * 10**(-0.4*mags), None
+        # normalize by (current) stellar mass and get correct units
+        mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
+        dfactor = cosmo.luminosity_distance(sps.params['zred']).value[0] * 1e5
+        to_apparent_mags = self.to_cgs/(dfactor**2)
+        return (mass_norm * spec + self.sky(),
+                mass_norm * to_apparent_mags * 10**(-0.4*(mags)),
+                None)
 
     def calibration(self):
         return 1.0
