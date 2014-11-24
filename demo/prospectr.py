@@ -9,17 +9,23 @@ from bsfh.gp import GaussianProcess
 import bsfh.fitterutils as utils
 from bsfh import model_setup
 
-sptype = model_setup.parse_args(sys.argv).get('sps_type', 'sps_basis')
-    
+argdict={'param_file':None, 'sps':'sps_basis',
+         'custom_filter_keys':None,
+         'compute_vega_mags':False}
+argdict = model_setup.parse_args(sys.argv, argdict=argdict)
+sptype = argdict['sps_type']
+magzp = argdict['compute_vega_mags']
+
 #SPS Model as global
 if sptype == 'sps_basis':
     from bsfh import sps_basis
-    sps = sps_basis.StellarPopBasis()
+    sps = sps_basis.StellarPopBasis(compute_vega_mags=magzp)
 elif sptype == 'fsps':
     import fsps
-    sps = fsps.StellarPopulation()
-    custom_filter_keys = model_setup.parse_args(sys.argv).get('custom_filter_keys', None)
-    if filterfile is not None:
+    sps = fsps.StellarPopulation(zcontinuous=True,
+                                 compute_vega_mags=magzp)
+    custom_filter_keys = argdict['custom_filter_keys']
+    if custom_filter_keys is not None:
         fsps.filters.FILTERS = model_setup.custom_filter_dict(custom_filter_keys)
         
 #GP instance as global
@@ -42,7 +48,8 @@ def lnprobfn(theta, mod):
         # Spectroscopy term
         t2 = time.time()
         if mod.obs['spectrum'] is not None:
-            mask = mod.obs['mask']
+            mask = mod.obs.get('mask', np.ones(len(mod.obs['wavelength']),
+                                               dtype= bool))
             gp.wave, gp.sigma = mod.obs['wavelength'][mask], mod.obs['unc'][mask]
             #use a residual in log space
             log_mu = np.log(mu)
@@ -57,8 +64,8 @@ def lnprobfn(theta, mod):
 
         # Photometry term
         if mod.obs['maggies'] is not None:
-            pmask = mod.obs.get('phot_mask',
-                                np.ones(len(mod.obs['maggies']), dtype= bool))
+            pmask = mod.obs.get('phot_mask', np.ones(len(mod.obs['maggies']),
+                                                     dtype= bool))
             jitter = mod.params.get('phot_jitter',0)
             maggies = mod.obs['maggies']
             phot_var = (mod.obs['maggies_unc'] + jitter)**2

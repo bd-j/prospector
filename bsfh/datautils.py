@@ -59,7 +59,8 @@ def generate_mock(model, sps, mock_info):
         obs['unc'] = s_unc
     else:
         obs['spec'] = None
-        
+
+    #obs['mock_params'] = model.params
     model.obs  = None
     
     return obs

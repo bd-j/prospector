@@ -25,7 +25,9 @@ def parse_args_old(argv, rp={'param_file':'', 'sps':''}):
             rp[o[2:]] = a
     return rp
 
-def parse_args(argv, argdict={'param_file':'', 'sps':'', 'custom_filter_keys':''}):
+def parse_args(argv, argdict={'param_file':None, 'sps':'sps_basis',
+                              'custom_filter_keys':None,
+                              'compute_vega_mags':False}):
     """ Parse command line arguments, allowing for optional arguments.
     Simple/Fragile.
     """
