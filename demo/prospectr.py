@@ -11,23 +11,26 @@ from bsfh import model_setup
 
 argdict={'param_file':None, 'sps':'sps_basis',
          'custom_filter_keys':None,
-         'compute_vega_mags':False}
+         'compute_vega_mags':False,
+         'zcontinuous':True}
 argdict = model_setup.parse_args(sys.argv, argdict=argdict)
 sptype = argdict['sps_type']
-magzp = argdict['compute_vega_mags']
 
-#SPS Model as global
+#SPS Model instance as global
 if sptype == 'sps_basis':
     from bsfh import sps_basis
-    sps = sps_basis.StellarPopBasis(compute_vega_mags=magzp)
+    sps = sps_basis.StellarPopBasis(compute_vega_mags=argdict['compute_vega_mags'])
 elif sptype == 'fsps':
     import fsps
-    sps = fsps.StellarPopulation(zcontinuous=True,
-                                 compute_vega_mags=magzp)
+    sps = fsps.StellarPopulation(zcontinuous=argdict['zcontinuous'],
+                                 compute_vega_mags=argdict['compute_vega_mags'])
     custom_filter_keys = argdict['custom_filter_keys']
     if custom_filter_keys is not None:
         fsps.filters.FILTERS = model_setup.custom_filter_dict(custom_filter_keys)
-        
+else:
+    print('No SPS type set')
+    sys.exit()
+              
 #GP instance as global
 gp = GaussianProcess(None, None)
 
@@ -36,6 +39,18 @@ def lnprobfn(theta, mod):
     """
     Given a model object and a parameter vector, return the ln of the
     posterior.
+
+    :param theta:
+        Input parameter vector, ndarray of shape (ndim,)
+
+    :param mod:
+        bsfh.sedmodel model object, with attributes including `obs`, a
+        dictionary of observational data, and `params`, a dictionary
+        of model parameters.  It must also have `prior_product()`,
+        `mean_model()` and `calibration()` methods defined.
+
+    :returns lnp:
+        Ln posterior probability.
     """
     lnp_prior = mod.prior_product(theta)
     if np.isfinite(lnp_prior):
