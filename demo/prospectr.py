@@ -14,7 +14,7 @@ argdict={'param_file':None, 'sps':'sps_basis',
          'compute_vega_mags':False,
          'zcontinuous':True}
 argdict = model_setup.parse_args(sys.argv, argdict=argdict)
-sptype = argdict['sps_type']
+sptype = argdict['sps']
 
 #SPS Model instance as global
 if sptype == 'sps_basis':
