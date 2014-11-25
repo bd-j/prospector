@@ -80,7 +80,7 @@ def setup_model(filename, sps=None):
         mp = deepcopy(setup_module.model_params)
         obs = deepcopy(getattr(setup_module, 'obs', None))
         model_type = getattr(setup_module, 'model_type', sedmodel.SedModel)
-        print(np.median(obs['spectrum'][obs['mask']]))
+        #print(np.median(obs['spectrum'][obs['mask']]))
     elif ext == 'json':
         print('reading json {}'.format(filename))
         rp, mp = modeldef.read_plist(filename)
