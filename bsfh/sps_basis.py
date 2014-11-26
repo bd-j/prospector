@@ -18,13 +18,15 @@ class StellarPopBasis(object):
     spectral grid.
     """
     
-    def __init__(self, smooth_velocity=True, debug=False):
+    def __init__(self, smooth_velocity=True, compute_vega_mags=False,
+                 debug=False, **kwargs):
 
         self.debug = debug
         
         #this is a StellarPopulation object from fsps
         self.ssp = fsps.StellarPopulation(smooth_velocity=smooth_velocity,
-                                          add_agb_dust_model=True)
+                                          compute_vega_mags=compute_vega_mags,
+                                          **kwargs)
         
         #This is the main state vector for the model
         self.params = {'dust_tesc':0.00, 'dust1':0., 'dust2':0.,

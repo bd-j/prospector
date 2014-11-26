@@ -104,14 +104,18 @@ def load_obs(model, sps=None,
     """Load or mock observations, and return an obs dictionary
     """
     if mock:
+        print('loading mock')
         obs = dutils.generate_mock(model, sps, mock_info)
         initial_center = model.theta_from_params()
         initial_center *= np.random.beta(2,2,size=model.ndim)*2.0
-
-    if data_loading_function_name is not None:
+        obs['mock_info'] = mock_info
+    elif data_loading_function_name is not None:
         obsfunction = getattr(dutils, data_loading_function_name)
         obs = obsfunction(**kwargs)
-        obs['phot_mask'] = np.isfinite(obs.get('maggies',np.inf))
+    if 'maggies' in obs:
+        obs['phot_mask'] = (obs.get('phot_mask',
+                                    np.ones(len(obs['maggies']), dtype= bool)) *
+                            np.isfinite(obs['maggies']))
     return obs
 
 def load_module_from_file(path_to_file):

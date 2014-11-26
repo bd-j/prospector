@@ -9,18 +9,18 @@ from bsfh.gp import GaussianProcess
 import bsfh.fitterutils as utils
 from bsfh import model_setup
 
+# Read command line arguments
 argdict={'param_file':None, 'sps':'sps_basis',
          'custom_filter_keys':None,
          'compute_vega_mags':False,
          'zcontinuous':True}
 argdict = model_setup.parse_args(sys.argv, argdict=argdict)
-sptype = argdict['sps']
 
 #SPS Model instance as global
-if sptype == 'sps_basis':
+if argdict['sps'] == 'sps_basis':
     from bsfh import sps_basis
     sps = sps_basis.StellarPopBasis(compute_vega_mags=argdict['compute_vega_mags'])
-elif sptype == 'fsps':
+elif argdict['sps'] == 'fsps':
     import fsps
     sps = fsps.StellarPopulation(zcontinuous=argdict['zcontinuous'],
                                  compute_vega_mags=argdict['compute_vega_mags'])
@@ -125,6 +125,7 @@ if __name__ == "__main__":
     inpar = model_setup.parse_args(sys.argv)
     parset, model = model_setup.setup_model(inpar['param_file'], sps=sps)
     parset.run_params['ndim'] = model.ndim
+    # Command line override of run_params
     _ = model_setup.parse_args(sys.argv, argdict=parset.run_params)
     parset.run_params['sys.argv'] = sys.argv
     rp = parset.run_params #shortname

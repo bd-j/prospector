@@ -109,6 +109,7 @@ def add_obs_to_model(model, obs, initial_center,
                      spec=True, phot=True,
                      logify_spectrum=True, normalize_spectrum=True,
                      add_gaussian_process=False,
+                     rescale=True,
                      **kwargs):
 
     """ Add the `obs` dictionary to a model object, including spectral
@@ -117,7 +118,7 @@ def add_obs_to_model(model, obs, initial_center,
     being fit.
     """
     
-    model.add_obs(obs)
+    model.add_obs(obs, rescale=rescale)
     model.ndof = 0
 
     if spec:
@@ -147,7 +148,7 @@ def add_obs_to_model(model, obs, initial_center,
         model.obs['unc'] = None
 
     if phot:
-        model.ndof += len(model.obs['maggies'])        
+        model.ndof += model.obs['phot_mask'].sum()        
     else:
         model.obs['maggies'] = None
         model.obs['maggies_unc'] = None

@@ -301,7 +301,7 @@ class CSPModel(ThetaParameters):
         # Pass the model parameters through to the sps object
         for k,v in self.params.iteritems():
             if k in sps.params.all_params:
-                if k == 'zmet' and (getattr(sps,'_zcontinuous',False)==False):
+                if k == 'zmet':
                     vv = np.abs(v - (np.arange( len(sps.zlegend))+1)).argmin()+1
                 else:
                     vv = v.copy()

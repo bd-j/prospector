@@ -55,11 +55,12 @@ def generate_mock(model, sps, mock_info):
     if mock_info['wavelength'] is not None:
         s_unc = s / mock_info.get('spec_snr', 10.0)
         noisy_s = (s + s_unc * np.random.normal(size = len(s)))
-        obs['spec'] = noisy_s
+        obs['spectrum'] = noisy_s
         obs['unc'] = s_unc
+        obs['mask'] = np.ones(len(obs['wavelength']), dtype= bool)
     else:
-        obs['spec'] = None
-
+        obs['spectrum'] = None
+        obs['mask'] = None
     #obs['mock_params'] = model.params
     model.obs  = None
     
