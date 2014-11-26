@@ -131,7 +131,6 @@ if __name__ == "__main__":
     initial_theta = parset.initial_theta
     
     # test that initial values are in {min,max}
-    parset.model_params[2]['init'] = 12e12
     for ii in xrange(len(parset.model_params)): 
     	if parset.model_params[ii]['prior_args']:
     		if (parset.model_params[ii]['init'] < parset.model_params[ii]['prior_args']['mini']):
@@ -162,6 +161,7 @@ if __name__ == "__main__":
     
     if rp['verbose']:
         print('done Powell in {0}s'.format(pdur))
+        for jj in range(len(best_guess.x)): print model.theta_labels()[jj] + '\t initial: {0}\t final:{1} '.format("{:.3e}".format(pinit[0][jj]), "{:.3e}".format(best_guess.x[jj]))
 
     ###################
     #SAMPLE
