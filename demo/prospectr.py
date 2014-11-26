@@ -129,9 +129,21 @@ if __name__ == "__main__":
     parset.run_params['sys.argv'] = sys.argv
     rp = parset.run_params #shortname
     initial_theta = parset.initial_theta
+    
+    # test that initial values are in {min,max}
+    for ii in xrange(len(parset.model_params)): 
+    	if parset.model_params[ii]['prior_args']:
+    		if (parset.model_params[ii]['init'] < parset.model_params[ii]['prior_args']['mini']):
+    			print 'ERROR: {0} is initialized to {1}, but min allowed is {2}'.format(parset.model_params[ii]['name'], "{:.3e}".format(parset.model_params[ii]['init']),"{:.3e}".format(parset.model_params[ii]['prior_args']['mini']))
+    			sys.exit()
+    		
+    		if (parset.model_params[ii]['init'] > parset.model_params[ii]['prior_args']['maxi']):
+    			print 'ERROR: {0} is initialized to {1}, but max allowed is {2}'.format(parset.model_params[ii]['name'], "{:.3e}".format(parset.model_params[ii]['init']),"{:.3e}".format(parset.model_params[ii]['prior_args']['maxi']))
+    			sys.exit()
+
     if rp.get('debug', False):
         sys.exit()
-        
+
     #################
     #INITIAL GUESS(ES) USING POWELL MINIMIZATION
     #################
@@ -149,6 +161,7 @@ if __name__ == "__main__":
     
     if rp['verbose']:
         print('done Powell in {0}s'.format(pdur))
+        for jj in range(len(best_guess.x)): print model.theta_labels()[jj] + '\t initial: {0}\t final:{1} '.format("{:.3e}".format(pinit[0][jj]), "{:.3e}".format(best_guess.x[jj]))
 
     ###################
     #SAMPLE
