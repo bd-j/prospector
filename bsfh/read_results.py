@@ -102,7 +102,6 @@ def subtriangle(sample_results, outname=None, showpars=None,
                           truths = truths)
     if outname is not None:
         fig.savefig('{0}.triangle.png'.format(outname))
-        pl.close()
     else:
         return fig
 
