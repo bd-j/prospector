@@ -63,7 +63,7 @@ class GaussianProcess(object):
 
         first_term = np.dot(residual,
                             cho_solve(self.factorized_Sigma,
-                                      residual, check_finite = True))
+                                      residual, check_finite = check_finite))
         lnL=  -0.5* (first_term + self.log_det)
         #print('lnlike(r) = {0}'.format(lnL))
         #print('log_det={0}'.format(self.log_det))

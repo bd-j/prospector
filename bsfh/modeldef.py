@@ -1,13 +1,12 @@
 from copy import deepcopy
 import numpy as np
 import json
-from bsfh import priors, sedmodel, elines, gp
-from bsfh.datautils import logify
+from bsfh import sedmodel, priors
+from bsfh.datautils import logify, norm_spectrum
 
 param_template = {'name':'', 'N':1, 'isfree': False,
                   'init':0.0, 'units':'',
                   'prior_function_name': None, 'prior_args': None}
-
 
 class ProspectrParams(object):
     """
@@ -105,10 +104,10 @@ class ProspectrParams(object):
         self.initial_theta = init
         return model
 
+
 def add_obs_to_model(model, obs, initial_center,
                      spec=True, phot=True,
                      logify_spectrum=True, normalize_spectrum=True,
-                     add_gaussian_process=False,
                      rescale=True,
                      **kwargs):
 
@@ -125,13 +124,8 @@ def add_obs_to_model(model, obs, initial_center,
         model.ndof += len(model.obs['spectrum'])
         
         if (normalize_spectrum):
-            model, initial_center = norm_spectrum(model,
-                                                  initial_center)
+            model, initial_center = norm_spectrum(model, initial_center, **kwargs)
         
-        if (add_gaussian_process):
-            mask = model.obs['mask']
-            model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
-                                          model.obs['unc'][mask])
         if (logify_spectrum):
             s, u, m = logify(model.obs['spectrum'], model.obs['unc'],
                             model.obs['mask'])
@@ -153,6 +147,35 @@ def add_obs_to_model(model, obs, initial_center,
         model.obs['maggies'] = None
         model.obs['maggies_unc'] = None
         
+
+def get_theta_desc(model_params):
+    """Given a `model_params` list, generate a theta_desc dictionary
+    that can be used to initialize a sedmodel.ThetaParameters object.
+    """    
+    theta_desc, fixed_params  = {}, {}
+    theta_init = []
+    count = 0
+    for i, par in enumerate(model_params):
+        if par['isfree']:
+            par['i0'] = count
+            par = names_to_functions(par)
+            theta_desc[par['name']] = par
+            count += par['N']
+            #need to deal with iterables here
+            init = np.array(par['init']).flatten().tolist()
+            n = len(init)
+            if par['N'] != n:
+                raise TypeError("Parameter value vector of "\
+                    "{0} not same as declared size".format(par['name']))
+            # Finally, append this to the initial
+            #  parameter vector
+            theta_init += init
+        else:
+            fixed_params[par['name']] = par['init']
+
+    return theta_desc, np.array(theta_init), fixed_params
+   
+
 def plist_to_pdict(inplist):
     """Convert from a parameter list to a parameter dictionary, where
     the keys of the cdictionary are the parameter names.
@@ -250,99 +273,3 @@ def functions_to_names(p):
             p['dust_curve_name'] = df.func_name
             _ = p.pop('init', None)
     return p
-
-def get_theta_desc(model_params):
-    """Given a `model_params` list, gneerate a theta_desc dictionary
-    that can be used to initialize a sedmodel.ThetaParameters object.
-    """    
-    theta_desc, fixed_params  = {}, {}
-    theta_init = []
-    count = 0
-    for i, par in enumerate(model_params):
-        if par['isfree']:
-            par['i0'] = count
-            par = names_to_functions(par)
-            theta_desc[par['name']] = par
-            count += par['N']
-            #need to deal with iterables here
-            init = np.array(par['init']).flatten().tolist()
-            n = len(init)
-            if par['N'] != n:
-                raise TypeError("Parameter value vector of "\
-                    "{0} not same as declared size".format(par['name']))
-            # Finally, append this to the initial
-            #  parameter vector
-            theta_init += init
-        else:
-            fixed_params[par['name']] = par['init']
-
-    return theta_desc, np.array(theta_init), fixed_params
-   
-def initialize_model(rp, plist, obs):
-    """
-    Take a run parameter dictionary and a model parameter list and
-    return a SedModel object, as well as a vector of initial values.
-    """
-
-    tdesc, init, fixed = get_theta_desc(deepcopy(plist))
-
-    # SED Model
-    model = sedmodel.SedModel(theta_desc = tdesc, **fixed)
-    model.add_obs(obs)
-    model, initial_theta = norm_spectrum(model, init)
-    #model.params['pivot_wave'] = 4750.
-    model.ndof = len(model.obs['wavelength']) + len(model.obs['maggies'])
-    model.verbose = rp['verbose']
-
-    #Add Gaussian Process
-    mask = model.obs['mask']
-    model.gp = gp.GaussianProcess(model.obs['wavelength'][mask],
-                                  model.obs['unc'][mask])
-
-    return model, initial_theta
-
-
-def norm_spectrum(model, initial_center, band_name='f475w'):
-    """
-    Initial guess of spectral normalization using photometry.
-
-    This multiplies the observed spectrum by the factor required
-    to reproduce the photometry.  Default is to produce a spectrum
-    that is approximately in erg/s/cm^2/AA (Lsun/AA/Mpc**2).
-
-    The inverse of the multiplication factor is saved as a fixed
-    parameter to be used in producing the mean model.
-    """
-    from sedpy import observate
-    
-    norm_band = [i for i,f in enumerate(model.obs['filters'])
-                 if band_name in f.name][0]
-    
-    synphot = observate.getSED(model.obs['wavelength'],
-                               model.obs['spectrum'],
-                               model.obs['filters'])
-
-    # Factor by which the observed spectra should be multiplied to give you
-    #  the photometry (or the cgs apparent spectrum), using the F475W filter as truth
-    norm = 10**(-0.4*(synphot[norm_band] -
-                      (-2.5*np.log10(model.obs['maggies'][norm_band])))
-                      )
-    model.params['normalization_guess'] = norm
-       
-    # Assume you've got this right to within some factor after
-    #  marginalized over everything that changes spectral shape within
-    #  the band (polynomial terms, dust, age, etc)
-    fudge = 3.0
-    model.theta_desc['spec_norm']['prior_args'] = {'mini':1 / fudge,
-                                                   'maxi':fudge }
-
-    # Pivot the polynomial near the filter used for approximate
-    # normalization
-    model.params['pivot_wave'] =  model.obs['filters'][norm_band].wave_effective 
-    #model.params['pivot_wave'] = 4750.
- 
-    initial_center[model.theta_desc['spec_norm']['i0']] = 1.0
- 
-    return model, initial_center
-
-

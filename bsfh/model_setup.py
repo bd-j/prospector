@@ -91,18 +91,20 @@ def setup_model(filename, sps=None):
     
     parset = modeldef.ProspectrParams(rp, mp)
     model = parset.initialize_model(model_type)
-
     if (obs is None) or (parset.run_params.get('mock', False)):
-        obs = load_obs(model, sps=sps, **parset.run_params)
+        obs, theta_init = load_obs(model, sps=sps, **parset.run_params)
+    #if theta_init is not None:
+    #    parset.initial_theta = theta_init
     parset.add_obs_to_model(model, obs)
+    #print(parset.initial_theta)
     return parset, model
 
 def load_obs(model, sps=None,
              mock=False, mock_info=None,
              data_loading_function_name=None,
              **kwargs):
-    """Load or mock observations, and return an obs dictionary
-    """
+    """Load or mock observations, and return an obs dictionary and a
+    set of initial parameters """
     if mock:
         print('loading mock')
         obs = dutils.generate_mock(model, sps, mock_info)
@@ -112,11 +114,13 @@ def load_obs(model, sps=None,
     elif data_loading_function_name is not None:
         obsfunction = getattr(dutils, data_loading_function_name)
         obs = obsfunction(**kwargs)
+        initial_center = None
     if 'maggies' in obs:
         obs['phot_mask'] = (obs.get('phot_mask',
                                     np.ones(len(obs['maggies']), dtype= bool)) *
                             np.isfinite(obs['maggies']))
-    return obs
+    #print('load_obs: initial_center={}'.format(initial_center))
+    return obs, initial_center
 
 def load_module_from_file(path_to_file):
     """This has to break everything ever, right?

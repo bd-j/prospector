@@ -73,7 +73,7 @@ def lnprobfn(theta, mod):
             delta = (mod.obs['spectrum'] - log_mu - log_cal)[mask]
             gp.factor(mod.params['gp_jitter'], mod.params['gp_amplitude'],
                       mod.params['gp_length'], check_finite=False, force=False)
-            lnp_spec = gp.lnlike(delta)
+            lnp_spec = gp.lnlike(delta, check_finite=False)
         else:
             lnp_spec = 0.0
 
