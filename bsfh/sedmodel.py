@@ -1,189 +1,23 @@
 import numpy as np
 from scipy.interpolate import interp1d
+from bsfh.parameters import ProspectrParams
 try:
     from astropy.cosmology import WMAP9 as cosmo
 except(ImportError):
     pass
 
-class ThetaParameters(object):
-    """
-    Object describing a model parameter set, and conversions between a
-    parameter dictionary and a theta vector (for use in MCMC sampling).
-    Also contains a method for computing the prior probability of a given
-    theta vector.
-
-    It must be intialized with a theta_desc, a description of the
-    theta vector including the prior functions for each theta.
-    Additional static parameters should be passed to kwargs at
-    instantiation.
-    """
-    def __init__(self, theta_desc=None, theta_init=None, **kwargs):
-        
-        self.theta_desc = theta_desc
-        self.params = {}
-        if theta_init:
-            self.set_parameters(theta_init)
-        for k,v in kwargs.iteritems():
-            self.params[k] = np.atleast_1d(v)
-
-        # Caching. No. only works if theta_desc is not allowed to
-        #  change after intialization so, might as well set it here.
-        self.ndim = 0
-        for p, v in self.theta_desc.iteritems():
-                self.ndim += v['N']
-        
-    def set_parameters(self, theta):
-        """
-        Propagate theta into the model parameters.
-
-        :param theta:
-            A theta parameter vector containing the desired
-            parameters.  ndarray of shape (ndim,)
-        """
-        assert len(theta) == self.ndim
-        for p, v in self.theta_desc.iteritems():
-            start, end = v['i0'], v['i0'] + v['N']
-            self.params[p] = np.array(theta[start:end])
-
-    def theta_from_params(self):
-        """
-        Generate a theta vector from the parameter list and the theta
-        descriptor.
-
-        :returns theta:
-            A theta parameter vector containing the current model
-            parameters, ndarray of shape (ndim,).
-        """
-
-        theta = np.zeros(self.ndim)
-        for p, v in self.theta_desc.iteritems():
-            start, end = v['i0'], v['i0'] + v['N']
-            theta[start:end] = self.params[p]
-        return theta
-
-    def prior_product(self, theta):
-        """
-        Return a scalar which is the ln of the product of the prior
-        probabilities for each element of theta.  Requires that the
-        prior functions are defined in the theta descriptor.
-
-        :param theta:
-            Iterable containing the free model parameter values.
-
-        :returns lnp_prior:
-            The log of the product of the prior probabilities for
-            these parameter values.
-        """
-        
-        lnp_prior = 0
-        for p, v in self.theta_desc.iteritems():
-            start, stop = v['i0'], v['i0'] + v['N']
-            lnp_prior += np.sum(v['prior_function'](theta[start:stop],
-                                                    **v['prior_args']))
-        return lnp_prior
-
-    def lnp_prior_grad(self, theta):
-        """
-        Return a vector of gradients in the prior probability.
-        Requires  that functions giving the gradients are given in the
-        theta descriptor.
-
-        :param theta:
-            A theta parameter vector containing the desired
-            parameters.  ndarray of shape (ndim,)
-
-        """
-        lnp_prior_grad = np.zeros_like(theta)
-        for p, v in self.theta_desc.iteritems():
-            start, stop = v['i0'], v['i0'] + v['N']
-            lnp_prior_grad[start:stop] = v['prior_gradient_function'](theta[start:stop],
-                                                                      **v['prior_args'])
-        return lnp_prior_grad
-
-    def theta_labels(self):
-        """
-        Using the theta_desc parameter dictionary, return a list of
-        the model parameter names that has the same order as the
-        sampling chain array.
-
-        :returns labels:
-            A list of labels of the same length and order as the theta
-            vector.
-        """
-        label, index = [], []
-        for p in self.theta_desc.keys():
-            nt = self.theta_desc[p]['N']
-            name = p
-            if p is 'amplitudes':
-                name = 'A'
-            if nt is 1:
-                label.append(name)
-                index.append(self.theta_desc[p]['i0'])
-            else:
-                for i in xrange(nt):
-                    label.append(name+'{0}'.format(i+1))
-                    index.append(self.theta_desc[p]['i0']+i)
-
-        return [l for (i,l) in sorted(zip(index,label))]
-
-    
-    def check_constrained(self, theta):
-        """
-        For HMC, check if the trajectory has hit a wall in any
-        parameter.   If so, reflect the momentum and update the
-        parameter position in the  opposite direction until the
-        parameter is within the bounds. Bounds  are specified via the
-        'upper' and 'lower' keys of the theta descriptor.
-
-        :param theta:
-            A theta parameter vector containing the desired
-            parameters.  ndarray of shape (ndim,)
-
-        """
-        oob = True
-        sign = np.ones_like(theta)
-        if self.verbose: print('theta in={0}'.format(theta))
-        while oob:
-            oob = False
-            for p,v in self.theta_desc.iteritems():
-                start, end = v['i0'], v['i0'] + v['N']
-                if 'upper' in v.keys():
-                    above = theta[start:end] > v['upper']
-                    oob = oob or np.any(above)
-                    theta[start:end][above] = 2 * v['upper'] - theta[start:end][above]
-                    sign[start:end][above] *= -1
-                if 'lower' in v.keys():
-                    below = theta[start:end] < v['lower']
-                    oob = oob or np.any(below)
-                    theta[start:end][below] = 2 * v['lower'] - theta[start:end][below]
-                    sign[start:end][below] *= -1
-        if self.verbose: print('theta out={0}'.format(theta))            
-        return theta, sign, oob
-
-
-    def bounds(self):
-        bounds = self.ndim * [(0.,0.)]
-        for p, v in self.theta_desc.iteritems():
-            sz = np.size(v['prior_args']['mini'])
-            if sz == 1:
-                bounds[v['i0']] = (v['prior_args']['mini'], v['prior_args']['maxi'])
-            else:
-                for k in range(sz):
-                    bounds[v['i0']+k] = (v['prior_args']['mini'][k],
-                                         v['prior_args']['maxi'][k])
-        return bounds
-                
-
-class SedModel(ThetaParameters):
+class SedModel(ProspectrParams):
     """
     For models composed of SSPs and sums of SSPs which use the
     sps_basis.StellarPopBasis as the sps object.
     """
-    def add_obs(self, obs, rescale = True):
-        self.filters = obs['filters']
+    def _add_obs(self, obs, rescale_observed_spectrum = True, **kwargs):
+        """Add a dictionary of observational data as an attribute of
+        the object
+        """
         self.obs = obs
         #rescale the spectrum to avoid floating point errors
-        if rescale:
+        if (obs['spectrum'] is not None) and rescale_observed_spectrum:
             sc = np.median(obs['spectrum'][obs['mask']])
             self.obs['scale'] = sc
             self.obs['spectrum'] /= sc
@@ -192,7 +26,6 @@ class SedModel(ThetaParameters):
             self.obs['scale'] = 1.0
 
     def mean_model(self, theta, sps = None, **kwargs):
-        
         """
         Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass).
@@ -261,7 +94,7 @@ class SedModel(ThetaParameters):
         else:
             return 1.0
 
-class CSPModel(ThetaParameters):
+class CSPModel(ProspectrParams):
     """
     For parameterized SFHs where fsps.StellarPopulation is used as the
     sps object.
@@ -270,10 +103,6 @@ class CSPModel(ThetaParameters):
     #pc = 3.085677581467192e18
     #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
     #to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
-
-    def add_obs(self, obs, rescale = True):
-        self.filters = obs['filters']
-        self.obs = obs
 
     def mean_model(self, theta, sps = None, **kwargs):
         """
@@ -337,3 +166,77 @@ def gauss(x, mu, A, sigma):
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
     return val.sum(axis = -1)
 
+
+class HMCThetaParameters(ProspectrParams):
+    """
+    Object describing a model parameter set, and conversions between a
+    parameter dictionary and a theta vector (for use in MCMC sampling).
+    Also contains a method for computing the prior probability of a given
+    theta vector.
+    """
+
+    def lnp_prior_grad(self, theta):
+        """
+        Return a vector of gradients in the prior probability.
+        Requires  that functions giving the gradients are given in the
+        theta descriptor.
+
+        :param theta:
+            A theta parameter vector containing the desired
+            parameters.  ndarray of shape (ndim,)
+
+        """
+        lnp_prior_grad = np.zeros_like(theta)
+        for p, v in self.theta_desc.iteritems():
+            start, stop = v['i0'], v['i0'] + v['N']
+            lnp_prior_grad[start:stop] = v['prior_gradient_function'](theta[start:stop],
+                                                                      **v['prior_args'])
+        return lnp_prior_grad
+
+    
+    def check_constrained(self, theta):
+        """
+        For HMC, check if the trajectory has hit a wall in any
+        parameter.   If so, reflect the momentum and update the
+        parameter position in the  opposite direction until the
+        parameter is within the bounds. Bounds  are specified via the
+        'upper' and 'lower' keys of the theta descriptor.
+
+        :param theta:
+            A theta parameter vector containing the desired
+            parameters.  ndarray of shape (ndim,)
+
+        """
+        oob = True
+        sign = np.ones_like(theta)
+        if self.verbose: print('theta in={0}'.format(theta))
+        while oob:
+            oob = False
+            for p,v in self.theta_desc.iteritems():
+                start, end = v['i0'], v['i0'] + v['N']
+                if 'upper' in v.keys():
+                    above = theta[start:end] > v['upper']
+                    oob = oob or np.any(above)
+                    theta[start:end][above] = 2 * v['upper'] - theta[start:end][above]
+                    sign[start:end][above] *= -1
+                if 'lower' in v.keys():
+                    below = theta[start:end] < v['lower']
+                    oob = oob or np.any(below)
+                    theta[start:end][below] = 2 * v['lower'] - theta[start:end][below]
+                    sign[start:end][below] *= -1
+        if self.verbose: print('theta out={0}'.format(theta))            
+        return theta, sign, oob
+
+
+    def bounds(self):
+        bounds = self.ndim * [(0.,0.)]
+        for p, v in self.theta_desc.iteritems():
+            sz = np.size(v['prior_args']['mini'])
+            if sz == 1:
+                bounds[v['i0']] = (v['prior_args']['mini'], v['prior_args']['maxi'])
+            else:
+                for k in range(sz):
+                    bounds[v['i0']+k] = (v['prior_args']['mini'][k],
+                                         v['prior_args']['maxi'][k])
+        return bounds
+ 

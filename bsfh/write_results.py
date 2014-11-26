@@ -1,6 +1,6 @@
 import pickle, os, subprocess, time
 import numpy as np
-from bsfh import modeldef
+from bsfh import parameters
 
 def run_command(cmd):
     """
@@ -13,7 +13,7 @@ def run_command(cmd):
     return os.WEXITSTATUS(w), out
 
 
-def write_pickles(parset, model, sampler, powell_results,
+def write_pickles(model, sampler, powell_results,
                   tsample=None, toptimize=None,
                   sampling_initial_center=None):
 
@@ -25,18 +25,18 @@ def write_pickles(parset, model, sampler, powell_results,
     """
 
     #pull out the git hash for bsfh here.
-    bsfh_dir = os.path.dirname(modeldef.__file__)
+    bsfh_dir = os.path.dirname(parameters.__file__)
     bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
                       )[1][0].replace('\n','')
 
     results, model_store = {}, {}
     
-    results['run_params'] = parset.run_params
+    results['run_params'] = model.run_params
     results['obs'] = model.obs
-    results['model_params'] = [modeldef.functions_to_names(p) for p in parset.model_params]
-    results['model_params_asdict'] =  modeldef.plist_to_pdict([modeldef.functions_to_names(p)
-                                                               for p in parset.model_params])
-    results['initial_theta'] = parset.initial_theta
+    results['model_params'] = [parameters.functions_to_names(p) for p in model.config_list]
+    results['model_params_asdict'] =  parameters.plist_to_pdict([parameters.functions_to_names(p)
+                                                               for p in model.config_list])
+    results['initial_theta'] = model.initial_theta
     results['sampling_initial_center'] = sampling_initial_center
     
     results['chain'] = sampler.chain
@@ -48,7 +48,6 @@ def write_pickles(parset, model, sampler, powell_results,
 
     model_store['powell'] = powell_results
     model_store['model'] = model
-    model_store['parset'] = parset
     model_store['bsfh_version'] = bgh
     
     #prospectr_dir = 
@@ -56,10 +55,10 @@ def write_pickles(parset, model, sampler, powell_results,
     #results['cetus_version'] = cgh
     
     tt = int(time.time())
-    out = open('{1}_{0}_mcmc'.format(tt, parset.run_params['outfile']), 'wb')
+    out = open('{1}_{0}_mcmc'.format(tt, model.run_params['outfile']), 'wb')
     pickle.dump(results, out)
     out.close()
 
-    out = open('{1}_{0}_model'.format(tt, parset.run_params['outfile']), 'wb')
+    out = open('{1}_{0}_model'.format(tt, model.run_params['outfile']), 'wb')
     pickle.dump(model_store, out)
     out.close()

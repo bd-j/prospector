@@ -1,7 +1,7 @@
 import sys, os, getopt, json
 from copy import deepcopy
 import numpy as np
-from bsfh import modeldef, sedmodel
+from bsfh import parameters, sedmodel
 from bsfh import datautils as dutils
 
 """This module has methods to take a .json or .py file containing run paramters,
@@ -73,31 +73,30 @@ def setup_model(filename, sps=None):
     
     """
     ext = filename.split('.')[-1]
+    
     if ext == 'py':
         print('reading py script {}'.format(filename))
         setup_module = load_module_from_file(filename)
         rp = deepcopy(setup_module.run_params)
         mp = deepcopy(setup_module.model_params)
         obs = deepcopy(getattr(setup_module, 'obs', None))
+        mock_info = deepcopy(getattr(setup_module, 'mock_info', None))
         model_type = getattr(setup_module, 'model_type', sedmodel.SedModel)
-        #print(np.median(obs['spectrum'][obs['mask']]))
+        
     elif ext == 'json':
         print('reading json {}'.format(filename))
-        rp, mp = modeldef.read_plist(filename)
+        rp, mp = parameters.read_plist(filename)
         obs = None
+        mock_info = rp.get('mock_info', None)
         model_type = getattr(sedmodel,
                              rp.get('model_type','SedModel'))
-
+        
+    model = model_type(rp, mp)
+    if (obs is None) or (model.run_params.get('mock', False)):
+        obs, theta_init = load_obs(model, sps=sps, **model.run_params)
+    model.add_obs(obs)
     
-    parset = modeldef.ProspectrParams(rp, mp)
-    model = parset.initialize_model(model_type)
-    if (obs is None) or (parset.run_params.get('mock', False)):
-        obs, theta_init = load_obs(model, sps=sps, **parset.run_params)
-    #if theta_init is not None:
-    #    parset.initial_theta = theta_init
-    parset.add_obs_to_model(model, obs)
-    #print(parset.initial_theta)
-    return parset, model
+    return model
 
 def load_obs(model, sps=None,
              mock=False, mock_info=None,

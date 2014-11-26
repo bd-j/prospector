@@ -2,7 +2,7 @@ import numpy as np
 import warnings
 from .readspec import *
 
-def logify(data, sigma, mask):
+def logify_data(data, sigma, mask):
     """
     Convert data to ln(data) and uncertainty to fractional uncertainty
     for use in additive GP models.  This involves filtering for
@@ -82,13 +82,12 @@ def generate_mock(model, sps, mock_info):
     obs = {'wavelength': mock_info['wavelength'],
            'filters': mock_info['filters']}
     model.obs = obs
-    for k, v in mock_info['params'].iteritems():
-        model.params[k] = np.atleast_1d(v)
-    mock_theta = model.theta_from_params()
+    model.configure(**mock_info['params'])
+    mock_theta = model.theta
     #print('generate_mock: mock_theta={}'.format(mock_theta))
     s, p, x = model.mean_model(mock_theta, sps=sps)
     cal = model.calibration(mock_theta)
-    if mock_info.get('calibration',None) is not None:
+    if 'calibration' in mock_info:
         cal = mock_info['calibration']
     s *= cal
     
