@@ -17,7 +17,7 @@ class ProspectrParams(object):
     
     """
     # information about each parameter stored as a list
-    model_config = [] 
+    config_list = [] 
     # information about each parameter as a dictionary keyed by
     # parameter name for easy access
     _config_dict = {}
@@ -59,8 +59,9 @@ class ProspectrParams(object):
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
         # store these initial values
-        self.initial_theta = (self.theta.copy())
-
+        self.initial_theta = self.rectify_theta((self.theta.copy()))
+        #print(self.initial_theta)
+        
     def map_theta(self):
         """
         Construct the mapping from parameter name to the index in the
@@ -86,7 +87,7 @@ class ProspectrParams(object):
         assert len(theta) == self.ndim
         for k, v in self.theta_index.iteritems():
             start, end = v
-            self.params[p] = np.atleast_1d(theta[start:end])
+            self.params[k] = np.atleast_1d(theta[start:end])
 
     def prior_product(self, theta):
         """
@@ -105,13 +106,19 @@ class ProspectrParams(object):
         for k, v in self.theta_index.iteritems():
             start, end = v
             lnp_prior += np.sum(self._config_dict[k]['prior_function']
-                                (theta[start:stop], **self._config_dict[k]['prior_args']))
+                                (theta[start:end], **self._config_dict[k]['prior_args']))
         return lnp_prior
 
     def _add_obs(self, obs, **kwargs):
         self.obs = obs
 
     def add_obs(self, obs):
+        """
+        Add the obs dictionary as an attribute of the parameters
+        object, with modifications for normalizing the spectrum and
+        taking the log of it (for the gaussian process).  Calls
+        configure at the end
+        """
         self._add_obs(obs, **self.run_params)
         self.ndof = -self.ndim
         spec = obs['spectrum'] is not None
@@ -122,7 +129,7 @@ class ProspectrParams(object):
         if spec:
             self.ndof += obs['mask'].sum()
             if (norm):
-                sp_norm, pivot_wave = norm_spectrum(self.obs, **kwargs)
+                sp_norm, pivot_wave = norm_spectrum(self.obs, **self.run_params)
                 self.params['normalization_guess'] = sp_norm
                 self.params['pivot_wave'] = pivot_wave
                 self.rescale_parameter('spec_norm', lambda x: x/self.params['spec_norm'])
@@ -135,12 +142,13 @@ class ProspectrParams(object):
                 self.obs['mask'] = m
                 self.rescale_parameter('spec_norm', lambda x: np.log(x)) 
         else:
-            model.obs['unc'] = None
+            self.obs['unc'] = None
 
         if phot:
-            model.ndof += obs['phot_mask'].sum()        
+            self.ndof += obs['phot_mask'].sum()        
         else:
-            model.obs['maggies_unc'] = None
+            self.obs['maggies_unc'] = None
+            
         self.configure()
             
     def rescale_parameter(self, par, func):
@@ -149,9 +157,12 @@ class ProspectrParams(object):
         for k,v in self.config_list[ind]['prior_args'].iteritems():
             self.config_list[ind]['prior_args'][k] = func(v)
             
-    def squeeze_theta(self):
-        pass
-        
+    def rectify_theta(self, theta):
+        tiny_number = 1e-10
+        zero = (theta == 0)
+        theta[zero] = tiny_number
+        return theta
+    
     @property
     def theta(self):
         """The current value of the theta vector, pulled from the
@@ -167,7 +178,7 @@ class ProspectrParams(object):
     def free_params(self):
         """A list of the free model parameters.
         """
-        return [k['name'] for k in pdict_to_plist(self.model_config)
+        return [k['name'] for k in pdict_to_plist(self.config_list)
                 if k['isfree']]
 
     @property
@@ -175,7 +186,7 @@ class ProspectrParams(object):
         """A list of the fixed model parameters that are specified in
         the `model_params`.
         """
-        return [k['name'] for k in pdict_to_plist(self.model_config)
+        return [k['name'] for k in pdict_to_plist(self.config_list)
                 if (k['isfree'] is False)]
 
     def theta_labels(self, name_map = {'amplitudes':'A',
@@ -209,6 +220,10 @@ class ProspectrParams(object):
                     index.append(v[0]+i)
         return [l for (i,l) in sorted(zip(index,label))]
 
+    @property
+    def verbose(self):
+        return self.run_params.get('verbose', False)
+    
     def info(self, par):
         pass
 

@@ -9,9 +9,6 @@ try:
 except(ImportError):
     pass
     
-lsun, pc = 3.846e33, 3.085677581467192e18 #in cgs
-to_cgs = lsun/10**( np.log10(4.0*np.pi)+2*np.log10(pc*10) )
-
 def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
     """
     Run an emcee sampler, including iterations of burn-in and
@@ -30,10 +27,10 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
         print('number of walkers={}'.format(nwalkers))
     # Set up initial positions
     initial = np.zeros([nwalkers, ndim])
-    for p, d in model.theta_desc.iteritems():
-        start, stop = d['i0'], d['i0']+d['N']
-        initial[:, start:stop] = (np.random.normal(1, initial_disp, nwalkers)[:,None] *
-                                  initial_center[start:stop])
+    for p, v in model.theta_index.iteritems():
+        start, stop = v
+        initial[:, start:stop] = (initial_center[start:stop] *
+                                  np.random.normal(1, initial_disp, nwalkers)[:,None])
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      threads = nthreads, args = [model], pool = pool)
@@ -47,19 +44,19 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
         tmp = np.percentile(epos, [0.25, 0.5, 0.75], axis = 0)
         relative_scatter = np.abs((tmp[2] -tmp[0]) / tmp[1] / 1.35)
         best = np.argmax(eprob)
-        initial = epos[best,:] * (1 + np.random.normal(0, 1, epos.shape) * relative_scatter[None,:]) 
+        initial = epos[best,:] * (1 + np.random.normal(0, 1, epos.shape) *
+                                  relative_scatter[None,:]) 
         esampler.reset()
-        k+=1
+        k += 1
         if rp['verbose']:
             print('done burn #{}'.format(k))
     
     # Do the final burn-in
-    if rp['verbose']:
-        print('done all burn-in, starting production')
-
     epos, eprob, state = esampler.run_mcmc(initial, nburn[-1])
     initial = epos
     esampler.reset()
+    if rp['verbose']:
+        print('done all burn-in, starting production')
 
     # Production run
     epos, eprob, state = esampler.run_mcmc(initial, niter)
@@ -109,9 +106,9 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
     #  for each parameter
     if size > 1:
         ginitial = np.zeros( [size -1, model.ndim] )
-        for p, d in model.theta_desc.iteritems():
-            start, stop = d['i0'], d['i0']+d['N']
-            hi, lo = plotting_range(d['prior_args'])#['maxi'], d['prior_args']['mini']
+        for p, v in model.theta_index.iteritems():
+            start, stop = v
+            hi, lo = plotting_range(model._config_dict[p]['prior_args'])
             if d['N'] > 1:
                 ginitial[:,start:stop] = np.array([np.random.uniform(h, l,size - 1)
                                                    for h,l in zip(hi,lo)]).T
@@ -145,7 +142,6 @@ def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
                                         length = length, store_trajectories = False,
                                         nadapt = 0)
     eps = thiseps
-
     # Adaptation of stepsize
     for k in range(nsegmax):
         #advance each sampler after adjusting step size
@@ -163,7 +159,6 @@ def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
                                             epsilon = eps, length = length,
                                             store_trajectories = False, nadapt = 0)
         alleps[k] = thiseps #this should not have actually changed during the sampling
-
     #main run
     afrac = sampler.accepted.sum()*1.0/sampler.chain.shape[0]
     if afrac < 0.6:

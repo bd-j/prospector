@@ -123,13 +123,13 @@ if __name__ == "__main__":
     ################
 
     inpar = model_setup.parse_args(sys.argv)
-    parset, model = model_setup.setup_model(inpar['param_file'], sps=sps)
-    parset.run_params['ndim'] = model.ndim
+    model = model_setup.setup_model(inpar['param_file'], sps=sps)
+    model.run_params['ndim'] = model.ndim
     # Command line override of run_params
-    _ = model_setup.parse_args(sys.argv, argdict=parset.run_params)
-    parset.run_params['sys.argv'] = sys.argv
-    rp = parset.run_params #shortname
-    initial_theta = parset.initial_theta
+    _ = model_setup.parse_args(sys.argv, argdict=model.run_params)
+    model.run_params['sys.argv'] = sys.argv
+    rp = model.run_params #shortname
+    initial_theta = model.initial_theta
     if rp.get('debug', False):
         sys.exit()
         
@@ -167,7 +167,7 @@ if __name__ == "__main__":
     ###################
     # PICKLE OUTPUT
     ###################
-    write_results.write_pickles(parset, model, esampler, powell_guesses,
+    write_results.write_pickles(model, esampler, powell_guesses,
                                 toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center)
     

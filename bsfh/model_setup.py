@@ -9,22 +9,6 @@ model parameters and other info and return a parset, a model, and an
 initial_params vector
 """
 
-def parse_args_old(argv, rp={'param_file':'', 'sps':''}):
-    """ Parse command line arguments given to prospectr.py
-    """
-    shortopt = ''
-    try:
-        opts, args = getopt.getopt(argv[1:],shortopt,[k+'=' for k in rp.keys()])
-    except getopt.GetoptError:
-        print 'bsfh.py --param_file <filename> --sps <sps_type>'
-        sys.exit(2)
-    for o, a in opts:
-        try:
-            rp[o[2:]] = float(a)
-        except:
-            rp[o[2:]] = a
-    return rp
-
 def parse_args(argv, argdict={'param_file':None, 'sps':'sps_basis',
                               'custom_filter_keys':None,
                               'compute_vega_mags':False}):
@@ -50,9 +34,11 @@ def parse_args(argv, argdict={'param_file':None, 'sps':'sps_basis',
     return argdict
 
 def show_syntax(args, ad):
+    """Show command line syntax corresponding to the provided arg
+    dictionary `ad`.
+    """
     print('Usage:\n {0} '.format(args[0]) +
           ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
-
 
 def setup_model(filename, sps=None):
     """Use a .json file or a .py script to intialize a model and obs
@@ -66,14 +52,9 @@ def setup_model(filename, sps=None):
 
     :returns model:
         A fully initialized model object.
-
-    :returns parset:
-        A ProspectrParams object
-
-    
     """
     ext = filename.split('.')[-1]
-    
+    # Read from files
     if ext == 'py':
         print('reading py script {}'.format(filename))
         setup_module = load_module_from_file(filename)
@@ -88,38 +69,25 @@ def setup_model(filename, sps=None):
         rp, mp = parameters.read_plist(filename)
         obs = None
         mock_info = rp.get('mock_info', None)
-        model_type = getattr(sedmodel,
-                             rp.get('model_type','SedModel'))
+        model_type = getattr(sedmodel, rp.get('model_type','SedModel'))
         
+    # Instantiate a model and add observational info, depending on whether
+    # obs needs to be mocked or read using a named function, or simply added
     model = model_type(rp, mp)
-    if (obs is None) or (model.run_params.get('mock', False)):
-        obs, theta_init = load_obs(model, sps=sps, **model.run_params)
-    model.add_obs(obs)
-    
-    return model
-
-def load_obs(model, sps=None,
-             mock=False, mock_info=None,
-             data_loading_function_name=None,
-             **kwargs):
-    """Load or mock observations, and return an obs dictionary and a
-    set of initial parameters """
-    if mock:
+    if model.run_params.get('mock', False):
         print('loading mock')
         obs = dutils.generate_mock(model, sps, mock_info)
-        initial_center = model.theta_from_params()
-        initial_center *= np.random.beta(2,2,size=model.ndim)*2.0
-        obs['mock_info'] = mock_info
-    elif data_loading_function_name is not None:
-        obsfunction = getattr(dutils, data_loading_function_name)
-        obs = obsfunction(**kwargs)
-        initial_center = None
-    if 'maggies' in obs:
-        obs['phot_mask'] = (obs.get('phot_mask',
-                                    np.ones(len(obs['maggies']), dtype= bool)) *
-                            np.isfinite(obs['maggies']))
-    #print('load_obs: initial_center={}'.format(initial_center))
-    return obs, initial_center
+        model.add_obs(obs)
+        model.initial_theta *= np.random.beta(2,2,size=model.ndim)*2.0
+    elif obs is None:
+        funcname = model.run_params['data_loading_function_name']
+        obsfunction = getattr(dutils, funcname)
+        obs = obsfunction(**model.run_params)
+        model.add_obs(obs)
+    else:
+        model.add_obs(obs)
+    
+    return model
 
 def load_module_from_file(path_to_file):
     """This has to break everything ever, right?
