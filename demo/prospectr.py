@@ -108,7 +108,7 @@ def chisqfn(theta, mod):
 # sys.exit()
 try:
     from emcee.utils import MPIPool
-    pool = MPIPool(debug = False, loadbalance = True)
+    pool = MPIPool(debug = True, loadbalance = True)
     if not pool.is_master():
         # Wait for instructions from the master process.
         pool.wait()

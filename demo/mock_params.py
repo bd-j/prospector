@@ -11,9 +11,9 @@ tophat = priors.tophat
  
 run_params = {'verbose':True,
               'outfile':'results/test',
-              'ftol':0.5e-5, 'maxfev':1000,
+              'ftol':0.5e-5, 'maxfev':10000,
               'nwalkers':64, #'walker_factor':4
-              'nburn':[32, 64, 128], 'niter':128,
+              'nburn':[64, 128, 256], 'niter':256,
               'initial_disp':0.1,
               #'nthreads':1, 'nsamplers':1,
               'mock':True,

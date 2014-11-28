@@ -38,7 +38,7 @@ class ProspectrParams(object):
         self.config_list = config_list
         self.configure()
 
-    def configure(self, **kwargs):
+    def configure(self, reset = False, **kwargs):
         """
         Use the parameter config_list to generate a theta_index
         mapping, and propogate the initial parameters into the params
@@ -50,18 +50,19 @@ class ProspectrParams(object):
             initial parameter values specified in the paramater
             configure_list
         """
-        self.params = {}    
+        if (not hasattr(self, 'params')) or reset:
+            self.params = {}
         self._config_dict = plist_to_pdict(self.config_list)
         self.map_theta()
         # propogate initial parameter values from the configure dictionary
-        for par in self._config_dict.keys():
-            self.params[par] = np.atleast_1d(self._config_dict[par]['init'])
+        for par, info in self._config_dict.iteritems():
+            self.params[par] = np.atleast_1d(info['init'])
         # propogate user supplied values, overriding the configure
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
         # store these initial values
         self.initial_theta = self.rectify_theta((self.theta.copy()))
-        #print(self.initial_theta)
+        print('pivot_wave' in self.params)
         
     def map_theta(self):
         """
@@ -126,7 +127,7 @@ class ProspectrParams(object):
         phot = obs['maggies'] is not None
         logify = self.run_params.get('logify_spectrum', True)
         norm = self.run_params.get('normalize_spectrum', True)
-        
+        print('add_obs:', norm, spec)
         if spec:
             self.ndof += obs['mask'].sum()
             if (norm):

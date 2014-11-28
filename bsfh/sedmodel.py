@@ -185,13 +185,13 @@ class HMCThetaParameters(ProspectrParams):
         :param theta:
             A theta parameter vector containing the desired
             parameters.  ndarray of shape (ndim,)
-
         """
         lnp_prior_grad = np.zeros_like(theta)
-        for p, v in self.theta_desc.iteritems():
-            start, stop = v['i0'], v['i0'] + v['N']
-            lnp_prior_grad[start:stop] = v['prior_gradient_function'](theta[start:stop],
-                                                                      **v['prior_args'])
+        for k, v in self.theta_index.iteritems():
+            start, stop =v
+            lnp_prior_grad[start:stop] = (self._config_dict[k]['prior_gradient_function']
+                                          (theta[start:stop],
+                                           **self._config_dict[k]['prior_args']))
         return lnp_prior_grad
 
     
@@ -206,24 +206,24 @@ class HMCThetaParameters(ProspectrParams):
         :param theta:
             A theta parameter vector containing the desired
             parameters.  ndarray of shape (ndim,)
-
         """
         oob = True
         sign = np.ones_like(theta)
         if self.verbose: print('theta in={0}'.format(theta))
         while oob:
             oob = False
-            for p,v in self.theta_desc.iteritems():
-                start, end = v['i0'], v['i0'] + v['N']
-                if 'upper' in v.keys():
-                    above = theta[start:end] > v['upper']
+            for k,v in self.theta_index.iteritems():
+                start, end = v
+                par = self._config_dict[k]
+                if 'upper' in par.keys():
+                    above = theta[start:end] > par['upper']
                     oob = oob or np.any(above)
-                    theta[start:end][above] = 2 * v['upper'] - theta[start:end][above]
+                    theta[start:end][above] = 2 * par['upper'] - theta[start:end][above]
                     sign[start:end][above] *= -1
-                if 'lower' in v.keys():
-                    below = theta[start:end] < v['lower']
+                if 'lower' in par.keys():
+                    below = theta[start:end] < par['lower']
                     oob = oob or np.any(below)
-                    theta[start:end][below] = 2 * v['lower'] - theta[start:end][below]
+                    theta[start:end][below] = 2 * par['lower'] - theta[start:end][below]
                     sign[start:end][below] *= -1
         if self.verbose: print('theta out={0}'.format(theta))            
         return theta, sign, oob
@@ -231,13 +231,15 @@ class HMCThetaParameters(ProspectrParams):
 
     def bounds(self):
         bounds = self.ndim * [(0.,0.)]
-        for p, v in self.theta_desc.iteritems():
-            sz = np.size(v['prior_args']['mini'])
+        for k, v in self.theta_index.iteritems():
+            par = self._config_dict[k]
+            sz = np.size(par['prior_args']['mini'])
             if sz == 1:
-                bounds[v['i0']] = (v['prior_args']['mini'], v['prior_args']['maxi'])
+                bounds[par['i0']] = (par['prior_args']['mini'],
+                                     par['prior_args']['maxi'])
             else:
-                for k in range(sz):
-                    bounds[v['i0']+k] = (v['prior_args']['mini'][k],
-                                         v['prior_args']['maxi'][k])
+                for i in range(sz):
+                    bounds[v[0]+i] = (par['prior_args']['mini'][i],
+                                      par['prior_args']['maxi'][i])
         return bounds
  
