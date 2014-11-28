@@ -17,21 +17,21 @@ class ProspectrParams(object):
     
     """
     # information about each parameter stored as a list
-    config_list = [] 
+    #config_list = [] 
     # information about each parameter as a dictionary keyed by
     # parameter name for easy access
-    _config_dict = {}
+    #_config_dict = {}
     # Model parameter state, keyed by parameter name
-    params = {}
+    #params = {}
     # Mapping from parameter name to index in the theta vector
-    theta_index = {}
+    #theta_index = {}
     # the initial theta vector
-    theta_init = np.array([])
+    #theta_init = np.array([])
 
     # Information about the fiting parameters, filenames, fitting and
     # configure options, runtime variables, etc.
-    run_params = {}
-    obs = {}
+    #run_params = {}
+    #obs = {}
     
     def __init__(self, run_params, config_list):
         self.run_params = run_params
@@ -49,7 +49,8 @@ class ProspectrParams(object):
             Keyword parameters can be used to override or add to the
             initial parameter values specified in the paramater
             configure_list
-        """        
+        """
+        self.params = {}    
         self._config_dict = plist_to_pdict(self.config_list)
         self.map_theta()
         # propogate initial parameter values from the configure dictionary

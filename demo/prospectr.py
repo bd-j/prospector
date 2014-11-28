@@ -130,6 +130,8 @@ if __name__ == "__main__":
     model.run_params['sys.argv'] = sys.argv
     rp = model.run_params #shortname
     initial_theta = model.initial_theta
+    if rp['verbose']:
+        print(model.params)
     if rp.get('debug', False):
         sys.exit()
         
@@ -137,7 +139,7 @@ if __name__ == "__main__":
     #INITIAL GUESS(ES) USING POWELL MINIMIZATION
     #################
     if rp['verbose']:
-        print('Minimizing')
+        print('minimizing chi-square...')
     ts = time.time()
     powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
     powell_guesses, pinit = utils.pminimize(chisqfn, model, initial_theta,
@@ -156,7 +158,7 @@ if __name__ == "__main__":
     ####################
     #sys.exit()
     if rp['verbose']:
-        print('emcee...')
+        print('emcee sampling...')
     tstart = time.time()
     initial_center = best_guess.x
     esampler = utils.run_emcee_sampler(model, lnprobfn, initial_center, rp, pool = pool)

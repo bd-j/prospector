@@ -52,6 +52,7 @@ class SedModel(ProspectrParams):
         if sps is None:
             sps = self.sps
         self.set_parameters(theta)
+        
         spec, phot, extras = sps.get_spectrum(outwave=self.obs['wavelength'],
                                               filters=self.obs['filters'],
                                               **self.params)

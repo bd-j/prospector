@@ -1,6 +1,7 @@
 import sys
 import pickle
 import numpy as np
+import matplotlib.pyplot as pl
 
 """Convenience functions for reading and reconstruction results from a
 fitting run, including reconstruction of the model for posterior
@@ -102,7 +103,7 @@ def subtriangle(sample_results, outname=None, showpars=None,
                           truths = truths)
     if outname is not None:
         fig.savefig('{0}.triangle.png'.format(outname))
-        pl.close()
+        pl.close(fig)
     else:
         return fig
 

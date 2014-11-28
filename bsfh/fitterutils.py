@@ -109,7 +109,7 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
         for p, v in model.theta_index.iteritems():
             start, stop = v
             hi, lo = plotting_range(model._config_dict[p]['prior_args'])
-            if d['N'] > 1:
+            if model._config_dict[p]['N'] > 1:
                 ginitial[:,start:stop] = np.array([np.random.uniform(h, l,size - 1)
                                                    for h,l in zip(hi,lo)]).T
             else:
