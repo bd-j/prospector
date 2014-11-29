@@ -78,6 +78,7 @@ def setup_model(filename, sps=None):
         print('loading mock')
         obs = dutils.generate_mock(model, sps, mock_info)
         model.add_obs(obs)
+        model.mock_info = mock_info
         model.initial_theta *= np.random.beta(2,2,size=model.ndim)*2.0
     elif obs is None:
         funcname = model.run_params['data_loading_function_name']

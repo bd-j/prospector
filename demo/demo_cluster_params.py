@@ -16,7 +16,7 @@ run_params = {'verbose':True,
               'nburn':[64, 128, 256], 'niter':256,
               'initial_disp':0.1,
               #'nthreads':1, 'nsamplers':1,
-              'mock':True,
+              'mock':False,
               'debug':False,
               'data_loading_function_name': "load_obs_mmt",
               'logify_spectrum':True,
@@ -33,7 +33,7 @@ run_params = {'verbose':True,
 # OBS
 #############
 obs = load_obs_mmt(**run_params)
-obs['phot_mask'] = np.array([True, True, True, True, True, True])
+obs['phot_mask'] = np.array([True, True, True, True, False, False])
 
 #############
 # MODEL_PARAMS
@@ -162,8 +162,8 @@ model_params.append({'name': 'max_wave_smooth', 'N': 1,
 ###### CALIBRATION ###########
 
 polyorder = 2
-polymin = [-100, -1000]
-polymax = [100, 1000]
+polymin = [-1000, -3000]
+polymax = [1000, 3000]
 polyinit = [0.1, 0.1]
 
 model_params.append({'name': 'poly_coeffs', 'N': polyorder,
@@ -252,21 +252,3 @@ model_params.append({'name': 'emission_disp', 'N': 1, 'isfree': False,
 ############
 
 mock_info = {}
-mock_info['filters'] = obs['filters']
-mock_info['wavelength'] = obs['wavelength'][obs['mask']]
-mock_info['params'] = {'sfh':0, 'mass':1e4, 'zmet':-0.1, 'tage':0.1,
-                       'dust2':0.3, 'sigma_smooth':2.2, 'zred':1e-4,
-                       'spec_norm':1.0, 'poly_coeffs':[0.0, 0.0],
-                       'gp_amplitude':0.0, 'gp_jitter':0.0, 'gp_length':10.0,
-                       'emission_luminosity': nlines * [0.0]}
-psnr = obs['maggies']/obs['maggies_unc']
-psnr[~np.isfinite(psnr)] = 3
-mock_info['phot_snr'] = 20.0
-mock_info['spec_snr'] = (obs['spectrum']/obs['unc'])[obs['mask']]
-
-rp_uncal = deepcopy(run_params)
-rp_uncal['filename'] = rp_uncal['filename'].replace('.s.fits','.v.fits')
-obs_uncal = load_obs_mmt(**rp_uncal)
-
-mock_info['calibration'] = (obs_uncal['spectrum']/obs['spectrum'])[obs['mask']]
-#run_params['mock_info'] = mock_info

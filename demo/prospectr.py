@@ -9,14 +9,18 @@ from bsfh.gp import GaussianProcess
 import bsfh.fitterutils as utils
 from bsfh import model_setup
 
+#########
 # Read command line arguments
+#########
 argdict={'param_file':None, 'sps':'sps_basis',
          'custom_filter_keys':None,
          'compute_vega_mags':False,
          'zcontinuous':True}
 argdict = model_setup.parse_args(sys.argv, argdict=argdict)
 
+#########
 #SPS Model instance as global
+########
 if argdict['sps'] == 'sps_basis':
     from bsfh import sps_basis
     sps = sps_basis.StellarPopBasis(compute_vega_mags=argdict['compute_vega_mags'])
@@ -30,11 +34,12 @@ elif argdict['sps'] == 'fsps':
 else:
     print('No SPS type set')
     sys.exit()
-              
 #GP instance as global
 gp = GaussianProcess(None, None)
 
+########
 #LnP function as global
+########
 def lnprobfn(theta, mod):
     """
     Given a model object and a parameter vector, return the ln of the
@@ -108,7 +113,7 @@ def chisqfn(theta, mod):
 # sys.exit()
 try:
     from emcee.utils import MPIPool
-    pool = MPIPool(debug = True, loadbalance = True)
+    pool = MPIPool(debug = False, loadbalance = True)
     if not pool.is_master():
         # Wait for instructions from the master process.
         pool.wait()

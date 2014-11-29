@@ -1,3 +1,4 @@
+from copy import deepcopy
 import numpy as np
 from sedpy import attenuation
 from bsfh import priors, sedmodel, elines
@@ -10,16 +11,18 @@ tophat = priors.tophat
  
 run_params = {'verbose':True,
               'outfile':'results/test',
-              'ftol':0.5e-5, 'maxfev':100,
+              'ftol':0.5e-5, 'maxfev':10000,
               'nwalkers':64, #'walker_factor':4
-              'nburn':3 * [10], 'niter':10,
+              'nburn':[64, 128, 256], 'niter':256,
               'initial_disp':0.1,
               #'nthreads':1, 'nsamplers':1,
-              'mock': False,
+              'mock':True,
+              'debug':False,
               'data_loading_function_name': "load_obs_mmt",
-              'spec': True, 'phot':True,
               'logify_spectrum':True,
               'normalize_spectrum':True,
+              'norm_band_name':'f475w',
+              'rescale':True,
               'filename':'/Users/bjohnson/projects/cetus/data/mmt/nocal/020.B192-G242.s.fits',
               "phottable":"/Users/bjohnson/Projects/cetus/data/f2_apcanfinal_6phot_v2.fits",
               'objname':'B192-G242',
@@ -30,7 +33,7 @@ run_params = {'verbose':True,
 # OBS
 #############
 obs = load_obs_mmt(**run_params)
-obs['phot_mask'] = np.array([True, True, True, True, False, False])
+obs['phot_mask'] = np.array([True, True, True, True, True, True])
 
 #############
 # MODEL_PARAMS
@@ -44,20 +47,20 @@ param_template = {'name':'', 'N':1, 'isfree': False,
 
 ###### Distance ##########
 model_params.append({'name': 'lumdist', 'N': 1,
-                        'isfree': False,
-                        'init': 0.783,
-                        'units': 'Mpc',
-                        'prior_function': None,
-                        'prior_args': None})
+                     'isfree': False,
+                     'init': 0.783,
+                     'units': 'Mpc',
+                     'prior_function': None,
+                     'prior_args': None})
 
 ###### SFH ################
 
 model_params.append({'name': 'mass', 'N': 1,
-                        'isfree': True,
-                        'init': 10e3,
-                        'units': r'M$_\odot$',
-                        'prior_function': tophat,
-                        'prior_args': {'mini':1e2, 'maxi': 1e6}})
+                     'isfree': True,
+                     'init': 10e3,
+                     'units': r'M$_\odot$',
+                     'prior_function': tophat,
+                     'prior_args': {'mini':1e2, 'maxi': 1e6}})
 
 model_params.append({'name': 'tage', 'N': 1,
                         'isfree': True,
@@ -159,8 +162,8 @@ model_params.append({'name': 'max_wave_smooth', 'N': 1,
 ###### CALIBRATION ###########
 
 polyorder = 2
-polymin = [-50, -500]
-polymax = [50, 500]
+polymin = [-1000, -3000]
+polymax = [1000, 3000]
 polyinit = [0.1, 0.1]
 
 model_params.append({'name': 'poly_coeffs', 'N': polyorder,
@@ -196,7 +199,7 @@ model_params.append({'name': 'gp_length', 'N':1,
                         'init': 60.0,
                         'units': r'$\AA$',
                         'prior_function': priors.lognormal,
-                        'prior_args': {'log_mean':4.0, 'sigma':0.1}})
+                        'prior_args': {'log_mean':4.0, 'sigma':0.5}})
 
 model_params.append({'name': 'phot_jitter', 'N':1,
                         'isfree': False,
@@ -216,6 +219,11 @@ linemin = 3 * [-100] + 4 * [0.]  + 8 * [-50.0 ]
 linemax = 3 * [0.] + 4 * [100.0 ] + 8 * [50.0 ]
 lineinit = 3 * [-0.1 ] + 4 * [1.0 ] + 8 * [0.1 ]
 
+linelist = linelist[0:7]
+linemin = linemin[0:7]
+linemax = linemax[0:7]
+lineinit = lineinit[0:7]
+
 nlines = len(linelist)
 ewave = [elines.wavelength[l] for l in linelist]
 
@@ -233,7 +241,7 @@ model_params.append({'name': 'emission_luminosity', 'N': nlines,
                         'line_names': linelist,
                         'prior_args':{'mini': linemin, 'maxi': linemax}})
 
-model_params.append({'name': 'emission_disp', 'N': 1, 'isfree': True,
+model_params.append({'name': 'emission_disp', 'N': 1, 'isfree': False,
                         'init': 2.2,
                         'units': r'$\AA$',
                         'prior_function':tophat,
@@ -242,16 +250,23 @@ model_params.append({'name': 'emission_disp', 'N': 1, 'isfree': True,
 ############
 # MOCK
 ############
+
 mock_info = {}
 mock_info['filters'] = obs['filters']
 mock_info['wavelength'] = obs['wavelength'][obs['mask']]
 mock_info['params'] = {'sfh':0, 'mass':1e4, 'zmet':-0.1, 'tage':0.1,
-                       'dust2':0.3, 'sigma_smooth':2.2,
+                       'dust2':0.3, 'sigma_smooth':2.2, 'zred':1e-4,
                        'spec_norm':1.0, 'poly_coeffs':[0.0, 0.0],
-                       'gp_amplitude':0.0, 'gp_jitter':0.0,
+                       'gp_amplitude':0.0, 'gp_jitter':0.0, 'gp_length':10.0,
                        'emission_luminosity': nlines * [0.0]}
-mock_info['phot_snr'] = 1.086/obs['mags_unc']
+psnr = obs['maggies']/obs['maggies_unc']
+psnr[~np.isfinite(psnr)] = 3
+mock_info['phot_snr'] = 20.0
 mock_info['spec_snr'] = (obs['spectrum']/obs['unc'])[obs['mask']]
 
+rp_uncal = deepcopy(run_params)
+rp_uncal['filename'] = rp_uncal['filename'].replace('.s.fits','.v.fits')
+obs_uncal = load_obs_mmt(**rp_uncal)
 
-run_params['mock_info'] = mock_info
+mock_info['calibration'] = (obs_uncal['spectrum']/obs['spectrum'])[obs['mask']]
+#run_params['mock_info'] = mock_info

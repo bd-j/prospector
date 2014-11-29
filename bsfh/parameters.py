@@ -62,7 +62,7 @@ class ProspectrParams(object):
             self.params[k] = np.atleast_1d(v)
         # store these initial values
         self.initial_theta = self.rectify_theta((self.theta.copy()))
-        print('pivot_wave' in self.params)
+        #print('pivot_wave' in self.params)
         
     def map_theta(self):
         """
@@ -107,11 +107,13 @@ class ProspectrParams(object):
         lnp_prior = 0
         for k, v in self.theta_index.iteritems():
             start, end = v
+            #print(k)
             lnp_prior += np.sum(self._config_dict[k]['prior_function']
                                 (theta[start:end], **self._config_dict[k]['prior_args']))
         return lnp_prior
 
     def _add_obs(self, obs, **kwargs):
+        self.obs = {}
         self.obs = obs
 
     def add_obs(self, obs):
@@ -127,7 +129,7 @@ class ProspectrParams(object):
         phot = obs['maggies'] is not None
         logify = self.run_params.get('logify_spectrum', True)
         norm = self.run_params.get('normalize_spectrum', True)
-        print('add_obs:', norm, spec)
+        
         if spec:
             self.ndof += obs['mask'].sum()
             if (norm):
