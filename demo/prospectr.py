@@ -138,6 +138,10 @@ if __name__ == "__main__":
     if rp['verbose']:
         print(model.params)
     if rp.get('debug', False):
+        try:
+            pool.close()
+        except:
+            pass
         sys.exit()
         
     #################

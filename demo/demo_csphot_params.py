@@ -10,9 +10,9 @@ tophat = priors.tophat
 
 run_params = {'verbose':True,
               'outfile':'results/csphot_test',
-              'ftol':0.5e-5, 'maxfev':500,
+              'ftol':0.5e-5, 'maxfev':5000,
               'nwalkers':128,
-              'nburn':[32, 64, 128], 'niter':256,
+              'nburn':[32, 32, 64], 'niter':128,
               'initial_disp':0.1,
               'debug':False,
               'mock': False,
@@ -49,7 +49,7 @@ def load_obs_3dhst(filename, objnum):
     obs['filters'] = ['{0}_{1}'.format(f.lower(), fieldname.lower()) for f in filters]
     obs['phot_mask'] =  np.logical_or((flux != unc), (flux > 0))
     obs['maggies'] = flux / (1e10)
-    obs['maggies_unc'] =  flux / (1e10)
+    obs['maggies_unc'] =  unc / (1e10)
     obs['wavelength'] = None
     obs['spectrum'] = None
     
