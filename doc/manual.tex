@@ -30,12 +30,16 @@ file can be specified.
 \texttt{python prospectr.py --param_file prospectr_params.json}
 \end{center}
 
+See \texttt{tests.sh} and the parameter files and prospectr.py script
+in the demo directory of the repository for examples of proper usage.
+
 \subsection{Stellar Population Models: The \emph{sps} variable}
-The likelihood function and SED models take a stellar population object
-as an argument.  This object is defined globally to enable
+The likelihood function and SED models take a stellar population
+object as an argument.  This object is defined globally to enable
 multiprocessing, since they can't generally be serialized and sent to
 other processors.  Therefore, changes to the stellar population object
-being used must be made in the prospectr.py code.
+being used must be made in the prospectr.py code, or specified somehow
+as a command line argument.
 
 The SSP and `non-parameteric' SFHs (\texttt{SedModel}) rely on a
 \texttt{StellarPopBasis()} object described in the \texttt{sps_basis}
@@ -44,8 +48,9 @@ the \texttt{StellarPopulation()} object in the \texttt{fsps} module.
 Depending on the model you are using, one of these should be
 instantiated in the variable \texttt{sps}.
 
-In the future this may change so that a command line argument can be
-passed to prospectr.py to tell it which stellar population object to use.
+The \texttt{sps_basis} object is the default.  To use the
+\texttt{fsps} object specify \texttt{--sps=fsps} at the command line
+invocation of \texttt{prospectr}
 
 \subsection{Model parameter definitions: The \emph{model_params} list}
 Each model parameter is given an entry in a list called {\bf
@@ -68,7 +73,7 @@ All the model parameters will be passed to the model object on
 initialization.  The free parameters will be varied by the code during
 the optimization and sampling phases.  The initial value from which
 optimization is begun is set by the {\it init} values of each
-parameter.  for fixed parameters the {\it init} value gives the value
+parameter.  For fixed parameters the {\it init} value gives the value
 of that parameter that will be used during the optimization and MCMC
 phases.
 
@@ -93,12 +98,11 @@ called {\bf run_params}
 \item {\it normalize_spectrum} optional Boolean
 \end{item}
 
-For real data the following is required
+For real data the following is required in the json file
 \begin{itemize}
 \item {\it data_loading_function_name} string
-\item {\it filename} string
-\item {\it ...} additional arguments to the data loading function
-(e.g. a list of filters to use, wavelength limits, etc.)
+\item {\it ...} additional keyword arguments to the data loading function
+(e.g. filenames, list of filters to use, wavelength limits, etc.)
 \end{itemize}
 
 The data_loading_function should return an {\bf obs} dictionary (see
@@ -119,12 +123,12 @@ The code expects observed values or data to be in a dictionary (here
 called the {\bf obs} dictionary) with the following keys:
 \begin{itemize}
 \item {\it wavelengths}
-\item {\it spec}
+\item {\it spectrum}
 \item {\it unc}
 \item {\it mask}
 \item {\it filters}
-\item {\it mags}
-\item {\it mags_unc}
+\item {\it maggies}
+\item {\it maggies_unc}
 \item {\it phot_mask}
 \end{itemize}
 
@@ -134,6 +138,9 @@ name of this function must be supplied in the {\bf run_params}, and it
 should be located in the readspec module. Alternatively, the {\bf obs}
 dictionary can be generated directly in a python script if that is the
 method for parameter storage.
+
+If you do not have spectral or photometric data, set {\it spectrum} =
+\texttt{None} or {\it maggies}=\texttt{None}
 
 \section{Advanced Usage}
 
@@ -163,9 +170,10 @@ algebra libraries.
 \subsection{MPI}
 This code is slow!  Get moar processors.
 
-Install some kind of MPI on your system (openMPI, mpich2, mvapich2), make sure mpi4py is also
-installed against this MPI installation, and use the syntax
-\texttt{mpirun -np <N> python prospectr.py --param_file <param_file>}
+Install some kind of MPI on your system (openMPI, mpich2, mvapich2),
+make sure mpi4py is also installed against this MPI installation, and
+use the syntax \texttt{mpirun -np <N> python prospectr.py --param_file
+<param_file>}
 
 Done.
 
