@@ -67,7 +67,9 @@ prior_function_name} and {\it prior_args} with values consisting of a
 string giving the name of the prior function
 (e.g. \texttt{``tophat''}) and a dictionary of arguments to the prior
 function. It's also a good idea to have a {\it units} key, and maybe a
-{\it label} key.
+{\it label} key.  If the parameters are specified in a script instead
+of a JSON file, use {\it prior_function} = \texttt{function} instead
+of specifying the function name as a string.
 
 All the model parameters will be passed to the model object on
 initialization.  The free parameters will be varied by the code during
@@ -77,9 +79,14 @@ parameter.  For fixed parameters the {\it init} value gives the value
 of that parameter that will be used during the optimization and MCMC
 phases.
 
+Nearly all parameters used by FSPS can be set here.  The default FSPS
+will be used unless specified in a fixed parameter,
+e.g. \texttt{imf_type} can be changed by including it as a fixed
+parameter with value given by {\it init}
+
 \subsection{Additonal parameters definition: The \emph{run_params} dictionary}
 Beyond {\bf model_params}, the following parameters conrol key aspects
-of the operation of the code, and a re stored in a special dictionary
+of the operation of the code, and are stored in a special dictionary
 called {\bf run_params}
 \begin{itemize}
 \item {\it verbose} - Boolean
@@ -92,11 +99,10 @@ called {\bf run_params}
 \item {\it ftol} float
 \item {\it maxfev} integer
 \item {\it outfile}
-\item {\it spec} optional boolean
-\item {\it phot} optional Boolean
 \item {\it logify_data} optional Boolean
 \item {\it normalize_spectrum} optional Boolean
-\end{item}
+\item {\it model_type} string (JSON) or class name (script) 
+\end{itemize}
 
 For real data the following is required in the json file
 \begin{itemize}
