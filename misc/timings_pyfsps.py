@@ -2,7 +2,7 @@
 #calls to fsps.sps.get_spectrum() for different metallicities
 import time, os, subprocess, re, sys
 import numpy as np
-import matplotlib.pyplot as pl
+#import matplotlib.pyplot as pl
 import fsps
 from bsfh import sps_basis, sedmodel
 
