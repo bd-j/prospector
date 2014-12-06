@@ -9,7 +9,7 @@ try:
 except(ImportError):
     pass
     
-def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
+def run_emcee_sampler(lnprobf, model, initial_center, rp, pool=None):
     """
     Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the production sampler.

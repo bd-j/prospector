@@ -1,6 +1,6 @@
 import numpy as np
 import warnings
-from .readspec import *
+from bsfh import readspec
 
 def logify_data(data, sigma, mask):
     """
@@ -61,7 +61,7 @@ def norm_spectrum(obs, norm_band_name='f475w', **kwargs):
  
     return norm, pivot_wave
 
-def rectify_obs(obs):
+def rectify_obs(obs, ):
     """
     Make sure the passed obs dictionary conforms to code expectations,
     and make simple fixes when possible.
@@ -69,6 +69,7 @@ def rectify_obs(obs):
     k = obs.keys()
     if 'maggies' not in k:
         obs['maggies'] = None
+        obs['maggies_unc'] = None
     if 'spectrum' not in k:
         obs['spectrum'] = None
         obs['unc'] = None

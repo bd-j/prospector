@@ -12,35 +12,27 @@ from bsfh import model_setup
 #########
 # Read command line arguments
 #########
-argdict={'param_file':None, 'sps':'sps_basis',
+argdict={'param_file':None, 'sptype':'sps_basis',
          'custom_filter_keys':None,
          'compute_vega_mags':False,
          'zcontinuous':True}
-argdict = model_setup.parse_args(sys.argv, argdict=argdict)
+clargs = model_setup.parse_args(sys.argv, argdict=argdict)
 
 #########
 #SPS Model instance as global
 ########
-if argdict['sps'] == 'sps_basis':
-    from bsfh import sps_basis
-    sps = sps_basis.StellarPopBasis(compute_vega_mags=argdict['compute_vega_mags'])
-elif argdict['sps'] == 'fsps':
-    import fsps
-    sps = fsps.StellarPopulation(zcontinuous=argdict['zcontinuous'],
-                                 compute_vega_mags=argdict['compute_vega_mags'])
-    custom_filter_keys = argdict['custom_filter_keys']
-    if custom_filter_keys is not None:
-        fsps.filters.FILTERS = model_setup.custom_filter_dict(custom_filter_keys)
-else:
-    print('No SPS type set')
-    sys.exit()
+sps = model_setup.load_sps(**clargs)
+
 #GP instance as global
 gp = GaussianProcess(None, None)
+
+# Model as global
+mod = model_setup.load_model(clargs['param_file'])
 
 ########
 #LnP function as global
 ########
-def lnprobfn(theta, mod):
+def lnprobfn(theta, obs):
     """
     Given a model object and a parameter vector, return the ln of the
     posterior.
@@ -48,11 +40,8 @@ def lnprobfn(theta, mod):
     :param theta:
         Input parameter vector, ndarray of shape (ndim,)
 
-    :param mod:
-        bsfh.sedmodel model object, with attributes including `obs`, a
-        dictionary of observational data, and `params`, a dictionary
-        of model parameters.  It must also have `prior_product()`,
-        `mean_model()` and `calibration()` methods defined.
+    :param obs:
+        a dictionary of observational data.
 
     :returns lnp:
         Ln posterior probability.
@@ -62,20 +51,20 @@ def lnprobfn(theta, mod):
         
         # Generate mean model
         t1 = time.time()        
-        mu, phot, x = mod.mean_model(theta, sps = sps)
+        mu, phot, x = mod.mean_model(theta, obs, sps = sps)
         d1 = time.time() - t1
         
         # Spectroscopy term
         t2 = time.time()
-        if mod.obs['spectrum'] is not None:
-            mask = mod.obs.get('mask', np.ones(len(mod.obs['wavelength']),
-                                               dtype= bool))
-            gp.wave, gp.sigma = mod.obs['wavelength'][mask], mod.obs['unc'][mask]
+        if obs['spectrum'] is not None:
+            mask = obs.get('mask', np.ones(len(obs['wavelength']),
+                                           dtype= bool))
+            gp.wave, gp.sigma = obs['wavelength'][mask], obs['unc'][mask]
             #use a residual in log space
             log_mu = np.log(mu)
             #polynomial in the log
-            log_cal = (mod.calibration(theta))
-            delta = (mod.obs['spectrum'] - log_mu - log_cal)[mask]
+            log_cal = (mod.calibration(theta, obs))
+            delta = (obs['spectrum'] - log_mu - log_cal)[mask]
             gp.factor(mod.params['gp_jitter'], mod.params['gp_amplitude'],
                       mod.params['gp_length'], check_finite=False, force=False)
             lnp_spec = gp.lnlike(delta, check_finite=False)
@@ -83,12 +72,12 @@ def lnprobfn(theta, mod):
             lnp_spec = 0.0
 
         # Photometry term
-        if mod.obs['maggies'] is not None:
-            pmask = mod.obs.get('phot_mask', np.ones(len(mod.obs['maggies']),
-                                                     dtype= bool))
+        if obs['maggies'] is not None:
+            pmask = obs.get('phot_mask', np.ones(len(obs['maggies']),
+                                                 dtype= bool))
             jitter = mod.params.get('phot_jitter',0)
-            maggies = mod.obs['maggies']
-            phot_var = (mod.obs['maggies_unc'] + jitter)**2
+            maggies = obs['maggies']
+            phot_var = (obs['maggies_unc'] + jitter)**2
             lnp_phot =  -0.5*( (phot - maggies)**2 / phot_var )[pmask].sum()
             lnp_phot +=  -0.5*np.log(phot_var[pmask]).sum()
         else:
@@ -105,8 +94,8 @@ def lnprobfn(theta, mod):
     else:
         return -np.infty
     
-def chisqfn(theta, mod):
-    return -lnprobfn(theta, mod)
+def chisqfn(theta, obs):
+    return -lnprobfn(theta, obs)
 
 #MPI pool.  This must be done *after* lnprob and
 # chi2 are defined since slaves will only see up to
@@ -126,17 +115,19 @@ if __name__ == "__main__":
     ################
     # SETUP
     ################
-
-    inpar = model_setup.parse_args(sys.argv)
-    model = model_setup.setup_model(inpar['param_file'], sps=sps)
-    model.run_params['ndim'] = model.ndim
+    param_filename = clargs['param_file']
+    rp = model_setup.run_params(param_filename)
     # Command line override of run_params
-    _ = model_setup.parse_args(sys.argv, argdict=model.run_params)
-    model.run_params['sys.argv'] = sys.argv
-    rp = model.run_params #shortname
-    initial_theta = model.initial_theta
+    rp = model_setup.parse_args(sys.argv, argdict=rp)
+    rp['sys.argv'] = sys.argv
+    if rp.get('mock', False):
+        mock_info = model_setup.load_mock(param_filename, rp, mod, sps)
+    else:
+        obsdat = model_setup.load_obs(param_filename, rp)
+    
+    initial_theta = mod.initial_theta
     if rp['verbose']:
-        print(model.params)
+        print(mod.params)
     if rp.get('debug', False):
         try:
             pool.close()
@@ -151,9 +142,9 @@ if __name__ == "__main__":
         print('minimizing chi-square...')
     ts = time.time()
     powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
-    powell_guesses, pinit = utils.pminimize(chisqfn, model, initial_theta,
-                                       method ='powell', opts=powell_opt,
-                                       pool = pool, nthreads = rp.get('nthreads',1))
+    powell_guesses, pinit = utils.pminimize(chisqfn, obsdat, initial_theta,
+                                            method ='powell', opts=powell_opt,
+                                            pool = pool, nthreads = rp.get('nthreads',1))
     
     best = np.argmin([p.fun for p in powell_guesses])
     best_guess = powell_guesses[best]
@@ -170,7 +161,8 @@ if __name__ == "__main__":
         print('emcee sampling...')
     tstart = time.time()
     initial_center = best_guess.x
-    esampler = utils.run_emcee_sampler(model, lnprobfn, initial_center, rp, pool = pool)
+    esampler = utils.run_emcee_sampler(lnprobfn, obsdat, initial_center,
+                                       rp, pool = pool)
     edur = time.time() - tstart
     if rp['verbose']:
         print('done emcee in {0}s'.format(edur))
@@ -178,7 +170,7 @@ if __name__ == "__main__":
     ###################
     # PICKLE OUTPUT
     ###################
-    write_results.write_pickles(model, esampler, powell_guesses,
+    write_results.write_pickles(rp, mod, esampler, powell_guesses,
                                 toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center)
     

@@ -111,49 +111,6 @@ class ProspectrParams(object):
             lnp_prior += np.sum(self._config_dict[k]['prior_function']
                                 (theta[start:end], **self._config_dict[k]['prior_args']))
         return lnp_prior
-
-    def _add_obs(self, obs, **kwargs):
-        self.obs = {}
-        self.obs = obs
-
-    def add_obs(self, obs):
-        """
-        Add the obs dictionary as an attribute of the parameters
-        object, with modifications for normalizing the spectrum and
-        taking the log of it (for the gaussian process).  Calls
-        configure at the end
-        """
-        self._add_obs(obs, **self.run_params)
-        self.ndof = -self.ndim
-        spec = obs['spectrum'] is not None
-        phot = obs['maggies'] is not None
-        logify = self.run_params.get('logify_spectrum', True)
-        norm = self.run_params.get('normalize_spectrum', True)
-        
-        if spec:
-            self.ndof += obs['mask'].sum()
-            if (norm):
-                sp_norm, pivot_wave = norm_spectrum(self.obs, **self.run_params)
-                self.params['normalization_guess'] = sp_norm
-                self.params['pivot_wave'] = pivot_wave
-                self.rescale_parameter('spec_norm', lambda x: x/self.params['spec_norm'])
-                
-            if (logify):
-                s, u, m = logify_data(self.obs['spectrum'], self.obs['unc'],
-                                      self.obs['mask'])
-                self.obs['spectrum'] = s
-                self.obs['unc'] = u
-                self.obs['mask'] = m
-                self.rescale_parameter('spec_norm', lambda x: np.log(x)) 
-        else:
-            self.obs['unc'] = None
-
-        if phot:
-            self.ndof += obs['phot_mask'].sum()        
-        else:
-            self.obs['maggies_unc'] = None
-            
-        self.configure()
             
     def rescale_parameter(self, par, func):
         ind = [p['name'] for p in self.config_list].index(par)
