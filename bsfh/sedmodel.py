@@ -147,9 +147,10 @@ class CSPModel(ProspectrParams):
         # normalize by (current) stellar mass and get correct units (distance_modulus)
         mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
         #modern FSPS does the distance modulus for us
-        #dfactor = (cosmo.luminosity_distance(sps.params['zred']).value[0] * 1e5)**2
+        dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value[0] * 1e5)**2 /
+                   (1+sps.params['zred']))
         #to_apparent_mags = self.to_cgs/(dfactor**2)
-        dfactor = 1.0
+        #dfactor = 1.0
         return (mass_norm * spec + self.sky(),
                 mass_norm * 10**(-0.4*(mags)) / dfactor,
                 None)
