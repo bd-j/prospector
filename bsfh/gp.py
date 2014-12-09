@@ -3,7 +3,7 @@ from scipy.linalg import cho_factor, cho_solve
 
 class GaussianProcess(object):
 
-    def __init__(self, wave, sigma ):
+    def __init__(self, wave=None, sigma=None, kernel=None ):
         """
         Initialize the relevant parameters for the gaussian process.
 
@@ -14,61 +14,72 @@ class GaussianProcess(object):
         :param sigma:
             The uncertainty estimate at each wavelength point.
         """
+        if kernel is None:
+            self.kernel = np.array([0.0, 0.0, 0.0])
+        else:
+            self.kernel = kernel
+        self.asq = None
+        self.lsq = None
+        self.s = None
         self.wave = wave
         self.sigma = sigma
-        self.s = None
-        self.a = None
-        self.l = None
         
-    def factor(self, s, a, l, check_finite=True,force=False):
+    def kernel_to_params(self, kernel):
+        """Kernel is a vector consisting of log(s, a**2, l**2)
         """
-        :param s:
-            Jitter (diagonal) term
+        s, asquared, lsquared = exp(kernel).tolist()
+        return s, asquared, lsquared
+        
+    def compute(self, wave=None, sigma=None, check_finite=False,force=False):
+        """
+        :param wave:
+            independent variable
             
-        :param a:
-            Amplitude of covariance gaussian (in units of flux).
-            
-        :param l:
-            Length scale of gaussian covariance kernel, in units of
-            wavelength.
+        :param sigma:
+            .
             
         """
-        if (s == self.s) & (a == self.a) & (l == self.l) & (not force):
+        if wave is None:
+            wave = self.wave
+        if sigma is None:
+            sigma = self.sigma
+        s, asq, lsq = self.kernel_to_params(self.kernel)
+        kernel_same = (s == self.s) & (asq == self.asq) & (lsq == self.lsq)
+        data_same = (np.all(wave == self.wave) &
+                     np.all(sigma == self.sigma))
+
+        if kernel_same and data_same and (not force):
             return
+        
         else:
             self.s = s
-            self.a = a
-            self.l = l
-            Sigma = a**2 * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*l**2))
-            Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + s**2)
+            self.asq = asq
+            self.lsq = lsq
+            self.wave = wave
+            self.sigma = sigma
+            
+            Sigma = self.asq * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*self.lsq))
+            Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + self.s**2)
             self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True,
                                                 check_finite=check_finite)
             self.log_det = 2 * np.sum( np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
-            
-            #fstring = 's={0}, a={1}, l={2}'
-            #print(fstring.format(self.s, self.a, self.l))
-            #print('<sigma**2>={0}'.format( (self.sigma**2).mean() ))
-            
-            #print(self.log_det)
-                
-    def lnlike(self, residual, check_finite=True):
+                            
+    def lnlikelihood(self, residual, check_finite=False):
         """
         Compute the ln of the likelihood.
         
         :param residual: ndarray, shape (nwave,)
             Vector of residuals (y_data - mean_model).
         """
-        #print('<r**2>={0}'.format((residual**2).mean()))
-
+        s, asq, lsq = self.kernel_to_params(self.kernel)
+        kernel_same = (s == self.s) & (asq == self.asq) & (lsq == self.lsq)
+        if not kernel_same:
+            self.compute()
         first_term = np.dot(residual,
                             cho_solve(self.factorized_Sigma,
                                       residual, check_finite = check_finite))
         lnL=  -0.5* (first_term + self.log_det)
-        #print('lnlike(r) = {0}'.format(lnL))
-        #print('log_det={0}'.format(self.log_det))
-        #print('dot(r, solve(C,r))={0}'.format(first_term))
-        #print('N_p={0}'.format(len(residual)))
         
         return lnL
               

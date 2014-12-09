@@ -5,9 +5,7 @@ import numpy as np
 import pickle
 
 from bsfh import model_setup, write_results
-from bsfh.gp import GaussianProcess
 import bsfh.fitterutils as utils
-from bsfh import model_setup
 
 #########
 # Read command line arguments
@@ -18,6 +16,19 @@ argdict={'param_file':None, 'sps':'sps_basis',
          'zcontinuous':True}
 argdict = model_setup.parse_args(sys.argv, argdict=argdict)
 
+#########
+#GP instance as global
+#########
+
+try:
+    import george
+    kernel = (george.kernels.WhiteKernel(0.0) +
+              0.0 * george.kernels.ExpSquaredKernel(0.0))
+    gp = george.GP(kernel, solver=george.HODLRSolver)
+except(ImportError):
+    from bsfh.gp import GaussianProcess
+    gp = GaussianProcess(kernel=np.array([0.0, 0.0, 0.0]))
+    
 #########
 #SPS Model instance as global
 ########
@@ -34,8 +45,6 @@ elif argdict['sps'] == 'fsps':
 else:
     print('No SPS type set')
     sys.exit()
-#GP instance as global
-gp = GaussianProcess(None, None)
 
 ########
 #LnP function as global
@@ -65,20 +74,21 @@ def lnprobfn(theta, mod):
         mu, phot, x = mod.mean_model(theta, sps = sps)
         d1 = time.time() - t1
         
-        # Spectroscopy term
+        # Spectroscopy term using GP
         t2 = time.time()
         if mod.obs['spectrum'] is not None:
             mask = mod.obs.get('mask', np.ones(len(mod.obs['wavelength']),
                                                dtype= bool))
-            gp.wave, gp.sigma = mod.obs['wavelength'][mask], mod.obs['unc'][mask]
-            #use a residual in log space
+            #use a polynomial and residual in log space
             log_mu = np.log(mu)
-            #polynomial in the log
             log_cal = (mod.calibration(theta))
             delta = (mod.obs['spectrum'] - log_mu - log_cal)[mask]
-            gp.factor(mod.params['gp_jitter'], mod.params['gp_amplitude'],
-                      mod.params['gp_length'], check_finite=False, force=False)
-            lnp_spec = gp.lnlike(delta, check_finite=False)
+            s, a, l = (mod.params['gp_jitter'], mod.params['gp_amplitude'],
+                       mod.params['gp_length'])
+            gp.kernel[:] = np.log(np.array([s,a**2,l**2]))
+            gp.compute(mod.obs['wavelength'][mask],
+                       mod.obs['unc'][mask])
+            lnp_spec = gp.lnlikelihood(delta)
         else:
             lnp_spec = 0.0
 
