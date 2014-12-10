@@ -27,7 +27,7 @@ class GaussianProcess(object):
     def kernel_to_params(self, kernel):
         """Kernel is a vector consisting of log(s, a**2, l**2)
         """
-        s, asquared, lsquared = exp(kernel).tolist()
+        s, asquared, lsquared = np.exp(kernel).tolist()
         return s, asquared, lsquared
         
     def compute(self, wave=None, sigma=None, check_finite=False,force=False):

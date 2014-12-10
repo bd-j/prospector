@@ -19,9 +19,8 @@ argdict = model_setup.parse_args(sys.argv, argdict=argdict)
 #########
 #GP instance as global
 #########
-
 try:
-    import george
+    import georgexxx
     kernel = (george.kernels.WhiteKernel(0.0) +
               0.0 * george.kernels.ExpSquaredKernel(0.0))
     gp = george.GP(kernel, solver=george.HODLRSolver)
@@ -85,7 +84,7 @@ def lnprobfn(theta, mod):
             delta = (mod.obs['spectrum'] - log_mu - log_cal)[mask]
             s, a, l = (mod.params['gp_jitter'], mod.params['gp_amplitude'],
                        mod.params['gp_length'])
-            gp.kernel[:] = np.log(np.array([s,a**2,l**2]))
+            gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
             gp.compute(mod.obs['wavelength'][mask],
                        mod.obs['unc'][mask])
             lnp_spec = gp.lnlikelihood(delta)
@@ -148,11 +147,12 @@ if __name__ == "__main__":
     if rp['verbose']:
         print(model.params)
     if rp.get('debug', False):
+        print('stopping for debug')
         try:
             pool.close()
         except:
             pass
-        sys.exit()
+        sys.exit(0)
         
     #################
     #INITIAL GUESS(ES) USING POWELL MINIMIZATION
