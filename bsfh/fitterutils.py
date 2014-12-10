@@ -68,11 +68,11 @@ def sampler_ball(center, disp, nwalkers, model):
         disp = np.zeros(ndim) + disp
     for p, v in model.theta_index.iteritems():
         start, stop = v
-        hi, lo = plotting_range(model._config_dict[p]['prior_args'])
-        try_param = center[start:stop] * np.random.normal(1, disp[start:stop], nwalkers)[:,None]
-        try_param = np.clip(try_param, hi, lo)
+        lo, hi = plotting_range(model._config_dict[p]['prior_args'])
+        try_param = center[None, start:stop] * (1 + np.random.normal(0, 1, (nwalkers ,stop-start)) * disp[None, start:stop])
+        try_param = np.clip(try_param, np.atleast_1d(lo)[None, :], np.atleast_1d(hi)[None, :])
         initial[:, start:stop] = try_param
-
+    return initial
     
 def restart_sampler(sample_results, lnprobf, sps, niter,
                     nthreads=1, pool=None):
