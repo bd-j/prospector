@@ -26,11 +26,7 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
     if rp['verbose']:
         print('number of walkers={}'.format(nwalkers))
     # Set up initial positions
-    initial = np.zeros([nwalkers, ndim])
-    for p, v in model.theta_index.iteritems():
-        start, stop = v
-        initial[:, start:stop] = (initial_center[start:stop] *
-                                  np.random.normal(1, initial_disp, nwalkers)[:,None])
+    initial = sampler_ball(initial_center, initial_disp, nwalkers, model)
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      threads = nthreads, args = [model], pool = pool)
@@ -44,8 +40,7 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
         tmp = np.percentile(epos, [0.25, 0.5, 0.75], axis = 0)
         relative_scatter = np.abs((tmp[2] -tmp[0]) / tmp[1] / 1.35)
         best = np.argmax(eprob)
-        initial = epos[best,:] * (1 + np.random.normal(0, 1, epos.shape) *
-                                  relative_scatter[None,:]) 
+        initial = sampler_ball(epos[best,:], relative_scatter, nwalkers, model)
         esampler.reset()
         k += 1
         if rp['verbose']:
@@ -65,6 +60,20 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
 
     return esampler
 
+def sampler_ball(center, disp, nwalkers, model):
+    #produce a ball around a given position, clipped to the prior range.
+    ndim = model.ndim
+    initial = np.zeros([nwalkers, ndim])
+    if np.size(disp) == 1:
+        disp = np.zeros(ndim) + disp
+    for p, v in model.theta_index.iteritems():
+        start, stop = v
+        hi, lo = plotting_range(model._config_dict[p]['prior_args'])
+        try_param = center[start:stop] * np.random.normal(1, disp[start:stop], nwalkers)[:,None]
+        try_param = np.clip(try_param, hi, lo)
+        initial[:, start:stop] = try_param
+
+    
 def restart_sampler(sample_results, lnprobf, sps, niter,
                     nthreads=1, pool=None):
     """
