@@ -75,6 +75,53 @@ def model_comp(theta, model, sps, photflag=0, inlog=True):
         
     return mu, cal, delta, mask, wave
 
+def param_evol(sample_results, outname=None, showpars=None, start=0):
+    """
+    Plot the evolution of each parameter value with iteration #, for
+    each chain.
+    """
+    
+    chain = sample_results['chain'][:,start:,:]
+    nwalk = chain.shape[0]
+    parnames = np.array(sample_results['model'].theta_labels())
+
+    #restrict to desired parameters
+    if showpars is not None:
+        ind_show = np.array([p in showpars for p in parnames], dtype= bool)
+        parnames = parnames[ind_show]
+        chain = chain[:,:,ind_show]
+
+    #set up plot windows
+    ndim = len(parnames)
+    nx = int(np.floor(np.sqrt(ndim)))
+    ny = int(np.ceil(ndim*1.0/nx))
+    sz = np.array([nx,ny])
+    factor = 3.0           # size of one side of one panel
+    lbdim = 0.2 * factor   # size of left/bottom margin
+    trdim = 0.2 * factor   # size of top/right margin
+    whspace = 0.05*factor         # w/hspace size
+    plotdim = factor * sz + factor *(sz-1)* whspace
+    dim = lbdim + plotdim + trdim
+    
+    fig, axes = pl.subplots(nx, ny, figsize = (dim[1], dim[0]))
+    lb = lbdim / dim
+    tr = (lbdim + plotdim) / dim
+    fig.subplots_adjust(left=lb[1], bottom=lb[0], right=tr[1], top=tr[0],
+                        wspace=whspace, hspace=whspace)
+
+    #sequentially plot the chains in each parameter
+    for i in range(ndim):
+        ax = axes.flatten()[i]
+        for j in range(nwalk):
+            ax.plot(chain[j,:,i])
+        ax.set_title(parnames[i])
+    if outname is not None:
+        fig.savefig('{0}.x_vs_step.png'.format(outname))
+        pl.close()
+    else:
+        return fig
+
+
 def subtriangle(sample_results, outname=None, showpars=None,
                 start=0, thin=1, truths=None):
     """
