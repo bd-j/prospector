@@ -92,6 +92,9 @@ class ProspectrParams(object):
             self.params[k] = np.atleast_1d(theta[start:end])
 
     def prior_product(self, theta):
+        return self.simple_prior_product(theta)
+            
+    def simple_prior_product(self, theta):
         """
         Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the
