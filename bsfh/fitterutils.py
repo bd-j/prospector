@@ -93,7 +93,7 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     return esampler
 
         
-def pminimize(function, model, initial_center, method='powell', opts=None,
+def pminimize(function, initial, method='powell', opts=None,
               pool=None, nthreads=1):
     """
     Do as many minimizations as you have threads, in parallel.  Always
@@ -108,11 +108,19 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
                                method=method,
                                pool=pool, nthreads=1)
     size = mini.size
-    # Get initial positions to start minimizations
-    pinitial = [initial_center]
-    # Setup a 'grid' of parameter values uniformly distributed between
-    #  min and max More generally, this should sample from the prior
-    #  for each parameter
+    pinitial = minimizer_ball(initial, size, model)
+    powell_guesses = mini.run(pinitial)
+
+    return [powell_guesses, pinitial]
+
+
+def minimizer_ball(center, nminimizers, model):
+    """Setup a 'grid' of parameter values uniformly distributed
+    between min and max More generally, this should sample from the
+    prior for each parameter.
+    """
+    size = nminimizers
+    pinitial = [center]
     if size > 1:
         ginitial = np.zeros( [size -1, model.ndim] )
         for p, v in model.theta_index.iteritems():
@@ -124,13 +132,8 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
             else:
                 ginitial[:,start] = np.random.uniform(hi, lo, size - 1)
         pinitial += ginitial.tolist()
-    #print(mini.pool.size, mini.pool is None, len(pinitial))
-    #sys.exit()
-    #Actually run the minimizer
-    powell_guesses = mini.run(pinitial)
+    return pinitial
 
-    return [powell_guesses, pinitial]
-    
 def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
     """
     Run a (single) HMC chain, performing initial steps to adjust the epsilon.
