@@ -9,28 +9,25 @@ try:
 except(ImportError):
     pass
     
-def run_emcee_sampler(lnprobf, model, initial_center, rp, pool=None):
+def run_emcee_sampler(lnprobf, initial_center, model, args=None,
+                      nwalkers=None, nburn=[16], niter=32,
+                      walker_factor = 4, initial_disp=0.1,
+                      nthreads=1, pool=None, verbose=True,
+                      **kwargs):
     """
     Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the production sampler.
     """
-    # Parse input parameters
-    ndim = rp['ndim']
-    walker_factor = int(rp.get('walker_factor',4))
-    nburn = rp['nburn']
-    niter = int(rp['niter'])
-    nthreads = int(rp.get('nthreads',1))
-    initial_disp = rp['initial_disp']
-    nwalkers = rp.get('nwalkers',
-                      int(2 ** np.round(np.log2(ndim * walker_factor))))
-    if rp['verbose']:
-        print('number of walkers={}'.format(nwalkers))
     # Set up initial positions
+    ndim = model.ndim
+    if nwalkers is None:
+        nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
+    if verbose:
+        print('number of walkers={}'.format(nwalkers))    
     initial = sampler_ball(initial_center, initial_disp, nwalkers, model)
     # Initialize sampler
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
-                                     threads = nthreads, args = [model], pool = pool)
-
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf, args = [args],
+                                     threads = nthreads, pool = pool)
     # Loop over the number of burn-in reintializations
     k=0
     for iburn in nburn[:-1]:
@@ -43,25 +40,27 @@ def run_emcee_sampler(lnprobf, model, initial_center, rp, pool=None):
         initial = sampler_ball(epos[best,:], relative_scatter, nwalkers, model)
         esampler.reset()
         k += 1
-        if rp['verbose']:
+        if verbose:
             print('done burn #{}'.format(k))
     
     # Do the final burn-in
     epos, eprob, state = esampler.run_mcmc(initial, nburn[-1])
     initial = epos
     esampler.reset()
-    if rp['verbose']:
+    if verbose:
         print('done all burn-in, starting production')
 
     # Production run
     epos, eprob, state = esampler.run_mcmc(initial, niter)
-    if rp['verbose']:
+    if verbose:
         print('done production')
 
     return esampler
 
 def sampler_ball(center, disp, nwalkers, model):
-    #produce a ball around a given position, clipped to the prior range.
+    """Produce a ball around a given position, clipped to the prior
+    range.
+    """
     ndim = model.ndim
     initial = np.zeros([nwalkers, ndim])
     if np.size(disp) == 1:
@@ -76,8 +75,7 @@ def sampler_ball(center, disp, nwalkers, model):
     
 def restart_sampler(sample_results, lnprobf, sps, niter,
                     nthreads=1, pool=None):
-    """
-    Restart a sampler from its last position and run it for a
+    """Restart a sampler from its last position and run it for a
     specified number of iterations.  The sampler chain and the model
     object should be given in the sample_results dictionary.  Note
     that lnprobfn and sps must be defined at the global level in the
@@ -93,18 +91,18 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     return esampler
 
         
-def pminimize(function, initial, method='powell', opts=None,
+def pminimize(function, initial, model, arg=None,
+              method='powell', opts=None,
               pool=None, nthreads=1):
-    """
-    Do as many minimizations as you have threads, in parallel.  Always
-    use initial_center for one of the minimization streams, the rest
-    will be sampled from the prior for each parameter.  Returns each
-    of the minimization result dictionaries, as well as the starting
-    positions.
+    """Do as many minimizations as you have threads, in parallel.
+    Always use initial_center for one of the minimization streams, the
+    rest will be sampled from the prior for each parameter.  Returns
+    each of the minimization result dictionaries, as well as the
+    starting positions.
     """
     
     # Instantiate the minimizer
-    mini = minimizer.Pminimize(function, opts, model,
+    mini = minimizer.Pminimize(function, opts, arg,
                                method=method,
                                pool=pool, nthreads=1)
     size = mini.size

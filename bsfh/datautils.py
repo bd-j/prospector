@@ -2,6 +2,40 @@ import numpy as np
 import warnings
 from bsfh import readspec
 
+
+def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
+            logify_spectrum=True, **kwargs):
+    """Make all required changes to the obs dictionary.  
+    """
+    obs = rectify_obs(obs)
+    obs['ndof'] = 0
+    if obs['spectrum'] is not None:
+        obs['ndof'] += obs['mask'].sum()
+        if (rescale_spectrum):
+            sc = np.median(obs['spectrum'][obs['mask']])
+            obs['rescale'] = sc
+            obs['spectrum'] /= sc
+            obs['unc'] /= sc
+        if (normalize_spectrum):
+            sp_norm, pivot_wave = norm_spectrum(obs, **kwargs)
+            obs['normalization_guess'] = sp_norm
+            obs['pivot_wave'] = pivot_wave
+                
+        if (logify_spectrum):
+                s, u, m = logify_data(obs['spectrum'], obs['unc'], obs['mask'])
+                obs['spectrum'] = s
+                obs['unc'] = u
+                obs['mask'] = m
+    else:
+        obs['unc'] = None
+
+    if obs['maggies'] is not None:
+        obs['ndof'] += obs['phot_mask'].sum()
+    else:
+        self.obs['maggies_unc'] = None
+    return obs
+
+
 def logify_data(data, sigma, mask):
     """
     Convert data to ln(data) and uncertainty to fractional uncertainty
@@ -61,7 +95,7 @@ def norm_spectrum(obs, norm_band_name='f475w', **kwargs):
  
     return norm, pivot_wave
 
-def rectify_obs(obs, ):
+def rectify_obs(obs):
     """
     Make sure the passed obs dictionary conforms to code expectations,
     and make simple fixes when possible.

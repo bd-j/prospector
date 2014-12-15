@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 from sedpy import attenuation
 from bsfh import priors, sedmodel, elines
-from bsfh.datautils import load_obs_mmt
+from bsfh.readspec import load_obs_mmt
 tophat = priors.tophat
 
 #############

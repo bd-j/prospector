@@ -41,7 +41,8 @@ def show_syntax(args, ad):
           ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
 
 def load_sps(sptype=None, compute_vega_mags=False,
-             zcontinuous=True, custom_filter_keys=None):
+             zcontinuous=True, custom_filter_keys=None,
+             **extras):
     """Return an sps object of the given type
     """
     if sptype == 'sps_basis':
@@ -96,7 +97,7 @@ def load_obs(filename, run_params):
     if obs is None:
         funcname = run_params['data_loading_function_name']
         obsfunction = getattr(readspec, funcname)
-        obs = obsfunction(**model.run_params)
+        obs = obsfunction(**run_params)
 
     obs = fix_obs(obs, **run_params)
     return obs
@@ -105,36 +106,6 @@ def load_mock(filename, run_params, model, sps):
     """Load the obs dictionary using mock data.
     """
     pass
-
-def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
-            logify_spectrum=True, **kwargs):
-    
-    obs = rectify_obs(obs)
-    obs['ndof'] = 0
-    if obs['spectrum'] is not None:
-        obs['ndof'] += obs['mask'].sum()
-        if (rescale_spectrum):
-            sc = np.median(obs['spectrum'][obs['mask']])
-            obs['rescale'] = sc
-            obs['spectrum'] /= sc
-            obs['unc'] /= sc
-        if (normalize_spectrum):
-            sp_norm, pivot_wave = norm_spectrum(obs, **kwargs)
-            obs['normalization_guess'] = sp_norm
-            obs['pivot_wave'] = pivot_wave
-                
-        if (logify_spectrum):
-                s, u, m = logify_data(obs['spectrum'], obs['unc'], obs['mask'])
-                obs['spectrum'] = s
-                obs['unc'] = u
-                obs['mask'] = m
-    else:
-        obs['unc'] = None
-
-    if obs['maggies'] is not None:
-        obs['ndof'] += obs['phot_mask'].sum()        
-        else:
-            self.obs['maggies_unc'] = None
 
 def load_module_from_file(path_to_file):
     """This has to break everything ever, right?

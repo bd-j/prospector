@@ -24,6 +24,7 @@ clargs = model_setup.parse_args(sys.argv, argdict=argdict)
 sps = model_setup.load_sps(**clargs)
 
 #GP instance as global
+#gp = model_setup.load_gp(**clargs)
 gp = GaussianProcess(None, None)
 
 # Model as global
@@ -34,8 +35,10 @@ mod = model_setup.load_model(clargs['param_file'])
 ########
 def lnprobfn(theta, obs):
     """
-    Given a model object and a parameter vector, return the ln of the
-    posterior.
+    Given a parameter vector and observational data, return the ln of
+    the posterior.  This requires that a model object and a sps object
+    (and if using spectra and gaussian processes, a GP object) be
+    instantiated
 
     :param theta:
         Input parameter vector, ndarray of shape (ndim,)
@@ -84,7 +87,7 @@ def lnprobfn(theta, obs):
             lnp_phot = 0.0
         d2 = time.time() - t2
         
-        if mod.verbose:
+        if obs['verbose']:
             print(theta)
             print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
             fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
@@ -115,26 +118,24 @@ if __name__ == "__main__":
     ################
     # SETUP
     ################
-    param_filename = clargs['param_file']
-    rp = model_setup.run_params(param_filename)
+    rp = model_setup.run_params(clargs['param_file'])
     # Command line override of run_params
     rp = model_setup.parse_args(sys.argv, argdict=rp)
     rp['sys.argv'] = sys.argv
     if rp.get('mock', False):
-        mock_info = model_setup.load_mock(param_filename, rp, mod, sps)
+        obsdat = model_setup.load_mock(clargs['param_file'], rp, mod, sps)
     else:
-        obsdat = model_setup.load_obs(param_filename, rp)
-    
+        obsdat = model_setup.load_obs(clargs['param_file'], rp)
+    obsdat['verbose'] = rp.get('verbose', True)
     initial_theta = mod.initial_theta
-    if rp['verbose']:
-        print(mod.params)
     if rp.get('debug', False):
         try:
             pool.close()
+            sys.exit(0)
         except:
-            pass
-        sys.exit()
-        
+            sys.exit(0)
+
+      
     #################
     #INITIAL GUESS(ES) USING POWELL MINIMIZATION
     #################
@@ -142,7 +143,8 @@ if __name__ == "__main__":
         print('minimizing chi-square...')
     ts = time.time()
     powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
-    powell_guesses, pinit = utils.pminimize(chisqfn, obsdat, initial_theta,
+    powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta, mod,
+                                            arg=obsdat,
                                             method ='powell', opts=powell_opt,
                                             pool = pool, nthreads = rp.get('nthreads',1))
     
@@ -161,8 +163,8 @@ if __name__ == "__main__":
         print('emcee sampling...')
     tstart = time.time()
     initial_center = best_guess.x
-    esampler = utils.run_emcee_sampler(lnprobfn, obsdat, initial_center,
-                                       rp, pool = pool)
+    esampler = utils.run_emcee_sampler(lnprobfn, initial_center, mod,
+                                       args=obsdat, pool = pool, **rp)
     edur = time.time() - tstart
     if rp['verbose']:
         print('done emcee in {0}s'.format(edur))
