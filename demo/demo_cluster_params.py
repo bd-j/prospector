@@ -175,10 +175,10 @@ model_params.append({'name': 'poly_coeffs', 'N': polyorder,
     
 model_params.append({'name': 'spec_norm', 'N':1,
                         'isfree': True,
-                        'init':1,
-                        'units': None,
+                        'init':0,
+                        'units': 'logarithmic',
                         'prior_function': tophat,
-                        'prior_args': {'mini':0.1, 'maxi':10}})
+                        'prior_args': {'mini':-0.3, 'maxi':0.3}})
 
 model_params.append({'name': 'gp_jitter', 'N':1,
                         'isfree': True,

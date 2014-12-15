@@ -19,8 +19,8 @@ run_params = {'verbose':True,
               'logify_spectrum':False,
               'normalize_spectrum':False,
               'data_loading_function_name': "load_obs_mmt",
-              'photname':'/Users/bjohnson/Projects/threedhst/data/cosmos_3dhst.v4.1.test.cat',
-              'fastname':'/Users/bjohnson/Projects/threedhst/data/cosmos_3dhst.v4.1.test.fout',
+              'photname':'/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.cat',
+              'fastname':'/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.fout',
               'objname':'32206',
               'wlo':3750., 'whi':7200.
               }

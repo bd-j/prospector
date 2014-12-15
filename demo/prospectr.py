@@ -123,6 +123,7 @@ if __name__ == "__main__":
     rp = model_setup.parse_args(sys.argv, argdict=rp)
     rp['sys.argv'] = sys.argv
     if rp.get('mock', False):
+        print('loading mock')
         obsdat = model_setup.load_mock(clargs['param_file'], rp, mod, sps)
     else:
         obsdat = model_setup.load_obs(clargs['param_file'], rp)

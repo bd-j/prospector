@@ -33,7 +33,7 @@
   {"prior_function_name": "tophat", "name": "dust2", "init": 0.5, "N": 1, "prior_args": {"mini": 0.0, "maxi": 2.5}, "isfree": true, "units": "$\\tau_V$"}, 
   {"prior_function_name": "tophat", "name": "zred", "init": -5e-4, "N": 1, "prior_args": {"mini": -0.001, "maxi": 0.001}, "isfree": true, "units": null},
   {"prior_function_name": "tophat", "name": "sigma_smooth", "init": 1.8, "N": 1, "prior_args": {"mini": 1.0, "maxi": 3.0}, "isfree": true, "units": "$\\AA$"}, 
-  {"prior_function_name": "tophat", "name": "spec_norm", "init": 1.1, "N": 1, "prior_args": {"mini": -10, "maxi": 10}, "isfree": true, "units": null}, 
+  {"prior_function_name": "tophat", "name": "spec_norm", "init": 1e-6, "N": 1, "prior_args": {"mini": -0.3, "maxi": 0.3}, "isfree": true, "units": null}, 
   {"prior_function_name": "tophat", "name": "gp_amplitude", "init": 0.01, "N": 1, "prior_args": {"mini": 0.0, "maxi": 0.5}, "isfree": true, "units": "$d/\\mu$"}, 
   {"prior_function_name": "lognormal", "name": "gp_length", "init": 60.0, "N": 1, "prior_args": {"log_mean":4.0, "sigma":0.5}, "isfree": true, "units": "$\\AA$"},
   {"prior_function_name": "tophat", "name": "gp_jitter", "init": 0.00, "N": 1, "prior_args": {"mini": 0.0, "maxi": 0.1}, "isfree": true, "units": "$d/\\mu$"}, 

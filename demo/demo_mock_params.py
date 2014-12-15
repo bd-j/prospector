@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 from sedpy import attenuation
 from bsfh import priors, sedmodel, elines
-from bsfh.datautils import load_obs_mmt
+from bsfh.readspec import load_obs_mmt
 tophat = priors.tophat
 
 #############
@@ -175,10 +175,10 @@ model_params.append({'name': 'poly_coeffs', 'N': polyorder,
     
 model_params.append({'name': 'spec_norm', 'N':1,
                         'isfree': True,
-                        'init':1,
-                        'units': None,
+                        'init':1e-6,
+                        'units': 'logarithmic',
                         'prior_function': tophat,
-                        'prior_args': {'mini':0.1, 'maxi':10}})
+                        'prior_args': {'mini':-0.3, 'maxi':0.3}})
 
 model_params.append({'name': 'gp_jitter', 'N':1,
                         'isfree': True,
@@ -199,7 +199,7 @@ model_params.append({'name': 'gp_length', 'N':1,
                         'init': 60.0,
                         'units': r'$\AA$',
                         'prior_function': priors.lognormal,
-                        'prior_args': {'log_mean':4.0, 'sigma':0.5}})
+                        'prior_args': {'log_mean':4.0-0.5/2, 'sigma':0.5}})
 
 model_params.append({'name': 'phot_jitter', 'N':1,
                         'isfree': False,
@@ -256,7 +256,7 @@ mock_info['filters'] = obs['filters']
 mock_info['wavelength'] = obs['wavelength'][obs['mask']]
 mock_info['params'] = {'sfh':0, 'mass':1e4, 'zmet':-0.1, 'tage':0.1,
                        'dust2':0.3, 'sigma_smooth':2.2, 'zred':1e-4,
-                       'spec_norm':1.0, 'poly_coeffs':[0.0, 0.0],
+                       'spec_norm':0.0, 'poly_coeffs':[0.0, 0.0],
                        'gp_amplitude':0.0, 'gp_jitter':0.0, 'gp_length':10.0,
                        'emission_luminosity': nlines * [0.0]}
 psnr = obs['maggies']/obs['maggies_unc']

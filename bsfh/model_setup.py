@@ -53,7 +53,7 @@ def load_sps(sptype=None, compute_vega_mags=False,
         sps = fsps.StellarPopulation(zcontinuous=zcontinuous,
                                      compute_vega_mags=compute_vega_mags)
         if custom_filter_keys is not None:
-            fsps.filters.FILTERS = model_setup.custom_filter_dict(custom_filter_keys)
+            fsps.filters.FILTERS = custom_filter_dict(custom_filter_keys)
     else:
         print('No SPS type set')
         sys.exit(1)
@@ -105,7 +105,19 @@ def load_obs(filename, run_params):
 def load_mock(filename, run_params, model, sps):
     """Load the obs dictionary using mock data.
     """
-    pass
+    ext = filename.split('.')[-1]
+    mock_info = None
+    if ext == 'py':
+        print('reading py script {}'.format(filename))
+        setup_module = load_module_from_file(filename)
+        mock_info = deepcopy(getattr(setup_module, 'mock_info', None))
+    if mock_info is None:
+        mock_info = run_params.get('mock_info', None)
+    
+    mockdat = generate_mock(model, sps, mock_info)
+    mockdat = fix_obs(mockdat, **run_params)
+    mockdat['mock_info'] = mock_info
+    return mockdat
 
 def load_module_from_file(path_to_file):
     """This has to break everything ever, right?

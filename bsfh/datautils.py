@@ -2,7 +2,6 @@ import numpy as np
 import warnings
 from bsfh import readspec
 
-
 def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
             logify_spectrum=True, **kwargs):
     """Make all required changes to the obs dictionary.  
@@ -34,7 +33,6 @@ def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
     else:
         self.obs['maggies_unc'] = None
     return obs
-
 
 def logify_data(data, sigma, mask):
     """
@@ -139,16 +137,15 @@ def generate_mock(model, sps, mock_info):
     #NEED TO DEAL WITH FILTERNAMES ADDED FOR SPS_BASIS 
     obs = {'wavelength': mock_info['wavelength'],
            'filters': mock_info['filters']}
-    model.obs = obs
     model.configure(**mock_info['params'])
     mock_theta = model.theta
     #print('generate_mock: mock_theta={}'.format(mock_theta))
-    s, p, x = model.mean_model(mock_theta, sps=sps)
-    cal = model.calibration(mock_theta)
+    s, p, x = model.mean_model(mock_theta, obs, sps=sps)
+    cal = model.calibration(mock_theta, obs)
     if 'calibration' in mock_info:
         cal = mock_info['calibration']
     s *= cal
-    
+    model.configure()
     # Add noise to the mock data
     if mock_info['filters'] is not None:
         p_unc = p / mock_info['phot_snr']
@@ -167,7 +164,5 @@ def generate_mock(model, sps, mock_info):
     else:
         obs['spectrum'] = None
         obs['mask'] = None
-    #obs['mock_params'] = model.params
-    model.obs  = None
     
     return obs
