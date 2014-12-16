@@ -237,7 +237,22 @@ class ProspectrParams(object):
     def write_json(self, filename):
         pass
 
+    def theta_bounds(self):
+        bounds = self.ndim * [(0.,0.)]
+        for p, v in self.theta_index.iteritems():
+            sz = v[1] - v[0]
+            pb = priors.plotting_range(self._config_dict[p]['prior_args'])
+            if sz == 1:
+                bounds[v[0]] = pb
+            else:
+                for k in range(sz):
+                    bounds[v[0]+k] = (pb[0][k], pb[1][k])
 
+        #force types
+        bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a,b in bounds]        
+        return bounds
+
+    
 def plist_to_pdict(inplist):
     """Convert from a parameter list to a parameter dictionary, where
     the keys of the cdictionary are the parameter names.

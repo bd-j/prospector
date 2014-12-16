@@ -42,7 +42,7 @@ def read_pickles(sample_file, model_file=None,
         
     return sample_results, powell_results, model
 
-def model_comp(theta, model, sps, photflag=0, inlog=True):
+def model_comp(theta, model, sps, photflag=0, gp=None, inlog=True):
     """
     Generate and return various components of the total model for a
     given set of parameters
@@ -60,12 +60,12 @@ def model_comp(theta, model, sps, photflag=0, inlog=True):
             s = model.params['gp_jitter']
             a = model.params['gp_amplitude']
             l = model.params['gp_length']
-            model.gp.factor(s, a, l, check_finite = False, force=True)
+            gp.factor(s, a, l, check_finite = False, force=True)
             if inlog:
                 mu = np.log(mu)
-                delta = model.gp.predict(spec - mu - cal)
+                delta = gp.predict(spec - mu - cal)
             else:
-                delta = model.gp.predict(spec - mu*cal)
+                delta = gp.predict(spec - mu*cal)
         except:
             delta = 0
     else:

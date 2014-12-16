@@ -106,7 +106,7 @@ def generate_mock(model, sps, mock_info):
            'filters': mock_info['filters']}
     model.obs = obs
     model.configure(**mock_info['params'])
-    mock_theta = model.theta
+    mock_theta = model.theta.copy()
     #print('generate_mock: mock_theta={}'.format(mock_theta))
     s, p, x = model.mean_model(mock_theta, sps=sps)
     cal = model.calibration(mock_theta)
