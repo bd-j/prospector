@@ -17,96 +17,92 @@ argdict={'param_file':None, 'sps':'sps_basis',
          'compute_vega_mags':False,
          'zcontinuous':True}
 argdict = model_setup.parse_args(sys.argv, argdict=argdict)
+run_params = None
 
 #########
-#SPS Model instance as global
+# Globals
 ########
-if argdict['sps'] == 'sps_basis':
-    from bsfh import sps_basis
-    sps = sps_basis.StellarPopBasis(compute_vega_mags=argdict['compute_vega_mags'])
-elif argdict['sps'] == 'fsps':
-    import fsps
-    sps = fsps.StellarPopulation(zcontinuous=argdict['zcontinuous'],
-                                 compute_vega_mags=argdict['compute_vega_mags'])
-    custom_filter_keys = argdict['custom_filter_keys']
-    if custom_filter_keys is not None:
-        fsps.filters.FILTERS = model_setup.custom_filter_dict(custom_filter_keys)
-else:
-    print('No SPS type set')
-    sys.exit()
-#GP instance as global
-gp = GaussianProcess(None, None)
+# SPS Model instance as global
+sps = model_setup.load_sps(**clargs)
+
+# GP instance as global
+gp = model_setup.load_gp(**clargs)
+
+# Model as global
+model = model_setup.load_model(clargs['param_file'])
+obs = model_setup.load_obs(**clargs)
+
+from likelihood import LikelihoodFunction
+likefn = LikelihoodFunction(obs=obs, model=model)
 
 ########
 #LnP function as global
 ########
-def lnprobfn(theta, mod):
-    """
-    Given a model object and a parameter vector, return the ln of the
-    posterior.
+
+# the simple but obscuring way.  Difficult for users to change
+def lnprobfn(theta, model = None, obs = None):
+    return likefn.lnpostfn(theta, model=model, obs=obs,
+                           sps=sps, gp=gp)
+
+
+# the more explicit way
+def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
+    """ Given a model object and a parameter vector, return the ln of
+    the posterior. This requires that an sps object (and if using
+    spectra and gaussian processes, a GP object) be instantiated.
 
     :param theta:
         Input parameter vector, ndarray of shape (ndim,)
 
     :param mod:
-        bsfh.sedmodel model object, with attributes including `obs`, a
-        dictionary of observational data, and `params`, a dictionary
-        of model parameters.  It must also have `prior_product()`,
-        `mean_model()` and `calibration()` methods defined.
+        bsfh.sedmodel model object, with attributes including
+        `params`, a dictionary of model parameters.  It must also have
+        `prior_product()`, `mean_model()` and `calibration()` methods
+        defined.
 
+    :param obs:
+        A dictionary of observational data.
+        
     :returns lnp:
         Ln posterior probability.
     """
     lnp_prior = mod.prior_product(theta)
     if np.isfinite(lnp_prior):
-        
-        # Generate mean model
+        # Generate mean model and GP kernel(s)
         t1 = time.time()        
-        mu, phot, x = mod.mean_model(theta, sps = sps)
+        spec, phot, x = model.mean_model(theta, sps = sps)
+        log_mu = np.log(spec) + model.calibration(theta)
+        s, a, l = (model.params['gp_jitter'], model.params['gp_amplitude'],
+                   model.params['gp_length'])
+        gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
         d1 = time.time() - t1
-        
-        # Spectroscopy term
-        t2 = time.time()
-        if mod.obs['spectrum'] is not None:
-            mask = mod.obs.get('mask', np.ones(len(mod.obs['wavelength']),
-                                               dtype= bool))
-            gp.wave, gp.sigma = mod.obs['wavelength'][mask], mod.obs['unc'][mask]
-            #use a residual in log space
-            log_mu = np.log(mu)
-            #polynomial in the log
-            log_cal = (mod.calibration(theta))
-            delta = (mod.obs['spectrum'] - log_mu - log_cal)[mask]
-            gp.factor(mod.params['gp_jitter'], mod.params['gp_amplitude'],
-                      mod.params['gp_length'], check_finite=False, force=False)
-            lnp_spec = gp.lnlike(delta, check_finite=False)
-        else:
-            lnp_spec = 0.0
 
-        # Photometry term
-        if mod.obs['maggies'] is not None:
-            pmask = mod.obs.get('phot_mask', np.ones(len(mod.obs['maggies']),
-                                                     dtype= bool))
-            jitter = mod.params.get('phot_jitter',0)
-            maggies = mod.obs['maggies']
-            phot_var = (mod.obs['maggies_unc'] + jitter)**2
-            lnp_phot =  -0.5*( (phot - maggies)**2 / phot_var )[pmask].sum()
-            lnp_phot +=  -0.5*np.log(phot_var[pmask]).sum()
-        else:
-            lnp_phot = 0.0
+        #calculate likelihoods
+        t2 = time.time()
+        lnp_spec = likefn.lnlike_spec_log(log_mu, obs=obs, gp=gp)
+        lnp_phot = likefn.lnlike_phot(phot, obs=obs, gp=None)
         d2 = time.time() - t2
-        
-        if mod.verbose:
-            print(theta)
-            print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
-            fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
-            values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
-            print(fstring.format(*values))
+
+        if verbose:
+            write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
+            
         return lnp_prior + lnp_phot + lnp_spec
     else:
         return -np.infty
     
-def chisqfn(theta, mod):
-    return -lnprobfn(theta, mod)
+def chisqfn(theta, model, obs):
+    return -lnprobfn(theta, model=model, obs=obs)
+
+
+def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
+    """Write all sorts of documentary info for debugging.
+    """
+    print(theta)
+    print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
+    fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
+    values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
+    print(fstring.format(*values))
+
 
 #MPI pool.  This must be done *after* lnprob and
 # chi2 are defined since slaves will only see up to
@@ -151,9 +147,12 @@ if __name__ == "__main__":
         print('minimizing chi-square...')
     ts = time.time()
     powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
-    powell_guesses, pinit = utils.pminimize(chisqfn, model, initial_theta,
-                                       method ='powell', opts=powell_opt,
-                                       pool = pool, nthreads = rp.get('nthreads',1))
+    args = [model, obs]
+    args = [None, None]
+    powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta,
+                                            args=args, kwargs=kwargs,
+                                            method ='powell', opts=powell_opt,
+                                            pool = pool, nthreads = rp.get('nthreads',1))
     
     best = np.argmin([p.fun for p in powell_guesses])
     best_guess = powell_guesses[best]

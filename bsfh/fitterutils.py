@@ -104,7 +104,7 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
     """
     
     # Instantiate the minimizer
-    mini = minimizer.Pminimize(function, opts, model,
+    mini = minimizer.Pminimize(function, model, opts,
                                method=method,
                                pool=pool, nthreads=1)
     size = mini.size
