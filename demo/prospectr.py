@@ -26,7 +26,7 @@ run_params = None
 sps = model_setup.load_sps(**clargs)
 
 # GP instance as global
-gp = model_setup.load_gp(**clargs)
+gp_spec, gp_phot = model_setup.load_gp(**clargs)
 
 # Model as global
 model = model_setup.load_model(clargs['param_file'])
@@ -42,7 +42,7 @@ likefn = LikelihoodFunction(obs=obs, model=model)
 # the simple but obscuring way.  Difficult for users to change
 def lnprobfn(theta, model = None, obs = None):
     return likefn.lnpostfn(theta, model=model, obs=obs,
-                           sps=sps, gp=gp)
+                           sps=sps, gp=gp_spec)
 
 
 # the more explicit way
@@ -74,12 +74,12 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         log_mu = np.log(spec) + model.calibration(theta)
         s, a, l = (model.params['gp_jitter'], model.params['gp_amplitude'],
                    model.params['gp_length'])
-        gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
+        gp_spec.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
         d1 = time.time() - t1
 
         #calculate likelihoods
         t2 = time.time()
-        lnp_spec = likefn.lnlike_spec_log(log_mu, obs=obs, gp=gp)
+        lnp_spec = likefn.lnlike_spec_log(log_mu, obs=obs, gp=gp_spec)
         lnp_phot = likefn.lnlike_phot(phot, obs=obs, gp=None)
         d2 = time.time() - t2
 
