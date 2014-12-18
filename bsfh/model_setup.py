@@ -40,6 +40,18 @@ def show_syntax(args, ad):
     print('Usage:\n {0} '.format(args[0]) +
           ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
 
+
+def setup_gp(use_george=False):
+    if use_george:
+        import george
+        kernel = (george.kernels.WhiteKernel(0.0) +
+                  0.0 * george.kernels.ExpSquaredKernel(0.0))
+        gp = george.GP(kernel, solver=george.HODLRSolver)
+    else:
+        from bsfh.gp import GaussianProcess
+        gp = GaussianProcess(kernel=np.array([0.0, 0.0, 0.0]))
+    return gp
+    
 def setup_model(filename, sps=None):
     """Use a .json file or a .py script to intialize a model and obs
     dictionary.

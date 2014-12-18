@@ -5,9 +5,7 @@ import numpy as np
 import pickle
 
 from bsfh import model_setup, write_results
-from bsfh.gp import GaussianProcess
 import bsfh.fitterutils as utils
-from bsfh import model_setup
 
 #########
 # Read command line arguments
@@ -26,7 +24,7 @@ run_params = None
 sps = model_setup.load_sps(**clargs)
 
 # GP instance as global
-gp_spec, gp_phot = model_setup.load_gp(**clargs)
+gp_spec = model_setup.load_gp(**clargs)
 
 # Model as global
 model = model_setup.load_model(clargs['param_file'])
@@ -134,11 +132,12 @@ if __name__ == "__main__":
     if rp['verbose']:
         print(model.params)
     if rp.get('debug', False):
+        print('stopping for debug')
         try:
             pool.close()
         except:
             pass
-        sys.exit()
+        sys.exit(0)
         
     #################
     #INITIAL GUESS(ES) USING POWELL MINIMIZATION
