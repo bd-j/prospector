@@ -11,7 +11,8 @@ initial_params vector
 
 def parse_args(argv, argdict={'param_file':None, 'sps':'sps_basis',
                               'custom_filter_keys':None,
-                              'compute_vega_mags':False}):
+                              'compute_vega_mags':False,
+                              'zcontinuous': 1}):
     """ Parse command line arguments, allowing for optional arguments.
     Simple/Fragile.
     """

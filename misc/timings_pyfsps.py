@@ -7,7 +7,6 @@ import fsps
 from bsfh import sps_basis, sedmodel
 
 
-
 def run_command(cmd):
     """
     Open a child process, and return its exit status and stdout.
@@ -48,14 +47,15 @@ def spec_from_fsps(z, t, s):
 
 def mags_from_fsps(z, t, s):
     t0 = time.time()
+    sps.params['zred']=t
     sps.params['logzsol'] = z
     sps.params['sigma_smooth'] = s
     sps.params['tage'] = t
-    mags  = sps.get_mags(tage = sps.params['tage'])
+    mags  = sps.get_mags(tage = sps.params['tage'], redshift=0.0)
     #print(spec.shape)
     return time.time()-t0
 
-
+ 
 if sys.argv[1] == 'mags':
     from_fsps = mags_from_fsps
     print('timing get_mags')
@@ -63,7 +63,24 @@ if sys.argv[1] == 'mags':
 elif sys.argv[1] == 'spec':
     from_fsps = spec_from_fsps
     print('timing get_spectrum')
-
+elif sys.argv[1] == 'sedpy':
+    from sedpy import observate
+    nbands = len(sps.get_mags(tage=1.0))
+    fnames = nbands * ['sdss_r0']
+    filters = observate.load_filters(fnames)
+    
+    def mags_from_sedpy(z, t, s):
+        t0 = time.time()
+        sps.params['logzsol'] = z
+        sps.params['sigma_smooth'] = s
+        sps.params['tage'] = t
+        wave, spec  = sps.get_spectrum(peraa=True,
+                                       tage = sps.params['tage'])
+        mags = observate.getSED(wave, spec, filters)
+        return time.time()-t0
+    
+    from_fsps = mags_from_sedpy
+    
 sps.params['add_neb_emission'] = False
 sps.params['smooth_velocity'] = True
 sps.params['sfh'] = 0

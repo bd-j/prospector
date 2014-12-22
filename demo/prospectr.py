@@ -15,7 +15,7 @@ from bsfh import model_setup
 argdict={'param_file':None, 'sps':'sps_basis',
          'custom_filter_keys':None,
          'compute_vega_mags':False,
-         'zcontinuous':True}
+         'zcontinuous':1}
 argdict = model_setup.parse_args(sys.argv, argdict=argdict)
 
 #########
