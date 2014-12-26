@@ -33,10 +33,10 @@ class ProspectrParams(object):
     #run_params = {}
     #obs = {}
     
-    def __init__(self, run_params, config_list):
-        self.run_params = run_params
+    def __init__(self, config_list, verbose=True):
         self.config_list = config_list
         self.configure()
+        self.verbose = verbose
 
     def configure(self, reset = False, **kwargs):
         """
@@ -47,8 +47,7 @@ class ProspectrParams(object):
 
         :param kwargs:
             Keyword parameters can be used to override or add to the
-            initial parameter values specified in the paramater
-            configure_list
+            initial parameter values specified in  config_list
         """
         if (not hasattr(self, 'params')) or reset:
             self.params = {}
@@ -183,10 +182,6 @@ class ProspectrParams(object):
                     label.append(name+'{0}'.format(i+1))
                     index.append(v[0]+i)
         return [l for (i,l) in sorted(zip(index,label))]
-
-    @property
-    def verbose(self):
-        return self.run_params.get('verbose', False)
     
     def info(self, par):
         pass

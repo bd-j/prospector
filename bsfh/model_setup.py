@@ -41,7 +41,10 @@ def show_syntax(args, ad):
           ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
 
 
-def load_gp(use_george=False):
+def load_gp(use_george=False, **extras):
+    """Return a GP object, either using BSFH's internal GP objects or
+    George
+    """
     if use_george:
         import george
         kernel = (george.kernels.WhiteKernel(0.0) +
@@ -55,7 +58,7 @@ def load_gp(use_george=False):
 def load_sps(sptype=None, compute_vega_mags=False,
              zcontinuous=1, custom_filter_keys=None,
              **extras):
-    """Return an sps object of the given type
+    """Return an sps object of the given type.
     """
     if sptype == 'sps_basis':
         from bsfh import sps_basis
@@ -72,30 +75,30 @@ def load_sps(sptype=None, compute_vega_mags=False,
 
     return sps
         
-def load_model(filename):
+def load_model(filename, **extras):
     """Load the model object from a model config list
     """
     ext = filename.split('.')[-1]
     if ext == 'py':
         setup_module = load_module_from_file(filename)
         mp = deepcopy(setup_module.model_params)
-        rp = {}
         model_type = getattr(setup_module, 'model_type', sedmodel.SedModel)
     elif ext == 'json':
         rp, mp = parameters.read_plist(filename)
-        rp = {}
         model_type = getattr(sedmodel, rp.get('model_type','SedModel'))
-    model = model_type(rp, mp)
+    model = model_type(mp)
     return model
 
-def run_params(filename):
+def run_params(filename, **kwargs):
+    
     ext = filename.split('.')[-1]
     if ext == 'py':
         setup_module = load_module_from_file(filename)
-        return deepcopy(setup_module.run_params)
+        rp = deepcopy(setup_module.run_params)
     elif ext == 'json':
         rp, mp = parameters.read_plist(filename)
-        return rp
+    for k, v in kwargs.iteritems():
+        rp[k] = v
     
 def load_obs(filename, run_params):
     """Load the obs dictionary

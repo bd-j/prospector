@@ -13,40 +13,38 @@ import bsfh.fitterutils as utils
 argdict={'param_file':None, 'sptype':'sps_basis',
          'custom_filter_keys':None,
          'compute_vega_mags':False,
-         'zcontinuous':1}
+         'zcontinuous':1,
+         'use_george': False}
 clargs = model_setup.parse_args(sys.argv, argdict=argdict)
-run_params = None
+run_params = model_setup.run_params(clargs['param_file'], **clargs)
 
 #########
 # Globals
 ########
 # SPS Model instance as global
 sps = model_setup.load_sps(**clargs)
-
 # GP instance as global
 gp_spec = model_setup.load_gp(**clargs)
-
 # Model as global
-model = model_setup.load_model(clargs['param_file'])
-
+global_model = model_setup.load_model(clargs['param_file'], **run_params)
 # Obs as global
-obs = model_setup.load_obs(**clargs)
+global_obs = model_setup.load_obs(**clargs)
 
 from likelihood import LikelihoodFunction
-likefn = LikelihoodFunction(obs=obs, model=model)
-
-# Model as global
-mod = model_setup.load_model(clargs['param_file'])
+likefn = LikelihoodFunction(obs=global_obs, model=global_model)
 
 ########
 #LnP function as global
 ########
 
 # the simple but obscuring way.  Difficult for users to change
-def lnprobfn(theta, model = None, obs = None):
+def lnprobfn_obscure(theta, model = None, obs = None):
+    if model is None:
+        model = global_model
+    if obs is None:
+        obs = global_obs
     return likefn.lnpostfn(theta, model=model, obs=obs,
                            sps=sps, gp=gp_spec)
-
 
 # the more explicit way
 def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
@@ -70,7 +68,12 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     :returns lnp:
         Ln posterior probability.
     """
-    lnp_prior = mod.prior_product(theta)
+    if model is None:
+        model = global_model
+    if obs is None:
+        obs = global_obs
+        
+    lnp_prior = model.prior_product(theta)
     if np.isfinite(lnp_prior):
         # Generate mean model and GP kernel(s)
         t1 = time.time()        
@@ -86,17 +89,15 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         lnp_spec = likefn.lnlike_spec_log(log_mu, obs=obs, gp=gp_spec)
         lnp_phot = likefn.lnlike_phot(phot, obs=obs, gp=None)
         d2 = time.time() - t2
-
         if verbose:
             write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
-            
+
         return lnp_prior + lnp_phot + lnp_spec
     else:
         return -np.infty
     
 def chisqfn(theta, model, obs):
     return -lnprobfn(theta, model=model, obs=obs)
-
 
 def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
     """Write all sorts of documentary info for debugging.
@@ -106,7 +107,6 @@ def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
     fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
     values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
     print(fstring.format(*values))
-
 
 #MPI pool.  This must be done *after* lnprob and
 # chi2 are defined since slaves will only see up to
@@ -120,31 +120,29 @@ try:
         sys.exit(0)
 except(ValueError):
     pool = None
+
+
+def halt():
+    """Exit, closing pool safely.
+    """
+    print('stopping for debug')
+    try:
+        pool.close()
+    except:
+        pass
+    sys.exit(0)
     
 if __name__ == "__main__":
 
     ################
     # SETUP
     ################
-    rp = model_setup.run_params(clargs['param_file'])
-    # Command line override of run_params
-    rp = model_setup.parse_args(sys.argv, argdict=rp)
+    rp = run_params
     rp['sys.argv'] = sys.argv
-    if rp.get('mock', False):
-        print('loading mock')
-        obsdat = model_setup.load_mock(clargs['param_file'], rp, mod, sps)
-    else:
-        obsdat = model_setup.load_obs(clargs['param_file'], rp)
-    obsdat['verbose'] = rp.get('verbose', True)
+    obsdat = model_setup.load_obs(clargs['param_file'], rp)
     initial_theta = mod.initial_theta
     if rp.get('debug', False):
-        print('stopping for debug')
-        try:
-            pool.close()
-            sys.exit(0)
-        except:
-            pass
-        sys.exit(0)
+        halt()
         
     #################
     #INITIAL GUESS(ES) USING POWELL MINIMIZATION
