@@ -13,8 +13,8 @@ import bsfh.fitterutils as utils
 argdict={'param_file':None, 'sps':'sps_basis',
          'custom_filter_keys':None,
          'compute_vega_mags':False,
-         'zcontinuous':True}
-argdict = model_setup.parse_args(sys.argv, argdict=argdict)
+         'zcontinuous':1}
+clargs = model_setup.parse_args(sys.argv, argdict=argdict)
 run_params = None
 
 #########
@@ -28,6 +28,8 @@ gp_spec = model_setup.load_gp(**clargs)
 
 # Model as global
 model = model_setup.load_model(clargs['param_file'])
+
+# Obs as global
 obs = model_setup.load_obs(**clargs)
 
 from likelihood import LikelihoodFunction

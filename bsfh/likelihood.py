@@ -1,13 +1,20 @@
 import time, sys, os
 import numpy as np
 
-
-
 def LikelihoodFunction(object):
     
-    def __init__(self, obs=None, model=None)
+    def __init__(self, obs=None, model=None, lnspec=True)
         self.obs = obs
         self.model = model
+        self.lnspec = lnspec
+
+    def lnlike_spec(self, spec_mu, obs=None, gp=None):
+        """ This is kind of unwieldy
+        """
+        if self.lnspec:
+            return self.lnlike_spec_log(spec_mu, obs=obs, gp=gp)
+        else:
+            return self.lnlike_spec_linear(spec_mu, obs=obs, gp=gp)
         
     def lnlike_spec_log(self, spec_mu, obs=None, gp=None):
         """Calculate the likelihood of the spectroscopic data given
