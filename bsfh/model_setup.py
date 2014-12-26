@@ -2,7 +2,7 @@ import sys, os, getopt, json
 from copy import deepcopy
 import numpy as np
 from bsfh import parameters, sedmodel
-from bsfh import datautils as dutils
+from bsfh.datautils import *
 
 """This module has methods to take a .json or .py file containing run paramters,
 model parameters and other info and return a parset, a model, and an
@@ -41,7 +41,7 @@ def show_syntax(args, ad):
           ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
 
 
-def setup_gp(use_george=False):
+def load_gp(use_george=False):
     if use_george:
         import george
         kernel = (george.kernels.WhiteKernel(0.0) +
@@ -52,55 +52,84 @@ def setup_gp(use_george=False):
         gp = GaussianProcess(kernel=np.array([0.0, 0.0, 0.0]))
     return gp
     
-def setup_model(filename, sps=None):
-    """Use a .json file or a .py script to intialize a model and obs
-    dictionary.
+def load_sps(sptype=None, compute_vega_mags=False,
+             zcontinuous=1, custom_filter_keys=None,
+             **extras):
+    """Return an sps object of the given type
+    """
+    if sptype == 'sps_basis':
+        from bsfh import sps_basis
+        sps = sps_basis.StellarPopBasis(compute_vega_mags=compute_vega_mags)
+    elif sptype == 'fsps':
+        import fsps
+        sps = fsps.StellarPopulation(zcontinuous=zcontinuous,
+                                     compute_vega_mags=compute_vega_mags)
+        if custom_filter_keys is not None:
+            fsps.filters.FILTERS = custom_filter_dict(custom_filter_keys)
+    else:
+        print('No SPS type set')
+        sys.exit(1)
 
-    :param filename:
-        (Absolute) path to the .json or .py file
-
-    :param sps: (optional)
-        SPS object, required if data is being mocked.
-
-    :returns model:
-        A fully initialized model object.
+    return sps
+        
+def load_model(filename):
+    """Load the model object from a model config list
     """
     ext = filename.split('.')[-1]
-    # Read from files
+    if ext == 'py':
+        setup_module = load_module_from_file(filename)
+        mp = deepcopy(setup_module.model_params)
+        rp = {}
+        model_type = getattr(setup_module, 'model_type', sedmodel.SedModel)
+    elif ext == 'json':
+        rp, mp = parameters.read_plist(filename)
+        rp = {}
+        model_type = getattr(sedmodel, rp.get('model_type','SedModel'))
+    model = model_type(rp, mp)
+    return model
+
+def run_params(filename):
+    ext = filename.split('.')[-1]
+    if ext == 'py':
+        setup_module = load_module_from_file(filename)
+        return deepcopy(setup_module.run_params)
+    elif ext == 'json':
+        rp, mp = parameters.read_plist(filename)
+        return rp
+    
+def load_obs(filename, run_params):
+    """Load the obs dictionary
+    """
+    ext = filename.split('.')[-1]
+    obs = None
     if ext == 'py':
         print('reading py script {}'.format(filename))
         setup_module = load_module_from_file(filename)
-        rp = deepcopy(setup_module.run_params)
-        mp = deepcopy(setup_module.model_params)
         obs = deepcopy(getattr(setup_module, 'obs', None))
+    if obs is None:
+        funcname = run_params['data_loading_function_name']
+        obsfunction = getattr(readspec, funcname)
+        obs = obsfunction(**run_params)
+
+    obs = fix_obs(obs, **run_params)
+    return obs
+
+def load_mock(filename, run_params, model, sps):
+    """Load the obs dictionary using mock data.
+    """
+    ext = filename.split('.')[-1]
+    mock_info = None
+    if ext == 'py':
+        print('reading py script {}'.format(filename))
+        setup_module = load_module_from_file(filename)
         mock_info = deepcopy(getattr(setup_module, 'mock_info', None))
-        model_type = getattr(setup_module, 'model_type', sedmodel.SedModel)
-        
-    elif ext == 'json':
-        print('reading json {}'.format(filename))
-        rp, mp = parameters.read_plist(filename)
-        obs = None
-        mock_info = rp.get('mock_info', None)
-        model_type = getattr(sedmodel, rp.get('model_type','SedModel'))
-        
-    # Instantiate a model and add observational info, depending on whether
-    # obs needs to be mocked or read using a named function, or simply added
-    model = model_type(rp, mp)
-    if model.run_params.get('mock', False):
-        print('loading mock')
-        obs = dutils.generate_mock(model, sps, mock_info)
-        model.add_obs(obs)
-        model.mock_info = mock_info
-        model.initial_theta *= np.random.beta(2,2,size=model.ndim)*2.0
-    elif obs is None:
-        funcname = model.run_params['data_loading_function_name']
-        obsfunction = getattr(dutils, funcname)
-        obs = obsfunction(**model.run_params)
-        model.add_obs(obs)
-    else:
-        model.add_obs(obs)
+    if mock_info is None:
+        mock_info = run_params.get('mock_info', None)
     
-    return model
+    mockdat = generate_mock(model, sps, mock_info)
+    mockdat = fix_obs(mockdat, **run_params)
+    mockdat['mock_info'] = mock_info
+    return mockdat
 
 def load_module_from_file(path_to_file):
     """This has to break everything ever, right?

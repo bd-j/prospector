@@ -13,7 +13,7 @@ def run_command(cmd):
     return os.WEXITSTATUS(w), out
 
 
-def write_pickles(model, sampler, powell_results,
+def write_pickles(run_params, model, sampler, powell_results,
                   tsample=None, toptimize=None,
                   sampling_initial_center=None):
 
@@ -31,10 +31,10 @@ def write_pickles(model, sampler, powell_results,
 
     results, model_store = {}, {}
     
-    results['run_params'] = model.run_params
+    results['run_params'] = run_params
     results['obs'] = model.obs
     results['model_params'] = [parameters.functions_to_names(p) for p in model.config_list]
-    results['model_params_asdict'] =  parameters.plist_to_pdict([parameters.functions_to_names(p)
+    results['model_params_dict'] =  parameters.plist_to_pdict([parameters.functions_to_names(p)
                                                                for p in model.config_list])
     results['initial_theta'] = model.initial_theta
     results['sampling_initial_center'] = sampling_initial_center

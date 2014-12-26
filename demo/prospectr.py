@@ -10,7 +10,7 @@ import bsfh.fitterutils as utils
 #########
 # Read command line arguments
 #########
-argdict={'param_file':None, 'sps':'sps_basis',
+argdict={'param_file':None, 'sptype':'sps_basis',
          'custom_filter_keys':None,
          'compute_vega_mags':False,
          'zcontinuous':1}
@@ -35,6 +35,9 @@ obs = model_setup.load_obs(**clargs)
 from likelihood import LikelihoodFunction
 likefn = LikelihoodFunction(obs=obs, model=model)
 
+# Model as global
+mod = model_setup.load_model(clargs['param_file'])
+
 ########
 #LnP function as global
 ########
@@ -47,9 +50,10 @@ def lnprobfn(theta, model = None, obs = None):
 
 # the more explicit way
 def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
-    """ Given a model object and a parameter vector, return the ln of
-    the posterior. This requires that an sps object (and if using
-    spectra and gaussian processes, a GP object) be instantiated.
+    """ Given a parameter vector and optionally a dictionary of
+    observational ata and a model object, return the ln of the
+    posterior. This requires that an sps object (and if using spectra
+    and gaussian processes, a GP object) be instantiated.
 
     :param theta:
         Input parameter vector, ndarray of shape (ndim,)
@@ -122,21 +126,22 @@ if __name__ == "__main__":
     ################
     # SETUP
     ################
-
-    inpar = model_setup.parse_args(sys.argv)
-    model = model_setup.setup_model(inpar['param_file'], sps=sps)
-    model.run_params['ndim'] = model.ndim
+    rp = model_setup.run_params(clargs['param_file'])
     # Command line override of run_params
-    _ = model_setup.parse_args(sys.argv, argdict=model.run_params)
-    model.run_params['sys.argv'] = sys.argv
-    rp = model.run_params #shortname
-    initial_theta = model.initial_theta
-    if rp['verbose']:
-        print(model.params)
+    rp = model_setup.parse_args(sys.argv, argdict=rp)
+    rp['sys.argv'] = sys.argv
+    if rp.get('mock', False):
+        print('loading mock')
+        obsdat = model_setup.load_mock(clargs['param_file'], rp, mod, sps)
+    else:
+        obsdat = model_setup.load_obs(clargs['param_file'], rp)
+    obsdat['verbose'] = rp.get('verbose', True)
+    initial_theta = mod.initial_theta
     if rp.get('debug', False):
         print('stopping for debug')
         try:
             pool.close()
+            sys.exit(0)
         except:
             pass
         sys.exit(0)
@@ -151,12 +156,13 @@ if __name__ == "__main__":
     args = [model, obs]
     args = [None, None]
     powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta,
-                                            args=args, kwargs=kwargs,
+                                            args=args,
                                             method ='powell', opts=powell_opt,
                                             pool = pool, nthreads = rp.get('nthreads',1))
     
     best = np.argmin([p.fun for p in powell_guesses])
     best_guess = powell_guesses[best]
+    initial_center = best_guess.x
     pdur = time.time() - ts
     
     if rp['verbose']:
@@ -165,12 +171,11 @@ if __name__ == "__main__":
     ###################
     #SAMPLE
     ####################
-    #sys.exit()
     if rp['verbose']:
         print('emcee sampling...')
     tstart = time.time()
-    initial_center = best_guess.x
-    esampler = utils.run_emcee_sampler(model, lnprobfn, initial_center, rp, pool = pool)
+    esampler = utils.run_emcee_sampler(lnprobfn, initial_center, mod,
+                                       args=obsdat, pool = pool, **rp)
     edur = time.time() - tstart
     if rp['verbose']:
         print('done emcee in {0}s'.format(edur))
@@ -178,7 +183,7 @@ if __name__ == "__main__":
     ###################
     # PICKLE OUTPUT
     ###################
-    write_results.write_pickles(model, esampler, powell_guesses,
+    write_results.write_pickles(rp, mod, esampler, powell_guesses,
                                 toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center)
     

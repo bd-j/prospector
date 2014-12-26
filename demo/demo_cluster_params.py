@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 from sedpy import attenuation
 from bsfh import priors, sedmodel, elines
-from bsfh.datautils import load_obs_mmt
+from bsfh.readspec import load_obs_mmt
 tophat = priors.tophat
 
 #############
@@ -175,10 +175,10 @@ model_params.append({'name': 'poly_coeffs', 'N': polyorder,
     
 model_params.append({'name': 'spec_norm', 'N':1,
                         'isfree': True,
-                        'init':1,
-                        'units': None,
+                        'init':0,
+                        'units': 'logarithmic',
                         'prior_function': tophat,
-                        'prior_args': {'mini':0.1, 'maxi':10}})
+                        'prior_args': {'mini':-0.3, 'maxi':0.3}})
 
 model_params.append({'name': 'gp_jitter', 'N':1,
                         'isfree': True,

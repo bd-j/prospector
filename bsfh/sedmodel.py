@@ -11,21 +11,8 @@ class SedModel(ProspectrParams):
     For models composed of SSPs and sums of SSPs which use the
     sps_basis.StellarPopBasis as the sps object.
     """
-    def _add_obs(self, obs, rescale_observed_spectrum = True, **kwargs):
-        """Add a dictionary of observational data as an attribute of
-        the object
-        """
-        self.obs = obs
-        #rescale the spectrum to avoid floating point errors
-        if (obs['spectrum'] is not None) and rescale_observed_spectrum:
-            sc = np.median(obs['spectrum'][obs['mask']])
-            self.obs['scale'] = sc
-            self.obs['spectrum'] /= sc
-            self.obs['unc'] /= sc
-        else:
-            self.obs['scale'] = 1.0
 
-    def mean_model(self, theta, sps = None, **kwargs):
+    def mean_model(self, theta, obs, sps = None, **kwargs):
         """
         Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass).
@@ -49,15 +36,12 @@ class SedModel(ProspectrParams):
             Any extra aspects of the model that are returned.
         """
         
-        if sps is None:
-            sps = self.sps
-        self.set_parameters(theta)
-        
-        spec, phot, extras = sps.get_spectrum(outwave=self.obs['wavelength'],
-                                              filters=self.obs['filters'],
+        self.set_parameters(theta)        
+        spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
+                                              filters=obs['filters'],
                                               **self.params)
         
-        spec *= self.params.get('normalization_guess',1.0)
+        spec *= obs.get('normalization_guess',1.0)
         #remove negative fluxes
         tiny = 1.0/len(spec) * spec[spec > 0].min()
         spec[ spec < tiny ] = tiny
@@ -69,7 +53,7 @@ class SedModel(ProspectrParams):
         """Model for the sky emission/absorption"""
         return 0.
         
-    def calibration(self, theta=None):
+    def calibration(self, theta=None, obs=None, **kwargs):
         """
         Implements a polynomial calibration model.  This only happens
         if `pivot_wave` is a defined model parameter, since the
@@ -84,8 +68,8 @@ class SedModel(ProspectrParams):
             self.set_parameters(theta)
         
         #should find a way to make this more generic
-        if 'pivot_wave' in self.params:
-            x = self.obs['wavelength']/self.params['pivot_wave'] - 1.0
+        if 'pivot_wave' in obs:
+            x = obs['wavelength']/obs['pivot_wave'] - 1.0
             poly = np.zeros_like(x)
             powers = np.arange( len(self.params['poly_coeffs']) ) + 1
             poly = (x[None,:] ** powers[:,None] *
@@ -105,7 +89,7 @@ class CSPModel(ProspectrParams):
     #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
     #to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
-    def mean_model(self, theta, sps = None, **kwargs):
+    def mean_model(self, theta, obs, sps = None, **kwargs):
         """
         Given a theta vector, generate photometry, and any
         extras (e.g. stellar mass).
@@ -140,10 +124,10 @@ class CSPModel(ProspectrParams):
         w, spec = sps.get_spectrum(tage=sps.params['tage'], peraa=False)
         mags = sps.get_mags(tage=sps.params['tage'],
                             #redshift=sps.params['zred'],
-                            bands=self.obs['filters'])
-        if self.obs['wavelength'] is not None:
+                            bands=obs['filters'])
+        if obs['wavelength'] is not None:
             spec = interp1d( w, spec, axis = -1,
-                             bounds_error=False)(self.obs['wavelength'])
+                             bounds_error=False)(obs['wavelength'])
         # normalize by (current) stellar mass and get correct units (distance_modulus)
         mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
         #modern FSPS does the distance modulus for us
@@ -155,7 +139,7 @@ class CSPModel(ProspectrParams):
                 mass_norm * 10**(-0.4*(mags)) / dfactor,
                 None)
 
-    def calibration(self):
+    def calibration(self, **kwargs):
         return 1.0
     
     def sky(self):

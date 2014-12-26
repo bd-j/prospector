@@ -9,32 +9,29 @@ try:
 except(ImportError):
     pass
     
-def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
+def run_emcee_sampler(lnprobf, initial_center, model, args=None,
+                      nwalkers=None, nburn=[16], niter=32,
+                      walker_factor = 4, initial_disp=0.1,
+                      nthreads=1, pool=None, verbose=True,
+                      **kwargs):
     """
     Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the production sampler.
     """
-    # Parse input parameters
-    ndim = rp['ndim']
-    walker_factor = int(rp.get('walker_factor',4))
-    nburn = rp['nburn']
-    niter = int(rp['niter'])
-    nthreads = int(rp.get('nthreads',1))
-    initial_disp = rp['initial_disp']
-    nwalkers = rp.get('nwalkers',
-                      int(2 ** np.round(np.log2(ndim * walker_factor))))
-    if rp['verbose']:
-        print('number of walkers={}'.format(nwalkers))
     # Set up initial positions
+    ndim = model.ndim
+    if nwalkers is None:
+        nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
+    if verbose:
+        print('number of walkers={}'.format(nwalkers))    
     initial = sampler_ball(initial_center, initial_disp, nwalkers, model)
     # Initialize sampler
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
-                                     threads = nthreads, args = [model], pool = pool)
-
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf, args = [args],
+                                     threads = nthreads, pool = pool)
     # Loop over the number of burn-in reintializations
     k=0
     for iburn in nburn[:-1]:
-        epos, eprob, state = esampler.run_mcmc(initial, iburn)
+        epos, eprob, state = esampler.run_mcmc(initial, iburn, storechain=False)
         # Choose the best walker and build a ball around it based on
         #   the other walkers
         tmp = np.percentile(epos, [0.25, 0.5, 0.75], axis = 0)
@@ -43,25 +40,27 @@ def run_emcee_sampler(model, lnprobf, initial_center, rp, pool=None):
         initial = sampler_ball(epos[best,:], relative_scatter, nwalkers, model)
         esampler.reset()
         k += 1
-        if rp['verbose']:
+        if verbose:
             print('done burn #{}'.format(k))
     
     # Do the final burn-in
     epos, eprob, state = esampler.run_mcmc(initial, nburn[-1])
     initial = epos
     esampler.reset()
-    if rp['verbose']:
+    if verbose:
         print('done all burn-in, starting production')
 
     # Production run
     epos, eprob, state = esampler.run_mcmc(initial, niter)
-    if rp['verbose']:
+    if verbose:
         print('done production')
 
     return esampler
 
 def sampler_ball(center, disp, nwalkers, model):
-    #produce a ball around a given position, clipped to the prior range.
+    """Produce a ball around a given position, clipped to the prior
+    range.
+    """
     ndim = model.ndim
     initial = np.zeros([nwalkers, ndim])
     if np.size(disp) == 1:
@@ -76,8 +75,7 @@ def sampler_ball(center, disp, nwalkers, model):
     
 def restart_sampler(sample_results, lnprobf, sps, niter,
                     nthreads=1, pool=None):
-    """
-    Restart a sampler from its last position and run it for a
+    """Restart a sampler from its last position and run it for a
     specified number of iterations.  The sampler chain and the model
     object should be given in the sample_results dictionary.  Note
     that lnprobfn and sps must be defined at the global level in the
@@ -93,26 +91,34 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     return esampler
 
         
-def pminimize(function, model, initial_center, method='powell', opts=None,
+def pminimize(function, initial, args=None,
+              method='powell', opts=None,
               pool=None, nthreads=1):
-    """
-    Do as many minimizations as you have threads, in parallel.  Always
-    use initial_center for one of the minimization streams, the rest
-    will be sampled from the prior for each parameter.  Returns each
-    of the minimization result dictionaries, as well as the starting
-    positions.
+    """Do as many minimizations as you have threads, in parallel.
+    Always use initial_center for one of the minimization streams, the
+    rest will be sampled from the prior for each parameter.  Returns
+    each of the minimization result dictionaries, as well as the
+    starting positions.
     """
     
     # Instantiate the minimizer
-    mini = minimizer.Pminimize(function, model, opts,
+    mini = minimizer.Pminimize(function, args, opts,
                                method=method,
                                pool=pool, nthreads=1)
     size = mini.size
-    # Get initial positions to start minimizations
-    pinitial = [initial_center]
-    # Setup a 'grid' of parameter values uniformly distributed between
-    #  min and max More generally, this should sample from the prior
-    #  for each parameter
+    pinitial = minimizer_ball(initial, size, model)
+    powell_guesses = mini.run(pinitial)
+
+    return [powell_guesses, pinitial]
+
+
+def minimizer_ball(center, nminimizers, model):
+    """Setup a 'grid' of parameter values uniformly distributed
+    between min and max More generally, this should sample from the
+    prior for each parameter.
+    """
+    size = nminimizers
+    pinitial = [center]
     if size > 1:
         ginitial = np.zeros( [size -1, model.ndim] )
         for p, v in model.theta_index.iteritems():
@@ -124,13 +130,8 @@ def pminimize(function, model, initial_center, method='powell', opts=None,
             else:
                 ginitial[:,start] = np.random.uniform(hi, lo, size - 1)
         pinitial += ginitial.tolist()
-    #print(mini.pool.size, mini.pool is None, len(pinitial))
-    #sys.exit()
-    #Actually run the minimizer
-    powell_guesses = mini.run(pinitial)
+    return pinitial
 
-    return [powell_guesses, pinitial]
-    
 def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
     """
     Run a (single) HMC chain, performing initial steps to adjust the epsilon.
