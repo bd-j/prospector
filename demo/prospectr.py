@@ -108,9 +108,11 @@ def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
     values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
     print(fstring.format(*values))
 
-#MPI pool.  This must be done *after* lnprob and
+##################
+# MPI pool.  This must be done *after* lnprob and
 # chi2 are defined since slaves will only see up to
 # sys.exit()
+##################
 try:
     from emcee.utils import MPIPool
     pool = MPIPool(debug = False, loadbalance = True)
@@ -131,6 +133,11 @@ def halt():
     except:
         pass
     sys.exit(0)
+
+
+############
+# Master branch
+#############
     
 if __name__ == "__main__":
 

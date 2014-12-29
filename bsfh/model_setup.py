@@ -2,7 +2,7 @@ import sys, os, getopt, json
 from copy import deepcopy
 import numpy as np
 from bsfh import parameters, sedmodel
-from bsfh.datautils import *
+from bsfh.datautils import fix_obs
 
 """This module has methods to take a .json or .py file containing run paramters,
 model parameters and other info and return a parset, a model, and an
@@ -110,8 +110,9 @@ def load_obs(filename, run_params):
         setup_module = load_module_from_file(filename)
         obs = deepcopy(getattr(setup_module, 'obs', None))
     if obs is None:
+        from bsfh import loadspec
         funcname = run_params['data_loading_function_name']
-        obsfunction = getattr(readspec, funcname)
+        obsfunction = getattr(loadspec, funcname)
         obs = obsfunction(**run_params)
 
     obs = fix_obs(obs, **run_params)
@@ -120,6 +121,7 @@ def load_obs(filename, run_params):
 def load_mock(filename, run_params, model, sps):
     """Load the obs dictionary using mock data.
     """
+    from bsfh.datautils import generate_mock
     ext = filename.split('.')[-1]
     mock_info = None
     if ext == 'py':

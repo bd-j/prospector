@@ -1,6 +1,5 @@
 import numpy as np
 import warnings
-from bsfh import readspec
 
 def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
             logify_spectrum=True, **kwargs):
