@@ -91,7 +91,8 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     return esampler
 
         
-def pminimize(function, initial, args=None,
+def pminimize(chi2fn, initial, args=None,
+              model=None,
               method='powell', opts=None,
               pool=None, nthreads=1):
     """Do as many minimizations as you have threads, in parallel.
@@ -102,7 +103,7 @@ def pminimize(function, initial, args=None,
     """
     
     # Instantiate the minimizer
-    mini = minimizer.Pminimize(function, args, opts,
+    mini = minimizer.Pminimize(chi2fn, args, opts,
                                method=method,
                                pool=pool, nthreads=1)
     size = mini.size
@@ -112,7 +113,7 @@ def pminimize(function, initial, args=None,
     return [powell_guesses, pinitial]
 
 
-def minimizer_ball(center, nminimizers, model):
+def minimizer_ball(center, nminimizers, models):
     """Setup a 'grid' of parameter values uniformly distributed
     between min and max More generally, this should sample from the
     prior for each parameter.

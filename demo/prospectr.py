@@ -2,10 +2,12 @@
 
 import time, sys, os
 import numpy as np
+np.errstate(invalid='ignore')
 import pickle
 
 from bsfh import model_setup, write_results
 import bsfh.fitterutils as utils
+from bsfh.likelihood import LikelihoodFunction
 
 #########
 # Read command line arguments
@@ -16,8 +18,8 @@ argdict={'param_file':None, 'sptype':'sps_basis',
          'zcontinuous':1,
          'use_george': False}
 clargs = model_setup.parse_args(sys.argv, argdict=argdict)
-run_params = model_setup.run_params(clargs['param_file'], **clargs)
-
+run_params = model_setup.get_run_params(argv = sys.argv, **clargs)
+print(run_params)
 #########
 # Globals
 ########
@@ -26,16 +28,15 @@ sps = model_setup.load_sps(**clargs)
 # GP instance as global
 gp_spec = model_setup.load_gp(**clargs)
 # Model as global
-global_model = model_setup.load_model(clargs['param_file'], **run_params)
+global_model = model_setup.load_model(param_file=clargs['param_file'])
 # Obs as global
-global_obs = model_setup.load_obs(**clargs)
+global_obs = model_setup.load_obs(**run_params)
 
-from likelihood import LikelihoodFunction
-likefn = LikelihoodFunction(obs=global_obs, model=global_model)
 
 ########
 #LnP function as global
 ########
+likefn = LikelihoodFunction(obs=global_obs, model=global_model)
 
 # the simple but obscuring way.  Difficult for users to change
 def lnprobfn_obscure(theta, model = None, obs = None):
@@ -58,12 +59,19 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
 
     :param mod:
         bsfh.sedmodel model object, with attributes including
-        `params`, a dictionary of model parameters.  It must also have
-        `prior_product()`, `mean_model()` and `calibration()` methods
+        ``params``, a dictionary of model parameters.  It must also have
+        ``prior_product()``, ``mean_model()`` and ``calibration()`` methods
         defined.
 
     :param obs:
-        A dictionary of observational data.
+        A dictionary of observational data.  The keys should be
+          *``wavelength``
+          *``spectrum``
+          *``unc``
+          *``maggies``
+          *``maggies_unc``
+          *``filters``
+          * and optional spectroscopic ``mask`` and ``phot_mask``.
         
     :returns lnp:
         Ln posterior probability.
@@ -77,8 +85,8 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     if np.isfinite(lnp_prior):
         # Generate mean model and GP kernel(s)
         t1 = time.time()        
-        spec, phot, x = model.mean_model(theta, sps = sps)
-        log_mu = np.log(spec) + model.calibration(theta)
+        spec, phot, x = model.mean_model(theta, obs, sps = sps)
+        log_mu = np.log(spec) + model.calibration(theta, obs=obs)
         s, a, l = (model.params['gp_jitter'], model.params['gp_amplitude'],
                    model.params['gp_length'])
         gp_spec.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
@@ -86,7 +94,7 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
 
         #calculate likelihoods
         t2 = time.time()
-        lnp_spec = likefn.lnlike_spec_log(log_mu, obs=obs, gp=gp_spec)
+        lnp_spec = likefn.lnlike_spec_log(np.exp(log_mu), obs=obs, gp=gp_spec)
         lnp_phot = likefn.lnlike_phot(phot, obs=obs, gp=None)
         d2 = time.time() - t2
         if verbose:
@@ -123,7 +131,6 @@ try:
 except(ValueError):
     pool = None
 
-
 def halt():
     """Exit, closing pool safely.
     """
@@ -142,26 +149,32 @@ def halt():
 if __name__ == "__main__":
 
     ################
-    # SETUP
+    # Setup
     ################
     rp = run_params
     rp['sys.argv'] = sys.argv
-    obsdat = model_setup.load_obs(clargs['param_file'], rp)
-    initial_theta = mod.initial_theta
+    # Reload model and obs from specific files?
+    #model = model_setup.load_model(param_file=clargs['param_file'])
+    #obsdat = model_setup.load_obs(**rp)
+    # Or just use the globals?
+    model = global_model
+    obsdat = global_obs
+    
+    initial_theta = model.initial_theta
     if rp.get('debug', False):
         halt()
         
     #################
-    #INITIAL GUESS(ES) USING POWELL MINIMIZATION
+    # Initial guesses using powell minimization
     #################
     if rp['verbose']:
         print('minimizing chi-square...')
     ts = time.time()
     powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
-    args = [model, obs]
+    args = [model, obsdat]
     args = [None, None]
     powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta,
-                                            args=args,
+                                            args=args, model=model,
                                             method ='powell', opts=powell_opt,
                                             pool = pool, nthreads = rp.get('nthreads',1))
     
@@ -174,7 +187,7 @@ if __name__ == "__main__":
         print('done Powell in {0}s'.format(pdur))
 
     ###################
-    #SAMPLE
+    # Sample
     ####################
     if rp['verbose']:
         print('emcee sampling...')
@@ -186,7 +199,7 @@ if __name__ == "__main__":
         print('done emcee in {0}s'.format(edur))
 
     ###################
-    # PICKLE OUTPUT
+    # Pickle Output
     ###################
     write_results.write_pickles(rp, mod, esampler, powell_guesses,
                                 toptimize=pdur, tsample=edur,

@@ -10,8 +10,6 @@ param_template = {'name':'', 'N':1, 'isfree': False,
 
 class ProspectrParams(object):
     """
-    :param rp:
-        A dictionary of ``run parameters``.
     :param mp:
         A list of ``model parameters``.
     

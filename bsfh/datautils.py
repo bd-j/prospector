@@ -1,4 +1,5 @@
 import numpy as np
+np.errstate(invalid='ignore')
 import warnings
 
 def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
@@ -17,13 +18,12 @@ def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
         if (normalize_spectrum):
             sp_norm, pivot_wave = norm_spectrum(obs, **kwargs)
             obs['normalization_guess'] = sp_norm
-            obs['pivot_wave'] = pivot_wave
-                
+            obs['pivot_wave'] = pivot_wave                
         if (logify_spectrum):
-                s, u, m = logify_data(obs['spectrum'], obs['unc'], obs['mask'])
-                obs['spectrum'] = s
-                obs['unc'] = u
-                obs['mask'] = m
+            s, u, m = logify_data(obs['spectrum'], obs['unc'], obs['mask'])
+            obs['spectrum'] = s
+            obs['unc'] = u
+            obs['mask'] = m
     else:
         obs['unc'] = None
 
@@ -118,6 +118,7 @@ def rectify_obs(obs):
     if obs['spectrum'] is not None:
         assert (len(obs['wavelength']) == len(obs['spectrum']))
         assert ('unc' in k)
+        np.errstate(invalid='ignore')
         obs['mask'] = (obs.get('mask',
                                np.ones(len(obs['wavelength']), dtype= bool)) *
                             np.isfinite(obs['spectrum']) *

@@ -33,6 +33,27 @@ def parse_args(argv, argdict={'param_file':None, 'sps':'sps_basis',
                 argdict[abare] = apo
     return argdict
 
+
+def get_run_params(param_file=None, argv = None, **kwargs):
+    """ Get a run_params dictionary from the param_file (if passed)
+    otherwise return the kwargs dictionary.
+    """
+    if param_file is None:
+        rp = {}
+    ext = param_file.split('.')[-1]
+    if ext == 'py':
+        setup_module = import_module_from_file(param_file)
+        rp = deepcopy(setup_module.run_params)
+    elif ext == 'json':
+        rp, mp = parameters.read_plist(param_file)
+    rp.update(kwargs)
+    if argv is not None:
+        rp = parse_args(argv, argdict=rp)
+    rp['param_file'] = param_file
+    
+    return rp
+
+
 def show_syntax(args, ad):
     """Show command line syntax corresponding to the provided arg
     dictionary `ad`.
@@ -75,47 +96,39 @@ def load_sps(sptype=None, compute_vega_mags=False,
 
     return sps
         
-def load_model(filename, **extras):
-    """Load the model object from a model config list
+def load_model(param_file=None, **extras):
+    """Load the model object from a model config list given in the
+    config file.
     """
-    ext = filename.split('.')[-1]
+    ext = param_file.split('.')[-1]
     if ext == 'py':
-        setup_module = load_module_from_file(filename)
+        setup_module = import_module_from_file(param_file)
         mp = deepcopy(setup_module.model_params)
         model_type = getattr(setup_module, 'model_type', sedmodel.SedModel)
     elif ext == 'json':
-        rp, mp = parameters.read_plist(filename)
+        rp, mp = parameters.read_plist(param_file)
         model_type = getattr(sedmodel, rp.get('model_type','SedModel'))
     model = model_type(mp)
     return model
 
-def run_params(filename, **kwargs):
-    
-    ext = filename.split('.')[-1]
-    if ext == 'py':
-        setup_module = load_module_from_file(filename)
-        rp = deepcopy(setup_module.run_params)
-    elif ext == 'json':
-        rp, mp = parameters.read_plist(filename)
-    for k, v in kwargs.iteritems():
-        rp[k] = v
-    
-def load_obs(filename, run_params):
-    """Load the obs dictionary
+def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
+    """Load the obs dictionary using information in ``param_file``.
+    kwargs are passed to ``fix_obs()`` and, if using a json
+    configuration file, to the data_loading_function.
     """
-    ext = filename.split('.')[-1]
+    ext = param_file.split('.')[-1]
     obs = None
     if ext == 'py':
-        print('reading py script {}'.format(filename))
-        setup_module = load_module_from_file(filename)
+        print('reading py script {}'.format(param_file))
+        setup_module = import_module_from_file(param_file)
         obs = deepcopy(getattr(setup_module, 'obs', None))
     if obs is None:
         from bsfh import loadspec
-        funcname = run_params['data_loading_function_name']
+        funcname = data_loading_function_name
         obsfunction = getattr(loadspec, funcname)
-        obs = obsfunction(**run_params)
+        obs = obsfunction(**kwargs)
 
-    obs = fix_obs(obs, **run_params)
+    obs = fix_obs(obs, **kwargs)
     return obs
 
 def load_mock(filename, run_params, model, sps):
@@ -126,7 +139,7 @@ def load_mock(filename, run_params, model, sps):
     mock_info = None
     if ext == 'py':
         print('reading py script {}'.format(filename))
-        setup_module = load_module_from_file(filename)
+        setup_module = import_module_from_file(filename)
         mock_info = deepcopy(getattr(setup_module, 'mock_info', None))
     if mock_info is None:
         mock_info = run_params.get('mock_info', None)
@@ -136,7 +149,7 @@ def load_mock(filename, run_params, model, sps):
     mockdat['mock_info'] = mock_info
     return mockdat
 
-def load_module_from_file(path_to_file):
+def import_module_from_file(path_to_file):
     """This has to break everything ever, right?
     """
     from importlib import import_module

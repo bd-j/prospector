@@ -1,9 +1,9 @@
 import time, sys, os
 import numpy as np
 
-def LikelihoodFunction(object):
+class LikelihoodFunction(object):
     
-    def __init__(self, obs=None, model=None, lnspec=True)
+    def __init__(self, obs=None, model=None, lnspec=True):
         self.obs = obs
         self.model = model
         self.lnspec = lnspec
@@ -27,15 +27,18 @@ def LikelihoodFunction(object):
             
         :param obs: (optional)
             A dictionary of the observational data, including the keys
-            `spectrum`, `unc` and optionally `wavelength` and `mask`.
-            `spectrum` should be a numpy array of the observed
-            spectrum, in log units, `unc` is the logarithmic
-            uncertainty of same length as `spectrum`, and `mask` is
-            boolean array of same length as `spectrum`. If using a GP,
-            `wavelength` is the metric that is used in the kernel
-            generation, of same length as `spectrum` and typically
-            giving the wavelength array.  If not supplied then the obs
-            dictionary given at initialization will be used.
+              *``spectrum`` a numpy array of the observed spectrum,
+               ***in log flux units***
+              *``unc`` the uncertainty of same length as
+               ``spectrum``
+              *``mask`` optional boolean array of same length as
+               ``spectrum``
+              *``wavelength`` if using a GP, the metric that is
+               used in the kernel generation, of same length as
+               ``spectrum`` and typically giving the wavelengths
+
+            If not supplied then the obs dictionary given at
+            initialization will be used.
 
         :param gp: (optional)
             A Gaussian process object with the methods `compute` and
@@ -59,9 +62,9 @@ def LikelihoodFunction(object):
             gp.compute(obs['wavelength'][mask], obs['unc'][mask])
             return gp.lnlikelihood(delta)
         
-        var = obs['unc']**2
-        lnp = -0.5*( (delta**2/var)[mask].sum() +
-                     np.log(var[mask]).sum() )
+        var = obs['unc'][mask]**2
+        lnp = -0.5*( (delta**2/var).sum() +
+                     np.log(var).sum() )
         return lnp
         
     def lnlike_phot(self, phot_mu, obs=None, gp=None):
@@ -78,20 +81,24 @@ def LikelihoodFunction(object):
             
         :param obs: (optional)
             A dictionary of the observational data, including the keys
-            `maggies`, `maggies_unc` and optionally `phot_mask` and
-            `phot_metric`.  `maggies` should be a numpy array of the
-            observed spectrum, in linear flux units, `phot_unc` is the
-            uncertainty of same length as `maggies`, and `phot_mask`
-            is boolean array of same length as `spectrum`.   If using
-            a GP, `phot_metric` is the metric that is used in the
-            kernel generation, of same length as `spectrum` and
-            typically giving the wavelength array. If not supplied
-            then the obs dictionary given at initialization will be
-            used.  This should really all be in kwargs.
+              *``maggies`` a numpy array of the observed SED, in
+               linear flux units
+              *``maggies_unc`` the uncertainty of same length as
+               ``maggies``
+              *``phot_mask`` optional boolean array of same length as
+               ``maggies``
+              *``filter_metric`` if using a GP, the metric that is
+               used in the kernel generation, of same length as
+               ``maggies`` and typically giving the wavelengths or
+               some ordering.
+
+           If not supplied then the obs dictionary given at
+           initialization will be used.  This should really all be in
+           kwargs.
 
         :param gp: (optional)
-            A Gaussian process object with the methods `compute` and
-            `lnlikelihood`.
+            A Gaussian process object with the methods ``compute()`` and
+            ``lnlikelihood()``.
             
         :returns lnlikelhood:
             The natural logarithm of the likelihood of the data given
@@ -104,14 +111,14 @@ def LikelihoodFunction(object):
             return 0.0
     
         mask = obs.get('phot_mask', np.ones( len(obs['maggies']), dtype= bool))
-        delta = (obs['phot'] - phot_mu)[mask]
+        delta = (obs['maggies'] - phot_mu)[mask]
         if gp is not None:
-            gp.compute(obs['phot_coord'][mask], obs['phot_unc'][mask])
+            gp.compute(obs['filter_metric'][mask], obs['maggies_unc'][mask])
             return gp.lnlikelihood(delta)
         
-        var = obs['phot_unc']**2
-        lnp = -0.5*( (delta**2/var)[mask].sum() +
-                     np.log(var[mask]).sum() )
+        var = (obs['maggies_unc'][mask])**2
+        lnp = -0.5*( (delta**2/var).sum() +
+                     np.log(var).sum() )
         return lnp
 
     def lnlike_spec_linear(self, spec_mu, obs=None, gp=None):
@@ -151,7 +158,7 @@ def LikelihoodFunction(object):
             return 0.0
             
         mask = obs.get('mask', np.ones( len(obs['spectrum']), dtype= bool))
-        delta = (obs['spectrum'] - log_mu)[mask]
+        delta = (obs['spectrum'] - spec_mu)[mask]
         # Do it with the GP!
         if gp is not None:
             gp.compute(obs['wavelength'][mask], obs['unc'][mask])

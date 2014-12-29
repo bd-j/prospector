@@ -130,7 +130,8 @@ class CSPModel(ProspectrParams):
                              bounds_error=False)(obs['wavelength'])
         # normalize by (current) stellar mass and get correct units (distance_modulus)
         mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
-        #modern FSPS does the distance modulus for us
+        #modern FSPS does the distance modulus for us in get_mags,
+        # !but python-FSPS does not!
         dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value[0] * 1e5)**2 /
                    (1+sps.params['zred']))
         #to_apparent_mags = self.to_cgs/(dfactor**2)
