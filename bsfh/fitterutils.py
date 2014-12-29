@@ -9,7 +9,8 @@ try:
 except(ImportError):
     pass
     
-def run_emcee_sampler(lnprobf, initial_center, model, args=None,
+def run_emcee_sampler(lnprobf, initial_center, model,
+                      postargs=None, postkwargs=None,
                       nwalkers=None, nburn=[16], niter=32,
                       walker_factor = 4, initial_disp=0.1,
                       nthreads=1, pool=None, verbose=True,
@@ -26,7 +27,8 @@ def run_emcee_sampler(lnprobf, initial_center, model, args=None,
         print('number of walkers={}'.format(nwalkers))    
     initial = sampler_ball(initial_center, initial_disp, nwalkers, model)
     # Initialize sampler
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf, args = [args],
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
+                                     args = postargs, kwargs=postkwargs,
                                      threads = nthreads, pool = pool)
     # Loop over the number of burn-in reintializations
     k=0

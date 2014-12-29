@@ -105,6 +105,9 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         return -np.infty
     
 def chisqfn(theta, model, obs):
+    """Negative of lnprobfn for minimization, and also handles passing
+    in keyword arguments.
+    """
     return -lnprobfn(theta, model=model, obs=obs)
 
 def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
@@ -130,6 +133,7 @@ try:
         sys.exit(0)
 except(ValueError):
     pool = None
+    print('Not using MPI')
 
 def halt():
     """Exit, closing pool safely.
@@ -156,9 +160,13 @@ if __name__ == "__main__":
     # Reload model and obs from specific files?
     #model = model_setup.load_model(param_file=clargs['param_file'])
     #obsdat = model_setup.load_obs(**rp)
+    #chi2args = [model, obsdat]
+    #postkwargs = {'obs':obsdat, 'model':model}
     # Or just use the globals?
     model = global_model
     obsdat = global_obs
+    chi2args = [None, None]
+    postkwargs = None
     
     initial_theta = model.initial_theta
     if rp.get('debug', False):
@@ -171,10 +179,8 @@ if __name__ == "__main__":
         print('minimizing chi-square...')
     ts = time.time()
     powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
-    args = [model, obsdat]
-    args = [None, None]
     powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta,
-                                            args=args, model=model,
+                                            args=chi2args, model=model,
                                             method ='powell', opts=powell_opt,
                                             pool = pool, nthreads = rp.get('nthreads',1))
     
@@ -192,8 +198,8 @@ if __name__ == "__main__":
     if rp['verbose']:
         print('emcee sampling...')
     tstart = time.time()
-    esampler = utils.run_emcee_sampler(lnprobfn, initial_center, mod,
-                                       args=obsdat, pool = pool, **rp)
+    esampler = utils.run_emcee_sampler(lnprobfn, initial_center, model,
+                                       postkwargs=postkwargs, pool = pool, **rp)
     edur = time.time() - tstart
     if rp['verbose']:
         print('done emcee in {0}s'.format(edur))

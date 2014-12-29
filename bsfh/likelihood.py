@@ -56,8 +56,8 @@ class LikelihoodFunction(object):
             return 0.0
     
         mask = obs.get('mask', np.ones( len(obs['spectrum']), dtype= bool))
-        log_mu = np.log(spec_mu)
-        delta = (obs['spectrum'] - log_mu)[mask]
+        log_mu = np.log(spec_mu[mask])
+        delta = (obs['spectrum'][mask] - log_mu)
         if gp is not None:
             gp.compute(obs['wavelength'][mask], obs['unc'][mask])
             return gp.lnlikelihood(delta)
@@ -193,7 +193,7 @@ class LikelihoodFunction(object):
                        mod.params['gp_length'])
             gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
             # Get the likelihoods
-            lnp_spec = self.lnlike_spec_log(log_mu, obs=obs, gp=gp)
+            lnp_spec = self.lnlike_spec_log(np.exp(log_mu), obs=obs, gp=gp)
             lnp_phot = self.lnlike_phot(phot, obs=obs, gp=None)
             # Return the sum
             return lnp_prior + lnp_phot + lnp_spec
