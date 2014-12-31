@@ -166,7 +166,7 @@ if __name__ == "__main__":
     model = global_model
     obsdat = global_obs
     chi2args = [None, None]
-    postkwargs = None
+    postkwargs = {}
     
     initial_theta = model.initial_theta
     if rp.get('debug', False):
@@ -207,7 +207,8 @@ if __name__ == "__main__":
     ###################
     # Pickle Output
     ###################
-    write_results.write_pickles(rp, mod, esampler, powell_guesses,
+    write_results.write_pickles(rp, model, obsdat,
+                                esampler, powell_guesses,
                                 toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center)
     
