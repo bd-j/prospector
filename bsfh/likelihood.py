@@ -58,53 +58,6 @@ class LikelihoodFunction(object):
         return lnp
         
 
-    def lnlike_spec_linear(self, spec_mu, obs=None, gp=None):
-        """Calculate the likelihood of the spectroscopic data given
-        the spectroscopic model.  Allows for the use of a gaussian
-        process covariance matrix for *additive* residuals.
-
-        :param spec_mu:
-            The mean model spectrum, in linear units, including
-            e.g. calibration and sky emission.
-            
-        :param obs: (optional)
-            A dictionary of the observational data, including the keys
-            `spectrum`, `unc` and optionally `wavelength` and `mask`.
-            `spectrum` should be a numpy array of the observed
-            spectrum, in *linear* units, `unc` is the
-            uncertainty of same length as `spectrum`, and `mask` is
-            boolean array of same length as `spectrum`. If using a GP,
-            `wavelength` is the metric that is used in the kernel
-            generation, of same length as `spectrum` and typically
-            giving the wavelength array.  If not supplied then the obs
-            dictionary given at initialization will be used.
-
-        :param gp: (optional)
-            A Gaussian process object with the methods `compute` and
-            `lnlikelihood`.  If supplied, the `wavelength` entry in
-            the obs dictionary must exist
-            
-        :returns lnlikelhood:
-            The natural logarithm of the likelihood of the data given
-            the mean model spectrum.
-        """
-        
-        if obs is None:
-            obs = self.obs
-        if obs['spectrum'] is None:
-            return 0.0
-            
-        mask = obs.get('mask', np.ones( len(obs['spectrum']), dtype= bool))
-        delta = (obs['spectrum'] - spec_mu)[mask]
-        # Do it with the GP!
-        if gp is not None:
-            gp.compute(obs['wavelength'][mask], obs['unc'][mask])
-            return gp.lnlikelihood(delta)
-        # Do it boring.
-        var = obs['unc']**2
-        lnp = -0.5*( (delta**2/var)[mask].sum() +
-                     np.log(var[mask]).sum() )
-        return lnp
 
     def lnlike_phot(self, phot_mu, obs=None, gp=None):
         """Calculate the likelihood of the photometric data given the
