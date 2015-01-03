@@ -36,7 +36,7 @@ class ProspectrParams(object):
         self.configure()
         self.verbose = verbose
 
-    def configure(self, reset = False, **kwargs):
+    def configure(self, reset=False, **kwargs):
         """
         Use the parameter config_list to generate a theta_index
         mapping, and propogate the initial parameters into the params
@@ -150,8 +150,8 @@ class ProspectrParams(object):
         return [k['name'] for k in pdict_to_plist(self.config_list)
                 if (k['isfree'] is False)]
 
-    def theta_labels(self, name_map = {'amplitudes':'A',
-                                       'emission_luminosity':'eline'}):
+    def theta_labels(self, name_map={'amplitudes':'A',
+                                     'emission_luminosity':'eline'}):
         """
         Using the theta_index parameter map, return a list of
         the model parameter names that has the same order as the

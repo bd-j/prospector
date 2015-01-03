@@ -64,7 +64,7 @@ def load_gp(gptype='', **extras):
     """Return a Gaussian Processes object, either using BSFH's
     internal GP objects or George.
     """
-    if gptype is '':
+    if gptype in ['', 'bsfh_exp']:
         from bsfh.gp import GaussianProcess
         gp = GaussianProcess(kernel=np.array([0.0, 0.0, 0.0]))
     elif gptype in ['George', 'george']:
@@ -72,6 +72,10 @@ def load_gp(gptype='', **extras):
         kernel = (george.kernels.WhiteKernel(0.0) +
                   0.0 * george.kernels.ExpSquaredKernel(0.0))
         gp = george.GP(kernel, solver=george.HODLRSolver)
+    else:
+        print('No GP type set.  Acceptable types are "", "george", and "bsfh_exp".')
+        sys.exit(1)
+        
     return gp
     
 def load_sps(sptype=None, compute_vega_mags=False,
@@ -89,7 +93,7 @@ def load_sps(sptype=None, compute_vega_mags=False,
         if custom_filter_keys is not None:
             fsps.filters.FILTERS = custom_filter_dict(custom_filter_keys)
     else:
-        print('No SPS type set.  acceptable types are "sps_basis" and "fsps".')
+        print('No SPS type set.  Acceptable types are "sps_basis" and "fsps".')
         sys.exit(1)
 
     return sps

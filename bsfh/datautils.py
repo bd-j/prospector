@@ -116,7 +116,8 @@ def rectify_obs(obs):
                             np.isfinite(obs['maggies_unc']) *
                             (obs['maggies_unc'] > 0))
         
-    obs['logify_spectrum'] = False
+    if 'logify_spectrum' not in k:
+        obs['logify_spectrum'] = False
     if obs['spectrum'] is not None:
         assert (len(obs['wavelength']) == len(obs['spectrum']))
         assert ('unc' in k)

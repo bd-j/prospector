@@ -12,7 +12,7 @@ class SedModel(ProspectrParams):
     sps_basis.StellarPopBasis as the sps object.
     """
 
-    def mean_model(self, theta, obs, sps = None, **extras):
+    def mean_model(self, theta, obs, sps=None, **extras):
         """
         Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
@@ -48,7 +48,7 @@ class SedModel(ProspectrParams):
             s *= self.spec_calibration(obs=obs, **extras)
         return s, p, x
     
-    def sed(self, theta, obs, sps = None, **kwargs):
+    def sed(self, theta, obs, sps=None, **kwargs):
         """
         Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), ***not** including any instrument
@@ -130,9 +130,15 @@ class CSPModel(ProspectrParams):
     #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
     #to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
-    def mean_model(self, theta, obs, sps = None, **kwargs):
+    def mean_model(self, theta, obs, sps=None, **kwargs):
+        """Rename of self.sed() for compatibility.  If any calbriation stuff
+        is applied, it should go here.
         """
-        Given a theta vector, generate photometry, and any
+        return self.sed(theta, obs, sps=sps, **kwargs)
+    
+    def sed(self, theta, obs, sps=None, **kwargs):
+        """
+        Given a theta vector, generate spectroscopy, photometry and any
         extras (e.g. stellar mass).
 
         :param theta:
@@ -181,7 +187,7 @@ class CSPModel(ProspectrParams):
                 mass_norm * 10**(-0.4*(mags)) / dfactor,
                 None)
 
-    def calibration(self, **extras):
+    def phot_calibration(self, **extras):
         return 1.0
     
     def sky(self):
@@ -190,7 +196,7 @@ class CSPModel(ProspectrParams):
     
 def gauss(x, mu, A, sigma):
     """
-    Lay down mutiple gaussians on the x-axis.
+    Lay down multiple gaussians on the x-axis.
     """ 
     mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
