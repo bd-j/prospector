@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 from sedpy import attenuation
 from bsfh import priors, sedmodel, elines
-from bsfh.datautils import load_obs_mmt
+from bsfh.loadspec import load_obs_mmt
 tophat = priors.tophat
 
 #############
@@ -10,14 +10,14 @@ tophat = priors.tophat
 #############
  
 run_params = {'verbose':True,
-              'outfile':'results/test',
+              'outfile':'results/cluster_test',
               'ftol':0.5e-5, 'maxfev':10000,
               'nwalkers':64, #'walker_factor':4
-              'nburn':[64, 128, 256], 'niter':256,
+              'nburn':[32, 64, 128], 'niter':128,
               'initial_disp':0.1,
               #'nthreads':1, 'nsamplers':1,
-              'mock':False,
               'debug':False,
+              'do_powell': True,
               'data_loading_function_name': "load_obs_mmt",
               'logify_spectrum':True,
               'normalize_spectrum':True,
@@ -175,10 +175,10 @@ model_params.append({'name': 'poly_coeffs', 'N': polyorder,
     
 model_params.append({'name': 'spec_norm', 'N':1,
                         'isfree': True,
-                        'init':1,
-                        'units': None,
+                        'init':0,
+                        'units': 'logarithmic',
                         'prior_function': tophat,
-                        'prior_args': {'mini':0.1, 'maxi':10}})
+                        'prior_args': {'mini':-0.3, 'maxi':0.3}})
 
 model_params.append({'name': 'gp_jitter', 'N':1,
                         'isfree': True,

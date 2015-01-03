@@ -13,7 +13,8 @@ def run_command(cmd):
     return os.WEXITSTATUS(w), out
 
 
-def write_pickles(model, sampler, powell_results,
+def write_pickles(run_params, model, obs,
+                  sampler, powell_results,
                   tsample=None, toptimize=None,
                   sampling_initial_center=None):
 
@@ -31,10 +32,10 @@ def write_pickles(model, sampler, powell_results,
 
     results, model_store = {}, {}
     
-    results['run_params'] = model.run_params
-    results['obs'] = model.obs
+    results['run_params'] = run_params
+    results['obs'] = obs
     results['model_params'] = [parameters.functions_to_names(p) for p in model.config_list]
-    results['model_params_asdict'] =  parameters.plist_to_pdict([parameters.functions_to_names(p)
+    results['model_params_dict'] =  parameters.plist_to_pdict([parameters.functions_to_names(p)
                                                                for p in model.config_list])
     results['initial_theta'] = model.initial_theta
     results['sampling_initial_center'] = sampling_initial_center
@@ -42,6 +43,7 @@ def write_pickles(model, sampler, powell_results,
     results['chain'] = sampler.chain
     results['lnprobability'] = sampler.lnprobability
     results['acceptance'] = sampler.acceptance_fraction
+    results['rstate'] = sampler.random_state
     results['sampling_duration'] = tsample
     results['optimizer_duration'] = toptimize
     results['bsfh_version'] = bgh
@@ -55,10 +57,10 @@ def write_pickles(model, sampler, powell_results,
     #results['cetus_version'] = cgh
     
     tt = int(time.time())
-    out = open('{1}_{0}_mcmc'.format(tt, model.run_params['outfile']), 'wb')
+    out = open('{1}_{0}_mcmc'.format(tt, run_params['outfile']), 'wb')
     pickle.dump(results, out)
     out.close()
 
-    out = open('{1}_{0}_model'.format(tt, model.run_params['outfile']), 'wb')
+    out = open('{1}_{0}_model'.format(tt, run_params['outfile']), 'wb')
     pickle.dump(model_store, out)
     out.close()

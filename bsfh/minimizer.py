@@ -11,20 +11,20 @@ class Pminimize(object):
     function.  This class enables minimizations from different initial
     positions to be parallelized.
 
-    If a pool object is passed, that objects map function is used to
+    If a pool object is passed, that object's map function is used to
     parallelize the minimizations.  Otherwise, if nthreads > 1, we
-    generate a pool using multiprocessing and use that map function
+    generate a pool using multiprocessing and use that map function.
 
-    :param chi2:
+    :param chi2fn:
         Function to be minimized.
         
     :param opts:
         Dictionary of options for the minimization, as described in
         scipy's minimize docs.
 
-    :param model:
-        A 'model' object, but really just an object that is passed as
-        an argument to your chi2 function
+    :param args:
+        A sequence of objects that are passed as
+        an arguments to your chi2 function
         
     :param method:  (Default: 'powell')
         Minimization method.  This should probably be 'powell', since
@@ -40,14 +40,14 @@ class Pminimize(object):
         with nthreads threads.  Otherwise, this is ignored.
          
     """
-    def __init__(self, chi2, opts, model, method='powell', pool=None, nthreads=1):
+    def __init__(self, chi2fn, args, opts, method='powell', pool=None, nthreads=1):
         self.method = method
         self.opts = opts
-        self.model = model
+        self.args = args
         self._size = None
 
         # Wrap scipy's minimize to make it pickleable
-        self.minimize = _function_wrapper(minimize, [chi2, model, method, opts])
+        self.minimize = _minimize_wrapper(chi2fn, args, method, opts)
         
         self.pool = pool
         if nthreads > 1 and self.pool is None:
@@ -86,19 +86,22 @@ class Pminimize(object):
             return self.pool.size
     
 
-class _function_wrapper(object):
+class _minimize_wrapper(object):
     """
     This is a hack to make the minimization function pickleable (for
     MPI) even though it requires many arguments.  Ripped off from emcee.
     """
-    def __init__(self, f, args):
-        self.f = f
-        self.args = args
-
+    def __init__(self, function, args, method, options):
+        self.f = minimize
+        self.func = function
+        self.args = tuple(args)
+        self.meth = method
+        self.opts = options
+        
     def __call__(self, x):
         try:
-            return self.f(self.args[0], x, args = (self.args[1],),
-                          method = self.args[2], options = self.args[3])
+            return self.f(self.func, x, args = self.args,
+                          method = self.meth, options = self.opts)
         except:
             import traceback
             print("minimizer: Exception while trying to minimize the function:")

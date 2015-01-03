@@ -10,8 +10,6 @@ param_template = {'name':'', 'N':1, 'isfree': False,
 
 class ProspectrParams(object):
     """
-    :param rp:
-        A dictionary of ``run parameters``.
     :param mp:
         A list of ``model parameters``.
     
@@ -33,12 +31,12 @@ class ProspectrParams(object):
     #run_params = {}
     #obs = {}
     
-    def __init__(self, run_params, config_list):
-        self.run_params = run_params
+    def __init__(self, config_list, verbose=True):
         self.config_list = config_list
         self.configure()
+        self.verbose = verbose
 
-    def configure(self, reset = False, **kwargs):
+    def configure(self, reset=False, **kwargs):
         """
         Use the parameter config_list to generate a theta_index
         mapping, and propogate the initial parameters into the params
@@ -47,8 +45,7 @@ class ProspectrParams(object):
 
         :param kwargs:
             Keyword parameters can be used to override or add to the
-            initial parameter values specified in the paramater
-            configure_list
+            initial parameter values specified in  config_list
         """
         if (not hasattr(self, 'params')) or reset:
             self.params = {}
@@ -92,6 +89,9 @@ class ProspectrParams(object):
             self.params[k] = np.atleast_1d(theta[start:end])
 
     def prior_product(self, theta):
+        return self.simple_prior_product(theta)
+            
+    def simple_prior_product(self, theta):
         """
         Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the
@@ -111,49 +111,6 @@ class ProspectrParams(object):
             lnp_prior += np.sum(self._config_dict[k]['prior_function']
                                 (theta[start:end], **self._config_dict[k]['prior_args']))
         return lnp_prior
-
-    def _add_obs(self, obs, **kwargs):
-        self.obs = {}
-        self.obs = obs
-
-    def add_obs(self, obs):
-        """
-        Add the obs dictionary as an attribute of the parameters
-        object, with modifications for normalizing the spectrum and
-        taking the log of it (for the gaussian process).  Calls
-        configure at the end
-        """
-        self._add_obs(obs, **self.run_params)
-        self.ndof = -self.ndim
-        spec = obs['spectrum'] is not None
-        phot = obs['maggies'] is not None
-        logify = self.run_params.get('logify_spectrum', True)
-        norm = self.run_params.get('normalize_spectrum', True)
-        
-        if spec:
-            self.ndof += obs['mask'].sum()
-            if (norm):
-                sp_norm, pivot_wave = norm_spectrum(self.obs, **self.run_params)
-                self.params['normalization_guess'] = sp_norm
-                self.params['pivot_wave'] = pivot_wave
-                self.rescale_parameter('spec_norm', lambda x: x/self.params['spec_norm'])
-                
-            if (logify):
-                s, u, m = logify_data(self.obs['spectrum'], self.obs['unc'],
-                                      self.obs['mask'])
-                self.obs['spectrum'] = s
-                self.obs['unc'] = u
-                self.obs['mask'] = m
-                self.rescale_parameter('spec_norm', lambda x: np.log(x)) 
-        else:
-            self.obs['unc'] = None
-
-        if phot:
-            self.ndof += obs['phot_mask'].sum()        
-        else:
-            self.obs['maggies_unc'] = None
-            
-        self.configure()
             
     def rescale_parameter(self, par, func):
         ind = [p['name'] for p in self.config_list].index(par)
@@ -193,8 +150,8 @@ class ProspectrParams(object):
         return [k['name'] for k in pdict_to_plist(self.config_list)
                 if (k['isfree'] is False)]
 
-    def theta_labels(self, name_map = {'amplitudes':'A',
-                                       'emission_luminosity':'eline'}):
+    def theta_labels(self, name_map={'amplitudes':'A',
+                                     'emission_luminosity':'eline'}):
         """
         Using the theta_index parameter map, return a list of
         the model parameter names that has the same order as the
@@ -223,10 +180,6 @@ class ProspectrParams(object):
                     label.append(name+'{0}'.format(i+1))
                     index.append(v[0]+i)
         return [l for (i,l) in sorted(zip(index,label))]
-
-    @property
-    def verbose(self):
-        return self.run_params.get('verbose', False)
     
     def info(self, par):
         pass
