@@ -12,10 +12,47 @@ class SedModel(ProspectrParams):
     sps_basis.StellarPopBasis as the sps object.
     """
 
-    def mean_model(self, theta, obs, sps = None, **kwargs):
+    def mean_model(self, theta, obs, sps = None, **extras):
         """
         Given a theta vector, generate a spectrum, photometry, and any
-        extras (e.g. stellar mass).
+        extras (e.g. stellar mass), including any calibration effects.
+
+        :param theta:
+            ndarray of parameter values.
+
+        :param obs:
+            An observation dictionary, containing the output
+            wavelength array, the photometric filter lists, and the
+            key 'logify_spectrum' which is True if the comparison to
+            the model is to be made in the log.
+            
+        :param sps:
+            A StellarPopBasis object to be used
+            in the model generation.
+
+        :returns spec:
+            The model spectrum for these parameters, at the wavelengths
+            specified by obs['wavelength'], and optionally in the log.
+            
+        :returns phot:
+            The model photometry for these parameters, for the filters
+            specified in obs['filters'].
+            
+        :returns extras:
+            Any extra aspects of the model that are returned.
+        """
+        s, p, x = self.sed(theta, obs, sps=sps, **extras)
+        if obs.get('logify_spectrum', True):
+            s = np.log(s) + self.spec_calibration(obs=obs, **extras)
+        else:
+            s *= self.spec_calibration(obs=obs, **extras)
+        return s, p, x
+    
+    def sed(self, theta, obs, sps = None, **kwargs):
+        """
+        Given a theta vector, generate a spectrum, photometry, and any
+        extras (e.g. stellar mass), ***not** including any instrument
+        calibration effects.
 
         :param theta:
             ndarray of parameter values.
@@ -26,7 +63,7 @@ class SedModel(ProspectrParams):
 
         :returns spec:
             The model spectrum for these parameters, at the wavelengths
-            specified by obs['wavelength'].
+            specified by obs['wavelength'], in linear units.
             
         :returns phot:
             The model photometry for these parameters, for the filters
@@ -53,7 +90,7 @@ class SedModel(ProspectrParams):
         """Model for the sky emission/absorption"""
         return 0.
         
-    def calibration(self, theta=None, obs=None, **kwargs):
+    def spec_calibration(self, theta=None, obs=None, **kwargs):
         """
         Implements a polynomial calibration model.  This only happens
         if `pivot_wave` is a defined model parameter, since the
@@ -79,6 +116,10 @@ class SedModel(ProspectrParams):
         else:
             return 1.0
 
+    def spec_gp_params(self, **extras):
+        return  (self.params['gp_jitter'], self.params['gp_amplitude'],
+                 self.params['gp_length'])
+    
 class CSPModel(ProspectrParams):
     """
     For parameterized SFHs where fsps.StellarPopulation is used as the
@@ -140,7 +181,7 @@ class CSPModel(ProspectrParams):
                 mass_norm * 10**(-0.4*(mags)) / dfactor,
                 None)
 
-    def calibration(self, **kwargs):
+    def calibration(self, **extras):
         return 1.0
     
     def sky(self):

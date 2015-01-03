@@ -42,30 +42,26 @@ def read_pickles(sample_file, model_file=None,
         
     return sample_results, powell_results, model
 
-def model_comp(theta, model, sps, photflag=0, gp=None, inlog=True):
+def model_comp(theta, model, sps, photflag=0, gp=None):
     """
     Generate and return various components of the total model for a
     given set of parameters
     """
     obs, _, _ = obsdict(model.obs, photflag=photflag)
     mask = obs['mask']
-    mu = model.mean_model(theta, sps=sps)[photflag][mask]
+    mu = model.mean_model(theta, obs, sps=sps)[photflag][mask]
+    sed = model.sed(theta, sps=sps)[photflag][mask]
     spec = obs['spectrum'][mask]
     wave = obs['wavelength'][mask]
     
     if photflag == 0:
-        cal = model.calibration()[mask]
+        cal = model.spec_calibration(theta, obs)[mask]
         try:
             #model.gp.sigma = obs['unc'][mask]/mu
-            s = model.params['gp_jitter']
-            a = model.params['gp_amplitude']
-            l = model.params['gp_length']
-            gp.factor(s, a, l, check_finite = False, force=True)
-            if inlog:
-                mu = np.log(mu)
-                delta = gp.predict(spec - mu - cal)
-            else:
-                delta = gp.predict(spec - mu*cal)
+            s, a, l = model.spec_gp_params()
+            gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
+            gp.compute(obs['wavelength'][mask], obs['unc'][mask])
+            delta = gp.predict(spec - mu)
         except:
             delta = 0
     else:
@@ -73,7 +69,7 @@ def model_comp(theta, model, sps, photflag=0, gp=None, inlog=True):
         cal = np.ones(len(obs['wavelength']))
         delta = np.zeros(len(obs['wavelength']))
         
-    return mu, cal, delta, mask, wave
+    return sed, cal, delta, mask, wave
 
 def param_evol(sample_results, outname=None, showpars=None, start=0):
     """

@@ -12,13 +12,15 @@ from bsfh.likelihood import LikelihoodFunction
 #########
 # Read command line arguments
 #########
+sargv = sys.argv
 argdict={'param_file':None, 'sptype':'sps_basis',
          'custom_filter_keys':None,
          'compute_vega_mags':False,
          'zcontinuous':1,
-         'use_george': False}
-clargs = model_setup.parse_args(sys.argv, argdict=argdict)
-run_params = model_setup.get_run_params(argv = sys.argv, **clargs)
+         'gptype': ''}
+clargs = model_setup.parse_args(sargv, argdict=argdict)
+print(sargv)
+run_params = model_setup.get_run_params(argv = sargv, **clargs)
 print(run_params)
 #########
 # Globals
@@ -39,7 +41,7 @@ global_obs = model_setup.load_obs(**run_params)
 likefn = LikelihoodFunction(obs=global_obs, model=global_model)
 
 # the simple but obscuring way.  Difficult for users to change
-def lnprobfn_obscure(theta, model = None, obs = None):
+def obscured_lnprobfn(theta, model = None, obs = None):
     if model is None:
         model = global_model
     if obs is None:
@@ -57,10 +59,10 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     :param theta:
         Input parameter vector, ndarray of shape (ndim,)
 
-    :param mod:
+    :param model:
         bsfh.sedmodel model object, with attributes including
         ``params``, a dictionary of model parameters.  It must also have
-        ``prior_product()``, ``mean_model()`` and ``calibration()`` methods
+        ``prior_product()``, and ``mean_model()`` methods
         defined.
 
     :param obs:
@@ -85,16 +87,18 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     if np.isfinite(lnp_prior):
         # Generate mean model and GP kernel(s)
         t1 = time.time()        
-        spec, phot, x = model.mean_model(theta, obs, sps = sps)
-        log_mu = np.log(spec) + model.calibration(theta, obs=obs)
-        s, a, l = (model.params['gp_jitter'], model.params['gp_amplitude'],
-                   model.params['gp_length'])
-        gp_spec.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
+        mu, phot, x = model.mean_model(theta, obs, sps = sps)
+        try:
+            s, a, l = model.spec_gp_params()
+            gp_spec.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
+        except(AttributeError):
+            #There was no spec_gp_params method
+            pass
         d1 = time.time() - t1
 
         #calculate likelihoods
         t2 = time.time()
-        lnp_spec = likefn.lnlike_spec_log(np.exp(log_mu), obs=obs, gp=gp_spec)
+        lnp_spec = likefn.lnlike_spec(mu, obs=obs, gp=gp_spec)
         lnp_phot = likefn.lnlike_phot(phot, obs=obs, gp=None)
         d2 = time.time() - t2
         if verbose:
@@ -106,7 +110,8 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     
 def chisqfn(theta, model, obs):
     """Negative of lnprobfn for minimization, and also handles passing
-    in keyword arguments.
+    in keyword arguments which can only be postional arguments when
+    using scipy minimize.
     """
     return -lnprobfn(theta, model=model, obs=obs)
 
@@ -175,23 +180,25 @@ if __name__ == "__main__":
     #################
     # Initial guesses using powell minimization
     #################
-    if rp['verbose']:
-        print('minimizing chi-square...')
-    ts = time.time()
-    powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
-    powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta,
-                                            args=chi2args, model=model,
-                                            method ='powell', opts=powell_opt,
-                                            pool = pool, nthreads = rp.get('nthreads',1))
-    
-    best = np.argmin([p.fun for p in powell_guesses])
-    best_guess = powell_guesses[best]
-    initial_center = best_guess.x
-    pdur = time.time() - ts
-    
-    if rp['verbose']:
-        print('done Powell in {0}s'.format(pdur))
-
+    if bool(rp.get('do_powell', True)):
+        if rp['verbose']:
+            print('minimizing chi-square...')
+        ts = time.time()
+        powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
+        powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta,
+                                                args=chi2args, model=model,
+                                                method ='powell', opts=powell_opt,
+                                                pool = pool, nthreads = rp.get('nthreads',1))
+        best = np.argmin([p.fun for p in powell_guesses])
+        initial_center = powell_guesses[best].x
+        pdur = time.time() - ts
+        if rp['verbose']:
+            print('done Powell in {0}s'.format(pdur))
+    else:
+        powell_guesses = None
+        pdur = 0.0
+        initial_center = initial_theta.copy()
+        
     ###################
     # Sample
     ####################

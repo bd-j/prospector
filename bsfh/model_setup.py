@@ -4,14 +4,13 @@ import numpy as np
 from bsfh import parameters, sedmodel
 from bsfh.datautils import fix_obs
 
-"""This module has methods to take a .json or .py file containing run paramters,
-model parameters and other info and return a parset, a model, and an
-initial_params vector
+"""This module has methods to take a .json or .py file containing run
+parameters, model parameters and other info and return a run_params
+dictionary, an obs dictionary, and a model.  It also has methods to
+parse command line options and return an sps object and a gp object.
 """
 
-def parse_args(argv, argdict={'param_file':None, 'sps':'sps_basis',
-                              'custom_filter_keys':None,
-                              'compute_vega_mags':False}):
+def parse_args(argv, argdict={}):
     """ Parse command line arguments, allowing for optional arguments.
     Simple/Fragile.
     """
@@ -29,10 +28,11 @@ def parse_args(argv, argdict={'param_file':None, 'sps':'sps_basis',
             func = type(argdict[abare])
             try:
                 argdict[abare] = func(apo)
+                if func is bool:
+                    argdict[abare] = apo in ['True', 'true', 'T', 't', 'yes']
             except TypeError:
                 argdict[abare] = apo
     return argdict
-
 
 def get_run_params(param_file=None, argv = None, **kwargs):
     """ Get a run_params dictionary from the param_file (if passed)
@@ -53,7 +53,6 @@ def get_run_params(param_file=None, argv = None, **kwargs):
     
     return rp
 
-
 def show_syntax(args, ad):
     """Show command line syntax corresponding to the provided arg
     dictionary `ad`.
@@ -61,19 +60,18 @@ def show_syntax(args, ad):
     print('Usage:\n {0} '.format(args[0]) +
           ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
 
-
-def load_gp(use_george=False, **extras):
-    """Return a GP object, either using BSFH's internal GP objects or
-    George
+def load_gp(gptype='', **extras):
+    """Return a Gaussian Processes object, either using BSFH's
+    internal GP objects or George.
     """
-    if use_george:
+    if gptype is '':
+        from bsfh.gp import GaussianProcess
+        gp = GaussianProcess(kernel=np.array([0.0, 0.0, 0.0]))
+    elif gptype in ['George', 'george']:
         import george
         kernel = (george.kernels.WhiteKernel(0.0) +
                   0.0 * george.kernels.ExpSquaredKernel(0.0))
         gp = george.GP(kernel, solver=george.HODLRSolver)
-    else:
-        from bsfh.gp import GaussianProcess
-        gp = GaussianProcess(kernel=np.array([0.0, 0.0, 0.0]))
     return gp
     
 def load_sps(sptype=None, compute_vega_mags=False,
@@ -91,7 +89,7 @@ def load_sps(sptype=None, compute_vega_mags=False,
         if custom_filter_keys is not None:
             fsps.filters.FILTERS = custom_filter_dict(custom_filter_keys)
     else:
-        print('No SPS type set')
+        print('No SPS type set.  acceptable types are "sps_basis" and "fsps".')
         sys.exit(1)
 
     return sps

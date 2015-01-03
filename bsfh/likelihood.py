@@ -7,19 +7,61 @@ class LikelihoodFunction(object):
         self.obs = obs
         self.model = model
         self.lnspec = lnspec
-
-    def lnlike_spec(self, spec_mu, obs=None, gp=None):
-        """ This is kind of unwieldy
-        """
-        if self.lnspec:
-            return self.lnlike_spec_log(spec_mu, obs=obs, gp=gp)
-        else:
-            return self.lnlike_spec_linear(spec_mu, obs=obs, gp=gp)
         
-    def lnlike_spec_log(self, spec_mu, obs=None, gp=None):
+    def lnlike_spec(self, spec_mu, obs=None, gp=None):
         """Calculate the likelihood of the spectroscopic data given
         the spectroscopic model.  Allows for the use of a gaussian
-        process covariance matrix for *multiplicative* residuals.
+        process covariance matrix for multiplicative residuals.
+
+        :param spec_mu:
+            The mean model spectrum, in linear or logarithmic units, including
+            e.g. calibration and sky emission.
+            
+        :param obs: (optional)
+            A dictionary of the observational data, including the keys
+              *``spectrum`` a numpy array of the observed spectrum, in
+               linear or logarithmic units (same as ``spec_mu``).
+              *``unc`` the uncertainty of same length as ``spectrum``
+              *``mask`` optional boolean array of same length as
+               ``spectrum``
+              *``wavelength`` if using a GP, the metric that is used
+               in the kernel generation, of same length as
+               ``spectrum`` and typically giving the wavelength array.
+
+            If not supplied then the obs dictionary given at
+            initialization will be used.
+
+        :param gp: (optional)
+            A Gaussian process object with the methods `compute` and
+            `lnlikelihood`.  If gp is supplied, the `wavelength` entry
+            in the obs dictionary must exist
+            
+        :returns lnlikelhood:
+            The natural logarithm of the likelihood of the data given
+            the mean model spectrum.
+        """
+        
+        if obs is None:
+            obs = self.obs
+        if obs['spectrum'] is None:
+            return 0.0
+    
+        mask = obs.get('mask', np.ones( len(obs['spectrum']), dtype= bool))
+        delta = (obs['spectrum'] - spec_mu)[mask]
+        if gp is not None:
+            gp.compute(obs['wavelength'][mask], obs['unc'][mask])
+            return gp.lnlikelihood(delta)
+        
+        var = obs['unc'][mask]**2
+        lnp = -0.5*( (delta**2/var).sum() +
+                     np.log(var).sum() )
+        return lnp
+        
+
+    def lnlike_spec_linear(self, spec_mu, obs=None, gp=None):
+        """Calculate the likelihood of the spectroscopic data given
+        the spectroscopic model.  Allows for the use of a gaussian
+        process covariance matrix for *additive* residuals.
 
         :param spec_mu:
             The mean model spectrum, in linear units, including
@@ -27,18 +69,15 @@ class LikelihoodFunction(object):
             
         :param obs: (optional)
             A dictionary of the observational data, including the keys
-              *``spectrum`` a numpy array of the observed spectrum,
-               ***in log flux units***
-              *``unc`` the uncertainty of same length as
-               ``spectrum``
-              *``mask`` optional boolean array of same length as
-               ``spectrum``
-              *``wavelength`` if using a GP, the metric that is
-               used in the kernel generation, of same length as
-               ``spectrum`` and typically giving the wavelengths
-
-            If not supplied then the obs dictionary given at
-            initialization will be used.
+            `spectrum`, `unc` and optionally `wavelength` and `mask`.
+            `spectrum` should be a numpy array of the observed
+            spectrum, in *linear* units, `unc` is the
+            uncertainty of same length as `spectrum`, and `mask` is
+            boolean array of same length as `spectrum`. If using a GP,
+            `wavelength` is the metric that is used in the kernel
+            generation, of same length as `spectrum` and typically
+            giving the wavelength array.  If not supplied then the obs
+            dictionary given at initialization will be used.
 
         :param gp: (optional)
             A Gaussian process object with the methods `compute` and
@@ -54,19 +93,19 @@ class LikelihoodFunction(object):
             obs = self.obs
         if obs['spectrum'] is None:
             return 0.0
-    
+            
         mask = obs.get('mask', np.ones( len(obs['spectrum']), dtype= bool))
-        log_mu = np.log(spec_mu[mask])
-        delta = (obs['spectrum'][mask] - log_mu)
+        delta = (obs['spectrum'] - spec_mu)[mask]
+        # Do it with the GP!
         if gp is not None:
             gp.compute(obs['wavelength'][mask], obs['unc'][mask])
             return gp.lnlikelihood(delta)
-        
-        var = obs['unc'][mask]**2
-        lnp = -0.5*( (delta**2/var).sum() +
-                     np.log(var).sum() )
+        # Do it boring.
+        var = obs['unc']**2
+        lnp = -0.5*( (delta**2/var)[mask].sum() +
+                     np.log(var[mask]).sum() )
         return lnp
-        
+
     def lnlike_phot(self, phot_mu, obs=None, gp=None):
         """Calculate the likelihood of the photometric data given the
         spectroscopic model.  Allows for the use of a gaussian process
@@ -120,55 +159,7 @@ class LikelihoodFunction(object):
         lnp = -0.5*( (delta**2/var).sum() +
                      np.log(var).sum() )
         return lnp
-
-    def lnlike_spec_linear(self, spec_mu, obs=None, gp=None):
-        """Calculate the likelihood of the spectroscopic data given
-        the spectroscopic model.  Allows for the use of a gaussian
-        process covariance matrix for *additive* residuals.
-
-        :param spec_mu:
-            The mean model spectrum, in linear units, including
-            e.g. calibration and sky emission.
-            
-        :param obs: (optional)
-            A dictionary of the observational data, including the keys
-            `spectrum`, `unc` and optionally `wavelength` and `mask`.
-            `spectrum` should be a numpy array of the observed
-            spectrum, in *linear* units, `unc` is the
-            uncertainty of same length as `spectrum`, and `mask` is
-            boolean array of same length as `spectrum`. If using a GP,
-            `wavelength` is the metric that is used in the kernel
-            generation, of same length as `spectrum` and typically
-            giving the wavelength array.  If not supplied then the obs
-            dictionary given at initialization will be used.
-
-        :param gp: (optional)
-            A Gaussian process object with the methods `compute` and
-            `lnlikelihood`.  If supplied, the `wavelength` entry in
-            the obs dictionary must exist
-            
-        :returns lnlikelhood:
-            The natural logarithm of the likelihood of the data given
-            the mean model spectrum.
-        """
-        
-        if obs is None:
-            obs = self.obs
-        if obs['spectrum'] is None:
-            return 0.0
-            
-        mask = obs.get('mask', np.ones( len(obs['spectrum']), dtype= bool))
-        delta = (obs['spectrum'] - spec_mu)[mask]
-        # Do it with the GP!
-        if gp is not None:
-            gp.compute(obs['wavelength'][mask], obs['unc'][mask])
-            return gp.lnlikelihood(delta)
-        # Do it boring.
-        var = obs['unc']**2
-        lnp = -0.5*( (delta**2/var)[mask].sum() +
-                     np.log(var[mask]).sum() )
-        return lnp
-
+    
     def ln_prior_prob(self, theta, model=None):
         if model is None:
             model = self.model

@@ -24,6 +24,7 @@ def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
             obs['spectrum'] = s
             obs['unc'] = u
             obs['mask'] = m
+            obs['logify_spectrum'] = True
     else:
         obs['unc'] = None
 
@@ -114,7 +115,8 @@ def rectify_obs(obs):
                             np.isfinite(obs['maggies']) *
                             np.isfinite(obs['maggies_unc']) *
                             (obs['maggies_unc'] > 0))
-
+        
+    obs['logify_spectrum'] = False
     if obs['spectrum'] is not None:
         assert (len(obs['wavelength']) == len(obs['spectrum']))
         assert ('unc' in k)
