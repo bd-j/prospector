@@ -18,9 +18,9 @@ class GaussianProcess(object):
             self.kernel = np.array([0.0, 0.0, 0.0])
         else:
             self.kernel = kernel
-        self.asq = None
-        self.lsq = None
-        self.s = None
+        #_params stores values of kernel parameter used to construct
+        #and compute the factorized covariance matrix
+        self._params = None
         self.wave = wave
         self.sigma = sigma
         
@@ -29,10 +29,33 @@ class GaussianProcess(object):
         """
         s, asquared, lsquared = np.exp(kernel).tolist()
         return s, asquared, lsquared
+
+    @property
+    def kernel_same(self):
+        s, asq, lsq = self.kernel_to_params(self.kernel)
+        kernel_same = (s == self.s) & (asq == self.asq) & (lsq == self.lsq)
+        return kernel_same
+
+    def construct_covariance(self, inwave=None, cross=False):
+
+        s, asq, lsq = self.params
         
-    def compute(self, wave=None, sigma=None, check_finite=False,force=False):
+        if inwave is None:
+            X_star = X = self.wave
+            Sigma = asq * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*lsq))
+            Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + s**2)
+            return Sigma
+        elif cross:
+            Sigma = asq * np.exp(-(inwave[:,None] - self.wave[None,:])**2/(2*lsq))
+            return Sigma
+        else:
+            Sigma = asq * np.exp(-(inwave[:,None] - inwave[None,:])**2/(2*lsq))
+            Sigma[np.diag_indices_from(Sigma)] += s**2
+            return Sigma
+
+    def compute(self, wave=None, sigma=None, check_finite=False, force=False):
         """
-        :param wave:
+        :param wave: optional
             independent variable
             
         :param sigma:
@@ -43,23 +66,20 @@ class GaussianProcess(object):
             wave = self.wave
         if sigma is None:
             sigma = self.sigma
-        s, asq, lsq = self.kernel_to_params(self.kernel)
-        kernel_same = (s == self.s) & (asq == self.asq) & (lsq == self.lsq)
         data_same = (np.all(wave == self.wave) &
                      np.all(sigma == self.sigma))
+        params = self.kernel_to_params(self.kernel)
+        kernel_same = np.array_equal(params, self._params)
 
         if kernel_same and data_same and (not force):
             return
         
         else:
-            self.s = s
-            self.asq = asq
-            self.lsq = lsq
+            self._params = params
             self.wave = wave
             self.sigma = sigma
             
-            Sigma = self.asq * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*self.lsq))
-            Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + self.s**2)
+            Sigma = self.construct_kernel()
             self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True,
                                                 check_finite=check_finite)
             self.log_det = 2 * np.sum( np.log(np.diag(self.factorized_Sigma[0])))
@@ -67,15 +87,13 @@ class GaussianProcess(object):
                             
     def lnlikelihood(self, residual, check_finite=False):
         """
-        Compute the ln of the likelihood.
+        Compute the ln of the likelihood, using the current factorized sigma
         
         :param residual: ndarray, shape (nwave,)
             Vector of residuals (y_data - mean_model).
         """
-        s, asq, lsq = self.kernel_to_params(self.kernel)
-        kernel_same = (s == self.s) & (asq == self.asq) & (lsq == self.lsq)
-        if not kernel_same:
-            self.compute()
+        assert ( len(residual) == len(self.wave))
+        self.compute()
         first_term = np.dot(residual,
                             cho_solve(self.factorized_Sigma,
                                       residual, check_finite = check_finite))
@@ -95,32 +113,12 @@ class GaussianProcess(object):
             Defaults to the input wavelengths.
         """
         
-        if wave is None:
-            wave = self.wave
-        Sigma = self.a**2 * np.exp(-(wave[:,None] -self.wave[None,:])**2/(2*self.l**2))
-        Sigma[np.diag_indices_from(Sigma)] += ( self.s**2)        
-        return np.dot(Sigma, cho_solve(self.factorized_Sigma, residual))
-
-    def predict_var(self, wave=None):
-        """
-       Give the GP prediction variance at each wavelength.
-
-        :param wave: default None
-            Wavelengths at which variance estimates are desired.
-            Defaults to the input wavelengths - the variance is zero
-            in this case.
-        """
         
-        if wave is None:
-            inwave = self.wave
-        else:
-            inwave = wave
-        Sigma = self.a**2 * np.exp(-(inwave[:,None] -self.wave[None,:])**2/(2*self.l**2))
-        Sigma[np.diag_indices_from(Sigma)] += ( self.s**2)
-        if wave is None:
-            Sigma_star = Sigma
-        else:
-            Sigma_star = self.a**2 * np.exp(-(inwave[:,None] - inwave[None,:])**2/(2*self.l**2))
-            Sigma_star[np.diag_indices_from(Sigma_star)] += ( self.s**2)
-       
-        return Sigma_star - np.dot(Sigma, cho_solve(self.factorized_Sigma, Sigma))
+        Sigma_cross = self.construct_covariance(wave=wave, cross=True)
+        Sigma_star = self.construct_covariance(wave=wave, cross=False)
+        
+        mu = np.dot(Sigma, cho_solve(self.factorized_Sigma, residual))
+        cov = Sigma_star - np.dot(Sigma_cross, cho_solve(self.factorized_Sigma,
+                                                         -Sigma_cross.T))
+        return mu, cov
+                              
