@@ -41,12 +41,12 @@ def plotting_range(prior_args):
     if 'mini' in prior_args:
         return prior_args['mini'], prior_args['maxi']
     if 'log_mean' in prior_args:
-        mini = np.atleast_1d(prior_args['log_mean']) - 3 * np.array(prior_args['sigma'])
-        maxi = np.atleast_1d(prior_args['log_mean']) + 3 * np.array(prior_args['sigma'])
+        mini = np.atleast_1d(prior_args['log_mean']) - 10 * np.array(prior_args['sigma'])
+        maxi = np.atleast_1d(prior_args['log_mean']) + 10 * np.array(prior_args['sigma'])
         return np.exp(mini).tolist(), np.exp(maxi).tolist()
     if 'mean' in prior_args:
-        mini = np.array(prior_args['mean']) - 3 * np.array(prior_args['sigma'])
-        maxi = np.array(prior_args['mean']) + 3 * np.array(prior_args['sigma'])
+        mini = np.array(prior_args['mean']) - 10 * np.array(prior_args['sigma'])
+        maxi = np.array(prior_args['mean']) + 10 * np.array(prior_args['sigma'])
         return mini.tolist(), maxi.tolist()
 
 
