@@ -25,7 +25,7 @@ def run_emcee_sampler(lnprobf, initial_center, model,
         nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
     if verbose:
         print('number of walkers={}'.format(nwalkers))    
-    initial = sampler_ball(initial_center, initial_disp, nwalkers, model)
+    initial = sampler_ball(initial_center, model.theta_disps(initial_disp), nwalkers, model)
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      args=postargs, kwargs=postkwargs,
