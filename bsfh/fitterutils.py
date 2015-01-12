@@ -114,6 +114,28 @@ def pminimize(chi2fn, initial, args=None,
 
     return [powell_guesses, pinitial]
 
+def reinitialize(best_guess,model, edge_trunc=0.1):
+    """Check if the Powell minimization found a minimum close to
+    the edge of the prior for any parameter. If so, reinitialize
+    to the center of the prior.
+
+    Avoid this step by inserting 'reinit:False' in model list of 
+    dictionaries.
+    """
+    bounds = model.theta_bounds()
+    output = np.zeros(len(best_guess))
+    reinit = [x.get('reinit', True) for x in model.config_list if x['name'] in model.theta_labels()]
+
+    for k in range(len(best_guess)):
+        parmrange = bounds[k][1]-bounds[k][0]
+        if (((best_guess[k]-bounds[k][0])/parmrange < edge_trunc) or \
+           ((bounds[k][1]-best_guess[k])/parmrange < edge_trunc)) and \
+           (reinit[k] == True):
+            output[k] = bounds[k][0]+parmrange/2.
+        else:
+            output[k] = best_guess[k]
+
+    return output
 
 def minimizer_ball(center, nminimizers, model):
     """Setup a 'grid' of parameter values uniformly distributed
