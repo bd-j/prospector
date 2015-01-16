@@ -191,6 +191,12 @@ class ProspectrParams(object):
         pass
 
     def theta_bounds(self):
+        """Get the bounds on each parameter from the prior.
+
+        :returns bounds:
+            A list of length self.ndim of tuples (lo, hi) giving the parameter
+            bounds.
+        """
         bounds = self.ndim * [(0.,0.)]
         for p, v in self.theta_index.iteritems():
             sz = v[1] - v[0]
@@ -205,8 +211,21 @@ class ProspectrParams(object):
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a,b in bounds]        
         return bounds
 
-    def theta_disps(self, initial_disp):
-        return np.array([x.get('init_disp',initial_disp) for x in self.config_list if x['name'] in self.theta_labels()])
+    def theta_disps(self, initial_disp=0.1):
+        """Get a vector of (fractional) dispersions for each parameter to use in
+        generating sampler balls for emcee's Ensemble sampler.
+
+        :param initial_disp: (default: 0.1)
+            The default dispersion to use in case the `init_disp` key
+            is not provided in the parameter configuration.  This is
+            in units of the parameter, so e.g. 0.1 will result in a
+            smpler ball with a dispersion that is 10% of the central
+            parameter value.
+        """
+        disp = np.zeros(self.ndim) + initial_disp
+        for par, inds in self.theta_index.iteritems():
+            disp[inds[0]:inds[1]] = self._config_dict[par].get('init_disp', initial_disp)
+        return disp
 
     
 def plist_to_pdict(inplist):
