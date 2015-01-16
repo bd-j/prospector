@@ -116,13 +116,15 @@ def pminimize(chi2fn, initial, args=None,
 
     return [powell_guesses, pinitial]
 
-def reinitialize(best_guess, model, edge_trunc=0.1):
+def reinitialize(best_guess, model, edge_trunc=0.1,
+                 reinit_params = [], **extras):
     """Check if the Powell minimization found a minimum close to
     the edge of the prior for any parameter. If so, reinitialize
     to the center of the prior.
 
-    This is only done for parameters where 'reinit:True' in the model
-    configuration dictionary
+    This is only done for parameters where ``'reinit':True`` in the model
+    configuration dictionary, or for parameters in the supplied
+    ``reinit_params`` list.
 
     :param buest_guess:
         The result of some sort of optimization step, iterable of
@@ -135,16 +137,22 @@ def reinitialize(best_guess, model, edge_trunc=0.1):
         The fractional distance from the edge of the priors that
         triggers reinitialization.
 
+    :param reinit_params: optional
+        A list of model parameter names to reinitialize, overrides the
+        value or presence of the ``reinit`` key in the model
+        configuration dictionary.
+        
     :returns output:
         The best_guess with parameters near the edge reset to be at
         the center of the prior.  ndarray of shape (ndim,)
     """
-
+    edge = edge_trunc
     bounds = model.theta_bounds()
     output = np.array(best_guess)
     reinit = np.zeros(model.ndim, dtype= bool)
     for p, inds in model.theta_index.iteritems():
-        reinit[inds[0]:inds[1]] = model._config_dict[p].get('reinit', False)
+        reinit[inds[0]:inds[1]] = (model._config_dict[p].get('reinit', False)
+                                   or (p in reinit_params))
         
     for k, (guess, bound) in enumerate(zip(best_guess, bounds)):
         #normalize the guess and the bounds

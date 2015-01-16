@@ -223,7 +223,7 @@ class ProspectrParams(object):
             parameter value.
         """
         disp = np.zeros(self.ndim) + initial_disp
-        for par, inds in self.theta_index.iteritems:
+        for par, inds in self.theta_index.iteritems():
             disp[inds[0]:inds[1]] = self._config_dict[par].get('init_disp', initial_disp)
         return disp
 
