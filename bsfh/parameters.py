@@ -205,6 +205,9 @@ class ProspectrParams(object):
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a,b in bounds]        
         return bounds
 
+    def theta_disps(self, initial_disp):
+        return np.array([x.get('init_disp',initial_disp) for x in self.config_list if x['name'] in self.theta_labels()])
+
     
 def plist_to_pdict(inplist):
     """Convert from a parameter list to a parameter dictionary, where

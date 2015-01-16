@@ -174,7 +174,7 @@ if __name__ == "__main__":
     initial_theta = model.initial_theta
     if rp.get('debug', False):
         halt()
-        
+
     #################
     # Initial guesses using powell minimization
     #################
@@ -188,7 +188,9 @@ if __name__ == "__main__":
                                                 method ='powell', opts=powell_opt,
                                                 pool = pool, nthreads = rp.get('nthreads',1))
         best = np.argmin([p.fun for p in powell_guesses])
-        initial_center = powell_guesses[best].x
+        initial_center = utils.reinitialize(powell_guesses[best].x, model,
+                                            edge_trunc=rp.get('edge_trunc',0.1))
+
         pdur = time.time() - ts
         if rp['verbose']:
             print('done Powell in {0}s'.format(pdur))
