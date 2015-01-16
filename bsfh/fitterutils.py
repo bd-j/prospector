@@ -25,7 +25,9 @@ def run_emcee_sampler(lnprobf, initial_center, model,
         nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
     if verbose:
         print('number of walkers={}'.format(nwalkers))    
-    initial = sampler_ball(initial_center, model.theta_disps(initial_disp), nwalkers, model)
+    initial = sampler_ball(initial_center,
+                           model.theta_disps(initial_disp=initial_disp),
+                           nwalkers, model)
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      args=postargs, kwargs=postkwargs,
@@ -114,27 +116,42 @@ def pminimize(chi2fn, initial, args=None,
 
     return [powell_guesses, pinitial]
 
-def reinitialize(best_guess,model, edge_trunc=0.1):
+def reinitialize(best_guess, model, edge_trunc=0.1):
     """Check if the Powell minimization found a minimum close to
     the edge of the prior for any parameter. If so, reinitialize
     to the center of the prior.
 
-    Avoid this step by inserting 'reinit:False' in model list of 
-    dictionaries.
+    This is only done for parameters where 'reinit:True' in the model
+    configuration dictionary
+
+    :param buest_guess:
+        The result of some sort of optimization step, iterable of
+        length model.ndim.
+
+    :param model:
+        A bsfh.parameters.ProspectrParams() object.
+
+    :param edge_trunc: (optional, default 0.1)
+        The fractional distance from the edge of the priors that
+        triggers reinitialization.
+
+    :returns output:
+        The best_guess with parameters near the edge reset to be at
+        the center of the prior.  ndarray of shape (ndim,)
     """
+
     bounds = model.theta_bounds()
-    output = np.zeros(len(best_guess))
-    reinit = [x.get('reinit', True) for x in model.config_list if x['name'] in model.theta_labels()]
-
-    for k in range(len(best_guess)):
-        parmrange = bounds[k][1]-bounds[k][0]
-        if (((best_guess[k]-bounds[k][0])/parmrange < edge_trunc) or \
-           ((bounds[k][1]-best_guess[k])/parmrange < edge_trunc)) and \
-           (reinit[k] == True):
-            output[k] = bounds[k][0]+parmrange/2.
-        else:
-            output[k] = best_guess[k]
-
+    output = np.array(best_guess)
+    reinit = np.zeros(model.ndim, dtype= bool)
+    for p, inds in model.theta_index.iteritems():
+        reinit[inds[0]:inds[1]] = model._config_dict[p].get('reinit', False)
+        
+    for k, (guess, bound) in enumerate(zip(best_guess, bounds)):
+        #normalize the guess and the bounds
+        prange = bound[1] - bound[0]
+        g, b = guess/prange, bound/prange 
+        if ((g - b[0] < edge) or (b[1] - g < edge)) and (reinit[k]):
+            output[k] = b[0] + prange/2
     return output
 
 def minimizer_ball(center, nminimizers, model):
