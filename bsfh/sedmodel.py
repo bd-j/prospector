@@ -160,33 +160,70 @@ class CSPModel(ProspectrParams):
         """
         self.set_parameters(theta)
         # Pass the model parameters through to the sps object
-        for k,v in self.params.iteritems():
-            if k in sps.params.all_params:
-                if k == 'zmet':
-                    vv = np.abs(v - (np.arange( len(sps.zlegend))+1)).argmin()+1
-                else:
-                    vv = v.copy()
-                sps.params[k] = vv
-        #now get the magnitudes and spectrum
-        w, spec = sps.get_spectrum(tage=sps.params['tage'], peraa=False)
-        mags = sps.get_mags(tage=sps.params['tage'],
-                            #redshift=sps.params['zred'],
-                            bands=obs['filters'])
+        ncomp = len(self.params['mass'])
+        for ic in range(ncomp):
+            s, p, x = self.one_sed(ic, sps=sps)
+            try:
+                spec += s
+                maggies += p
+                extra += [x]
+            except(NameError):
+                spec = s
+                maggies = p
+                extra = [x]
+                
         if obs['wavelength'] is not None:
-            spec = interp1d( w, spec, axis = -1,
+            spec = interp1d( sps.wavelengths, spec, axis = -1,
                              bounds_error=False)(obs['wavelength'])
-        # normalize by (current) stellar mass and get correct units (distance_modulus)
-        mass_norm = self.params.get('mass',1.0)/sps.stellar_mass
+                
         #modern FSPS does the distance modulus for us in get_mags,
         # !but python-FSPS does not!
         dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value[0] * 1e5)**2 /
                    (1+sps.params['zred']))
         #to_apparent_mags = self.to_cgs/(dfactor**2)
         #dfactor = 1.0
-        return (mass_norm * spec + self.sky(),
-                mass_norm * 10**(-0.4*(mags)) / dfactor,
+        return (spec + self.sky(),
+                maggies / dfactor,
                 None)
 
+    def one_sed(self, component_index, sps=None):
+        """Get the SED of one component for a multicomponent composite
+        SFH.
+
+        :returns spec:
+
+        :returns maggies:
+
+        :returns extra:
+        """
+        # Pass the model parameters through to the sps object,
+        # and keep track of the mass of this component
+        mass = 1.0
+        for k, vs in self.params.iteritems():
+            try:
+                v = vs[component_index]
+                n_param_is_vec += 1
+            except(IndexError, TypeError):
+                v = vs
+            if k in sps.params.all_params:
+                if k == 'zmet':
+                    vv = np.abs(v - (np.arange( len(sps.zlegend))+1)).argmin()+1
+                else:
+                    vv = v.copy()
+                sps.params[k] = vv
+            if k == 'mass':
+                mass = vv
+        #now get the magnitudes and spectrum
+        w, spec = sps.get_spectrum(tage=sps.params['tage'], peraa=False)
+        mags = sps.get_mags(tage=sps.params['tage'],
+                            bands=obs['filters'])
+        # normalize by (current) stellar mass and get correct units (distance_modulus)
+        mass_norm = mass/sps.stellar_mass
+        return (mass_norm * spec,
+                mass_norm * 10**(-0.4*(mags)),
+                None)
+        
+        
     def phot_calibration(self, **extras):
         return 1.0
     
