@@ -155,22 +155,21 @@ class CSPModel(ProspectrParams):
             The apparent (redshifted) maggies in each of the filters.
 
         :returns extras:
-            A None type object, only included for consistency with the
-            SedModel class.
+            A list of None type objects, only included for consistency
+            with the SedModel class.
         """
         self.set_parameters(theta)
         # Pass the model parameters through to the sps object
         ncomp = len(self.params['mass'])
         for ic in range(ncomp):
-            s, p, x = self.one_sed(ic, sps=sps)
+            s, p, x = self.one_sed(component_index = ic, sps=sps,
+                                   filterlist=obs['filters'])
             try:
                 spec += s
                 maggies += p
                 extra += [x]
             except(NameError):
-                spec = s
-                maggies = p
-                extra = [x]
+                spec, maggies, extra = s, p, [x]
                 
         if obs['wavelength'] is not None:
             spec = interp1d( sps.wavelengths, spec, axis = -1,
@@ -178,23 +177,40 @@ class CSPModel(ProspectrParams):
                 
         #modern FSPS does the distance modulus for us in get_mags,
         # !but python-FSPS does not!
-        dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value[0] * 1e5)**2 /
-                   (1+sps.params['zred']))
-        #to_apparent_mags = self.to_cgs/(dfactor**2)
-        #dfactor = 1.0
+        if sps.params['zred'] == 0:
+            dfactor = 1
+        else:
+            dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value[0] *
+                        1e5)**2 / (1+sps.params['zred']))
         return (spec + self.sky(),
                 maggies / dfactor,
                 None)
 
-    def one_sed(self, component_index, sps=None):
+    def one_sed(self, component_index=0, sps=None, filterlist=[]):
         """Get the SED of one component for a multicomponent composite
-        SFH.
+        SFH.  Should set this up to work as an iterator.
+        
+        :param component_index:
+            Integer index of the component to calculate the SED for.
+            
+        :params sps:
+            A python-fsps StellarPopulation object to be used for
+            generating the SED.
 
+        :param filterlist:
+            A list of strings giving the (FSPS) names of the filters
+            onto which the spectrum will be projected.
+            
         :returns spec:
-
+            The restframe spectrum in units of L_\odot/Hz.
+            
         :returns maggies:
-
+            Broadband fluxes through the filters named in
+            ``filterlist``, ndarray.  Units are observed frame
+            absolute maggies: M = -2.5 * log_{10}(maggies).
+            
         :returns extra:
+            The extra information corresponding to this component.
         """
         # Pass the model parameters through to the sps object,
         # and keep track of the mass of this component
@@ -216,7 +232,7 @@ class CSPModel(ProspectrParams):
         #now get the magnitudes and spectrum
         w, spec = sps.get_spectrum(tage=sps.params['tage'], peraa=False)
         mags = sps.get_mags(tage=sps.params['tage'],
-                            bands=obs['filters'])
+                            bands=filterlist)
         # normalize by (current) stellar mass and get correct units (distance_modulus)
         mass_norm = mass/sps.stellar_mass
         return (mass_norm * spec,
