@@ -33,7 +33,8 @@ def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
     A lognormal  gaussian.  should make sure it can be vectorized.
     """
     if np.all(theta > 0):
-        return np.log((2*np.pi)**(-0.5)/(theta*sigma)) - (np.log(theta) - log_mean)**2/(2*sigma**2)
+        return ( np.log((2*np.pi)**(-0.5)/(theta*sigma)) -
+                (np.log(theta) - log_mean)**2/(2*sigma**2) )
     else:
         return -np.infty
 

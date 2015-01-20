@@ -180,7 +180,7 @@ class CSPModel(ProspectrParams):
         if sps.params['zred'] == 0:
             dfactor = 1
         else:
-            dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value[0] *
+            dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value *
                         1e5)**2 / (1+sps.params['zred']))
         return (spec + self.sky(),
                 maggies / dfactor,
@@ -218,7 +218,7 @@ class CSPModel(ProspectrParams):
         for k, vs in self.params.iteritems():
             try:
                 v = vs[component_index]
-                n_param_is_vec += 1
+                #n_param_is_vec += 1
             except(IndexError, TypeError):
                 v = vs
             if k in sps.params.all_params:
@@ -238,8 +238,7 @@ class CSPModel(ProspectrParams):
         return (mass_norm * spec,
                 mass_norm * 10**(-0.4*(mags)),
                 None)
-        
-        
+
     def phot_calibration(self, **extras):
         return 1.0
     
