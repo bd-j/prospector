@@ -228,7 +228,7 @@ class CSPModel(ProspectrParams):
                     vv = v.copy()
                 sps.params[k] = vv
             if k == 'mass':
-                mass = vv
+                mass = v
         #now get the magnitudes and spectrum
         w, spec = sps.get_spectrum(tage=sps.params['tage'], peraa=False)
         mags = sps.get_mags(tage=sps.params['tage'],
@@ -244,8 +244,8 @@ class CSPModel(ProspectrParams):
     
     def sky(self):
         return 0.
-    
-    
+
+
 def gauss(x, mu, A, sigma):
     """
     Lay down multiple gaussians on the x-axis.
