@@ -55,13 +55,27 @@ def mags_from_fsps(z, t, s):
     #print(spec.shape)
     return time.time()-t0
 
- 
+
+def spec_from_ztinterp(z, t, s):
+    t0 = time.time()
+    sps.params['logzsol'] = z
+    sps.params['sigma_smooth'] = s
+    sps.params['tage'] = t
+    sps.params['imf3'] = s
+    spec, m, l  = sps.ztinterp(sps.params['logzsol'], sps.params['tage'], peraa=True)
+    #print(spec.shape)
+    return time.time()-t0
+  
+
 if sys.argv[1] == 'mags':
     from_fsps = mags_from_fsps
     print('timing get_mags')
     print('nbands = {}'.format(len(sps.get_mags(tage=1.0))))
 elif sys.argv[1] == 'spec':
     from_fsps = spec_from_fsps
+    print('timing get_spectrum')
+elif sys.argv[1] == 'ztinterp':
+    from_fsps = spec_from_ztinterp
     print('timing get_spectrum')
 elif sys.argv[1] == 'sedpy':
     from sedpy import observate

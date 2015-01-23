@@ -122,7 +122,7 @@ model_params.append({'name': 'imf_type', 'N': 1,
                         'units': None})
 
 model_params.append({'name': 'imf3', 'N':1,
-                        'isfree': False,
+                        'isfree': True,
                         'init': 2.3,
                         'units': None,
                         'prior_function':tophat,
