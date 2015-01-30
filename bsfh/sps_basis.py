@@ -18,14 +18,13 @@ class StellarPopBasis(object):
     spectral grid.
     """
     
-    def __init__(self, smooth_velocity=True, compute_vega_mags=False,
+    def __init__(self, compute_vega_mags=False,
                  debug=False, **kwargs):
 
         self.debug = debug
         
         #this is a StellarPopulation object from fsps
-        self.ssp = fsps.StellarPopulation(smooth_velocity=smooth_velocity,
-                                          compute_vega_mags=compute_vega_mags,
+        self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
                                           **kwargs)
         
         #This is the main state vector for the model
@@ -35,13 +34,16 @@ class StellarPopBasis(object):
         
         #These are the parameters whose change will force a
         #regeneration of the SSPs (and basis) using fsps
-        self.ssp_params = ['imf_type','imf3','agb_dust']
+        self.ssp_params = ['imf_type','imf3','agb_dust',
+                           'smooth_velocity', 'min_wave_smooth', 'max_wave_smooth']
         self.ssp_dirty = True
         
         #These are the parameters whose change will force a
         #regeneration of the basis from the SSPs
-        self.basis_params = ['sigma_smooth', 'tage', 'zmet', 'dust1', 'dust2',
-                             'dust_tesc', 'zred', 'outwave', 'dust_curve']
+        self.basis_params = ['sigma_smooth', 'zred', 
+                             'tage', 'zmet', 
+                             'dust1', 'dust2', 'dust_tesc', 'dust_curve', 
+                             'outwave']
         self.basis_dirty = True
         
     def get_spectrum(self, outwave=None, filters=None, nebular=True, **kwargs):
@@ -237,7 +239,10 @@ class StellarPopBasis(object):
             if k in self.ssp_params:
                 try:
                     #here the sps.params.dirtiness should increase to 2 if there was a change
-                    self.ssp.params[k] = v
+                    self.ssp.params[k] = v[0]
+                    if 'smooth' in k:
+                        if v[0] != self.params.get(k, None):
+                            self.ssp.params.dirtiness = 2
                 except KeyError:
                     pass
             elif k in self.basis_params:
