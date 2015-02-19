@@ -111,8 +111,11 @@ class SedModel(ProspectrParams):
             powers = np.arange( len(self.params['poly_coeffs']) ) + 1
             poly = (x[None,:] ** powers[:,None] *
                     self.params['poly_coeffs'][:,None]).sum(axis = 0)
-        
-            return (1.0 + poly) * self.params['spec_norm']
+
+            if self.params.get('cal_type', 'exp_poly') is 'poly':
+                return (1.0 + poly) * self.params['spec_norm']
+            else:
+                return self.params['spec_norm'] + poly
         else:
             return 1.0
 

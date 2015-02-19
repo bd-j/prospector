@@ -72,8 +72,20 @@ def sampler_ball(center, disp, nwalkers, model):
     for p, v in model.theta_index.iteritems():
         start, stop = v
         lo, hi = plotting_range(model._config_dict[p]['prior_args'])
-        try_param = center[None, start:stop] * (1 + np.random.normal(0, 1, (nwalkers ,stop-start)) * disp[None, start:stop])
-        try_param = np.clip(try_param, np.atleast_1d(lo)[None, :], np.atleast_1d(hi)[None, :])
+        try_param = (center[None, start:stop] *
+                     (1 + np.random.normal(0, 1, (nwalkers ,stop-start)) *
+                      disp[None, start:stop]))
+        try_param = np.clip(try_param, np.atleast_1d(lo)[None, :],
+                            np.atleast_1d(hi)[None, :])
+        u = np.unique(try_param)
+        if len(u) == 1:
+            tweak = (np.random.uniform(0, 1, (nwalkers ,stop-start)) *
+                     disp[None, start:stop])
+            if u == lo:
+                try_param += tweak
+            elif u == hi:
+                try_param -= tweak
+                    
         initial[:, start:stop] = try_param
     return initial
     
@@ -173,12 +185,12 @@ def minimizer_ball(center, nminimizers, model):
         ginitial = np.zeros( [size -1, model.ndim] )
         for p, v in model.theta_index.iteritems():
             start, stop = v
-            hi, lo = plotting_range(model._config_dict[p]['prior_args'])
+            lo, hi = plotting_range(model._config_dict[p]['prior_args'])
             if model._config_dict[p]['N'] > 1:
-                ginitial[:,start:stop] = np.array([np.random.uniform(h, l,size - 1)
-                                                   for h,l in zip(hi,lo)]).T
+                ginitial[:,start:stop] = np.array([np.random.uniform(l, h,size - 1)
+                                                   for l,h in zip(lo,hi)]).T
             else:
-                ginitial[:,start] = np.random.uniform(hi, lo, size - 1)
+                ginitial[:,start] = np.random.uniform(lo, hi, size - 1)
         pinitial += ginitial.tolist()
     return pinitial
 
