@@ -177,7 +177,7 @@ class ProspectrParams(object):
                 index.append(v[0])
             else:
                 for i in xrange(nt):
-                    label.append(name+'{0}'.format(i+1))
+                    label.append(name+'_{0}'.format(i+1))
                     index.append(v[0]+i)
         return [l for (i,l) in sorted(zip(index,label))]
     
@@ -205,8 +205,10 @@ class ProspectrParams(object):
                 bounds[v[0]] = pb
             else:
                 for k in range(sz):
-                    bounds[v[0]+k] = (pb[0][k], pb[1][k])
-
+                    try:
+                        bounds[v[0]+k] = (pb[0][k], pb[1][k])
+                    except(TypeError, IndexError):
+                        bounds[v[0]+k] = (pb[0], pb[1])
         #force types
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a,b in bounds]        
         return bounds
