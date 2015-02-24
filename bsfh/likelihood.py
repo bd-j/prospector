@@ -105,6 +105,7 @@ class LikelihoodFunction(object):
         mask = obs.get('phot_mask', np.ones( len(obs['maggies']), dtype= bool))
         delta = (obs['maggies'] - phot_mu)[mask]
         if gp is not None:
+            gp.flux = obs['maggies'][mask]
             gp.compute(obs['filter_metric'][mask], obs['maggies_unc'][mask])
             return gp.lnlikelihood(delta)
         
@@ -120,7 +121,8 @@ class LikelihoodFunction(object):
 
     def lnpostfn(self, theta, model=None, obs=None,
                sps=None, gp=None, **extras):
-        """A specific implementation of a posterior probability function, as an example
+        """A specific implementation of a posterior probability
+        function, as an example.
         """
         if model is None:
             model = self.model

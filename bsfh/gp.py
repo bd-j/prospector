@@ -3,7 +3,7 @@ from scipy.linalg import cho_factor, cho_solve
 
 class GaussianProcess(object):
 
-    def __init__(self, wave=None, sigma=None, kernel=None ):
+    def __init__(self, wave=None, sigma=None, kernel=None, flux=1):
         """
         Initialize the relevant parameters for the gaussian process.
 
@@ -13,6 +13,10 @@ class GaussianProcess(object):
            
         :param sigma:
             The uncertainty estimate at each wavelength point.
+
+        :param flux:
+            If supplied, the additional noise given by the jitter can
+            be specified as a fraction of the flux
         """
         if kernel is None:
             npar = self.kernel_properties[0]
@@ -25,7 +29,8 @@ class GaussianProcess(object):
         self._params = None
         self.wave = wave
         self.sigma = sigma
-
+        self.flux = flux
+        
     def reset(self):
         self.factorized_Sigma = None
         self.wave = None
@@ -63,7 +68,7 @@ class GaussianProcess(object):
         data_same = (np.all(wave == self.wave) &
                      np.all(sigma == self.sigma))
         params = self.kernel_to_params(self.kernel)
-        ksame, params = self.kernel_same()
+        ksame, params = self.kernel_same
 
         if ksame and data_same and (not force):
             return
@@ -73,7 +78,7 @@ class GaussianProcess(object):
             self.wave = wave
             self.sigma = sigma
             
-            Sigma = self.construct_kernel()
+            Sigma = self.construct_covariance()
             self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True,
                                                 check_finite=check_finite)
             self.log_det = 2 * np.sum( np.log(np.diag(self.factorized_Sigma[0])))
@@ -164,27 +169,31 @@ class ExpSquared(GaussianProcess):
             Sigma[np.diag_indices_from(Sigma)] += s**2
             return Sigma
         
-class Outlier(GaussianProcess):
+class PhotOutlier(GaussianProcess):
 
+    @property
     def kernel_properties(self):
-        return [2]
+        return [3]
     
     def kernel_to_params(self, kernel):
         """Kernel is a set of (diagonal) locations and amplitudes
         """
-        assert ((len(kernel) % 2 == 0))
-        nout = len(kernel) / 2
-        locs, amps = kernel[np.arange(nout) * 2], kernel[np.arange(nout) * 2 + 1]
-        return locs, amps
+        assert ((len(kernel) % 2 == 1))
+        nout = (len(kernel)-1) / 2
+        locs = np.exp(kernel[np.arange(nout) * 2])
+        amps = np.exp(kernel[np.arange(nout) * 2 + 1])
+        jitter = kernel[-1]
+        return jitter, locs, amps
 
     def construct_covariance(self, inwave=None, cross=None):
-        locs, amps = self._params
+        jitter, locs, amps = self._params
+        #round to the nearest index
         locs = locs.astype(int)
         if inwave is None:
             nw = len(self.wave)
             Sigma = np.zeros([nw, nw])
             #diag = np.diag_indices_from(Sigma)
-            Sigma[(np.arange(nw), np.arange(nw))] += self.sigma**2
+            Sigma[(np.arange(nw), np.arange(nw))] += self.sigma**2 + (jitter*self.flux)**2
             Sigma[(locs, locs)] += amps**2
         else:
             raise ValueError

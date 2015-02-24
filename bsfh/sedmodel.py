@@ -120,8 +120,10 @@ class SedModel(ProspectrParams):
             return 1.0
 
     def spec_gp_params(self, **extras):
-        return  (self.params['gp_jitter'], self.params['gp_amplitude'],
-                 self.params['gp_length'])
+        pars = ['gp_jitter', 'gp_amplitude', 'gp_length']
+        defaults = [0.0, 0.0, 1.0]
+        vals = [self.params.get(p, d) for p, d in zip(pars, defaults)]
+        return  tuple(vals)
     
 class CSPModel(ProspectrParams):
     """
@@ -181,7 +183,9 @@ class CSPModel(ProspectrParams):
         #modern FSPS does the distance modulus for us in get_mags,
         # !but python-FSPS does not!
         if sps.params['zred'] == 0:
-            dfactor = 1
+            # Use 10pc for the luminosity distance (or a number
+            # provided in the dist key)
+            dfactor = (self.params.get('dist', 1e-5) * 1e5)**2
         else:
             dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value *
                         1e5)**2 / (1+sps.params['zred']))
@@ -244,7 +248,14 @@ class CSPModel(ProspectrParams):
 
     def phot_calibration(self, **extras):
         return 1.0
-    
+
+    def phot_gp_params(self, **extras):
+        pars = ['phot_jitter', 'gp_amps', 'gp_locs']
+        defaults = [0.0, [0.0], [0]]
+        vals = [self.params.get(p, d) for p, d in zip(pars, defaults)]
+        return  tuple(vals)
+
+        
     def sky(self):
         return 0.
 
