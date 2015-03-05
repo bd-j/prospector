@@ -78,16 +78,16 @@ class SedModel(ProspectrParams):
                                               filters=obs['filters'],
                                               **self.params)
         
-        spec *= obs.get('normalization_guess',1.0)
+        spec *= obs.get('normalization_guess', 1.0)
         #remove negative fluxes
         tiny = 1.0/len(spec) * spec[spec > 0].min()
         spec[ spec < tiny ] = tiny
 
-        spec = (spec + self.sky()) #* self.calibration()
+        spec = (spec + self.sky())
         return spec, phot, extras
 
     def sky(self):
-        """Model for the sky emission/absorption"""
+        """Model for the *additive* sky emission/absorption"""
         return 0.
         
     def spec_calibration(self, theta=None, obs=None, **kwargs):
@@ -104,14 +104,18 @@ class SedModel(ProspectrParams):
         if theta is not None:
             self.set_parameters(theta)
         
-        #should find a way to make this more generic
+        # Should find a way to make this more generic,
+        # using chebyshev polynomials
         if 'pivot_wave' in obs:
             x = obs['wavelength']/obs['pivot_wave'] - 1.0
             poly = np.zeros_like(x)
             powers = np.arange( len(self.params['poly_coeffs']) ) + 1
             poly = (x[None,:] ** powers[:,None] *
                     self.params['poly_coeffs'][:,None]).sum(axis = 0)
-
+            #switch to have spec_norm be multiplicative or additive
+            #depending on whether the calibration model is
+            #multiplicative in exp^poly or just poly, Should move this
+            #to mean_model()?
             if self.params.get('cal_type', 'exp_poly') is 'poly':
                 return (1.0 + poly) * self.params['spec_norm']
             else:
@@ -136,7 +140,7 @@ class CSPModel(ProspectrParams):
     #to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
     def mean_model(self, theta, obs, sps=None, **kwargs):
-        """Rename of self.sed() for compatibility.  If any calbriation stuff
+        """Rename of self.sed() for compatibility.  If any calibration model
         is applied, it should go here.
         """
         return self.sed(theta, obs, sps=sps, **kwargs)
@@ -381,17 +385,3 @@ class HMCThetaParameters(ProspectrParams):
         return theta, sign, oob
 
 
-    def bounds(self):
-        bounds = self.ndim * [(0.,0.)]
-        for k, v in self.theta_index.iteritems():
-            par = self._config_dict[k]
-            sz = np.size(par['prior_args']['mini'])
-            if sz == 1:
-                bounds[par['i0']] = (par['prior_args']['mini'],
-                                     par['prior_args']['maxi'])
-            else:
-                for i in range(sz):
-                    bounds[v[0]+i] = (par['prior_args']['mini'][i],
-                                      par['prior_args']['maxi'][i])
-        return bounds
- 

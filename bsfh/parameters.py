@@ -32,6 +32,7 @@ class ProspectrParams(object):
     #obs = {}
     
     def __init__(self, config_list, verbose=True):
+        self.init_config_list = config_list
         self.config_list = config_list
         self.configure()
         self.verbose = verbose
@@ -58,7 +59,7 @@ class ProspectrParams(object):
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
         # store these initial values
-        self.initial_theta = self.rectify_theta((self.theta.copy()))
+        self.initial_theta = self.theta.copy()#self.rectify_theta((self.theta.copy()))
         #print('pivot_wave' in self.params)
         
     def map_theta(self):

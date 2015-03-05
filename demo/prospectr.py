@@ -25,9 +25,9 @@ run_params = model_setup.get_run_params(argv = sargv, **clargs)
 # Globals
 ########
 # SPS Model instance as global
-sps = model_setup.load_sps(**clargs)
+sps = model_setup.load_sps(**run_params)
 # GP instance as global
-gp_spec = model_setup.load_gp(**clargs)
+gp_spec = model_setup.load_gp(**run_params)
 gp_phot = gp.PhotOutlier()
 # Model as global
 global_model = model_setup.load_model(param_file=clargs['param_file'])
@@ -37,7 +37,7 @@ global_obs = model_setup.load_obs(**run_params)
 ########
 #LnP function as global
 ########
-likefn = LikelihoodFunction(obs=global_obs, model=global_model)
+likefn = LikelihoodFunction()
 
 # the simple but obscuring way.  Difficult for users to change
 def obscured_lnprobfn(theta, model = None, obs = None):
@@ -177,8 +177,9 @@ if __name__ == "__main__":
     obsdat = global_obs
     chi2args = [None, None]
     postkwargs = {}
-    
-    initial_theta = model.initial_theta
+
+    #make zeros into tiny numbers
+    initial_theta = model.rectify_theta(model.initial_theta)
     if rp.get('debug', False):
         halt()
 
