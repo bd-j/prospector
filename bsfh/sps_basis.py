@@ -58,9 +58,9 @@ class StellarPopBasis(object):
             self.basis_params = ['tage','logzsol', 'zmet']
                                  #'lumdist', 'outwave']
         else:
-            self.basis_params = ['tage', 'zmet', 'logzsol',
-                                 'sigma_smooth', 'zred',
-                                 'dust1', 'dust2', 'dust_tesc', 'dust_curve']
+            self.basis_params = ['tage', 'zmet', 'logzsol',]
+                                 #'sigma_smooth', 
+                                 #'dust1', 'dust2', 'dust_tesc', 'dust_curve']
                                  #'lumdist', 'outwave']
 
         self.basis_dirty = True
@@ -102,7 +102,6 @@ class StellarPopBasis(object):
             return.
         """
         cspec, neb, cphot, cextra = self.get_components(outwave, filters, **params)
-
         spec = (cspec * self.params['mass'][:,None]).sum(axis = 0)
         if nebular:
             spec += neb
@@ -132,8 +131,12 @@ class StellarPopBasis(object):
             The spectrum at the wavelength points given by outwave,
             ndarray of shape (ncomp,nwave).  Units are
             erg/s/cm^2/AA/M_sun
-            
-        :returns phot:
+
+        :returns nebspec:
+            The nebular spectrum at the wavelength points given by outwave,
+            ndarray of shape (nwave).  Units are erg/s/cm^2/AA
+                        
+        :returns cphot:
             The synthetc photometry through the provided filters,
             ndarray of shape (ncomp,nfilt).  Units are
             *apparent maggies*.
@@ -142,38 +145,63 @@ class StellarPopBasis(object):
             Any extra parameters (like stellar mass) that you want to
             return.
         """
+
         if outwave is not None:
             params['outwave'] = outwave
+        #This will rebuild the basis if relevant parameters changed
         self.update(params)
 
         #distance dimming and conversion from Lsun/AA to cgs
         dist10 = self.params.get('lumdist', 1e-5)/1e-5 #distance in units of 10s of pcs
         dfactor = to_cgs / dist10**2
-        
-        # Stellar component. Redshift and put on the proper wavelength
-        # grid. Eventually this should probably do proper integration
-        # within the output wavelength bins, and deal with non-uniform
-        # line-spread functions
-        a1 = (1 + self.params.get('zred', 0.0))
-        if self.safe:
-            a1 = 1.0
-        cspec = interp1d( vac2air(self.ssp.wavelengths * a1),
-                          self.basis_spec / a1 * dfactor,
-                          axis = -1, bounds_error=False)(self.params['outwave'])
 
-        # Nebular component.  Should add this to spectra somehow
-        # before generating photometry.
-        neb = self.nebular(params, self.params['outwave']) * dfactor
+        nebspec = self.nebular(params, self.params['outwave']) * dfactor
+        cspec = np.empty([self.nbasis, len(outwave)])
+        cphot = np.empty([self.nbasis, np.size(filters)])
+        for i in range(self.nbasis):
+            cspec[i,:], cphot[i,:] = self.process_component(i, outwave, filters)
         
-        # Get the photometry
-        if filters is not None:
-            cphot = 10**(-0.4 * getSED( self.ssp.wavelengths * a1,
-                                        self.basis_spec / a1 * dfactor, filters))
-        else:
-            cphot = 0.
+        return cspec * dfactor, nebspec, cphot * dfactor, self.basis_mass
+
+    def process_component(self, i, outwave, filters):
+        """Basically do all the COMPSP stuff for one component.
+        """
+        cspec = self.basis_spec[i,:].copy()
+        cphot = 0
+        inwave = self.ssp.wavelengths
         
-        return cspec, neb, cphot, self.basis_mass
-    
+        if not self.safe:
+            # Dust attenuation
+            tage = self.params['tage'][i]
+            tesc = self.params.get('dust_tesc', 0.01)
+            dust1 = self.params.get('dust1', 0.0)
+            dust2 = self.params['dust2']
+            a = (1 + self.params.get('zred', 0.0))
+            dust = (tage < tesc) * dust1  + dust2
+            att = self.params['dust_curve'][0](inwave, **self.params) 
+            cspec *= np.exp(-att*dust)
+            
+            if filters is not None:
+                cphot = 10**(-0.4 * getSED(inwave*a, cspec / a, filters))
+                
+            # Wavelength scale.  Broadening and redshifting and
+            # placing on output wavelength grid
+            if 'lsf' in self.params:
+                cspec = lsf_broaden(vac2air(inwave) * a,
+                                    cspec / a, **self.params)
+            else:
+                sigma = self.params.get('sigma_smooth',0.0)
+                cspec = self.ssp.smoothspec(inwave, cspec, sigma)
+                cspec = np.interp(self.params['outwave'],
+                                  vac2air(inwave * a), cspec/a)
+        elif self.safe:
+            # Place on output wavelength grid, and get photometry
+            cspec = np.interp(self.params['outwave'],
+                              vac2air(inwave), cspec/a)
+            cphot = 10**(-0.4 * getSED(inwave, cspec/a, filters))
+                
+        return cspec, cphot
+                
     def nebular(self, params, outwave):
         """
         If the emission_rest_wavelengths parameter is present, return
@@ -239,9 +267,9 @@ class StellarPopBasis(object):
                 self.ssp._update_params()
             
         if self.basis_dirty | (self.ssp.params.dirtiness == 2):
-            self.build_basis(self.params['outwave'])
+            self.build_basis()
 
-    def build_basis(self, outwave):
+    def build_basis(self):
         """
         Rebuild the component spectra from the SSPs.  The component
         spectra include dust attenuation, redshifting, and spectral
@@ -262,9 +290,12 @@ class StellarPopBasis(object):
             desired, ndarray of shape (nwave,)
 
         """
+        if self.debug:
+            print('sps_basis: rebuilding basis')
         #setup the internal component basis arrays
         inwave = self.ssp.wavelengths
         nbasis = len(np.atleast_1d(self.params['mass']))
+        self.nbasis = nbasis
         #nbasis = ( len(np.atleast_1d(self.params['zmet'])) *
         #           len(np.atleast_1d(self.params['tage'])) )
         self.basis_spec = np.zeros([nbasis, len(inwave)])
@@ -282,18 +313,11 @@ class StellarPopBasis(object):
                         self.ssp.params['logzsol'] = zmet
                     else:
                         self.ssp.params['zmet'] = zmet
-                    w, spec = self.ssp.get_spectrum(tage=tage)
+                    w, spec = self.ssp.get_spectrum(tage=tage, peraa=True)
                     mass = self.ssp.stellar_mass
                 else:
                     # do it by hand.  Faster but dangerous
-                    spec, mass, lbol = self.ssp.ztinterp(zmet, tage, peraa = True)
-                    # and attenuate by dust unless missing any dust parameters
-                    # This is ugly - should use a hook into ADD_DUST
-                    dust = (tage < tesc) * dust1  + dust2
-                    spec *= np.exp(-self.params['dust_curve'][0](inwave) * dust)
-                    # Now broaden 
-                    spec = self.ssp.smoothspec(inwave, spec,
-                                               self.params.get('sigma_smooth',0.0))
+                    spec, mass, lbol = self.ssp.ztinterp(zmet, tage, peraa=True)
                 self.basis_spec[i,:] = spec
                 self.basis_mass[i] = mass
                 i += 1
