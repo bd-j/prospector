@@ -1,7 +1,10 @@
 import numpy as np
-from scipy.interpolate import interp1d
 import fsps
 from sedpy.observate import getSED, vac2air, air2vac
+try:
+    from sedpy.observate import lsf_broaden
+except(ImportError):
+    pass
 
 # Useful constants
 lsun = 3.846e33
@@ -324,6 +327,53 @@ class StellarPopBasis(object):
         self.basis_dirty = False
 
 
+def smoothspec(inwave, spec, lsf, outwave=None,
+               min_wave_smooth=None, max_wave_smooth=None,
+               **kwargs):
+    """
+    Broaden a spectrum with a user defined line-spread function.
+
+    :param inwave:
+        The wavelength vector of the input spectrum, ndarray.
+        
+    :param spec:
+        The flux vector of the input spectrum, ndarray
+        
+    :param lsf:
+        A function describing the line_spread_function.  It should
+        take as inputs `wave` and any keyword arguments and return
+        sigma(wave).
+
+    :param outwave:
+        The output wavelength vector.  If None then the input
+        wavelength vector will be assumed.  If min_wave_smooth or
+        max_wave_smooth are also specified, then the output spectrum
+        may have differnt dimensions than spec or inwave.
+        
+    :param min_wave_smooth:
+        The minimum wavelength of the input vector to consider when
+        smoothing the spectrum.  If None then it is determined from
+        the minimum of the output wavelength vector, minus 50.0.
+        
+    :param max_wave_smooth:
+        The maximum wavelength of the input vector to consider when
+        smoothing the spectrum.  If None then it is determined from
+        the minimum of the output wavelength vector, plus 50.0
+
+    :returns outspec:
+        The smoothed spectrum.
+    """
+    if outwave is None:
+        outwave = inwave
+    if min_wave_smooth is None:
+        min_wave_smooth = inwave.min() - 50.0
+    if max_wave_smooth is None:
+        max_wave_smooth = inwave.max() + 50.0
+    
+    smask = (inwave > min_wave_smooth) & (inwave < max_wave_smooth)
+    ospec = lsf_broaden(inwave[smask], spec[smask], lsf, **kwargs)
+    return ospec
+        
 def gauss(x, mu, A, sigma):
     """
     Lay down mutiple gaussians on the x-axis.
