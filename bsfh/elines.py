@@ -93,5 +93,5 @@ wavelength ={
 
              'units':'vacuum angstroms'}
 
-sky_lines = ['OI_5577', 'OI_6300', 'OI6363', 'NaI_5891', 'NaI_5897']
+sky_lines = ['OI_5577', 'OI_6300', 'OI_6363', 'NaI_5891', 'NaI_5897']
 ism_lines = ['CaII_K', 'CaII_H', 'NaI_5891', 'NaI_5897']

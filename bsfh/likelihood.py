@@ -54,7 +54,7 @@ class LikelihoodFunction(object):
         
         var = obs['unc'][mask]**2
         lnp = -0.5*( (delta**2/var).sum() +
-                     np.log(var).sum() )
+                     np.log(2*np.pi*var).sum() )
         return lnp
         
 
@@ -114,7 +114,7 @@ class LikelihoodFunction(object):
         
         var = (obs['maggies_unc'][mask])**2
         lnp = -0.5*( (delta**2/var).sum() +
-                     np.log(var).sum() )
+                     np.log(2*np.pi*var).sum() )
         return lnp
     
     def ln_prior_prob(self, theta, model=None):

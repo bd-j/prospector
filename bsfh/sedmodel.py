@@ -80,9 +80,11 @@ class SedModel(ProspectrParams):
         
         spec *= obs.get('normalization_guess', 1.0)
         #remove negative fluxes
-        tiny = 1.0/len(spec) * spec[spec > 0].min()
-        spec[ spec < tiny ] = tiny
-
+        try:
+            tiny = 1.0/len(spec) * spec[spec > 0].min()
+            spec[ spec < tiny ] = tiny
+        except:
+            pass
         spec = (spec + self.sky())
         return spec, phot, extras
 

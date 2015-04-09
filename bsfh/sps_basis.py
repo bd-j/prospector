@@ -189,8 +189,8 @@ class StellarPopBasis(object):
                 
             # Wavelength scale.  Broadening and redshifting and
             # placing on output wavelength grid
-            if 'lsf' in self.params:
-                cspec = lsf_broaden(vac2air(inwave) * a,
+            if self.params.get('lsf', [None])[0] is not None:
+                cspec = smoothspec(vac2air(inwave) * a,
                                     cspec / a, **self.params)
             else:
                 sigma = self.params.get('sigma_smooth',0.0)
@@ -363,15 +363,17 @@ def smoothspec(inwave, spec, lsf, outwave=None,
     :returns outspec:
         The smoothed spectrum.
     """
+    this_lsf = lsf[0]
     if outwave is None:
         outwave = inwave
     if min_wave_smooth is None:
-        min_wave_smooth = inwave.min() - 50.0
+        min_wave_smooth = [inwave.min() - 50.0]
     if max_wave_smooth is None:
-        max_wave_smooth = inwave.max() + 50.0
+        max_wave_smooth = [inwave.max() + 50.0]
     
-    smask = (inwave > min_wave_smooth) & (inwave < max_wave_smooth)
-    ospec = lsf_broaden(inwave[smask], spec[smask], lsf, **kwargs)
+    smask = (inwave > min_wave_smooth[0]) & (inwave < max_wave_smooth[0])
+    ospec = lsf_broaden(inwave[smask], spec[smask], this_lsf, outwave=outwave,
+                         **kwargs)
     return ospec
         
 def gauss(x, mu, A, sigma):
