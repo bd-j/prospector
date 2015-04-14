@@ -5,7 +5,7 @@ import numpy as np
 np.errstate(invalid='ignore')
 import pickle
 
-from bsfh import model_setup, write_results
+from bsfh import model_setup, write_results, gp
 import bsfh.fitterutils as utils
 from bsfh.likelihood import LikelihoodFunction
 
@@ -28,6 +28,7 @@ run_params = model_setup.get_run_params(argv = sargv, **clargs)
 sps = model_setup.load_sps(**clargs)
 # GP instance as global
 gp_spec = model_setup.load_gp(**clargs)
+gp_phot = gp.PhotOutlier()
 # Model as global
 global_model = model_setup.load_model(param_file=clargs['param_file'])
 # Obs as global
@@ -92,12 +93,18 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         except(AttributeError):
             #There was no spec_gp_params method
             pass
+        try:
+            s, a, l = model.phot_gp_params(obs=obs)
+            gp_phot.kernel = np.array( list(a) + list(l) + [s])
+        except(AttributeError):
+            #There was no phot_gp_params method
+            pass
         d1 = time.time() - t1
 
         #calculate likelihoods
         t2 = time.time()
         lnp_spec = likefn.lnlike_spec(mu, obs=obs, gp=gp_spec)
-        lnp_phot = likefn.lnlike_phot(phot, obs=obs, gp=None)
+        lnp_phot = likefn.lnlike_phot(phot, obs=obs, gp=gp_phot)
         d2 = time.time() - t2
         if verbose:
             write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
