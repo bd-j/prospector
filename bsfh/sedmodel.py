@@ -120,8 +120,10 @@ class SedModel(ProspectrParams):
             return 1.0
 
     def spec_gp_params(self, **extras):
-        return  (self.params['gp_jitter'], self.params['gp_amplitude'],
-                 self.params['gp_length'])
+        pars = ['gp_jitter', 'gp_amplitude', 'gp_length']
+        defaults = [0.0, 0.0, 1.0]
+        vals = [self.params.get(p, d) for p, d in zip(pars, defaults)]
+        return  tuple(vals)
     
 class CSPModel(ProspectrParams):
     """
@@ -181,7 +183,9 @@ class CSPModel(ProspectrParams):
         #modern FSPS does the distance modulus for us in get_mags,
         # !but python-FSPS does not!
         if sps.params['zred'] == 0:
-            dfactor = 1
+            # Use 10pc for the luminosity distance (or a number
+            # provided in the dist key in units of Mpc)
+            dfactor = (self.params.get('dist', 1e-5) * 1e5)**2
         else:
             dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value *
                         1e5)**2 / (1+sps.params['zred']))
@@ -244,10 +248,68 @@ class CSPModel(ProspectrParams):
 
     def phot_calibration(self, **extras):
         return 1.0
-    
+
+    def phot_gp_params(self, obs=None, outlier=False, theta=None,
+                       **extras):
+        """Return the parameters for generating the covariance matrix
+        used by the photometric gaussian process in a way
+        understandable for the GP objects.  This method looks for the
+        ``phot_jitter``, ``gp_phot_amps`` and ``gp_phot_locs`` keys in
+        the parameter dictionary
+
+        :param obs:
+            obs data dictionary.  Must have a ``filters`` key.
+            
+        :param outlier:
+            Switch to interpret the gp parameters in terms of outlier
+            modeling.  In this case ``gp_phot_locs`` is an array of
+            indices into the (masked) maggies array, and
+            ``gp_phot_amps`` is an array of GP amplitudes
+            corresponding to these indices.
+
+            Otherwise, ``gp_phot_locs`` is a fixed array of filter
+            name lists, and ``gp_phot_amps`` is an array of the same
+            length giving the GP amplitudes associated with each list
+
+        :returns s:
+            The jitter (scalar)
+
+        :returns amps:
+            The GP amplitudes, ndarray.
+
+        :returns locs:
+            Indices into the obs['maggies'][obs['phot_mask']] array
+            corresponding elementwise to the returned ``amps`` array
+        """
+
+        if theta is not None:
+            self.set_parameters(theta)
+            
+        mask = obs.get('phot_mask', np.ones( len(obs['filters']), dtype= bool))
+        pars = ['phot_jitter', 'gp_phot_amps', 'gp_phot_locs']
+        defaults = [0.0, [0.0], [0]]
+        s, amps, locs = [self.params.get(p, d) for p, d in zip(pars, defaults)]
+        no_locs = 'gp_phot_locs' not in self.params
+        #outlier modeling allows the locations to float. locs here are indices
+        if outlier or no_locs:
+            locs = np.clip(locs, 0, mask.sum() - 1)
+            return s, np.atleast_1d(amps), np.atleast_1d(locs)
+        
+        # Here we add linked amplitudes based on filter names.  locs
+        # here is an array of lists
+        ll, aa = [], []
+        if type(obs['filters'][0]) is str:
+            fnames = [f for i,f in enumerate(obs['filters']) if mask[i]]
+        else:
+            fnames = [f.name for i,f in enumerate(obs['filters']) if mask[i]]
+        for i, a in enumerate(amps):
+            filts = locs[i]
+            ll += [fnames.index(f) for f in filts if f in fnames]
+            aa += len(filts) * [a] 
+        return  s, np.atleast_1d(aa), np.atleast_1d(ll)
+
     def sky(self):
         return 0.
-
 
 def gauss(x, mu, A, sigma):
     """

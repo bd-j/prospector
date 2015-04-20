@@ -8,7 +8,7 @@ class LikelihoodFunction(object):
         self.model = model
         self.lnspec = lnspec
         
-    def lnlike_spec(self, spec_mu, obs=None, gp=None):
+    def lnlike_spec(self, spec_mu, obs=None, gp=None, **extras):
         """Calculate the likelihood of the spectroscopic data given
         the spectroscopic model.  Allows for the use of a gaussian
         process covariance matrix for multiplicative residuals.
@@ -59,13 +59,12 @@ class LikelihoodFunction(object):
         
 
 
-    def lnlike_phot(self, phot_mu, obs=None, gp=None):
+    def lnlike_phot(self, phot_mu, obs=None, gp=None,
+                    phot_noise_fractional=True, **extras):
         """Calculate the likelihood of the photometric data given the
         spectroscopic model.  Allows for the use of a gaussian process
-        covariance matrix, though for *additive* residuals.  In
-        general, one would only want to mess with the diagonal in
-        linear space
-
+        covariance matrix.
+        
         :param phot_mu:
             The mean model sed, in linear flux units (i.e. maggies),
             including e.g. calibration and sky emission and nebular
@@ -79,18 +78,19 @@ class LikelihoodFunction(object):
                ``maggies``
               *``phot_mask`` optional boolean array of same length as
                ``maggies``
-              *``filter_metric`` if using a GP, the metric that is
-               used in the kernel generation, of same length as
-               ``maggies`` and typically giving the wavelengths or
-               some ordering.
-
+              *``filters`` optional list of sedpy.observate.Filter
+               objects, necessary if using fixed filter groups with
+               different gp amplitudes for each group.
            If not supplied then the obs dictionary given at
-           initialization will be used.  This should really all be in
-           kwargs.
+           initialization will be used.  
 
         :param gp: (optional)
             A Gaussian process object with the methods ``compute()`` and
             ``lnlikelihood()``.
+
+        :param fractional:
+            Treat the GP amplitudes as additional *fractional*
+            uncertainties, i.e., multiplicative uncertainties.
             
         :returns lnlikelhood:
             The natural logarithm of the likelihood of the data given
@@ -105,7 +105,11 @@ class LikelihoodFunction(object):
         mask = obs.get('phot_mask', np.ones( len(obs['maggies']), dtype= bool))
         delta = (obs['maggies'] - phot_mu)[mask]
         if gp is not None:
-            gp.compute(obs['filter_metric'][mask], obs['maggies_unc'][mask])
+            if phot_noise_fractional:
+                gp.flux = phot_mu[mask]
+            else:
+                gp.flux = 1
+            gp.compute(wave=1, sigma=obs['maggies_unc'][mask])
             return gp.lnlikelihood(delta)
         
         var = (obs['maggies_unc'][mask])**2
@@ -120,7 +124,8 @@ class LikelihoodFunction(object):
 
     def lnpostfn(self, theta, model=None, obs=None,
                sps=None, gp=None, **extras):
-        """A specific implementation of a posterior probability function, as an example
+        """A specific implementation of a posterior probability
+        function, as an example.
         """
         if model is None:
             model = self.model

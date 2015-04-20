@@ -46,7 +46,9 @@ def get_run_params(param_file=None, argv = None, **kwargs):
         rp = deepcopy(setup_module.run_params)
     elif ext == 'json':
         rp, mp = parameters.read_plist(param_file)
-    rp.update(kwargs)
+    if kwargs is not None:
+        kwargs.update(rp)
+        rp = kwargs
     if argv is not None:
         rp = parse_args(argv, argdict=rp)
     rp['param_file'] = param_file

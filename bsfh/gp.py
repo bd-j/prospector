@@ -3,7 +3,7 @@ from scipy.linalg import cho_factor, cho_solve
 
 class GaussianProcess(object):
 
-    def __init__(self, wave=None, sigma=None, kernel=None ):
+    def __init__(self, wave=None, sigma=None, kernel=None, flux=1, **extras):
         """
         Initialize the relevant parameters for the gaussian process.
 
@@ -13,114 +13,194 @@ class GaussianProcess(object):
            
         :param sigma:
             The uncertainty estimate at each wavelength point.
+
+        :param flux:
+            If supplied, the additional noise given by the jitter can
+            be specified as a fraction of the flux
         """
         if kernel is None:
-            self.kernel = np.array([0.0, 0.0, 0.0])
+            npar = self.kernel_properties[0]
+            self.kernel = np.zeros(npar)
         else:
             self.kernel = kernel
-        self.asq = None
-        self.lsq = None
-        self.s = None
+        #_params stores the values of kernel parameters used to
+        #construct and compute the factorized covariance matrix that
+        #is stored in factorized_Sigma
+        self._params = None
         self.wave = wave
         self.sigma = sigma
+        self.flux = flux
         
-    def kernel_to_params(self, kernel):
-        """Kernel is a vector consisting of log(s, a**2, l**2)
-        """
-        s, asquared, lsquared = np.exp(kernel).tolist()
-        return s, asquared, lsquared
+    def reset(self):
+        self.factorized_Sigma = None
+        self.wave = None
+        self.sigma = None
+        self._params = None
+        self.kernel = None
         
-    def compute(self, wave=None, sigma=None, check_finite=False,force=False):
-        """
-        :param wave:
-            independent variable
+    @property
+    def kernel_same(self):
+        params = self.kernel_to_params(self.kernel)
+        ksame = np.array_equal(params, self._params)
+        return ksame, params
+              
+    def compute(self, wave=None, sigma=None, check_finite=False,
+                force=False, **extras):
+        """Construct the covariance matrix, factorize it, and store
+        the factorized matrix.  The factorization is only performed if
+        the kernel parameters have chenged or the observational data
+        (wave and sigma) have changed.
+        
+        :param wave: optional
+            independent variable.
             
         :param sigma:
-            .
+            uncertainties on the dependent variable at the locations
+            of the independent variable
             
+        :param force: optional
+            If true, force a recomputation even if the kernel and the
+            data are the same as for the stored factorization.
         """
         if wave is None:
             wave = self.wave
         if sigma is None:
             sigma = self.sigma
-        s, asq, lsq = self.kernel_to_params(self.kernel)
-        kernel_same = (s == self.s) & (asq == self.asq) & (lsq == self.lsq)
         data_same = (np.all(wave == self.wave) &
                      np.all(sigma == self.sigma))
+        #params = self.kernel_to_params(self.kernel)
+        ksame, params = self.kernel_same
 
-        if kernel_same and data_same and (not force):
+        if ksame and data_same and (not force):
             return
         
         else:
-            self.s = s
-            self.asq = asq
-            self.lsq = lsq
+            self._params = params
             self.wave = wave
             self.sigma = sigma
             
-            Sigma = self.asq * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*self.lsq))
-            Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + self.s**2)
+            Sigma = self.construct_covariance()
             self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True,
                                                 check_finite=check_finite)
             self.log_det = 2 * np.sum( np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
-                            
-    def lnlikelihood(self, residual, check_finite=False):
+
+    def lnlikelihood(self, residual, check_finite=False, **extras):
         """
-        Compute the ln of the likelihood.
+        Compute the ln of the likelihood, using the current factorized
+        covariance matrix.
         
         :param residual: ndarray, shape (nwave,)
             Vector of residuals (y_data - mean_model).
         """
-        s, asq, lsq = self.kernel_to_params(self.kernel)
-        kernel_same = (s == self.s) & (asq == self.asq) & (lsq == self.lsq)
-        if not kernel_same:
-            self.compute()
+        assert ( len(residual) == len(self.sigma))
+        self.compute()
         first_term = np.dot(residual,
                             cho_solve(self.factorized_Sigma,
                                       residual, check_finite = check_finite))
-        lnL=  -0.5* (first_term + self.log_det)
+        lnL=  -0.5 * (first_term + self.log_det)
         
         return lnL
               
     def predict(self, residual, wave=None):
         """
-        For a given residual vector, give the GP mean prediction at each wavelength.
+        For a given residual vector, give the GP mean prediction at
+        each wavelength and the covariance matrix.
 
         :param residual:
             Vector of residuals (y_data - mean_model).
             
         :param wave: default None
-            Wavelengths at which variance estimates are desired.
+            Wavelengths at which mean and variance estimates are desired.
             Defaults to the input wavelengths.
         """
         
-        if wave is None:
-            wave = self.wave
-        Sigma = self.a**2 * np.exp(-(wave[:,None] -self.wave[None,:])**2/(2*self.l**2))
-        Sigma[np.diag_indices_from(Sigma)] += ( self.s**2)        
-        return np.dot(Sigma, cho_solve(self.factorized_Sigma, residual))
-
-    def predict_var(self, wave=None):
-        """
-       Give the GP prediction variance at each wavelength.
-
-        :param wave: default None
-            Wavelengths at which variance estimates are desired.
-            Defaults to the input wavelengths - the variance is zero
-            in this case.
-        """
         
-        if wave is None:
-            inwave = self.wave
+        Sigma_cross = self.construct_covariance(inwave=wave, cross=True)
+        Sigma_star = self.construct_covariance(inwave=wave, cross=False)
+        
+        mu = np.dot(Sigma_cross, cho_solve(self.factorized_Sigma, residual))
+        cov = Sigma_star - np.dot(Sigma_cross, cho_solve(self.factorized_Sigma,
+                                                         -Sigma_cross.T))
+        return mu, cov
+
+    @property
+    def kernel_properties(self):
+        """Return a list of kernel properties, where the first element
+        is the number of kernel parameters
+        """
+        raise NotImplementedError
+    
+    def kernel_to_params(self, kernel):
+        """A method that takes an ndarray and returns a blob of kernel
+        parameters.  mostly usied for a sort of documentation, but
+        also for grouping parameters
+        """
+        raise NotImplementedError
+    
+    def construct_covariance(self, inwave=None, cross=False):
+        raise NotImplementedError
+
+class ExpSquared(GaussianProcess):
+
+    @property
+    def kernel_properties(self):
+        return [3]
+                              
+    def kernel_to_params(self, kernel):
+        """Kernel is a vector consisting of log(s, a**2, l**2)
+        """
+        s, asquared, lsquared = np.exp(kernel).tolist()
+        return s, asquared, lsquared
+
+    def construct_covariance(self, inwave=None, cross=False, **extras):
+        """Construct an exponential squared covariance matrix
+        """
+        s, asq, lsq = self._params
+        
+        if inwave is None:
+            Sigma = asq * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*lsq))
+            Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + s**2)
+            return Sigma
+        elif cross:
+            Sigma = asq * np.exp(-(inwave[:,None] - self.wave[None,:])**2/(2*lsq))
+            return Sigma
         else:
-            inwave = wave
-        Sigma = self.a**2 * np.exp(-(inwave[:,None] -self.wave[None,:])**2/(2*self.l**2))
-        Sigma[np.diag_indices_from(Sigma)] += ( self.s**2)
-        if wave is None:
-            Sigma_star = Sigma
-        else:
-            Sigma_star = self.a**2 * np.exp(-(inwave[:,None] - inwave[None,:])**2/(2*self.l**2))
-            Sigma_star[np.diag_indices_from(Sigma_star)] += ( self.s**2)
-       
-        return Sigma_star - np.dot(Sigma, cho_solve(self.factorized_Sigma, Sigma))
+            Sigma = asq * np.exp(-(inwave[:,None] - inwave[None,:])**2/(2*lsq))
+            Sigma[np.diag_indices_from(Sigma)] += s**2
+            return Sigma
+        
+class PhotOutlier(GaussianProcess):
+
+    @property
+    def kernel_properties(self):
+        return [3]
+    
+    def kernel_to_params(self, kernel):
+        """Kernel is a set of (diagonal) locations and amplitudes.
+        The last element is the jitter term.
+        """
+        jitter = int((len(kernel) % 2 == 1))
+        nout = (len(kernel)-jitter) / 2
+        amps = kernel[:nout]
+        locs = kernel[nout:2*nout]
+        if jitter:
+            jitter = kernel[-1]
+        return jitter, locs, amps
+
+    def construct_covariance(self, cross=None, **extras):
+        jitter, locs, amps = self._params
+        #round to the nearest index
+        locs = locs.astype(int)
+        # make sure the flux vector exists and is of proper length
+        if np.all(self.flux == 1):
+            self.flux = np.ones_like(self.sigma)
+        assert len(self.flux) > np.max(locs)
+        assert len(self.flux) == len(self.sigma)
+        
+        nw = len(self.sigma)
+        Sigma = np.zeros([nw, nw])
+        Sigma[(np.arange(nw), np.arange(nw))] += self.sigma**2 + (jitter*self.flux)**2
+        Sigma[(locs, locs)] += (amps*self.flux[locs])**2
+
+        return Sigma

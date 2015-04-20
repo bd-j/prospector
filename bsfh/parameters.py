@@ -10,7 +10,7 @@ param_template = {'name':'', 'N':1, 'isfree': False,
 
 class ProspectrParams(object):
     """
-    :param mp:
+    :param config_list:
         A list of ``model parameters``.
     
     """

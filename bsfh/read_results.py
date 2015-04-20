@@ -71,7 +71,7 @@ def model_comp(theta, model, sps, photflag=0, gp=None):
         
     return sed, cal, delta, mask, wave
 
-def param_evol(sample_results, outname=None, showpars=None, start=0):
+def param_evol(sample_results, outname=None, showpars=None, start=0, **plot_kwargs):
     """
     Plot the evolution of each parameter value with iteration #, for
     each chain.
@@ -109,7 +109,7 @@ def param_evol(sample_results, outname=None, showpars=None, start=0):
     for i in range(ndim):
         ax = axes.flatten()[i]
         for j in range(nwalk):
-            ax.plot(chain[j,:,i])
+            ax.plot(chain[j,:,i], **plot_kwargs)
         ax.set_title(parnames[i])
     if outname is not None:
         fig.savefig('{0}.x_vs_step.png'.format(outname))
