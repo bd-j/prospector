@@ -62,7 +62,7 @@ def plotting_range(prior_args):
 class Prior(object):
     """
     Encapsulate the priors in an object.  On initialization each prior
-    should have a function name and optioanl parameters specifiyfy
+    should have a function name and optional parameters specifiyfy
     scale and location passed (e.g. min/max or mean/sigma).  When
     called, the argument should be a variable and it should return the
     prior probability of that value.  One should be able to sample
@@ -71,19 +71,27 @@ class Prior(object):
     plotting range and, if there are bounds, to return them.
     """
 
-    def __init__( kind, *args):
+    def __init__(self, kind, *args, **kwargs):
+        self._function = function[kind]
+        self.args = *args
+        self.kwargs = **kwargs
+        self._gradient = gradient[kind]
+        
+    def __call__(self, theta):
+        return self._function(theta, *self.args, **self.kwargs)
+    
+    def sample(self, nsample):
+        return self._sampler(nsample)
+    
+    def gradient(self, theta):
+        return self._gradient(theta, *self.args, **self.kwargs)
+    
+    def range(self):
         pass
-    def __call__(theta):
-        pass
-    def sample(nsample):
-        pass
-    def gradient(theta):
-        pass
-    def range():
-        pass
+    
     @property
-    def bounds():
+    def bounds(self):
         pass
 
-    def serialize():
+    def serialize(self):
         pass
