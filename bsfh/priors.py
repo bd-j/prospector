@@ -36,8 +36,16 @@ def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
         return ( np.log((2*np.pi)**(-0.5)/(theta*sigma)) -
                 (np.log(theta) - log_mean)**2/(2*sigma**2) )
     else:
-        return -np.infty
+        return -np.infty * np.ones(len(theta))
 
+def logarithmic(theta, mini=0.0, maxi=np.inf, **extras):
+    """A logarithmic (1/x) prior, with optional bounds.
+    """
+    lnp = -np.log(theta)
+    n = (theta < mini) | (theta > maxi)
+    lnp[n] = -np.infty
+    return lnp
+    
 def plotting_range(prior_args):
     if 'mini' in prior_args:
         return prior_args['mini'], prior_args['maxi']
