@@ -249,28 +249,35 @@ class CSPModel(ProspectrParams):
     def phot_calibration(self, **extras):
         return 1.0
 
-    def phot_gp_params(self, obs=None, outlier=False, theta=None,
+    def phot_gp_params(self, obs=None, theta=None,
                        **extras):
         """Return the parameters for generating the covariance matrix
         used by the photometric gaussian process in a way
         understandable for the GP objects.  This method looks for the
-        ``phot_jitter``, ``gp_phot_amps`` and ``gp_phot_locs`` keys in
-        the parameter dictionary
+        ``phot_jitter`` parameter.  For the outlier modeling it also
+        looks for  ``gp_outlier_amps`` and ``gp_outlier_locs`` keys in
+        the parameter dictionary.  For the additional error on grouped
+        bands it looks for ``gp_filter_locs`` and ``gp_filter_amps``
+        keys in the parameters dictionary.
+
+        The ``gp_outlier_locs`` is an array of indices into the
+        (masked) maggies array, and ``gp_outlier_amps`` is an array of
+        GP amplitudes corresponding to these indices.
+
+        Otherwise, ``gp_filter_locs`` is a fixed array of filter name
+        lists (or other iterable), and ``gp_filter_amps`` is an array
+        of the same length giving the GP amplitudes associated with
+        each list
 
         :param obs:
-            obs data dictionary.  Must have a ``filters`` key.
+            obs data dictionary.  Must have a ``filters`` key.  If not
+            supplied, only the overall jitter term will be searched
+            and amps and locs will be returned as [0], [0].
             
-        :param outlier:
-            Switch to interpret the gp parameters in terms of outlier
-            modeling.  In this case ``gp_phot_locs`` is an array of
-            indices into the (masked) maggies array, and
-            ``gp_phot_amps`` is an array of GP amplitudes
-            corresponding to these indices.
-
-            Otherwise, ``gp_phot_locs`` is a fixed array of filter
-            name lists, and ``gp_phot_amps`` is an array of the same
-            length giving the GP amplitudes associated with each list
-
+        :param theta:
+            Theta parameter vector.  If suppied, parameters will be
+            set before being parsed into s, amps, locs
+            
         :returns s:
             The jitter (scalar)
 
@@ -285,10 +292,15 @@ class CSPModel(ProspectrParams):
         if theta is not None:
             self.set_parameters(theta)
             
-        mask = obs.get('phot_mask', np.ones( len(obs['filters']), dtype= bool))
-        noise = np.zeros(len(mask))
         # Overall jitter
         s = self.params.get('phot_jitter', 0.0)
+        if obs is None:
+            return s, [0.0], [0]
+        
+        # band dependent jitter
+        mask = obs.get('phot_mask', np.ones( len(obs['filters']), dtype= bool))
+        noise = np.zeros(len(mask))
+
         # Do the outlier modeling
         outl = self.params.get('phot_outlier_loc')
         outa = self.params.get('phot_outlier_amp')
