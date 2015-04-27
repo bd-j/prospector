@@ -36,7 +36,7 @@ def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
         return ( np.log((2*np.pi)**(-0.5)/(theta*sigma)) -
                 (np.log(theta) - log_mean)**2/(2*sigma**2) )
     else:
-        return -np.infty * np.ones(len(theta))
+        return np.zeros(np.size(theta))-np.infty
 
 def logarithmic(theta, mini=0.0, maxi=np.inf, **extras):
     """A logarithmic (1/x) prior, with optional bounds.
