@@ -286,17 +286,24 @@ class CSPModel(ProspectrParams):
             self.set_parameters(theta)
             
         mask = obs.get('phot_mask', np.ones( len(obs['filters']), dtype= bool))
-        pars = ['phot_jitter', 'gp_phot_amps', 'gp_phot_locs']
-        defaults = [0.0, [0.0], [0]]
-        s, amps, locs = [self.params.get(p, d) for p, d in zip(pars, defaults)]
-        no_locs = 'gp_phot_locs' not in self.params
-        #outlier modeling allows the locations to float. locs here are indices
-        if outlier or no_locs:
-            locs = np.clip(locs, 0, mask.sum() - 1)
-            return s, np.atleast_1d(amps), np.atleast_1d(locs)
-        
+        noise = np.zeros(len(mask))
+        # Overall jitter
+        s = self.params.get('phot_jitter', 0.0)
+        # Do the outlier modeling
+        outl = self.params.get('phot_outlier_loc')
+        outa = self.params.get('phot_outlier_amp')
+        if (outl is not None) and (outa is not None):
+            # Outlier modeling allows the locations to float. locs here are indices
+            outl = np.clip(outl, 0, mask.sum() - 1).astype(int)
+            noise[outl] = outa**2
+
         # Here we add linked amplitudes based on filter names.  locs
         # here is an array of lists
+        locs = self.params.get('phot_filter_loc')
+        amps = self.params.get('phot_filter_amp')
+        if (locs is None) or (amps is None):
+            return s, np.atleast_1d(outa), np.atleast_1d(outl)
+        
         ll, aa = [], []
         if type(obs['filters'][0]) is str:
             fnames = [f for i,f in enumerate(obs['filters']) if mask[i]]
@@ -305,8 +312,11 @@ class CSPModel(ProspectrParams):
         for i, a in enumerate(amps):
             filts = locs[i]
             ll += [fnames.index(f) for f in filts if f in fnames]
-            aa += len(filts) * [a] 
-        return  s, np.atleast_1d(aa), np.atleast_1d(ll)
+            aa += len(filts) * [a]
+        noise[ll] += np.array(aa)**2
+        ll = noise > 0
+        aa = np.sqrt(noise[ll])
+        return  s, aa, np.where(ll)[0]
 
     def sky(self):
         return 0.
