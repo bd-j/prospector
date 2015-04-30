@@ -51,19 +51,21 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
     mask = obs['mask']
     mu = model.mean_model(theta, obs, sps=sps)[photflag][mask]
     sed = model.sed(theta, obs, sps=sps)[photflag][mask]
-    spec = obs['spectrum'][mask]
     wave = obs['wavelength'][mask]
     
     if photflag == 0:
-        cal = model.spec_calibration(theta, obs)[mask]
+        cal = model.spec_calibration(theta, obs)
+        if type(cal) is not float:
+            cal = cal[mask]
         try:
             s, a, l = model.spec_gp_params()
             gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
             gp.compute(obs['wavelength'][mask], obs['unc'][mask])
+            spec = obs['spectrum'][mask]
             delta = gp.predict(spec - mu, obs['wavelength'][mask])
             if len(delta) ==2:
                 delta = delta[0]
-        except(AttributeError):
+        except(AttributeError, KeyError):
             delta = 0
     else:
         mask = np.ones(len(obs['wavelength']), dtype= bool)

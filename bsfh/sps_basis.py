@@ -326,7 +326,10 @@ class StellarPopBasis(object):
                 i += 1
         self.basis_dirty = False
 
-
+    @property
+    def wavelengths(self):
+        return self.ssp.wavelengths
+    
 def smoothspec(inwave, spec, lsf, outwave=None,
                min_wave_smooth=None, max_wave_smooth=None,
                **kwargs):
