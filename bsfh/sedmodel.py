@@ -95,8 +95,8 @@ class SedModel(ProspectrParams):
     def spec_calibration(self, theta=None, obs=None, **kwargs):
         """
         Implements a polynomial calibration model.  This only happens
-        if `pivot_wave` is a defined model parameter, since the
-        polynomial is returned in terms of r'$x \equiv
+        if `pivot_wave` is a key of the obs dictionary, since the
+        polynomial is defined in terms of r'$x \equiv
         \lambda/\lambda_{{pivot}} - 1$'.
 
         :returns cal:
@@ -142,8 +142,8 @@ class CSPModel(ProspectrParams):
     #to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
     def mean_model(self, theta, obs, sps=None, **kwargs):
-        """Rename of self.sed() for compatibility.  If any calibration model
-        is applied, it should go here.
+        """Rename of CSPModel.sed() for compatibility.  If any
+        parameteric calibration model is applied, it should go here.
         """
         return self.sed(theta, obs, sps=sps, **kwargs)
     
@@ -319,7 +319,22 @@ class CSPModel(ProspectrParams):
 
 def gauss(x, mu, A, sigma):
     """
-    Lay down multiple gaussians on the x-axis.
+    Sample multiple gaussians at positions x.
+
+    :param x:
+        locations where samples are desired.
+
+    :param mu:
+        Center(s) of the gaussians.
+        
+    :param A:
+        Amplitude(s) of the gaussians, defined in terms of total area.
+
+    :param sigma:
+        Dispersion(s) of the gaussians, un units of x.
+
+    :returns val:
+        The values of the sum of gaussians at x 
     """ 
     mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
