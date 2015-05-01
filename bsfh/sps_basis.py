@@ -1,7 +1,10 @@
 import numpy as np
-from scipy.interpolate import interp1d
 import fsps
 from sedpy.observate import getSED, vac2air, air2vac
+try:
+    from sedpy.observate import lsf_broaden
+except(ImportError):
+    pass
 
 # Useful constants
 lsun = 3.846e33
@@ -16,37 +19,56 @@ class StellarPopBasis(object):
     order to include more functionality and to allow 'fast' model
     generation in some situations by storing an easily accessible
     spectral grid.
+
+    :param compute_vega_mags:
+
+    :param zcontinuous:
+        Flag to indicate the type of metallicity interpolation.
+
+    :param safe:
+        If ``True``, use the get_spectrum() method of of the
+        StellarPopulation object to generate your SSPs.  This means
+        that COMPSP in FSPS will do all the dust attenuation and
+        emission, all the nebular emission, the smoothing,
+        redshifting, etc.  If safe=``False`` then the ztinterp()
+        method is used and the dust attenuation, smoothing, and
+        redshifting are done by this code, not COMPSP.  There is no
+        dust emission, or varying physical nebular parameters.
     """
     
     def __init__(self, compute_vega_mags=False,
-                 debug=False, **kwargs):
+                 zcontinuous=1,
+                 debug=False, safe=False, **kwargs):
 
         self.debug = debug
-        
+        self.safe = safe
         #this is a StellarPopulation object from fsps
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+                                          zcontinuous=zcontinuous,
                                           **kwargs)
         
         #This is the main state vector for the model
-        self.params = {'dust_tesc':0.00, 'dust1':0., 'dust2':0.,
-                       'mass':np.array([1.0]), 'zmet':np.array([0.0]),
-                       'outwave':self.ssp.wavelengths.copy()}
+        self.params = {'outwave':self.ssp.wavelengths.copy(),
+                       'dust_tesc':0.00, 'dust1':0., 'dust2':0.,
+                       'mass':np.array([1.0]), 'zmet':np.array([0.0])}
         
-        #These are the parameters whose change will force a
-        #regeneration of the SSPs (and basis) using fsps
-        self.ssp_params = ['imf_type','imf3','agb_dust',
-                           'smooth_velocity', 'min_wave_smooth', 'max_wave_smooth']
         self.ssp_dirty = True
         
         #These are the parameters whose change will force a
-        #regeneration of the basis from the SSPs
-        self.basis_params = ['sigma_smooth', 'zred', 
-                             'tage', 'zmet', 
-                             'dust1', 'dust2', 'dust_tesc', 'dust_curve', 
-                             'outwave']
+        #regeneration of the basis from the SSPs (but will not force
+        #the SSPs to be regenerated)
+        if self.safe:
+            self.basis_params = ['tage','logzsol', 'zmet']
+                                 #'lumdist', 'outwave']
+        else:
+            self.basis_params = ['tage', 'zmet', 'logzsol',]
+                                 #'sigma_smooth', 
+                                 #'dust1', 'dust2', 'dust_tesc', 'dust_curve']
+                                 #'lumdist', 'outwave']
+
         self.basis_dirty = True
         
-    def get_spectrum(self, outwave=None, filters=None, nebular=True, **kwargs):
+    def get_spectrum(self, outwave=None, filters=None, nebular=True, **params):
         """
         Return a spectrum for the given parameters.  If necessary the
         SSPs are updated, and if necessary the component spectra are
@@ -82,9 +104,7 @@ class StellarPopBasis(object):
             Any extra parameters (like stellar mass) that you want to
             return.
         """
-        params = kwargs
-        cspec, neb, cphot, cextra = self.get_components(params, outwave, filters)
-
+        cspec, neb, cphot, cextra = self.get_components(outwave, filters, **params)
         spec = (cspec * self.params['mass'][:,None]).sum(axis = 0)
         if nebular:
             spec += neb
@@ -94,7 +114,7 @@ class StellarPopBasis(object):
         
         return spec, phot, extra
     
-    def get_components(self, params, outwave, filters):
+    def get_components(self, outwave, filters, **params):
         """
         Return the component spectra for the given parameters, making
         sure to update the components if necessary.
@@ -114,8 +134,12 @@ class StellarPopBasis(object):
             The spectrum at the wavelength points given by outwave,
             ndarray of shape (ncomp,nwave).  Units are
             erg/s/cm^2/AA/M_sun
-            
-        :returns phot:
+
+        :returns nebspec:
+            The nebular spectrum at the wavelength points given by outwave,
+            ndarray of shape (nwave).  Units are erg/s/cm^2/AA
+                        
+        :returns cphot:
             The synthetc photometry through the provided filters,
             ndarray of shape (ncomp,nfilt).  Units are
             *apparent maggies*.
@@ -124,36 +148,63 @@ class StellarPopBasis(object):
             Any extra parameters (like stellar mass) that you want to
             return.
         """
+
         if outwave is not None:
             params['outwave'] = outwave
+        #This will rebuild the basis if relevant parameters changed
         self.update(params)
 
         #distance dimming and conversion from Lsun/AA to cgs
         dist10 = self.params.get('lumdist', 1e-5)/1e-5 #distance in units of 10s of pcs
         dfactor = to_cgs / dist10**2
-        
-        # Stellar component. Redshift and put on the proper wavelength
-        # grid. Eventually this should probably do proper integration
-        # within the output wavelength bins, and deal with non-uniform
-        # line-spread functions
-        a1 = (1 + self.params.get('zred', 0.0))
-        cspec = interp1d( vac2air(self.ssp.wavelengths * a1),
-                          self.basis_spec / a1 * dfactor,
-                          axis = -1, bounds_error=False)(self.params['outwave'])
 
-        # Nebular component.  Should add this to spectra somehow
-        # before generating photometry.
-        neb = self.nebular(params, outwave) * dfactor
+        nebspec = self.nebular(params, self.params['outwave']) * dfactor
+        cspec = np.empty([self.nbasis, len(outwave)])
+        cphot = np.empty([self.nbasis, np.size(filters)])
+        for i in range(self.nbasis):
+            cspec[i,:], cphot[i,:] = self.process_component(i, outwave, filters)
         
-        #get the photometry
-        if filters is not None:
-            cphot = 10**(-0.4 * getSED( self.ssp.wavelengths * a1,
-                                        self.basis_spec / a1 * dfactor, filters))
-        else:
-            cphot = 0.
+        return cspec * dfactor, nebspec, cphot * dfactor, self.basis_mass
+
+    def process_component(self, i, outwave, filters):
+        """Basically do all the COMPSP stuff for one component.
+        """
+        cspec = self.basis_spec[i,:].copy()
+        cphot = 0
+        inwave = self.ssp.wavelengths
         
-        return cspec, neb, cphot, self.basis_mass
-    
+        if not self.safe:
+            # Dust attenuation
+            tage = self.params['tage'][i]
+            tesc = self.params.get('dust_tesc', 0.01)
+            dust1 = self.params.get('dust1', 0.0)
+            dust2 = self.params['dust2']
+            a = (1 + self.params.get('zred', 0.0))
+            dust = (tage < tesc) * dust1  + dust2
+            att = self.params['dust_curve'][0](inwave, **self.params) 
+            cspec *= np.exp(-att*dust)
+            
+            if filters is not None:
+                cphot = 10**(-0.4 * getSED(inwave*a, cspec / a, filters))
+                
+            # Wavelength scale.  Broadening and redshifting and
+            # placing on output wavelength grid
+            if self.params.get('lsf', [None])[0] is not None:
+                cspec = smoothspec(vac2air(inwave) * a,
+                                    cspec / a, **self.params)
+            else:
+                sigma = self.params.get('sigma_smooth',0.0)
+                cspec = self.ssp.smoothspec(inwave, cspec, sigma)
+                cspec = np.interp(self.params['outwave'],
+                                  vac2air(inwave * a), cspec/a)
+        elif self.safe:
+            # Place on output wavelength grid, and get photometry
+            cspec = np.interp(self.params['outwave'],
+                              vac2air(inwave), cspec/a)
+            cphot = 10**(-0.4 * getSED(inwave, cspec/a, filters))
+                
+        return cspec, cphot
+                
     def nebular(self, params, outwave):
         """
         If the emission_rest_wavelengths parameter is present, return
@@ -184,8 +235,44 @@ class StellarPopBasis(object):
         
         else:
             return 0.
+        
+    def update(self, newparams):
+        """
+        Update the parameters, recording whether it was new for the
+        ssp or basis parameters.  If either of those changed,
+        regenerate the relevant spectral grid(s).
+        """
+        
+        for k, v in newparams.iteritems():
+            if k in self.basis_params:
+                #make sure parameter is in dict, and check if it changed
+                if k not in self.params:
+                    self.basis_dirty = True
+                    self.params[k] = v
+                if np.any(v != self.params.get(k)):
+                    self.basis_dirty = True
+            else:
+                try:
+                    # here the sps.params.dirtiness should increase to 2
+                    # if there was a change
+                    self.ssp.params[k] = v[0]
+                except KeyError:
+                    pass
+            #now update params
+            self.params[k] = np.copy(np.atleast_1d(v))
+            # if we changed only csp_params but are relying on COMPSP,
+            # make sure we remake the basis
+            if self.safe and (self.ssp.params.dirtiness == 1):
+                self.basis_dirty = True
+            # if we changed only csp_params propagate them through but
+            # don't force basis remake (unless basis_dirty)
+            if self.ssp.params.dirtiness == 1:
+                self.ssp._update_params()
+            
+        if self.basis_dirty | (self.ssp.params.dirtiness == 2):
+            self.build_basis()
 
-    def build_basis(self, outwave):
+    def build_basis(self):
         """
         Rebuild the component spectra from the SSPs.  The component
         spectra include dust attenuation, redshifting, and spectral
@@ -195,6 +282,10 @@ class StellarPopBasis(object):
         wavelength grid are taken into account.  The dust treatment is
         less sophisticated.
 
+        The assumption is that the basis is a N_z by N_age (by N_wave)
+        array where the z values and age values are given by vectors
+        located in params['tage'] and params['zmet']
+        
         This method is only called by self.update if necessary.
 
         :param outwave: 
@@ -202,60 +293,92 @@ class StellarPopBasis(object):
             desired, ndarray of shape (nwave,)
 
         """
+        if self.debug:
+            print('sps_basis: rebuilding basis')
         #setup the internal component basis arrays
         inwave = self.ssp.wavelengths
-        nbasis = len(np.atleast_1d(self.params['zmet'])) * len(np.atleast_1d(self.params['tage']))
+        nbasis = len(np.atleast_1d(self.params['mass']))
+        self.nbasis = nbasis
+        #nbasis = ( len(np.atleast_1d(self.params['zmet'])) *
+        #           len(np.atleast_1d(self.params['tage'])) )
         self.basis_spec = np.zeros([nbasis, len(inwave)])
         self.basis_mass = np.zeros(nbasis)
 
         i = 0
-        #should vectorize this set of loops
-        for j,zmet in enumerate(self.params['zmet']):
-            for k,tage in enumerate(self.params['tage']):
+        tesc = self.params['dust_tesc']
+        dust1, dust2 = self.params['dust1'], self.params['dust2']
+        for j, zmet in enumerate(self.params['zmet']):
+            for k, tage in enumerate(self.params['tage']):
                 # get the intrinsic spectrum at this metallicity and age
-                spec, mass, lbol = self.ssp.ztinterp(zmet, tage, peraa = True)
-                
-                # and attenuate by dust unless missing any dust parameters
-                # This is ugly - should use a hook into ADD_DUST
-                dust = ((tage < self.params['dust_tesc']) * self.params['dust1']  +
-                        (tage >= self.params['dust_tesc']) * self.params['dust2'])
-                spec *= np.exp(-self.params['dust_curve'][0](inwave) * dust)
-                # broaden and store
-                self.basis_spec[i,:] = self.ssp.smoothspec(inwave, spec, self.params.get('sigma_smooth',0.0))
-                # = griddata(inwave * a1, spec / a1, self.params['outwave'])
+                if self.safe:
+                    # do it using compsp
+                    if self.ssp._zcontinuous > 0:
+                        self.ssp.params['logzsol'] = zmet
+                    else:
+                        self.ssp.params['zmet'] = zmet
+                    w, spec = self.ssp.get_spectrum(tage=tage, peraa=True)
+                    mass = self.ssp.stellar_mass
+                else:
+                    # do it by hand.  Faster but dangerous
+                    spec, mass, lbol = self.ssp.ztinterp(zmet, tage, peraa=True)
+                self.basis_spec[i,:] = spec
                 self.basis_mass[i] = mass
                 i += 1
-                
         self.basis_dirty = False
 
-    def update(self, inparams):
-        """
-        Update the parameters, recording whether it was new for the
-        ssp or basis parameters.  If either of those changed,
-        regenerate the relevant spectral grid(s).
-        """
+    @property
+    def wavelengths(self):
+        return self.ssp.wavelengths
+    
+def smoothspec(inwave, spec, lsf, outwave=None,
+               min_wave_smooth=None, max_wave_smooth=None,
+               **kwargs):
+    """
+    Broaden a spectrum with a user defined line-spread function.
+
+    :param inwave:
+        The wavelength vector of the input spectrum, ndarray.
         
-        for k,v in inparams.iteritems():
-            if k in self.ssp_params:
-                try:
-                    #here the sps.params.dirtiness should increase to 2 if there was a change
-                    self.ssp.params[k] = v[0]
-                    if 'smooth' in k:
-                        if v[0] != self.params.get(k, None):
-                            self.ssp.params.dirtiness = 2
-                except KeyError:
-                    pass
-            elif k in self.basis_params:
-                if self.debug:
-                    print(k, np.any(v != self.params.get(k,None)))
-                if np.any(v != self.params.get(k,None)):
-                    self.basis_dirty = True
-            #now update params
-            self.params[k] = np.copy(np.atleast_1d(v))
+    :param spec:
+        The flux vector of the input spectrum, ndarray
+        
+    :param lsf:
+        A function describing the line_spread_function.  It should
+        take as inputs `wave` and any keyword arguments and return
+        sigma(wave).
 
-        if self.basis_dirty | (self.ssp.params.dirtiness == 2):
-            self.build_basis(self.params['outwave'])
+    :param outwave:
+        The output wavelength vector.  If None then the input
+        wavelength vector will be assumed.  If min_wave_smooth or
+        max_wave_smooth are also specified, then the output spectrum
+        may have differnt dimensions than spec or inwave.
+        
+    :param min_wave_smooth:
+        The minimum wavelength of the input vector to consider when
+        smoothing the spectrum.  If None then it is determined from
+        the minimum of the output wavelength vector, minus 50.0.
+        
+    :param max_wave_smooth:
+        The maximum wavelength of the input vector to consider when
+        smoothing the spectrum.  If None then it is determined from
+        the minimum of the output wavelength vector, plus 50.0
 
+    :returns outspec:
+        The smoothed spectrum.
+    """
+    this_lsf = lsf[0]
+    if outwave is None:
+        outwave = inwave
+    if min_wave_smooth is None:
+        min_wave_smooth = [inwave.min() - 50.0]
+    if max_wave_smooth is None:
+        max_wave_smooth = [inwave.max() + 50.0]
+    
+    smask = (inwave > min_wave_smooth[0]) & (inwave < max_wave_smooth[0])
+    ospec = lsf_broaden(inwave[smask], spec[smask], this_lsf, outwave=outwave,
+                         **kwargs)
+    return ospec
+        
 def gauss(x, mu, A, sigma):
     """
     Lay down mutiple gaussians on the x-axis.

@@ -37,6 +37,11 @@ def parse_args(argv, argdict={}):
 def get_run_params(param_file=None, argv = None, **kwargs):
     """ Get a run_params dictionary from the param_file (if passed)
     otherwise return the kwargs dictionary.
+
+    The order of precedence of parameter specification locations is
+        1. param_file (lowest)
+        2. kwargs passsed to this function
+        3. command line arguments
     """
     if param_file is None:
         rp = {}
@@ -82,23 +87,38 @@ def load_gp(gptype='', **extras):
     
 def load_sps(sptype=None, compute_vega_mags=False,
              zcontinuous=1, custom_filter_keys=None,
+             param_file=None,
              **extras):
-    """Return an sps object of the given type.
+    """Return an sps object of the given type.  First it looks in the
+    param_file though.  This last part is not tested.             
     """
+    # look in param_file
+    if param_file is not None:
+        ext = param_file.split('.')[-1]
+        if ext == 'py':
+            try:
+                setup_module = import_module_from_file(param_file)
+                sps = setup_module.sps
+                return sps
+            except(AttributeError):
+                pass
+    # it's not in param_file, load from sps_basis or fsps depending on
+    # ``sptype``
     if sptype == 'sps_basis':
         from bsfh import sps_basis
-        sps = sps_basis.StellarPopBasis(compute_vega_mags=compute_vega_mags)
-    elif sptype == 'fsps':
+        sps = sps_basis.StellarPopBasis(zcontinuous=zcontinuous,
+                                        compute_vega_mags=compute_vega_mags)
+        return sps
+    if sptype == 'fsps':
         import fsps
         sps = fsps.StellarPopulation(zcontinuous=zcontinuous,
                                      compute_vega_mags=compute_vega_mags)
         if custom_filter_keys is not None:
             fsps.filters.FILTERS = custom_filter_dict(custom_filter_keys)
+        return sps
     else:
         print('No SPS type set.  Acceptable types are "sps_basis" and "fsps".')
         sys.exit(1)
-
-    return sps
         
 def load_model(param_file=None, **extras):
     """Load the model object from a model config list given in the
@@ -125,7 +145,10 @@ def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
     if ext == 'py':
         print('reading py script {}'.format(param_file))
         setup_module = import_module_from_file(param_file)
-        obs = deepcopy(getattr(setup_module, 'obs', None))
+        try:
+            obs = setup_module.load_obs(**kwargs)
+        except(AttributeError):
+            obs = deepcopy(getattr(setup_module, 'obs', None))
     if obs is None:
         from bsfh import loadspec
         funcname = data_loading_function_name
