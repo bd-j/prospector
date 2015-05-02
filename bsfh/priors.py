@@ -73,8 +73,8 @@ class Prior(object):
 
     def __init__(self, kind, *args, **kwargs):
         self._function = function[kind]
-        self.args = *args
-        self.kwargs = **kwargs
+        self.args = args
+        self.kwargs = kwargs
         self._gradient = gradient[kind]
         
     def __call__(self, theta):
