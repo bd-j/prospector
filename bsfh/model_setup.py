@@ -72,8 +72,8 @@ def load_gp(gptype='', **extras):
     internal GP objects or George.
     """
     if gptype in ['', 'bsfh_exp']:
-        from bsfh.gp import GaussianProcess
-        gp = GaussianProcess(kernel=np.array([0.0, 0.0, 0.0]))
+        from bsfh.gp import ExpSquared
+        gp = ExpSquared(kernel=np.array([0.0, 0.0, 0.0]))
     elif gptype in ['George', 'george']:
         import george
         kernel = (george.kernels.WhiteKernel(0.0) +
