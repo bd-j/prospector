@@ -57,8 +57,25 @@ class LikelihoodFunction(object):
                      np.log(var).sum() )
         return lnp
         
-
-
+    def lnlike_phot_mixture(self, phot_mu, p_outlier, sigma_outlier,
+                            **kwargs):
+        """Wrapper on lnlike_phot that implements a mixture model for the outliers
+        """
+        mask = obs.get('phot_mask', np.ones( len(obs['maggies']), dtype= bool))
+        nobs = mask.sum()
+        #need to define delta
+        delta = (obs['maggies'] - phot_mu)[mask]
+        lnlike_inlier = (self.lnlike_phot(phot_mu, **kwargs) +
+                         nobs * np.log(1-p_outlier))
+        if kwargs.get('phot_noise_fractional', True):
+            var_outlier = (phot_mu[mask] * sigma_outlier)**2
+        else:
+            var_outlier = np.zeros(nobs) + sigma_outlier**2
+        lnlike_outlier =  -0.5*( (delta**2/var_outlier).sum() +
+                                 np.log(2 * np.pi * var_outlier).sum() )
+        lnlike_outlier += nobs * np.log(p_outlier)
+        return lnlike_inlier + lnlike_outlier
+        
     def lnlike_phot(self, phot_mu, obs=None, gp=None,
                     phot_noise_fractional=True, **extras):
         """Calculate the likelihood of the photometric data given the
