@@ -302,22 +302,22 @@ class CSPModel(ProspectrParams):
         noise = np.zeros(len(mask))
 
         # Do the outlier modeling
-        outl = self.params.get('phot_outlier_loc')
-        outa = self.params.get('phot_outlier_amp')
-        if (outl is not None) and (outa is not None):
+        outl = self.params.get('gp_outlier_locs',np.array([0]))
+        outa = self.params.get('gp_outlier_amps',np.array([0]))
+        if (outl.any()) and (outa.any()):
             # Outlier modeling allows the locations to float. locs here are indices
             outl = np.clip(outl, 0, mask.sum() - 1).astype(int)
             noise[outl] = outa**2
 
         # Here we add linked amplitudes based on filter names.  locs
         # here is an array of lists
-        locs = self.params.get('phot_filter_loc')
-        amps = self.params.get('phot_filter_amp')
-        if (locs is None) or (amps is None):
+        locs = self.params.get('gp_filter_locs',np.array([0]))
+        amps = self.params.get('gp_filter_amps',np.array([0]))
+        if (not locs.any()) and (not amps.any()):
             return s, np.atleast_1d(outa), np.atleast_1d(outl)
         
         ll, aa = [], []
-        if type(obs['filters'][0]) is str:
+        if 'str' in str(type(obs['filters'][0])):
             fnames = [f for i,f in enumerate(obs['filters']) if mask[i]]
         else:
             fnames = [f.name for i,f in enumerate(obs['filters']) if mask[i]]
@@ -328,6 +328,7 @@ class CSPModel(ProspectrParams):
         noise[ll] += np.array(aa)**2
         ll = noise > 0
         aa = np.sqrt(noise[ll])
+
         return  s, aa, np.where(ll)[0]
 
     def sky(self):
