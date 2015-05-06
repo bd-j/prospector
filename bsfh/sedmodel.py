@@ -125,11 +125,20 @@ class SedModel(ProspectrParams):
         else:
             return 1.0
 
-    def spec_gp_params(self, **extras):
+    def spec_gp_params(self, theta=None, **extras):
+        if theta is not None:
+            self.set_parameters(theta)
         pars = ['gp_jitter', 'gp_amplitude', 'gp_length']
         defaults = [0.0, 0.0, 1.0]
         vals = [self.params.get(p, d) for p, d in zip(pars, defaults)]
         return  tuple(vals)
+    
+    def phot_gp_params(self, theta=None, **extras):
+        if theta is not None:
+            self.set_parameters(theta)
+        s = self.params.get('phot_jitter', 0.0)
+        return s, [0.0], [0]
+
     
 class CSPModel(ProspectrParams):
     """

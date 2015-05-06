@@ -30,6 +30,7 @@ class GaussianProcess(object):
         self.wave = wave
         self.sigma = sigma
         self.flux = flux
+        self.kernel_clean = False
         
     def reset(self):
         self.factorized_Sigma = None
@@ -38,11 +39,11 @@ class GaussianProcess(object):
         self._params = None
         self.kernel = None
         
-    @property
-    def kernel_same(self):
+    def set_params(self):
         params = self.kernel_to_params(self.kernel)
-        ksame = np.array_equal(params, self._params)
-        return ksame, params
+        self.params_clean = np.array_equal(params, self._params)
+        self._params = params
+        
               
     def compute(self, wave=None, sigma=None, check_finite=False,
                 force=False, **extras):
@@ -66,16 +67,15 @@ class GaussianProcess(object):
             wave = self.wave
         if sigma is None:
             sigma = self.sigma
-        data_same = (np.all(wave == self.wave) &
+        data_clean = (np.all(wave == self.wave) &
                      np.all(sigma == self.sigma))
         #params = self.kernel_to_params(self.kernel)
-        ksame, params = self.kernel_same
+        self.set_params()
 
-        if ksame and data_same and (not force):
+        if self.params_clean and data_clean and (not force):
             return
         
         else:
-            self._params = params
             self.wave = wave
             self.sigma = sigma
             
