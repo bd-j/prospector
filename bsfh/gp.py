@@ -26,65 +26,92 @@ class GaussianProcess(object):
         #_params stores the values of kernel parameters used to
         #construct and compute the factorized covariance matrix that
         #is stored in factorized_Sigma
+        self.params_clean = False
         self._params = None
-        self.wave = wave
-        self.sigma = sigma
-        self.flux = flux
-        self.kernel_clean = False
+        self.data_clean = False
+        self.update_data(wave, sigma, flux)
+        
         
     def reset(self):
+        """Blank out the cached values.
+        """
         self.factorized_Sigma = None
-        self.wave = None
-        self.sigma = None
+        self._wave = None
+        self._sigma = None
+        self._flux = 1
         self._params = None
         self.kernel = None
+        self.data_clean = False
+        self.params_clean = False
         
-    def set_params(self):
+    def update_params(self):
+        """Update the internel kernel parameters using values stored
+        in the ``kernel`` property, which may be changed explicitly
+        from the outside.  If the contents of ``kernel`` are different
+        than the chached parameters, set the params_clean flag to
+        False.
+        """
         params = self.kernel_to_params(self.kernel)
         self.params_clean = np.array_equal(params, self._params)
         self._params = params
         
-              
-    def compute(self, wave=None, sigma=None, check_finite=False,
-                force=False, **extras):
+    def update_data(self, wave, sigma, flux):
+        """Update the data used to generate the covariance matrix.  If
+        the data has changed, set the data_clean property to False.
+        If supplied data are None, use cached values.  Otherwise cache
+        the supplied values.
+        """
+        data_clean = True
+        if wave is not None:
+            data_clean = data_clean & np.array_equal(wave, self._wave)
+            self._wave = wave
+        if sigma is not None:
+            data_clean = data_clean & np.array_equal(sigma, self._sigma)
+            self._sigma = sigma  
+        if flux is not None:
+            data_clean = data_clean & np.array_equal(flux, self._flux)
+            self._flux = flux
+        self.data_clean = self.data_clean & data_clean
+            
+    def compute(self, wave=None, sigma=None, flux=None,
+                check_finite=False, force=False, **extras):
         """Construct the covariance matrix, factorize it, and store
         the factorized matrix.  The factorization is only performed if
         the kernel parameters have chenged or the observational data
         (wave and sigma) have changed.
         
         :param wave: optional
-            independent variable.
+            independent vari able.
             
         :param sigma:
             uncertainties on the dependent variable at the locations
             of the independent variable
             
+        :param flux:
+            A scaling vector (or scalar) for the uncertainties.  A
+            value of ``1`` does not scale the uncertainties at all
+            
         :param force: optional
             If true, force a recomputation even if the kernel and the
             data are the same as for the stored factorization.
         """
-        if wave is None:
-            wave = self.wave
-        if sigma is None:
-            sigma = self.sigma
-        data_clean = (np.all(wave == self.wave) &
-                     np.all(sigma == self.sigma))
-        #params = self.kernel_to_params(self.kernel)
-        self.set_params()
-
-        if self.params_clean and data_clean and (not force):
+        self.update_params()
+        self.update_data(wave, sigma, flux)
+        
+        if self.params_clean and self.data_clean and (not force):
+            # Nothing changed
             return
         
         else:
-            self.wave = wave
-            self.sigma = sigma
-            
+            # Something changed or we're forcing regeneration
             Sigma = self.construct_covariance()
             self.factorized_Sigma  = cho_factor(Sigma, overwrite_a=True,
                                                 check_finite=check_finite)
             self.log_det = 2 * np.sum( np.log(np.diag(self.factorized_Sigma[0])))
             assert np.isfinite(self.log_det)
-
+            self.data_clean = True
+            self.params_clean = True
+            
     def lnlikelihood(self, residual, check_finite=False, **extras):
         """
         Compute the ln of the likelihood, using the current factorized
@@ -93,19 +120,19 @@ class GaussianProcess(object):
         :param residual: ndarray, shape (nwave,)
             Vector of residuals (y_data - mean_model).
         """
-        assert ( len(residual) == len(self.sigma))
+        assert ( len(residual) == len(self._sigma) )
         self.compute()
         first_term = np.dot(residual,
                             cho_solve(self.factorized_Sigma,
                                       residual, check_finite = check_finite))
-        lnL=  -0.5 * (first_term + self.log_det)
+        lnL = -0.5 * (first_term + self.log_det)
         
         return lnL
               
     def predict(self, residual, wave=None):
         """
         For a given residual vector, give the GP mean prediction at
-        each wavelength and the covariance matrix.
+        each wavelength and the covariance matrix.  This is currently broken.
 
         :param residual:
             Vector of residuals (y_data - mean_model).
@@ -157,13 +184,17 @@ class ExpSquared(GaussianProcess):
         """Construct an exponential squared covariance matrix
         """
         s, asq, lsq = self._params
-        
+            
         if inwave is None:
-            Sigma = asq * np.exp(-(self.wave[:,None] - self.wave[None,:])**2/(2*lsq))
-            Sigma[np.diag_indices_from(Sigma)] += (self.sigma**2 + s**2)
+            Sigma = asq * np.exp(-(self._wave[:,None] - self._wave[None,:])**2/(2*lsq))
+            dinds = np.diag_indices_from(Sigma)
+            if np.any(self._flux != 1):
+                scale = np.diag(self._flux)
+                Sigma = np.dot(scale, Sigma).dot(scale)
+            Sigma[dinds] += (self._sigma**2 + s**2)
             return Sigma
         elif cross:
-            Sigma = asq * np.exp(-(inwave[:,None] - self.wave[None,:])**2/(2*lsq))
+            Sigma = asq * np.exp(-(inwave[:,None] - self._wave[None,:])**2/(2*lsq))
             return Sigma
         else:
             Sigma = asq * np.exp(-(inwave[:,None] - inwave[None,:])**2/(2*lsq))
@@ -193,14 +224,17 @@ class PhotOutlier(GaussianProcess):
         #round to the nearest index
         locs = locs.astype(int)
         # make sure the flux vector exists and is of proper length
-        if np.all(self.flux == 1):
-            self.flux = np.ones_like(self.sigma)
-        assert len(self.flux) > np.max(locs)
-        assert len(self.flux) == len(self.sigma)
+        nw = len(self._sigma)
+        if np.all(self._flux == 1):
+            flux = np.ones(nw)
+        else:
+            flux = self._flux
+        assert len(flux) > np.max(locs)
+        assert len(flux) == nw
         
-        nw = len(self.sigma)
+        
         Sigma = np.zeros([nw, nw])
-        Sigma[(np.arange(nw), np.arange(nw))] += self.sigma**2 + (jitter*self.flux)**2
-        Sigma[(locs, locs)] += (amps*self.flux[locs])**2
+        Sigma[(np.arange(nw), np.arange(nw))] += self._sigma**2 + (jitter*flux)**2
+        Sigma[(locs, locs)] += (amps*flux[locs])**2
 
         return Sigma
