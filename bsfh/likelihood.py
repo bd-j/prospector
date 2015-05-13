@@ -58,9 +58,12 @@ class LikelihoodFunction(object):
                 flux = spec_mu[mask]
             else:
                 flux = 1
-            gp.compute(obs['wavelength'][mask], obs['unc'][mask], flux=flux)
-            return gp.lnlikelihood(delta)
-        
+            try:
+                gp.compute(obs['wavelength'][mask], obs['unc'][mask], flux=flux)
+                return gp.lnlikelihood(delta)
+            except(LinAlgError):
+                return -np.inf
+            
         var = obs['unc'][mask]**2
         lnp = -0.5*( (delta**2/var).sum() +
                      np.log(2*np.pi*var).sum() )

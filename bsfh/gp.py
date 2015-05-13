@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
+from scipy import sparse
 
 class GaussianProcess(object):
 
@@ -191,8 +192,8 @@ class ExpSquared(GaussianProcess):
             Sigma = asq * np.exp(-(self._wave[:,None] - self._wave[None,:])**2/(2*lsq))
             dinds = np.diag_indices_from(Sigma)
             if np.any(self._flux != 1):
-                scale = np.diag(self._flux)
-                Sigma = np.dot(scale, Sigma).dot(scale)
+                scale = sparse.diags(self._flux, 0)
+                Sigma = scale.T.dot(scale.dot(Sigma).T).T
             Sigma[dinds] += (self._sigma**2 + s**2)
             return Sigma
         elif cross:
