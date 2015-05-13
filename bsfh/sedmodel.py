@@ -43,7 +43,7 @@ class SedModel(ProspectrParams):
         """
         s, p, x = self.sed(theta, obs, sps=sps, **extras)
         if obs.get('logify_spectrum', True):
-            s = np.log(s) + self.spec_calibration(obs=obs, **extras)
+            s = np.log(s) + np.log(self.spec_calibration(obs=obs, **extras))
         else:
             s *= self.spec_calibration(obs=obs, **extras)
         return s, p, x
@@ -121,7 +121,7 @@ class SedModel(ProspectrParams):
             if self.params.get('cal_type', 'exp_poly') is 'poly':
                 return (1.0 + poly) * self.params['spec_norm']
             else:
-                return self.params['spec_norm'] + poly
+                return np.exp(self.params['spec_norm'] + poly)
         else:
             return 1.0
 

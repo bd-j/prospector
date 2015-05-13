@@ -18,6 +18,8 @@ class GaussianProcess(object):
             If supplied, the additional noise given by the jitter can
             be specified as a fraction of the flux
         """
+        self.reset()
+        
         if kernel is None:
             npar = self.kernel_properties[0]
             self.kernel = np.zeros(npar)
