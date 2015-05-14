@@ -62,7 +62,7 @@ class LikelihoodFunction(object):
                 gp.compute(obs['wavelength'][mask], obs['unc'][mask], flux=flux)
                 return gp.lnlikelihood(delta)
             except(LinAlgError):
-                return -np.inf
+                return np.nan_to_num(-np.inf)
             
         var = obs['unc'][mask]**2
         lnp = -0.5*( (delta**2/var).sum() +

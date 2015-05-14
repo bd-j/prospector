@@ -43,7 +43,7 @@ class GaussianProcess(object):
         self._sigma = None
         self._flux = 1
         self._params = None
-        self.kernel = None
+        self.kernel = np.zeros(self.kernel_properties[0])
         self.data_clean = False
         self.params_clean = False
         
