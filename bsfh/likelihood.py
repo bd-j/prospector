@@ -1,5 +1,6 @@
 import time, sys, os
 import numpy as np
+from scipy.linalg import LinAlgError
 
 class LikelihoodFunction(object):
     
