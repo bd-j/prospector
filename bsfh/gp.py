@@ -131,7 +131,7 @@ class GaussianProcess(object):
         
         return lnL
               
-    def predict(self, residual, wave=None):
+    def predict(self, residual, wave=None, sigma=None, flux=None):
         """
         For a given residual vector, give the GP mean prediction at
         each wavelength and the covariance matrix.  This is currently broken.
@@ -143,7 +143,7 @@ class GaussianProcess(object):
             Wavelengths at which mean and variance estimates are desired.
             Defaults to the input wavelengths.
         """
-        
+        self.update_data(wave, sigma, flux)
         
         Sigma_cross = self.construct_covariance(inwave=wave, cross=True)
         Sigma_star = self.construct_covariance(inwave=wave, cross=False)
