@@ -122,19 +122,21 @@ class GaussianProcess(object):
         :param residual: ndarray, shape (nwave,)
             Vector of residuals (y_data - mean_model).
         """
-        assert ( len(residual) == len(self._sigma) )
+        n = len(residual)
+        assert ( n == len(self._sigma) )
         self.compute()
         first_term = np.dot(residual,
                             cho_solve(self.factorized_Sigma,
                                       residual, check_finite = check_finite))
-        lnL = -0.5 * (first_term + self.log_det)
+        lnL = -0.5 * (first_term + self.log_det + n * np.log(2.*np.pi))
         
         return lnL
               
     def predict(self, residual, wave=None, sigma=None, flux=None):
         """
         For a given residual vector, give the GP mean prediction at
-        each wavelength and the covariance matrix.  This is currently broken.
+        each wavelength and the covariance matrix.  This is currently
+        broken if wave is not None.
 
         :param residual:
             Vector of residuals (y_data - mean_model).
@@ -162,7 +164,7 @@ class GaussianProcess(object):
     
     def kernel_to_params(self, kernel):
         """A method that takes an ndarray and returns a blob of kernel
-        parameters.  mostly usied for a sort of documentation, but
+        parameters.  mostly used for a sort of documentation, but
         also for grouping parameters
         """
         raise NotImplementedError
