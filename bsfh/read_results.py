@@ -61,12 +61,13 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
         try:
             s, a, l = model.spec_gp_params()
             gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
-            gp.compute(obs['wavelength'][mask], obs['unc'][mask])
             spec = obs['spectrum'][mask]
             if logarithmic:
+                gp.compute(wave, obs['unc'][mask])
                 delta = gp.predict(spec - mu, wave)
             else:
-                gp._wave = wave #Hack till I fix gp predict method
+                gp.compute(wave, obs['unc'][mask], flux=mu)
+                #gp._wave = wave #Hack till I fix gp predict method
                 delta = gp.predict(spec - mu, wave=None, flux=mu)
             if len(delta) ==2:
                 delta = delta[0]

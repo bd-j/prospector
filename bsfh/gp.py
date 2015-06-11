@@ -235,7 +235,6 @@ class PhotOutlier(GaussianProcess):
         assert len(flux) > np.max(locs)
         assert len(flux) == nw
         
-        
         Sigma = np.zeros([nw, nw])
         Sigma[(np.arange(nw), np.arange(nw))] += self._sigma**2 + (jitter*flux)**2
         Sigma[(locs, locs)] += (amps*flux[locs])**2
