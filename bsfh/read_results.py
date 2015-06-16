@@ -71,7 +71,7 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
                 delta = gp.predict(spec - mu, wave=None, flux=mu)
             if len(delta) ==2:
                 delta = delta[0]
-        except(AttributeError, KeyError):
+        except(TypeError, AttributeError, KeyError):
             delta = 0
     else:
         mask = np.ones(len(obs['wavelength']), dtype= bool)
