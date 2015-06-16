@@ -1,5 +1,6 @@
 import time, sys, os
 import numpy as np
+from scipy.linalg import LinAlgError
 
 class LikelihoodFunction(object):
     
@@ -8,7 +9,8 @@ class LikelihoodFunction(object):
         self.model = model
         self.lnspec = lnspec
         
-    def lnlike_spec(self, spec_mu, obs=None, gp=None, **extras):
+    def lnlike_spec(self, spec_mu, obs=None, gp=None,
+                    spec_noise_fractional=False, **extras):
         """Calculate the likelihood of the spectroscopic data given
         the spectroscopic model.  Allows for the use of a gaussian
         process covariance matrix for multiplicative residuals.
@@ -35,7 +37,11 @@ class LikelihoodFunction(object):
             A Gaussian process object with the methods `compute` and
             `lnlikelihood`.  If gp is supplied, the `wavelength` entry
             in the obs dictionary must exist
-            
+
+        :param spec_noise_fractional: (optional)
+            If true then the amplitude of the GP is taken to be a
+            fraction of the model flux.
+             
         :returns lnlikelhood:
             The natural logarithm of the likelihood of the data given
             the mean model spectrum.
@@ -49,9 +55,16 @@ class LikelihoodFunction(object):
         mask = obs.get('mask', np.ones( len(obs['spectrum']), dtype= bool))
         delta = (obs['spectrum'] - spec_mu)[mask]
         if gp is not None:
-            gp.compute(obs['wavelength'][mask], obs['unc'][mask])
-            return gp.lnlikelihood(delta)
-        
+            if spec_noise_fractional:
+                flux = spec_mu[mask]
+            else:
+                flux = 1
+            try:
+                gp.compute(obs['wavelength'][mask], obs['unc'][mask], flux=flux)
+                return gp.lnlikelihood(delta)
+            except(LinAlgError):
+                return np.nan_to_num(-np.inf)
+            
         var = obs['unc'][mask]**2
         lnp = -0.5*( (delta**2/var).sum() +
                      np.log(2*np.pi*var).sum() )
@@ -106,10 +119,10 @@ class LikelihoodFunction(object):
         delta = (obs['maggies'] - phot_mu)[mask]
         if gp is not None:
             if phot_noise_fractional:
-                gp.flux = phot_mu[mask]
+                flux = phot_mu[mask]
             else:
-                gp.flux = 1
-            gp.compute(wave=1, sigma=obs['maggies_unc'][mask])
+                flux = 1
+            gp.compute(wave=1, sigma=obs['maggies_unc'][mask], flux=flux)
             return gp.lnlikelihood(delta)
         
         var = (obs['maggies_unc'][mask])**2

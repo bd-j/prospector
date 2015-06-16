@@ -47,7 +47,8 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
     Generate and return various components of the total model for a
     given set of parameters
     """
-    obs, _, _ = obsdict(obs, photflag=photflag)
+    logarithmic = obs.get('logify_spectrum')
+    obs, _, _ = obsdict(obs, photflag=photflag)    
     mask = obs['mask']
     mu = model.mean_model(theta, obs, sps=sps)[photflag][mask]
     sed = model.sed(theta, obs, sps=sps)[photflag][mask]
@@ -60,12 +61,17 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
         try:
             s, a, l = model.spec_gp_params()
             gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
-            gp.compute(obs['wavelength'][mask], obs['unc'][mask])
             spec = obs['spectrum'][mask]
-            delta = gp.predict(spec - mu, obs['wavelength'][mask])
+            if logarithmic:
+                gp.compute(wave, obs['unc'][mask])
+                delta = gp.predict(spec - mu, wave)
+            else:
+                gp.compute(wave, obs['unc'][mask], flux=mu)
+                #gp._wave = wave #Hack till I fix gp predict method
+                delta = gp.predict(spec - mu, wave=None, flux=mu)
             if len(delta) ==2:
                 delta = delta[0]
-        except(AttributeError, KeyError):
+        except(TypeError, AttributeError, KeyError):
             delta = 0
     else:
         mask = np.ones(len(obs['wavelength']), dtype= bool)

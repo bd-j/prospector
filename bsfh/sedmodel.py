@@ -43,7 +43,7 @@ class SedModel(ProspectrParams):
         """
         s, p, x = self.sed(theta, obs, sps=sps, **extras)
         if obs.get('logify_spectrum', True):
-            s = np.log(s) + self.spec_calibration(obs=obs, **extras)
+            s = np.log(s) + np.log(self.spec_calibration(obs=obs, **extras))
         else:
             s *= self.spec_calibration(obs=obs, **extras)
         return s, p, x
@@ -121,15 +121,24 @@ class SedModel(ProspectrParams):
             if self.params.get('cal_type', 'exp_poly') is 'poly':
                 return (1.0 + poly) * self.params['spec_norm']
             else:
-                return self.params['spec_norm'] + poly
+                return np.exp(self.params['spec_norm'] + poly)
         else:
             return 1.0
 
-    def spec_gp_params(self, **extras):
+    def spec_gp_params(self, theta=None, **extras):
+        if theta is not None:
+            self.set_parameters(theta)
         pars = ['gp_jitter', 'gp_amplitude', 'gp_length']
         defaults = [0.0, 0.0, 1.0]
         vals = [self.params.get(p, d) for p, d in zip(pars, defaults)]
         return  tuple(vals)
+    
+    def phot_gp_params(self, theta=None, **extras):
+        if theta is not None:
+            self.set_parameters(theta)
+        s = self.params.get('phot_jitter', 0.0)
+        return s, [0.0], [0]
+
     
 class CSPModel(ProspectrParams):
     """
