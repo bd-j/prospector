@@ -153,8 +153,8 @@ class GaussianProcess(object):
             Sigma_test = self.construct_covariance_test(inwave, influx=influx)
         else:
             Sigma_cross  = self.construct_covariance_cross(self._wave, influx=self._flux)
-            #Sigma_test = self.construct_covariance_test(self._wave, influx=self._flux)
-            Sigma_test = self.construct_covariance()
+            Sigma_test = self.construct_covariance_test(self._wave, influx=self._flux)
+            #Sigma_test = self.construct_covariance()
             
         mu = np.dot(Sigma_cross, cho_solve(self.factorized_Sigma, residual))
         cov = Sigma_test - np.dot(Sigma_cross, cho_solve(self.factorized_Sigma,

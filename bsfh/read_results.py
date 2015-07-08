@@ -67,9 +67,8 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
                 delta = gp.predict(spec - mu, wave)
             else:
                 gp.compute(wave, obs['unc'][mask], flux=mu)
-                #gp._wave = wave #Hack till I fix gp predict method
-                delta = gp.predict(spec - mu, wave=None, flux=mu)
-            if len(delta) ==2:
+                delta = gp.predict(spec - mu)
+            if len(delta) == 2:
                 delta = delta[0]
         except(TypeError, AttributeError, KeyError):
             delta = 0
