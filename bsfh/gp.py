@@ -83,7 +83,7 @@ class GaussianProcess(object):
         (wave and sigma) have changed.
         
         :param wave: optional
-            independent vari able.
+            independent variable.
             
         :param sigma:
             uncertainties on the dependent variable at the locations
@@ -123,7 +123,7 @@ class GaussianProcess(object):
             Vector of residuals (y_data - mean_model).
         """
         n = len(residual)
-        assert ( n == len(self._sigma) )
+        assert (n == len(self._sigma))
         self.compute()
         first_term = np.dot(residual,
                             cho_solve(self.factorized_Sigma,
@@ -132,7 +132,7 @@ class GaussianProcess(object):
         
         return lnL
               
-    def predict(self, residual, wave=None, sigma=None, flux=None):
+    def predict(self, residual, inwave=None, influx=None):
         """
         For a given residual vector, give the GP mean prediction at
         each wavelength and the covariance matrix.  This is currently
@@ -141,17 +141,23 @@ class GaussianProcess(object):
         :param residual:
             Vector of residuals (y_data - mean_model).
             
-        :param wave: default None
+        :param inwave: optional
             Wavelengths at which mean and variance estimates are desired.
             Defaults to the input wavelengths.
+
+        :param inwave: optional
+            Mean model flux at inwave.
         """
-        self.update_data(wave, sigma, flux)
-        
-        Sigma_cross = self.construct_covariance(inwave=wave, cross=True)
-        Sigma_star = self.construct_covariance(inwave=wave, cross=False)
-        
+        if inwave is not None:
+            Sigma_cross = self.construct_covariance_cross(inwave, influx=influx)
+            Sigma_test = self.construct_covariance_test(inwave, influx=influx)
+        else:
+            Sigma_cross  = self.construct_covariance_cross(self._wave, influx=self._flux)
+            Sigma_test = self.construct_covariance_test(self._wave, influx=self._flux)
+            #Sigma_test = self.construct_covariance()
+            
         mu = np.dot(Sigma_cross, cho_solve(self.factorized_Sigma, residual))
-        cov = Sigma_star - np.dot(Sigma_cross, cho_solve(self.factorized_Sigma,
+        cov = Sigma_test - np.dot(Sigma_cross, cho_solve(self.factorized_Sigma,
                                                          -Sigma_cross.T))
         return mu, cov
 
@@ -164,13 +170,24 @@ class GaussianProcess(object):
     
     def kernel_to_params(self, kernel):
         """A method that takes an ndarray and returns a blob of kernel
-        parameters.  mostly used for a sort of documentation, but
-        also for grouping parameters
-        """
-        raise NotImplementedError
+        parameters.  mostly used for a sort of documentation, but also
+        for grouping parameters.  This should be subclassed unless you
+        will be changing the Sigma array by hand """
+        return None
+
     
-    def construct_covariance(self, inwave=None, cross=False):
-        raise NotImplementedError
+    def construct_covariance(self):
+        """A method that constructs the covariance matrix using the
+        value of the current ``data_params`` and ``kernel_params``.
+        This will normally be overridden by subclasses - the
+        implementation here assumes you have explicitly set the Sigma
+        attribute to the desired covariance kernel.
+        """
+        try:
+            return self.Sigma
+        except:
+            raise AttributeError("Covariance matrix must already be defined "
+                                 "in the Sigma attribute.")
 
 class ExpSquared(GaussianProcess):
 
@@ -179,31 +196,50 @@ class ExpSquared(GaussianProcess):
         return [3]
                               
     def kernel_to_params(self, kernel):
-        """Kernel is a vector consisting of log(s, a**2, l**2)
+        """Translate a vector of kernel parameters to a tuple of
+        parameters for the squared exponential kernel.
+        
+        :param kernel:
+            Vector consisting of log(s, a**2, l**2) where
+              * ``s`` is a jitter term, added in quadrature to the diagonal
+              * ``a`` is an amplitude
+              * ``l`` is a length scale, in the same units as the input wave vector.
         """
         s, asquared, lsquared = np.exp(kernel).tolist()
         return s, asquared, lsquared
 
-    def construct_covariance(self, inwave=None, cross=False, **extras):
-        """Construct an exponential squared covariance matrix
+    def construct_covariance(self, **extras):
+        """Construct an exponential squared covariance matrix with
+        nominal noise added to diagonal.
         """
         s, asq, lsq = self._params
             
-        if inwave is None:
-            Sigma = asq * np.exp(-(self._wave[:,None] - self._wave[None,:])**2/(2*lsq))
-            dinds = np.diag_indices_from(Sigma)
-            if np.any(self._flux != 1):
-                Sigma = self._flux[:,None] * Sigma * self._flux[None, :]
-            Sigma[dinds] += (self._sigma**2 + s**2)
-            return Sigma
-        elif cross:
-            Sigma = asq * np.exp(-(inwave[:,None] - self._wave[None,:])**2/(2*lsq))
-            return Sigma
-        else:
-            Sigma = asq * np.exp(-(inwave[:,None] - inwave[None,:])**2/(2*lsq))
-            Sigma[np.diag_indices_from(Sigma)] += s**2
-            return Sigma
+        Sigma = asq * np.exp(-(self._wave[:,None] - self._wave[None,:])**2/(2*lsq))
+        dinds = np.diag_indices_from(Sigma)
+        if np.any(self._flux != 1):
+            Sigma = self._flux[:,None] * Sigma * self._flux[None, :]
+        Sigma[dinds] += (self._sigma**2 + s**2)
+        return Sigma
         
+    def construct_covariance_cross(self, inwave, influx=None, **extras):
+        s, asq, lsq = self._params
+        Sigma = asq * np.exp(-(inwave[:,None] - self._wave[None,:])**2/(2*lsq))
+        if np.any(self._flux != 1):
+            # Noise is fractional
+            assert (influx is not None) and (len(influx) == len(inwave))
+            Sigma = influx[:,None] * Sigma * self._flux[None, :]
+        return Sigma
+    
+    def construct_covariance_test(self, inwave, influx=None, **extras):
+        s, asq, lsq = self._params
+        Sigma = asq * np.exp(-(inwave[:,None] - inwave[None,:])**2/(2*lsq))
+        if np.any(self._flux != 1):
+            # Noise is fractional
+            assert (influx is not None) and (len(influx) == len(inwave))
+            Sigma = influx[:,None] * Sigma * inwave[None, :]
+        Sigma[np.diag_indices_from(Sigma)] += s**2        
+        return Sigma
+    
 class PhotOutlier(GaussianProcess):
 
     @property
@@ -222,9 +258,9 @@ class PhotOutlier(GaussianProcess):
             jitter = kernel[-1]
         return jitter, locs, amps
 
-    def construct_covariance(self, cross=None, **extras):
+    def construct_covariance(self, **extras):
         jitter, locs, amps = self._params
-        #round to the nearest index
+        # round to the nearest index
         locs = locs.astype(int)
         # make sure the flux vector exists and is of proper length
         nw = len(self._sigma)
@@ -239,4 +275,10 @@ class PhotOutlier(GaussianProcess):
         Sigma[(np.arange(nw), np.arange(nw))] += self._sigma**2 + (jitter*flux)**2
         Sigma[(locs, locs)] += (amps*flux[locs])**2
 
+        return Sigma
+
+    def construct_covariance_cross(self, **extras):
+        nw = len(self._sigma)
+        Sigma = self.construct_covariance()
+        Sigma[(np.arange(nw), np.arange(nw))] -= self._sigma**2
         return Sigma
