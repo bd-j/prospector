@@ -129,7 +129,7 @@ class SedModel(ProspectrParams):
         if theta is not None:
             self.set_parameters(theta)
         pars = ['gp_jitter', 'gp_amplitude', 'gp_length']
-        defaults = [0.0, 0.0, 1.0]
+        defaults = [[0.0], [0.0], [1.0]]
         vals = [self.params.get(p, d) for p, d in zip(pars, defaults)]
         return  tuple(vals)
     
