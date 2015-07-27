@@ -48,6 +48,7 @@ class ProspectrParams(object):
             Keyword parameters can be used to override or add to the
             initial parameter values specified in  config_list
         """
+        self._has_parameter_dependencies = False
         if (not hasattr(self, 'params')) or reset:
             self.params = {}
         self._config_dict = plist_to_pdict(self.config_list)
@@ -55,12 +56,13 @@ class ProspectrParams(object):
         # propogate initial parameter values from the configure dictionary
         for par, info in self._config_dict.iteritems():
             self.params[par] = np.atleast_1d(info['init'])
+            if info.get('depends_on', None) is not None:
+                self._has_parameter_dependencies = True
         # propogate user supplied values, overriding the configure
         for k,v in kwargs.iteritems():
             self.params[k] = np.atleast_1d(v)
         # store these initial values
         self.initial_theta = self.theta.copy()#self.rectify_theta((self.theta.copy()))
-        #print('pivot_wave' in self.params)
         
     def map_theta(self):
         """
@@ -78,7 +80,7 @@ class ProspectrParams(object):
 
     def set_parameters(self, theta):
         """
-        Propagate theta into the model parameters.
+        Propagate theta into the model parameters dictionary.
 
         :param theta:
             A theta parameter vector containing the desired
@@ -88,6 +90,7 @@ class ProspectrParams(object):
         for k, v in self.theta_index.iteritems():
             start, end = v
             self.params[k] = np.atleast_1d(theta[start:end])
+        self.propagate_parameter_dependencies()
 
     def prior_product(self, theta):
         return self.simple_prior_product(theta)
@@ -118,7 +121,19 @@ class ProspectrParams(object):
         self.config_list[ind]['init'] = func(self.config_list[ind]['init'])
         for k,v in self.config_list[ind]['prior_args'].iteritems():
             self.config_list[ind]['prior_args'][k] = func(v)
-            
+
+    def propagate_parameter_dependencies(self):
+        """ Propogate any parameter dependecies. That is, for
+        parameters whose value depends on another parameter, calculate
+        those values and store them.
+        """
+        if self._has_parameter_dependencies is False:
+            return
+        for p, info in self._config_dict.iteritems():
+            if 'depends_on' in info:
+                value = (info['depends_on'](**self.params)
+                self.params[p] = np.atleast_1d(value)
+
     def rectify_theta(self, theta):
         tiny_number = 1e-10
         zero = (theta == 0)
