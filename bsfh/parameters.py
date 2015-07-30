@@ -131,7 +131,7 @@ class ProspectrParams(object):
             return
         for p, info in self._config_dict.iteritems():
             if 'depends_on' in info:
-                value = (info['depends_on'](**self.params)
+                value = info['depends_on'](**self.params)
                 self.params[p] = np.atleast_1d(value)
 
     def rectify_theta(self, theta):
