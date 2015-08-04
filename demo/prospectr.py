@@ -13,13 +13,9 @@ from bsfh.likelihood import LikelihoodFunction
 # Read command line arguments
 #########
 sargv = sys.argv
-argdict={'param_file':None, 'sptype':'sps_basis',
-         'custom_filter_keys':None,
-         'compute_vega_mags':False,
-         'zcontinuous':1,
-         'gptype': ''}
+argdict={'param_file':''}
 clargs = model_setup.parse_args(sargv, argdict=argdict)
-run_params = model_setup.get_run_params(argv = sargv, **clargs)
+run_params = model_setup.get_run_params(argv=sargv, **clargs)
 
 #########
 # Globals
@@ -27,10 +23,9 @@ run_params = model_setup.get_run_params(argv = sargv, **clargs)
 # SPS Model instance as global
 sps = model_setup.load_sps(**run_params)
 # GP instance as global
-gp_spec = model_setup.load_gp(**run_params)
-gp_phot = gp.PhotOutlier()
+gp_spec, gp_phot = model_setup.load_gp(**run_params)
 # Model as global
-global_model = model_setup.load_model(param_file=clargs['param_file'])
+global_model = model_setup.load_model(**run_params)
 # Obs as global
 global_obs = model_setup.load_obs(**run_params)
 

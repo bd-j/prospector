@@ -10,8 +10,9 @@ dictionary, an obs dictionary, and a model.  It also has methods to
 parse command line options and return an sps object and a gp object.
 """
 
+
 def parse_args(argv, argdict={}):
-    """ Parse command line arguments, allowing for optional arguments.
+    """Parse command line arguments, allowing for optional arguments.
     Simple/Fragile.
     """
     args = [sub for arg in argv[1:] for sub in arg.split('=')]
@@ -34,8 +35,9 @@ def parse_args(argv, argdict={}):
                 argdict[abare] = apo
     return argdict
 
-def get_run_params(param_file=None, argv = None, **kwargs):
-    """ Get a run_params dictionary from the param_file (if passed)
+
+def get_run_params(param_file=None, argv=None, **kwargs):
+    """Get a run_params dictionary from the param_file (if passed)
     otherwise return the kwargs dictionary.
 
     The order of precedence of parameter specification locations is
@@ -57,8 +59,9 @@ def get_run_params(param_file=None, argv = None, **kwargs):
     if argv is not None:
         rp = parse_args(argv, argdict=rp)
     rp['param_file'] = param_file
-    
+
     return rp
+
 
 def show_syntax(args, ad):
     """Show command line syntax corresponding to the provided arg
@@ -67,59 +70,23 @@ def show_syntax(args, ad):
     print('Usage:\n {0} '.format(args[0]) +
           ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
 
-def load_gp(gptype='', **extras):
+
+def load_gp(param_file=None, **kwargs):
     """Return a Gaussian Processes object, either using BSFH's
     internal GP objects or George.
     """
-    if gptype in ['', 'bsfh_exp']:
-        from bsfh.gp import ExpSquared
-        gp = ExpSquared(kernel=np.array([0.0, 0.0, 0.0]))
-    elif gptype in ['George', 'george']:
-        import george
-        kernel = (george.kernels.WhiteKernel(0.0) +
-                  0.0 * george.kernels.ExpSquaredKernel(0.0))
-        gp = george.GP(kernel, solver=george.HODLRSolver)
+    ext = param_file.split('.')[-1]
+    if ext == 'py':
+        setup_module = import_module_from_file(param_file)
+        try:
+            gp_spec, gp_phot = setup_module.load_gp(**kwargs)
+        except:
+            gp_spec, gp_phot = None, None
     else:
-        print('No GP type set.  Acceptable types are "", "george", and "bsfh_exp".')
-        sys.exit(1)
-        
-    return gp
-    
-def load_sps(sptype=None, compute_vega_mags=False,
-             zcontinuous=1, custom_filter_keys=None,
-             param_file=None,
-             **extras):
-    """Return an sps object of the given type.  First it looks in the
-    param_file though.  This last part is not tested.             
-    """
-    # look in param_file
-    if param_file is not None:
-        ext = param_file.split('.')[-1]
-        if ext == 'py':
-            try:
-                setup_module = import_module_from_file(param_file)
-                sps = setup_module.sps
-                return sps
-            except(AttributeError):
-                pass
-    # it's not in param_file, load from sps_basis or fsps depending on
-    # ``sptype``
-    if sptype == 'sps_basis':
-        from bsfh import sps_basis
-        sps = sps_basis.StellarPopBasis(zcontinuous=zcontinuous,
-                                        compute_vega_mags=compute_vega_mags)
-        return sps
-    if sptype == 'fsps':
-        import fsps
-        sps = fsps.StellarPopulation(zcontinuous=zcontinuous,
-                                     compute_vega_mags=compute_vega_mags)
-        if custom_filter_keys is not None:
-            fsps.filters.FILTERS = custom_filter_dict(custom_filter_keys)
-        return sps
-    else:
-        print('No SPS type set.  Acceptable types are "sps_basis" and "fsps".')
-        sys.exit(1)
-        
+        gp_spec, gp_phot = None, None
+    return gp_spec, gp_phot
+
+
 def load_model(param_file=None, **extras):
     """Load the model object from a model config list given in the
     config file.
@@ -128,12 +95,13 @@ def load_model(param_file=None, **extras):
     if ext == 'py':
         setup_module = import_module_from_file(param_file)
         mp = deepcopy(setup_module.model_params)
-        model_type = getattr(setup_module, 'model_type', sedmodel.SedModel)
+        model = setup_module.load_model(**extras)
     elif ext == 'json':
         rp, mp = parameters.read_plist(param_file)
-        model_type = getattr(sedmodel, rp.get('model_type','SedModel'))
-    model = model_type(mp)
+        model_type = getattr(sedmodel, rp.get('model_type', 'SedModel'))
+        model = model_type(mp)
     return model
+
 
 def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
     """Load the obs dictionary using information in ``param_file``.
@@ -158,6 +126,19 @@ def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
     obs = fix_obs(obs, **kwargs)
     return obs
 
+
+def import_module_from_file(path_to_file):
+    """This has to break everything ever, right?
+    """
+    from importlib import import_module
+    path, filename = os.path.split(path_to_file)
+    modname = filename.replace('.py', '')
+    sys.path.insert(0, path)
+    user_module = import_module(modname)
+    sys.path.remove(path)
+    return user_module
+
+
 def load_mock(filename, run_params, model, sps):
     """Load the obs dictionary using mock data.
     """
@@ -170,22 +151,12 @@ def load_mock(filename, run_params, model, sps):
         mock_info = deepcopy(getattr(setup_module, 'mock_info', None))
     if mock_info is None:
         mock_info = run_params.get('mock_info', None)
-    
+
     mockdat = generate_mock(model, sps, mock_info)
     mockdat = fix_obs(mockdat, **run_params)
     mockdat['mock_info'] = mock_info
     return mockdat
 
-def import_module_from_file(path_to_file):
-    """This has to break everything ever, right?
-    """
-    from importlib import import_module
-    path, filename = os.path.split(path_to_file)
-    modname = filename.replace('.py','')
-    sys.path.insert(0,path)
-    user_module = import_module(modname)
-    sys.path.remove(path)
-    return user_module
 
 class Bunch(object):
     """ Simple storage.
@@ -193,11 +164,12 @@ class Bunch(object):
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
+
 def custom_filter_dict(filename):
     filter_dict = {}
     with open(filename, 'r') as f:
         for line in f:
             ind, name = line.split()
-            filter_dict[name.lower()] = Bunch(index = int(ind)-1)
-            
+            filter_dict[name.lower()] = Bunch(index=int(ind)-1)
+
     return filter_dict
