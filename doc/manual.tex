@@ -36,6 +36,7 @@ Additional command line options can be given (see \S
 \item {\bf run\_params} A dictionary
 \item {\bf load\_obs} A function
 \item {\bf load\_model} A function
+\item {\bf load\_gp} A function
 \item {\bf model\_params} A list of dictionaries
 \item {\bf sps} An object
 \end{itemize}
@@ -110,7 +111,8 @@ spectral or photometric data, set {\it spectrum}=\texttt{None} or
 \subsubsection{The {\bf load\_model} method}
 This should return an instance of a subclass of the
 \texttt{bsfh.sedmodel.ThetaParameters} object.  It is given the {\bf
-run\_params} dictionary as an argument list.
+run\_params} dictionary as an argument list, so the model can be
+modified based on parameters given here (or at the command line).
 
 \subsubsection{ The {\bf model\_params} list}
 On instantiation, a \texttt{bsfh.sedmodel.ThetaParameters} object
@@ -143,6 +145,11 @@ Nearly all parameters used by FSPS can be set here.  The default FSPS
 parameter values will be used unless specified in a fixed parameter,
 e.g. {\it imf\_type} can be changed by including it as a fixed
 parameter with value given by {\it init}.
+
+\subsection{The {\bf load_gp} function}
+This function should return a GaussianProcess object for the
+spectroscopy or photometry.  Either or both can be \texttt{None} in
+which case the likelihood will not include covariant noise.
 
 \subsection{The {\bf sps} object}
 The likelihood function and SED models take a stellar population ({\bf
@@ -208,7 +215,7 @@ isfree}=\texttt{False}) and adding another key to the parameter
 description, {\it depends\_on}.  The value of {\it depends\_on} is a
 function which takes as arguments all the model parameters and returns
 the value of \texttt{dumb\_parameter}. This function must take
-optional extra keywords (\texttt{**extras}) becaus ethe entire
+optional extra keywords (\texttt{**extras}) because the entire
 parameter dictionary will be passed to it. Then add another parameter
 \texttt{smart\_parameter} to {\bf model\_list} that can vary (and upon
 which \texttt{dumb\_parameter} depends).
