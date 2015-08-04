@@ -41,9 +41,9 @@ def run_emcee_sampler(lnprobf, initial_center, model,
         best = esampler.flatlnprobability.argmax()
         # is new position better than old position?
         if esampler.flatlnprobability[best] > initial_prob:
-            eprob = esampler.flatlnprobability[best]
-            epos = esampler.flatchain[best,:]
-        initial = reinitialize_ball(epos, eprob, nwalkers, model, **kwargs)
+            initial_prob = esampler.flatlnprobability[best]
+            initial_center = esampler.flatchain[best,:]
+        initial = reinitialize_ball(initial_center, epos, nwalkers, model, **kwargs)
         esampler.reset()
         if verbose:
             print('done burn #{}'.format(k))
@@ -63,21 +63,20 @@ def run_emcee_sampler(lnprobf, initial_center, model,
     return esampler, epos, eprob
 
 
-def reinitialize_ball(pos, prob, nwalkers, model,
+def reinitialize_ball(initial_center, pos, nwalkers, model,
                       ptiles=[0.25, 0.5, 0.75], **extras):
     """Choose the best walker and build a ball around it based on the
     other walkers.
     """
     pos = np.atleast_2d(pos)
-    tmp = np.percentile(pos, ptiles, axis=0)
+    tmp = np.percentile(pos, ptiles, axis=0)  
     # 1.35 is the ratio between the 25-75% interquartile range and 1
     # sigma (for a normal distribution)
     scatter = np.abs((tmp[2] -tmp[0]) / 1.35)
-    if hasattr(model, theta_disp_floor):
+    if hasattr(model, 'theta_disp_floor'):
         disp_floor = model.theta_disp_floor(initial_center)
-        scatter = np.sqrt(scatter**2 + disp_floor**2)      
-    best = np.argmax(prob)
-    initial = sampler_ball(pos[best,:], scatter, nwalkers, model)
+        scatter = np.sqrt(scatter**2 + disp_floor**2)    
+    initial = sampler_ball(initial_center, scatter, nwalkers, model)
     return initial
 
 
