@@ -31,7 +31,7 @@ def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
     if obs['maggies'] is not None:
         obs['ndof'] += obs['phot_mask'].sum()
     else:
-        self.obs['maggies_unc'] = None
+        obs['maggies_unc'] = None
     return obs
 
 def logify_data(data, sigma, mask):
