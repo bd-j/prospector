@@ -28,6 +28,17 @@ def normal(theta, mean=0.0, sigma=1.0, **extras):
     """
     return np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)
 
+
+def normal_clipped(theta, mean=0.0, sigma=1.0, mini=0.0, maxi=1.0, **extras):
+    """
+    A clipped gaussian.
+    """
+    lnp = np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)
+    n = (theta < mini) | (theta > maxi)
+    lnp[n] = -np.infty
+
+    return lnp
+
 def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
     """
     A lognormal  gaussian.  should make sure it can be vectorized.

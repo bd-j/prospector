@@ -16,7 +16,9 @@ def run_command(cmd):
 def write_pickles(run_params, model, obs,
                   sampler, powell_results,
                   tsample=None, toptimize=None,
-                  sampling_initial_center=None):
+                  sampling_initial_center=None,
+                  post_burnin_center=None,
+                  post_burnin_prob=None):
 
     """Write results to two different pickle files.  One (``*_mcmc``)
     contains only lists, dictionaries, and numpy arrays and is
@@ -25,13 +27,17 @@ def write_pickles(run_params, model, obs,
     result objects) and is therefore more fragile.
     """
 
-    #pull out the git hash for bsfh here.
-    bsfh_dir = os.path.dirname(parameters.__file__)
-    bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
-                      )[1][0].replace('\n','')
+    # Pull out the git hash for bsfh here.
+    try:
+        bsfh_dir = os.path.dirname(parameters.__file__)
+        bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
+                        )[1][0].replace('\n','')
+    except:
+        print("Couldn't get Prospector git hash")
+        bgh = ''
+        
+    results, model_store = {}, {} 
 
-    results, model_store = {}, {}
-    
     results['run_params'] = run_params
     results['obs'] = obs
     results['model_params'] = [parameters.functions_to_names(p) for p in model.config_list]
@@ -39,6 +45,8 @@ def write_pickles(run_params, model, obs,
                                                                for p in model.config_list])
     results['initial_theta'] = model.initial_theta
     results['sampling_initial_center'] = sampling_initial_center
+    results['post_burnin_center'] = post_burnin_center
+    results['post_burnin_prob'] = post_burnin_prob
     
     results['chain'] = sampler.chain
     results['lnprobability'] = sampler.lnprobability
@@ -51,11 +59,11 @@ def write_pickles(run_params, model, obs,
     model_store['powell'] = powell_results
     model_store['model'] = model
     model_store['bsfh_version'] = bgh
-    
-    #prospectr_dir = 
-    #cgh = run_command('git rev-parse HEAD')[1][0].replace('\n','')
-    #results['cetus_version'] = cgh
-    
+
+    # prospectr_dir = 
+    # cgh = run_command('git rev-parse HEAD')[1][0].replace('\n','')
+    # results['cetus_version'] = cgh
+
     tt = int(time.time())
     out = open('{1}_{0}_mcmc'.format(tt, run_params['outfile']), 'wb')
     pickle.dump(results, out)

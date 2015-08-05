@@ -6,6 +6,12 @@ try:
 except(ImportError):
     pass
 
+lsun = 3.846e33  # ergs/s
+pc = 3.085677581467192e18  # cm
+jansky_mks = 1e-26
+#value to go from L_sun/Hz to erg/s/cm^2/Hz at 10pc
+to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
+
 class SedModel(ProspectrParams):
     """
     For models composed of SSPs and sums of SSPs which use the
@@ -145,10 +151,6 @@ class CSPModel(ProspectrParams):
     For parameterized SFHs where fsps.StellarPopulation is used as the
     sps object.
     """
-    #lsun = 3.846e33
-    #pc = 3.085677581467192e18
-    #value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
-    #to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
     def mean_model(self, theta, obs, sps=None, **kwargs):
         """Rename of CSPModel.sed() for compatibility.  If any
@@ -201,12 +203,16 @@ class CSPModel(ProspectrParams):
             # Use 10pc for the luminosity distance (or a number
             # provided in the dist key in units of Mpc)
             dfactor = (self.params.get('dist', 1e-5) * 1e5)**2
+            # spectrum stays in L_sun/Hz
+            dfactor_spec = 1.0
         else:
             dfactor = ((cosmo.luminosity_distance(sps.params['zred']).value *
                         1e5)**2 / (1+sps.params['zred']))
-        return (spec + self.sky(),
+            # convert to maggies
+            dfactor_spec = to_cgs / 1e3 / dfactor / (3631*jansky_mks)
+        return (spec * dfactor_spec + self.sky(),
                 maggies / dfactor,
-                None)
+                extra)
 
     def one_sed(self, component_index=0, sps=None, filterlist=[]):
         """Get the SED of one component for a multicomponent composite
@@ -259,7 +265,7 @@ class CSPModel(ProspectrParams):
         mass_norm = mass/sps.stellar_mass
         return (mass_norm * spec,
                 mass_norm * 10**(-0.4*(mags)),
-                None)
+                sps.stellar_mass)
 
     def phot_calibration(self, **extras):
         return 1.0

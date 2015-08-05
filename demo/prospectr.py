@@ -198,10 +198,12 @@ if __name__ == "__main__":
         best = np.argmin([p.fun for p in powell_guesses])
         initial_center = utils.reinitialize(powell_guesses[best].x, model,
                                             edge_trunc=rp.get('edge_trunc',0.1))
-
+        initial_prob = -1*powell_guesses[best]['fun']
+        
         pdur = time.time() - ts
         if rp['verbose']:
             print('done Powell in {0}s'.format(pdur))
+            print('best Powell guess:{0}'.format(initial_center))
     else:
         powell_guesses = None
         pdur = 0.0
@@ -213,8 +215,9 @@ if __name__ == "__main__":
     if rp['verbose']:
         print('emcee sampling...')
     tstart = time.time()
-    esampler = utils.run_emcee_sampler(lnprobfn, initial_center, model,
-                                       postkwargs=postkwargs, pool = pool, **rp)
+    esampler, burn_p0, burn_prob0 = utils.run_emcee_sampler(lnprobfn, initial_center, model,
+                                       postkwargs=postkwargs, pool = pool, initial_prob=initial_prob,
+                                       **rp)
     edur = time.time() - tstart
     if rp['verbose']:
         print('done emcee in {0}s'.format(edur))
@@ -225,7 +228,10 @@ if __name__ == "__main__":
     write_results.write_pickles(rp, model, obsdat,
                                 esampler, powell_guesses,
                                 toptimize=pdur, tsample=edur,
-                                sampling_initial_center=initial_center)
+                                sampling_initial_center=initial_center,
+                                post_burnin_center=burn_p0,
+                                post_burnin_prob=burn_prob0)
+
     
     try:
         pool.close()

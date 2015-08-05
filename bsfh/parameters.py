@@ -112,8 +112,12 @@ class ProspectrParams(object):
         for k, v in self.theta_index.iteritems():
             start, end = v
             #print(k)
-            lnp_prior += np.sum(self._config_dict[k]['prior_function']
+            this_prior = np.sum(self._config_dict[k]['prior_function']
                                 (theta[start:end], **self._config_dict[k]['prior_args']))
+
+            if (not np.isfinite(this_prior)):
+                print('WARNING: ' + k + ' is out of bounds')
+            lnp_prior += this_prior
         return lnp_prior
             
     def rescale_parameter(self, par, func):
@@ -229,9 +233,11 @@ class ProspectrParams(object):
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a,b in bounds]        
         return bounds
 
-    def theta_disps(self, initial_disp=0.1):
-        """Get a vector of (fractional) dispersions for each parameter to use in
-        generating sampler balls for emcee's Ensemble sampler.
+    def theta_disps(self, initial_thetas, initial_disp=0.1):
+        """Get a vector of (fractional) dispersions for each parameter
+        to use in generating sampler balls for emcee's Ensemble
+        sampler.  This can be overridden by subclasses if
+        non-fractional dispersions are desired.
 
         :param initial_disp: (default: 0.1)
             The default dispersion to use in case the `init_disp` key
@@ -244,6 +250,26 @@ class ProspectrParams(object):
         for par, inds in self.theta_index.iteritems():
             disp[inds[0]:inds[1]] = self._config_dict[par].get('init_disp', initial_disp)
         return disp
+    
+    def theta_disp_floor(self, thetas):
+        """Get a vector of dispersions for each parameter to use as a
+        floor for the walker-calculated dispersions. This can be
+        overridden by subclasses
+        """
+        return np.zeros_like(thetas)
+    
+    def clip_to_bounds(self, thetas):
+        """Clip a set of parameters theta to within the priors.
+
+        :returns thetas:
+            Clipped to theta priors.
+        """
+        bounds = self.theta_bounds()
+        for i in xrange(len(bounds)):
+            lower,upper = bounds[i]
+            thetas[i] = np.clip(thetas[i], lower, upper)
+
+        return thetas
 
     
 def plist_to_pdict(inplist):

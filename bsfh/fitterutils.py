@@ -8,9 +8,10 @@ try:
     import multiprocessing
 except(ImportError):
     pass
-    
+
+
 def run_emcee_sampler(lnprobf, initial_center, model,
-                      postargs=[], postkwargs={},
+                      postargs=[], postkwargs={}, initial_prob=None,
                       nwalkers=None, nburn=[16], niter=32,
                       walker_factor = 4, initial_disp=0.1,
                       nthreads=1, pool=None, verbose=True,
@@ -26,27 +27,27 @@ def run_emcee_sampler(lnprobf, initial_center, model,
     if verbose:
         print('number of walkers={}'.format(nwalkers))    
     initial = sampler_ball(initial_center,
-                           model.theta_disps(initial_disp=initial_disp),
+                           model.theta_disps(initial_center, initial_disp=initial_disp),
                            nwalkers, model)
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      args=postargs, kwargs=postkwargs,
                                      threads=nthreads, pool=pool)
     # Loop over the number of burn-in reintializations
-    k=0
-    for iburn in nburn[:-1]:
-        epos, eprob, state = esampler.run_mcmc(initial, iburn, storechain=False)
-        # Choose the best walker and build a ball around it based on
-        #   the other walkers
-        tmp = np.percentile(epos, [0.25, 0.5, 0.75], axis = 0)
-        relative_scatter = np.abs((tmp[2] -tmp[0]) / tmp[1] / 1.35)
-        best = np.argmax(eprob)
-        initial = sampler_ball(epos[best,:], relative_scatter, nwalkers, model)
+    for k, iburn in enumerate(nburn[:-1]):
+        epos, eprob, state = esampler.run_mcmc(initial, iburn)
+        # find best walker position
+        # if multiple walkers in best position, cut down to one walker
+        best = esampler.flatlnprobability.argmax()
+        # is new position better than old position?
+        if esampler.flatlnprobability[best] > initial_prob:
+            initial_prob = esampler.flatlnprobability[best]
+            initial_center = esampler.flatchain[best,:]
+        initial = reinitialize_ball(initial_center, epos, nwalkers, model, **kwargs)
         esampler.reset()
-        k += 1
         if verbose:
             print('done burn #{}'.format(k))
-    
+
     # Do the final burn-in
     epos, eprob, state = esampler.run_mcmc(initial, nburn[-1])
     initial = epos
@@ -59,7 +60,25 @@ def run_emcee_sampler(lnprobf, initial_center, model,
     if verbose:
         print('done production')
 
-    return esampler
+    return esampler, epos, eprob
+
+
+def reinitialize_ball(initial_center, pos, nwalkers, model,
+                      ptiles=[0.25, 0.5, 0.75], **extras):
+    """Choose the best walker and build a ball around it based on the
+    other walkers.
+    """
+    pos = np.atleast_2d(pos)
+    tmp = np.percentile(pos, ptiles, axis=0)  
+    # 1.35 is the ratio between the 25-75% interquartile range and 1
+    # sigma (for a normal distribution)
+    scatter = np.abs((tmp[2] -tmp[0]) / 1.35)
+    if hasattr(model, 'theta_disp_floor'):
+        disp_floor = model.theta_disp_floor(initial_center)
+        scatter = np.sqrt(scatter**2 + disp_floor**2)    
+    initial = sampler_ball(initial_center, scatter, nwalkers, model)
+    return initial
+
 
 def sampler_ball(center, disp, nwalkers, model):
     """Produce a ball around a given position, clipped to the prior
@@ -72,8 +91,8 @@ def sampler_ball(center, disp, nwalkers, model):
     for p, v in model.theta_index.iteritems():
         start, stop = v
         lo, hi = plotting_range(model._config_dict[p]['prior_args'])
-        try_param = (center[None, start:stop] *
-                     (1 + np.random.normal(0, 1, (nwalkers ,stop-start)) *
+        try_param = (center[None, start:stop] +
+                     (np.random.normal(0, 1, (nwalkers, stop-start)) *
                       disp[None, start:stop]))
         try_param = np.clip(try_param, np.atleast_1d(lo)[None, :],
                             np.atleast_1d(hi)[None, :])
