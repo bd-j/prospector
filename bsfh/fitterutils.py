@@ -60,7 +60,7 @@ def run_emcee_sampler(lnprobf, initial_center, model,
     if verbose:
         print('done production')
 
-    return esampler, epos, eprob
+    return esampler, initial_center, initial_prob
 
 
 def reinitialize_ball(initial_center, pos, nwalkers, model,
