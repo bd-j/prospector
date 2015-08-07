@@ -329,7 +329,73 @@ class StellarPopBasis(object):
     @property
     def wavelengths(self):
         return self.ssp.wavelengths
+
+
+class StarBasis(object):
+
+    _params = None
+    _spectra = None
     
+    def __init__(self, libname='ckc', verbose=False, **kwargs):
+        """
+        """
+        self.verbose = verbose
+        self.load_ckc(libname)
+        self.stellar_pars = self_params.dtype.names
+        self.ndim = len(self.stellar_pars)
+        self.triangulate()
+        
+    def load_ckc(self, libname=''):
+        """
+        """
+        import h5py
+        with h5py.File(libname, "r") as f:
+            self._wave = np.array(f['wavelengths'])
+            self._params = np.array(f['parameters'])
+            self._spectra = np.array(f['spectra'])
+
+    def get_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
+                     logarithmic=False, **kwargs):
+        """Given stellar parameters, obtain an interpolated spectrum
+        at those parameters.
+        """
+        inparams = np.array([Z, logg, logt])
+        inds, wghts = self.weights(inparams)
+        if logarithmic is None:
+            spec = np.dot(wghts, self._spectra[inds, :])
+        else:
+            spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :]))
+        spec_unc = None
+        return self._wave, spec, spec_unc
+
+    def weights(self, inparams):
+        """Delauynay weighting.  Return indices of the models forming
+        the enclosing simplex, as well as the barycentric coordinates
+        of the point within this simplex to use as weights.
+        """
+        triangle_ind = self._dtri.find_simplex(inparams)
+        if triangle_ind == -1:
+            if self.verbose:
+                print('Parameters {0} outside model convex hull'.format(inparams))
+            return 0, 0
+        
+        inds = self.dtri.simplices[triangle_ind, :]
+        transform = self._dtri.transform[triangle_ind, :, :]
+        Tinv = transform[:self.ndim, :]
+        x_r = inparams - transform[self.ndim, :]
+        bary = np.dot(Tinv, x_r)
+        last = 1.0 - bary.sum()
+
+        return inds, np.append(bary, last)
+
+    def triangulate():
+        """Build the Delauynay Triangulation.
+        """
+        # slow.  should use a view based method
+        model_points = np.array([list(d) for d in self._params])
+        self._dtri = Delaunay(model_points)
+
+
 def smoothspec(inwave, spec, lsf, outwave=None,
                min_wave_smooth=None, max_wave_smooth=None,
                **kwargs):
