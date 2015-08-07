@@ -332,6 +332,35 @@ class CSPModel(ProspectrParams):
     def sky(self):
         return 0.
 
+
+class StarModel(ProspectrParams):
+    """Model for a single star.  This now looks exactly like SedModel,
+    because of how I wrote the StarBasis sps object.
+    """
+
+    def mean_model(self, theta, obs, sps=None, **extras):
+        s, p, x = self.sed(theta, obs, sps=sps, **extras)
+        if obs.get('logify_spectrum', True):
+            s = np.log(s) + np.log(self.spec_calibration(obs=obs, **extras))
+        else:
+            s *= self.spec_calibration(obs=obs, **extras)
+        return s, p, x
+    
+    def sed(self, theta, obs, sps=None, **extras):
+        self.set_parameters(theta)
+        spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
+                                              filters=obs['filters'],
+                                              **self.params)
+        
+        spec *= obs.get('normalization_guess', 1.0)
+        return spec, phot, extras
+
+    def spec_calibration(self, theta=None, obs=None, **extras):
+        if theta is not None:
+            self.set_parameters(theta)
+
+        return 1.0
+
 def gauss(x, mu, A, sigma):
     """
     Sample multiple gaussians at positions x.
@@ -356,7 +385,7 @@ def gauss(x, mu, A, sigma):
     return val.sum(axis = -1)
 
 
-class HMCThetaParameters(ProspectrParams):
+class HMCThetaParameters(SedModel):
     """
     Object describing a model parameter set, and conversions between a
     parameter dictionary and a theta vector (for use in MCMC sampling).

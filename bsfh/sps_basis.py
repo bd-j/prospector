@@ -335,16 +335,16 @@ class StarBasis(object):
 
     _params = None
     _spectra = None
-    
+
     def __init__(self, libname='ckc', verbose=False, **kwargs):
         """
         """
         self.verbose = verbose
         self.load_ckc(libname)
-        self.stellar_pars = self_params.dtype.names
+        self.stellar_pars = self.params.dtype.names
         self.ndim = len(self.stellar_pars)
         self.triangulate()
-        
+
     def load_ckc(self, libname=''):
         """
         """
@@ -354,8 +354,31 @@ class StarBasis(object):
             self._params = np.array(f['parameters'])
             self._spectra = np.array(f['spectra'])
 
-    def get_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
-                     logarithmic=False, **kwargs):
+    def get_spectrum(self, outwave=None, filters=None, **kwargs):
+        # star spectrum
+        spec = self.get_star_spectrum(**kwargs)
+        spec *= 10**self.params.get('logl', 0.0)
+
+        # dust
+        att = self.params['dust_curve'][0](self._wave, **self.params) 
+        cspec *= np.exp(-att)
+
+        # distance dimming and conversion from Lsun/AA to cgs
+        dist10 = self.params.get('lumdist', 1e-5)/1e-5 # d in units of 10pc
+        cspec *= to_cgs / dist10**2
+
+        # Photometry
+        phot = getSED(self._wave, cspec, filters)
+
+        # broadening + interpolation onto observed wavelengths
+        a = (1 + self.params.get('zred', 0.0))
+        self.params['outwave'] = outwave
+        cspec = smoothspec(vac2air(self._wave) * a, spec / a, **self.params)
+
+        return cspec, phot, None
+
+    def get_star_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
+                          logarithmic=False, **kwargs):
         """Given stellar parameters, obtain an interpolated spectrum
         at those parameters.
         """
@@ -377,8 +400,8 @@ class StarBasis(object):
         if triangle_ind == -1:
             if self.verbose:
                 print('Parameters {0} outside model convex hull'.format(inparams))
-            return 0, 0
-        
+            return [0], [0]
+
         inds = self.dtri.simplices[triangle_ind, :]
         transform = self._dtri.transform[triangle_ind, :, :]
         Tinv = transform[:self.ndim, :]
