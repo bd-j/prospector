@@ -332,6 +332,11 @@ class StellarPopBasis(object):
         return self.ssp.wavelengths
 
 
+log_rsun_cgs = np.log10(6.955) + 10
+log_lsun_cgs = np.log10(3.839) + 33
+log_SB_solar = np.log10(5.6704e-5) + 2 * log_rsun_cgs - log_lsun_cgs
+
+
 class StarBasis(object):
 
     _params = None
@@ -345,7 +350,7 @@ class StarBasis(object):
         self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
         self.triangulate()
-        self.params = {'logl':0, 'logt': 3.77, 'logg':4.5, 'Z':0.019}
+        self.params = {'logl':0.0, 'logt': 3.77, 'logg':4.5, 'Z':0.019}
 
     def load_ckc(self, libname=''):
         """Read a CKC library which has been pre-convolved to be close
@@ -367,31 +372,39 @@ class StarBasis(object):
         self._libparams = self._libparams[good]
         self._spectra = self._spectra[good, :]
             
-    def get_spectrum(self, outwave=None, filters=None, **kwargs):
+    def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):
         """
         """
         self.params.update(kwargs)
         # star spectrum
         wave, spec = self.get_star_spectrum(**self.params)
-        spec *= 10**self.params.get('logl', 0.0)
+        spec *= self.normalize()
 
         # dust
         if 'dust_curve' in self.params:
             att = self.params['dust_curve'](self._wave, **self.params) 
             spec *= np.exp(-att)
 
-        # distance dimming and conversion from Lsun/AA to cgs
-        dist10 = self.params.get('lumdist', 1e-5)/1e-5 # d in units of 10pc
-        spec *= to_cgs / dist10**2
+        # distance dimming
+        if 'lumdist' in self.params:
+            dist10 = self.params['lumdist']/1e-5 # d in units of 10pc
+            spec /= dist10**2
 
         # Photometry
-        phot = getSED(self._wave, spec, filters)
+        toaa = lightspeed/self.__wave**2
+        phot = getSED(self._wave, spec * toaa, filters)
 
         # broadening + interpolation onto observed wavelengths
         a = (1 + self.params.get('zred', 0.0))
-        self.params['outwave'] = outwave
-        smspec = smoothspec(vac2air(self._wave) * a, spec / a, **self.params)
-
+        if peraa:
+            spec *= toaa
+        if 'sigma_smooth' in self.params:
+            self.params['outwave'] = outwave
+            smspec = smoothspec(vac2air(self._wave) * a, spec / a,
+                                **self.params)
+        else:
+            smspec = np.interp(outwave, vac2air(self._wave) * a, spec / a,
+                               left=0, right=0)
         return smspec, phot, None
 
     def get_star_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
@@ -422,6 +435,25 @@ class StarBasis(object):
         spec_unc = None
         return self._wave, spec, spec_unc
 
+    def normalize(self):
+        """Use either logr or logl to normalize the spectrum.  Both
+        should be in solar units.  logr is checked first.
+
+        :returns norm:
+            Factor by which the CKC spectrum should be multiplied to
+            get units of erg/s/Hz
+        """
+        if 'logr' in self.params:
+            logr = self.params['logr']
+        elif 'logl' in self.params:
+            logr = (self.params['logl']/2.0 - 2*self.params['logt'] -
+                    log_SB_solar/2 - np.log10(4 *np.pi)/2.0)
+        else:
+            logr = -log_rsun_cgs - np.log10(4 *np.pi)
+        logr += log_rsun_cgs
+        norm = 4 * np.pi * 10**(2 * logr)
+        return norm * 4 * np.pi
+        
     def weights(self, inparams, **extras):
         """Delauynay weighting.  Return indices of the models forming
         the enclosing simplex, as well as the barycentric coordinates
