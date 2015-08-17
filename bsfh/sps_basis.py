@@ -1,5 +1,6 @@
 import numpy as np
 import fsps
+from scipy.spatial import Delaunay
 from sedpy.observate import getSED, vac2air, air2vac
 try:
     from sedpy.observate import lsf_broaden
@@ -341,9 +342,10 @@ class StarBasis(object):
         """
         self.verbose = verbose
         self.load_ckc(libname)
-        self.stellar_pars = self.params.dtype.names
+        self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
         self.triangulate()
+        self.params = {'logl':0, 'logt': 3.77, 'logg':4.5, 'Z':0.019}
 
     def load_ckc(self, libname=''):
         """
@@ -351,34 +353,37 @@ class StarBasis(object):
         import h5py
         with h5py.File(libname, "r") as f:
             self._wave = np.array(f['wavelengths'])
-            self._params = np.array(f['parameters'])
+            self._libparams = np.array(f['parameters'])
             self._spectra = np.array(f['spectra'])
 
     def get_spectrum(self, outwave=None, filters=None, **kwargs):
+
+        self.params.update(kwargs)
         # star spectrum
-        spec = self.get_star_spectrum(**kwargs)
+        wave, spec = self.get_star_spectrum(**self.params)
         spec *= 10**self.params.get('logl', 0.0)
 
         # dust
-        att = self.params['dust_curve'][0](self._wave, **self.params) 
-        cspec *= np.exp(-att)
+        if 'dust_curve' in self.params:
+            att = self.params['dust_curve'](self._wave, **self.params) 
+            spec *= np.exp(-att)
 
         # distance dimming and conversion from Lsun/AA to cgs
         dist10 = self.params.get('lumdist', 1e-5)/1e-5 # d in units of 10pc
-        cspec *= to_cgs / dist10**2
+        spec *= to_cgs / dist10**2
 
         # Photometry
-        phot = getSED(self._wave, cspec, filters)
+        phot = getSED(self._wave, spec, filters)
 
         # broadening + interpolation onto observed wavelengths
         a = (1 + self.params.get('zred', 0.0))
         self.params['outwave'] = outwave
-        cspec = smoothspec(vac2air(self._wave) * a, spec / a, **self.params)
+        smspec = smoothspec(vac2air(self._wave) * a, spec / a, **self.params)
 
-        return cspec, phot, None
+        return smspec, phot, None
 
     def get_star_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
-                          logarithmic=False, **kwargs):
+                          logarithmic=False, **extras):
         """Given stellar parameters, obtain an interpolated spectrum
         at those parameters.
         """
@@ -387,7 +392,7 @@ class StarBasis(object):
         if logarithmic is None:
             spec = np.dot(wghts, self._spectra[inds, :])
         else:
-            spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :]))
+            spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :])))
         spec_unc = None
         return self._wave, spec, spec_unc
 
@@ -402,7 +407,7 @@ class StarBasis(object):
                 print('Parameters {0} outside model convex hull'.format(inparams))
             return [0], [0]
 
-        inds = self.dtri.simplices[triangle_ind, :]
+        inds = self._dtri.simplices[triangle_ind, :]
         transform = self._dtri.transform[triangle_ind, :, :]
         Tinv = transform[:self.ndim, :]
         x_r = inparams - transform[self.ndim, :]
@@ -410,14 +415,22 @@ class StarBasis(object):
         last = 1.0 - bary.sum()
 
         return inds, np.append(bary, last)
-
-    def triangulate():
-        """Build the Delauynay Triangulation.
+    
+    def triangulate(self):
+        """Build the Delauynay Triangulation of the model library.
         """
         # slow.  should use a view based method
-        model_points = np.array([list(d) for d in self._params])
+        model_points = np.array([list(d) for d in self._libparams])
         self._dtri = Delaunay(model_points)
 
+    def param_vector(self, **kwargs):
+        """Take a dictionary of parameters and return the stellar
+        library parameter vector corresponding to these parameters as
+        an ndarray.  Raises a KeyError if the dictionary does not
+        contain *all* of the required stellar parameters.
+        """
+        pvec = [kwargs[n] for n in self.stellar_pars]
+        return np.array(pvec)
 
 def smoothspec(inwave, spec, lsf, outwave=None,
                min_wave_smooth=None, max_wave_smooth=None,
