@@ -353,7 +353,8 @@ class StarBasis(object):
         file, with the datasets ``wavelengths``, ``parameters`` and
         ``spectra``.  These are ndarrays of shape (nwave,),
         (nmodels,), and (nmodels, nwave) respecitvely.  The
-        ``parameters`` array is a structured array.
+        ``parameters`` array is a structured array.  Spectra with no
+        fluxes > 1e-32 are removed from the library
         """
         import h5py
         with h5py.File(libname, "r") as f:
@@ -367,7 +368,8 @@ class StarBasis(object):
         self._spectra = self._spectra[good, :]
             
     def get_spectrum(self, outwave=None, filters=None, **kwargs):
-
+        """
+        """
         self.params.update(kwargs)
         # star spectrum
         wave, spec = self.get_star_spectrum(**self.params)
@@ -396,9 +398,23 @@ class StarBasis(object):
                           logarithmic=False, **extras):
         """Given stellar parameters, obtain an interpolated spectrum
         at those parameters.
+
+        :param logarithmic: (default: False)
+            If True, interpolate in log(flux)
+
+        :returns wave:
+            The wavelengths at which the spectrum is defined.
+
+        :returns spec:
+            The spectrum interpolated to the requested parameters
+
+        :returns unc:
+            The uncertainty spectrum, where the uncertainty is due to
+            interpolation error.  Curently unimplemented (i.e. it is a
+            None type object)
         """
         inparams = np.array([Z, logg, logt])
-        inds, wghts = self.weights(inparams)
+        inds, wghts = self.weights(inparams, **extras)
         if logarithmic is None:
             spec = np.dot(wghts, self._spectra[inds, :])
         else:
@@ -406,7 +422,7 @@ class StarBasis(object):
         spec_unc = None
         return self._wave, spec, spec_unc
 
-    def weights(self, inparams):
+    def weights(self, inparams, **extras):
         """Delauynay weighting.  Return indices of the models forming
         the enclosing simplex, as well as the barycentric coordinates
         of the point within this simplex to use as weights.
