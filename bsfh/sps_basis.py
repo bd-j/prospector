@@ -348,14 +348,24 @@ class StarBasis(object):
         self.params = {'logl':0, 'logt': 3.77, 'logg':4.5, 'Z':0.019}
 
     def load_ckc(self, libname=''):
-        """
+        """Read a CKC library which has been pre-convolved to be close
+        to your resolution.  This library should be stored as an HDF5
+        file, with the datasets ``wavelengths``, ``parameters`` and
+        ``spectra``.  These are ndarrays of shape (nwave,),
+        (nmodels,), and (nmodels, nwave) respecitvely.  The
+        ``parameters`` array is a structured array.
         """
         import h5py
         with h5py.File(libname, "r") as f:
             self._wave = np.array(f['wavelengths'])
             self._libparams = np.array(f['parameters'])
             self._spectra = np.array(f['spectra'])
-
+        # Filter library so that only existing spectra are included
+        maxf = np.max(self._spectra, axis=1)
+        good = maxf > 1e-32
+        self._libparams = self._libparams[good]
+        self._spectra = self._spectra[good, :]
+            
     def get_spectrum(self, outwave=None, filters=None, **kwargs):
 
         self.params.update(kwargs)
