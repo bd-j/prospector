@@ -6,6 +6,10 @@ try:
     from sedpy.observate import lsf_broaden
 except(ImportError):
     pass
+try:
+    import sklearn.neighbors
+except(ImportError):
+    pass
 
 # Useful constants
 lsun = 3.846e33
@@ -343,7 +347,8 @@ class StarBasis(object):
     _params = None
     _spectra = None
 
-    def __init__(self, libname='ckc', verbose=False, **kwargs):
+    def __init__(self, libname='ckc', verbose=False, n_neighbors=1,
+                 **kwargs):
         """
         """
         self.verbose = verbose
@@ -351,8 +356,13 @@ class StarBasis(object):
         self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
         self.triangulate()
+        try:
+            self.build_kdtree()
+        except NameError:
+            pass
         self.params = {'logl':0.0, 'logt': 3.77, 'logg':4.5, 'Z':0.019}
-
+        self.n_neighbors = n_neighbors
+        
     def load_ckc(self, libname=''):
         """Read a CKC library which has been pre-convolved to be close
         to your resolution.  This library should be stored as an HDF5
@@ -482,9 +492,10 @@ class StarBasis(object):
         """
         triangle_ind = self._dtri.find_simplex(inparams)
         if triangle_ind == -1:
+            ind, wght = self.weights_kNN(inparams, k=self.n_neighbors)
             if self.verbose:
-                print('Parameters {0} outside model convex hull'.format(inparams))
-            return [0], [0]
+                print("Parameters {0} outside model convex hull. "
+                      "Using model index {1} instead. ".format(inparams, ind))
 
         inds = self._dtri.simplices[triangle_ind, :]
         transform = self._dtri.transform[triangle_ind, :, :]
@@ -501,6 +512,43 @@ class StarBasis(object):
         # slow.  should use a view based method
         model_points = np.array([list(d) for d in self._libparams])
         self._dtri = Delaunay(model_points)
+
+    def build_kdtree(self):
+        """Build the kdtree of the model points
+        """
+        # slow.  should use a view based method
+        model_points = np.array([list(d) for d in self._libparams])
+        self._kdt = sklearn.neighbors.KDTree(model_points)
+        
+    def weights_kNN(self, target_points, k=1):
+        """The interpolation weights are determined from the inverse
+        distance to the k nearest neighbors.
+
+        :param target_points: ndarray, shape(ntarg,npar)
+            The coordinates to which you wish to interpolate.
+
+        :param k:
+            The number of nearest neighbors to use.
+
+        :returns inds: ndarray, shape(ntarg,npar+1)
+             The model indices of the interpolates.
+
+        :returns weights: narray, shape (ntarg,npar+1)
+             The weights of each model given by ind in the
+             interpolates.
+        """
+        try:
+            dists, inds = self._kdt.query(target_points, k=k,
+                                        return_distance=True)
+        except:
+            return [0], [0]
+        inds = np.atleast_1d(np.squeeze(inds))
+        if k == 1:
+            return inds, np.ones(inds.shape)
+        weights = 1 / dists
+        #weights[np.isinf(weights)] = large_number
+        weights = weights/weights.sum(axis=-1)
+        return inds, np.atleast_1d(np.squeeze(weights))
 
     def param_vector(self, **kwargs):
         """Take a dictionary of parameters and return the stellar
