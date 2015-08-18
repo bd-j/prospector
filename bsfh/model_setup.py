@@ -71,9 +71,28 @@ def show_syntax(args, ad):
           ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
 
 
+def load_sps(param_file=None, **kwargs):
+    """Return an ``sps`` object which is used to hold spectral
+    libraries, perform interpolations, convolutions, etc.
+    """
+    ext = param_file.split('.')[-1]
+    if ext == 'py':
+        setup_module = import_module_from_file(param_file)
+        sps = setup_module.load_sps(**kwargs)
+    else:
+        sps = None
+    return sps
+
+
 def load_gp(param_file=None, **kwargs):
-    """Return a Gaussian Processes object, either using BSFH's
+    """Return two Gaussian Processes objects, either using BSFH's
     internal GP objects or George.
+
+    :returns gp_spec:
+        The gaussian process object to use for the spectroscopy.
+
+    :returns gp_phot:
+        The gaussian process object to use for the photometry.
     """
     ext = param_file.split('.')[-1]
     if ext == 'py':
@@ -90,6 +109,10 @@ def load_gp(param_file=None, **kwargs):
 def load_model(param_file=None, **extras):
     """Load the model object from a model config list given in the
     config file.
+
+    :returns model:
+        An instance of the parameters.ProspectrParams object which has
+        been configured
     """
     ext = param_file.split('.')[-1]
     if ext == 'py':
@@ -107,6 +130,9 @@ def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
     """Load the obs dictionary using information in ``param_file``.
     kwargs are passed to ``fix_obs()`` and, if using a json
     configuration file, to the data_loading_function.
+
+    :returns obs:
+        A dictionary of observational data.
     """
     ext = param_file.split('.')[-1]
     obs = None
