@@ -335,7 +335,8 @@ class StellarPopBasis(object):
 log_rsun_cgs = np.log10(6.955) + 10
 log_lsun_cgs = np.log10(3.839) + 33
 log_SB_solar = np.log10(5.6704e-5) + 2 * log_rsun_cgs - log_lsun_cgs
-
+lightspeed = 2.9979e18 #in AA/s
+pc2cm = 3.085677e18
 
 class StarBasis(object):
 
@@ -374,10 +375,23 @@ class StarBasis(object):
             
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):
         """
+        :returns spec:
+            The spectrum on the outwave grid (assumed in air), in
+            erg/s/Hz.  If peraa is True then the spectrum is /AA
+            instead of /Hz. If ``lumdist`` is a member of the params
+            dictionary, then the units are /cm**2 as well
+
+        :returns phot:
+            Observed frame photometry in units of AB maggies.  If
+            ``lumdist`` is not present in the parameters then these
+            are absolute maggies, otherwise they are apparent.
+
+        :returns x:
+            A blob of extra quantities (e.g. mass, uncertainty)
         """
         self.params.update(kwargs)
         # star spectrum
-        wave, spec = self.get_star_spectrum(**self.params)
+        wave, spec, unc = self.get_star_spectrum(**self.params)
         spec *= self.normalize()
 
         # dust
@@ -388,23 +402,30 @@ class StarBasis(object):
         # distance dimming
         if 'lumdist' in self.params:
             dist10 = self.params['lumdist']/1e-5 # d in units of 10pc
-            spec /= dist10**2
-
-        # Photometry
-        toaa = lightspeed/self.__wave**2
-        phot = getSED(self._wave, spec * toaa, filters)
-
-        # broadening + interpolation onto observed wavelengths
-        a = (1 + self.params.get('zred', 0.0))
-        if peraa:
-            spec *= toaa
-        if 'sigma_smooth' in self.params:
-            self.params['outwave'] = outwave
-            smspec = smoothspec(vac2air(self._wave) * a, spec / a,
-                                **self.params)
+            spec /= 4 * np.pi * (dist10*pc2cm*10)**2
+            conv = 1
         else:
-            smspec = np.interp(outwave, vac2air(self._wave) * a, spec / a,
-                               left=0, right=0)
+            conv = 4 * np.pi * (pc2cm*10)**2
+
+        # Broadening, redshifting, and interpolation onto observed
+        # wavelengths.  The redshift treatment needs to be checked
+        a = (1 + self.params.get('zred', 0.0))
+        wa, sa = vac2air(self._wave) * a, spec * a
+        if outwave is None:
+            outwave = wa
+        if 'sigma_smooth' in self.params:
+            smspec = smoothspec(wa, sa, outwave=outwave, **self.params)
+        else:
+            smspec = np.interp(outwave, wa, sa, left=0, right=0)
+
+        # Photometry (observed frame)
+        mags = getSED(wa, sa * lightspeed / wa**2 / conv, filters)
+        phot = 10**(-0.4 * mags)
+
+        # conversion from /Hz to /AA
+        if peraa:
+            smspec *= lightspeed / outwave**2
+
         return smspec, phot, None
 
     def get_star_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
