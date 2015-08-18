@@ -496,7 +496,8 @@ class StarBasis(object):
             if self.verbose:
                 print("Parameters {0} outside model convex hull. "
                       "Using model index {1} instead. ".format(inparams, ind))
-
+            return ind, wght
+        
         inds = self._dtri.simplices[triangle_ind, :]
         transform = self._dtri.transform[triangle_ind, :, :]
         Tinv = transform[:self.ndim, :]
