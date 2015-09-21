@@ -13,7 +13,7 @@ except(ImportError):
 
 # Useful constants
 lsun = 3.846e33
-pc = 3.085677581467192e18
+pc = 3.085677581467192e18 #in cm
 lightspeed = 2.998e18  # AA/s
 # value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
@@ -420,10 +420,10 @@ class StarBasis(object):
         # distance dimming
         if 'lumdist' in self.params:
             dist10 = self.params['lumdist']/1e-5  # d in units of 10pc
-            spec /= 4 * np.pi * (dist10*pc2*10)**2
+            spec /= 4 * np.pi * (dist10*pc*10)**2
             conv = 1
         else:
-            conv = 4 * np.pi * (pc2*10)**2
+            conv = 4 * np.pi * (pc*10)**2
 
         # Broadening, redshifting, and interpolation onto observed
         # wavelengths.  The redshift treatment needs to be checked
@@ -432,13 +432,13 @@ class StarBasis(object):
         if outwave is None:
             outwave = wa
         if 'sigma_smooth' in self.params:
-            smspec = smoothspec(wa, sa, outwave=outwave, **self.params)
+            smspec = self.smoothspec(wa, sa, outwave=outwave, **self.params)
         else:
             smspec = np.interp(outwave, wa, sa, left=0, right=0)
 
         # Photometry (observed frame)
         mags = getSED(wa, sa * lightspeed / wa**2 / conv, filters)
-        phot = 10**(-0.4 * mags)
+        phot = np.atleast_1d(10**(-0.4 * mags))
 
         # conversion from /Hz to /AA
         if peraa:
@@ -473,6 +473,10 @@ class StarBasis(object):
             spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :])))
         spec_unc = None
         return self._wave, spec, spec_unc
+
+    def smoothspec(self, wave, spec, outwave=None, **kwargs):
+        outspec = smoothspec(wave, spec, kwargs.get('lsf', [None]), **kwargs)
+        return outspec
 
     def normalize(self):
         """Use either logr or logl to normalize the spectrum.  Both
