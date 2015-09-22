@@ -7,27 +7,60 @@
 # broadening to apply?
 # 4) speed up smooth_lsf
 
-def smoothspec(wave, spec, sigma, smoothtype='vel', **kwargs):
+def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
+               min_wave_smooth=None, max_wave_smooth=None,
+               **kwargs):
     """
+    :param wave:
+        The wavelength vector of the input spectrum, ndarray.
+
+    :param spec:
+        The flux vector of the input spectrum, ndarray
+
+    :param outwave:
+        The output wavelength vector.  If None then the input
+        wavelength vector will be assumed.  If min_wave_smooth or
+        max_wave_smooth are also specified, then the output spectrum
+        may have differnt dimensions than spec or inwave.
+
+    :param min_wave_smooth:
+        The minimum wavelength of the input vector to consider when
+        smoothing the spectrum.  If None then it is determined from
+        the minimum of the output wavelength vector, minus 50.0.
+
+    :param max_wave_smooth:
+        The maximum wavelength of the input vector to consider when
+        smoothing the spectrum.  If None then it is determined from
+        the minimum of the output wavelength vector, plus 50.0
     """
+    if outwave is None:
+        outwave = wave
+    # The smoothing limits need to depend on sigma.... and be used to
+    # subscript wave and spec
+    if min_wave_smooth is None:
+        min_wave_smooth = [outwave.min() - 50.0]
+    if max_wave_smooth is None:
+        max_wave_smooth = [outwave.max() + 50.0]
+    smask = (wave > min_wave_smooth[0]) & (wave < max_wave_smooth[0])
+    
     if smoothtype == 'vel':
-        return smooth_vel(wave, spec, sigma, **kwargs)
+        return smooth_vel(wave, spec, outwave, sigma, **kwargs)
     elif smoothtype == 'r':
         sigma_vel = 2.998e5 / sigma
-        return smooth_vel(wave, spec, sigma_vel, **kwargs)
+        return smooth_vel(wave, spec, outwave, sigma_vel, **kwargs)
     elif smoothtype == 'lambda':
-        return smooth_wave(wave, spec, sigma, **kwargs)
+        return smooth_wave(wave, spec, outwave, sigma, **kwargs)
     elif smoothtype == 'lsf':
-        return smooth_lsf(wave, spec, **kwargs)
+        return smooth_lsf(wave, spec, outwave, **kwargs)
 
 
-def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
-               nsigma=10, **extras):
+def smooth_vel(wave, spec, outwave, sigma, nsigma=10,
+                inres=0, **extras):
     """Smooth a spectrum in velocity space.  This is insanely slow,
     but general and correct.
 
     :param sigma:
-        desired velocity resolution (km/s)
+        Desired velocity resolution (km/s), *not* FWHM.
 
     :param nsigma:
         Number of sigma away from the output wavelength to consider in
@@ -36,17 +69,14 @@ def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
         constant in the O(N_out * N_in) algorithm used here.
 
     :param inres:
-        The velocity resolution of the input spectrum.
+        The velocity resolution of the input spectrum (km/s)
     """
     sigma_eff = np.sqrt(sigma**2 - inres**2)/2.998e5
-    if outwave is None:
-        outwave = wave
-    if sigma <= 0.0:
+    if sigma_eff <= 0.0:
         return np.interp(wave, outwave, flux)
 
     lnwave = np.log(wave)
     flux = np.zeros(len(outwave))
-    # norm = 1/np.sqrt(2 * np.pi)/sigma
     maxdiff = nsigma * sigma
 
     for i, w in enumerate(outwave):
@@ -62,9 +92,8 @@ def smooth_vel(wave, spec, sigma, outwave=None, inres=0,
     return flux
 
 
-def smooth_wave(wave, spec, sigma, outwave=None,
-                input_res=0, in_vel=False, nsigma=10,
-                **extras):
+def smooth_wave(wave, spec, outwave, sigma, nsigma=10, 
+                input_res=0, in_vel=False, **extras):
     """Smooth a spectrum in wavelength space.  This is insanely slow,
     but general and correct (except for the treatment of the input
     resolution if it is velocity)
@@ -86,9 +115,6 @@ def smooth_wave(wave, spec, sigma, outwave=None,
         Setting this to some positive number decreses the scaling
         constant in the O(N_out * N_in) algorithm used here.
     """
-    if outwave is None:
-        outwave = wave
-
     if input_res <= 0:
         sigma_eff = sigma
     elif in_vel:
@@ -123,21 +149,23 @@ def smooth_wave(wave, spec, sigma, outwave=None,
     return flux
 
 
-def smooth_lsf(wave, spec, lsf=None, outwave=None,
-                return_kernel=False, fwhm=False, **kwargs):
+def smooth_lsf(wave, spec, outwave, lsf=None, return_kernel=False,
+               **kwargs):
     """Broaden a spectrum using a wavelength dependent line spread
     function.  This function is only approximate because it doesn't
     actually do the integration over pixels, so for sparsely sampled
     points you'll have problems.
 
     :param wave:
-        input wavelengths
+        Input wavelengths.
+
     :param lsf:
         A function that returns the gaussian dispersion at each
         wavelength.  This is assumed to be in sigma unless ``fwhm`` is
         ``True``
+
     :param outwave:
-        Optional output wavelengths
+        Output wavelengths
 
     :param kwargs:
         Passed to lsf()
@@ -145,14 +173,10 @@ def smooth_lsf(wave, spec, lsf=None, outwave=None,
     :returns newspec:
         The broadened spectrum
     """
-    if outwave is None:
-        outwave = wave
     if lsf is None:
         return np.interp(outwave, wave, spec)
     dw = np.gradient(wave)
     sigma = lsf(outwave, **kwargs)
-    if fwhm:
-        sigma = sigma / 2.35
     kernel = outwave[:, None] - wave[None, :]
     kernel = (1 / (sigma * np.sqrt(np.pi * 2))[:, None] *
               np.exp(-kernel**2 / (2 * sigma[:, None]**2)) *
@@ -165,6 +189,7 @@ def smooth_lsf(wave, spec, lsf=None, outwave=None,
     if return_kernel:
         return newspec, kernel
     return newspec
+
 
 def downsample_onespec(wave, spec, outwave, outres,
                        smoothtype='r', **kwargs):
