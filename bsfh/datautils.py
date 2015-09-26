@@ -74,11 +74,11 @@ def norm_spectrum(obs, norm_band_name='f475w', **kwargs):
     
     norm_band = [i for i,f in enumerate(obs['filters'])
                  if norm_band_name in f.name][0]
-    
+   
     synphot = observate.getSED(obs['wavelength'],
                                obs['spectrum'],
                                obs['filters'])
-
+    synphot = np.atleast_1d(synphot)
     # Factor by which the observed spectra should be *divided* to give
     #  you the photometry (or the cgs apparent spectrum), using the
     #  given filter as truth.  Alternatively, the factor by which the

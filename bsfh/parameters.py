@@ -233,22 +233,21 @@ class ProspectrParams(object):
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a,b in bounds]        
         return bounds
 
-    def theta_disps(self, initial_thetas, initial_disp=0.1):
-        """Get a vector of (fractional) dispersions for each parameter
+    def theta_disps(self, initial_thetas, initial_disp=0.1, fractional_disp=False):
+        """Get a vector of absolute dispersions for each parameter
         to use in generating sampler balls for emcee's Ensemble
         sampler.  This can be overridden by subclasses if
-        non-fractional dispersions are desired.
+        fractional dispersions are desired.
 
         :param initial_disp: (default: 0.1)
             The default dispersion to use in case the `init_disp` key
-            is not provided in the parameter configuration.  This is
-            in units of the parameter, so e.g. 0.1 will result in a
-            smpler ball with a dispersion that is 10% of the central
-            parameter value.
+            is not provided in the parameter configuration.
         """
         disp = np.zeros(self.ndim) + initial_disp
         for par, inds in self.theta_index.iteritems():
             disp[inds[0]:inds[1]] = self._config_dict[par].get('init_disp', initial_disp)
+        if fractional_disp:
+            disp = self.theta * disp
         return disp
     
     def theta_disp_floor(self, thetas):

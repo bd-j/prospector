@@ -7,6 +7,8 @@
 # broadening to apply?
 # 4) speed up smooth_lsf
 
+import numpy as np
+
 def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
                min_wave_smooth=None, max_wave_smooth=None,
                **kwargs):
@@ -17,12 +19,28 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
     :param spec:
         The flux vector of the input spectrum, ndarray
 
+    :param sigma:
+        The smoothing parameter.  Units depend on ``smoothtype``
+        
     :param outwave:
         The output wavelength vector.  If None then the input
         wavelength vector will be assumed.  If min_wave_smooth or
         max_wave_smooth are also specified, then the output spectrum
         may have differnt dimensions than spec or inwave.
 
+    :param smoothtype:
+        The type of smoothing to do.  One of
+        
+        * `vel` - velocity smoothing, ``sigma`` units are in km/s
+          (dispersion not FWHM)
+        * `R` - resolution smoothing, ``sigma`` is in units of \lambda/
+          \sigma(\lambda) (where \sigma(\lambda) is dispersion, not FWHM)
+        * `lambda` - wavelength smoothing.  ``sigma`` is in units of \AA
+        * `lsf` - line-spread function.  Use an aribitrary line spread
+          function, which must be present as the ``lsf`` keyword.  In
+          this case ``sigma`` is ignored, but all additional keywords
+          will be passed to the `lsf` function.
+          
     :param min_wave_smooth:
         The minimum wavelength of the input vector to consider when
         smoothing the spectrum.  If None then it is determined from
@@ -45,7 +63,7 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
     
     if smoothtype == 'vel':
         return smooth_vel(wave, spec, outwave, sigma, **kwargs)
-    elif smoothtype == 'r':
+    elif smoothtype == 'R':
         sigma_vel = 2.998e5 / sigma
         return smooth_vel(wave, spec, outwave, sigma_vel, **kwargs)
     elif smoothtype == 'lambda':

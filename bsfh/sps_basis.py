@@ -411,7 +411,7 @@ class StarBasis(object):
 
         # dust
         if 'dust_curve' in self.params:
-            att = self.params['dust_curve'](self._wave, **self.params)
+            att = self.params['dust_curve'][0](self._wave, **self.params)
             spec *= np.exp(-att)
 
         # distance dimming
@@ -463,7 +463,7 @@ class StarBasis(object):
             interpolation error.  Curently unimplemented (i.e. it is a
             None type object)
         """
-        inparams = np.array([Z, logg, logt])
+        inparams = np.squeeze(np.array([Z, logg, logt]))
         inds, wghts = self.weights(inparams, **extras)
         if logarithmic is None:
             spec = np.dot(wghts, self._spectra[inds, :])
@@ -503,8 +503,9 @@ class StarBasis(object):
         triangle_ind = self._dtri.find_simplex(inparams)
         if triangle_ind == -1:
             if self.n_neighbors == 0:
-                raise ValueError("Requested spectrum outside convex hull, "
-                                 "and nearest neighbor interpolation turned off.")
+                raise ValueError("Requested spectrum (Z={}, logg={}, logt={}) "
+                                 "outside convex hull, and nearest neighbor "
+                                 "interpolation turned off.".format(*inparams))
             ind, wght = self.weights_kNN(inparams, k=self.n_neighbors)
             if self.verbose:
                 print("Parameters {0} outside model convex hull. "
