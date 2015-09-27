@@ -74,7 +74,7 @@ def norm_spectrum(obs, norm_band_name='f475w', **kwargs):
     
     norm_band = [i for i,f in enumerate(obs['filters'])
                  if norm_band_name in f.name][0]
-   
+
     synphot = observate.getSED(obs['wavelength'],
                                obs['spectrum'],
                                obs['filters'])

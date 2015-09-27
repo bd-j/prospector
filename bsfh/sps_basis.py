@@ -338,7 +338,7 @@ class StarBasis(object):
     _spectra = None
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
-                 n_neighbors=0, **kwargs):
+                 n_neighbors=0, log_interp=False, **kwargs):
         """An object which holds the stellar spectral library,
         performs interpolations of that library, and has methods to
         return attenuated, normalized, smoothed stellar spoectra.
@@ -357,6 +357,7 @@ class StarBasis(object):
                 when a point is outside the convex hull
         """
         self.verbose = verbose
+        self.logarithmic = log_interp
         self.load_ckc(libname)
         self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
@@ -445,7 +446,7 @@ class StarBasis(object):
         return smspec, phot, None
 
     def get_star_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
-                          logarithmic=False, **extras):
+                          **extras):
         """Given stellar parameters, obtain an interpolated spectrum
         at those parameters.
 
@@ -465,10 +466,10 @@ class StarBasis(object):
         """
         inparams = np.squeeze(np.array([Z, logg, logt]))
         inds, wghts = self.weights(inparams, **extras)
-        if logarithmic is None:
-            spec = np.dot(wghts, self._spectra[inds, :])
-        else:
+        if self.logarithmic:
             spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :])))
+        else:
+            spec = np.dot(wghts, self._spectra[inds, :])
         spec_unc = None
         return self._wave, spec, spec_unc
 
