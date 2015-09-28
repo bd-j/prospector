@@ -60,16 +60,18 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
     if max_wave_smooth is None:
         max_wave_smooth = [outwave.max() + 50.0]
     smask = (wave > min_wave_smooth[0]) & (wave < max_wave_smooth[0])
+    w = wave[smask]
+    s = spec[smask]
     
     if smoothtype == 'vel':
-        return smooth_vel(wave, spec, outwave, sigma, **kwargs)
+        return smooth_vel(w, s, outwave, sigma, **kwargs)
     elif smoothtype == 'R':
         sigma_vel = 2.998e5 / sigma
-        return smooth_vel(wave, spec, outwave, sigma_vel, **kwargs)
+        return smooth_vel(w, s, outwave, sigma_vel, **kwargs)
     elif smoothtype == 'lambda':
-        return smooth_wave(wave, spec, outwave, sigma, **kwargs)
+        return smooth_wave(w, s, outwave, sigma, **kwargs)
     elif smoothtype == 'lsf':
-        return smooth_lsf(wave, spec, outwave, **kwargs)
+        return smooth_lsf(w, s, outwave, **kwargs)
 
 
 def smooth_vel(wave, spec, outwave, sigma, nsigma=10,
