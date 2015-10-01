@@ -338,7 +338,8 @@ class StarBasis(object):
     _spectra = None
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
-                 n_neighbors=0, log_interp=False, **kwargs):
+                 n_neighbors=0, log_interp=False, logify_Z=False,
+                 **kwargs):
         """An object which holds the stellar spectral library,
         performs interpolations of that library, and has methods to
         return attenuated, normalized, smoothed stellar spoectra.
@@ -358,6 +359,8 @@ class StarBasis(object):
         """
         self.verbose = verbose
         self.logarithmic = log_interp
+        self.logify_Z = logify_Z
+        self._libname = libname
         self.load_ckc(libname)
         self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
@@ -388,7 +391,9 @@ class StarBasis(object):
         good = maxf > 1e-32
         self._libparams = self._libparams[good]
         self._spectra = self._spectra[good, :]
-
+        if self.logify_Z:
+            self._libparams['Z'] = np.log10(self._libparams['Z'])
+        
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):
         """
         :returns spec:
