@@ -1,11 +1,8 @@
 import numpy as np
 import fsps
 from scipy.spatial import Delaunay
+from .smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
-try:
-    from sedpy.observate import lsf_broaden
-except(ImportError):
-    pass
 try:
     import sklearn.neighbors
 except(ImportError):
@@ -194,8 +191,8 @@ class StellarPopBasis(object):
             # Wavelength scale.  Broadening and redshifting and
             # placing on output wavelength grid
             if self.params.get('lsf', [None])[0] is not None:
-                cspec = smoothspec(vac2air(inwave) * a,
-                                   cspec / a, **self.params)
+                cspec = smoothspec(vac2air(inwave) * a, cspec / a,
+                                   self.params['sigma_smooth'], **self.params)
             else:
                 sigma = self.params.get('sigma_smooth', 0.0)
                 cspec = self.ssp.smoothspec(inwave, cspec, sigma)
@@ -341,7 +338,8 @@ class StarBasis(object):
     _spectra = None
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
-                 n_neighbors=0, **kwargs):
+                 n_neighbors=0, log_interp=False, logify_Z=False,
+                 **kwargs):
         """An object which holds the stellar spectral library,
         performs interpolations of that library, and has methods to
         return attenuated, normalized, smoothed stellar spoectra.
@@ -360,6 +358,9 @@ class StarBasis(object):
                 when a point is outside the convex hull
         """
         self.verbose = verbose
+        self.logarithmic = log_interp
+        self.logify_Z = logify_Z
+        self._libname = libname
         self.load_ckc(libname)
         self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
@@ -390,7 +391,9 @@ class StarBasis(object):
         good = maxf > 1e-32
         self._libparams = self._libparams[good]
         self._spectra = self._spectra[good, :]
-
+        if self.logify_Z:
+            self._libparams['Z'] = np.log10(self._libparams['Z'])
+        
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):
         """
         :returns spec:
@@ -414,7 +417,7 @@ class StarBasis(object):
 
         # dust
         if 'dust_curve' in self.params:
-            att = self.params['dust_curve'](self._wave, **self.params)
+            att = self.params['dust_curve'][0](self._wave, **self.params)
             spec *= np.exp(-att)
 
         # distance dimming
@@ -432,7 +435,8 @@ class StarBasis(object):
         if outwave is None:
             outwave = wa
         if 'sigma_smooth' in self.params:
-            smspec = self.smoothspec(wa, sa, outwave=outwave, **self.params)
+            smspec = self.smoothspec(wa, sa, self.params['sigma_smooth'],
+                                     outwave=outwave, **self.params)
         else:
             smspec = np.interp(outwave, wa, sa, left=0, right=0)
 
@@ -447,7 +451,7 @@ class StarBasis(object):
         return smspec, phot, None
 
     def get_star_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
-                          logarithmic=False, **extras):
+                          **extras):
         """Given stellar parameters, obtain an interpolated spectrum
         at those parameters.
 
@@ -465,17 +469,17 @@ class StarBasis(object):
             interpolation error.  Curently unimplemented (i.e. it is a
             None type object)
         """
-        inparams = np.array([Z, logg, logt])
+        inparams = np.squeeze(np.array([Z, logg, logt]))
         inds, wghts = self.weights(inparams, **extras)
-        if logarithmic is None:
-            spec = np.dot(wghts, self._spectra[inds, :])
-        else:
+        if self.logarithmic:
             spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :])))
+        else:
+            spec = np.dot(wghts, self._spectra[inds, :])
         spec_unc = None
         return self._wave, spec, spec_unc
 
-    def smoothspec(self, wave, spec, outwave=None, **kwargs):
-        outspec = smoothspec(wave, spec, kwargs.get('lsf', [None]), **kwargs)
+    def smoothspec(self, wave, spec, sigma, outwave=None, **kwargs):
+        outspec = smoothspec(wave, spec, sigma, outwave=outwave, **kwargs)
         return outspec
 
     def normalize(self):
@@ -505,8 +509,9 @@ class StarBasis(object):
         triangle_ind = self._dtri.find_simplex(inparams)
         if triangle_ind == -1:
             if self.n_neighbors == 0:
-                raise ValueError("Requested spectrum outside convex hull, "
-                                 "and nearest neighbor interpolation turned off.")
+                raise ValueError("Requested spectrum (Z={}, logg={}, logt={}) "
+                                 "outside convex hull, and nearest neighbor "
+                                 "interpolation turned off.".format(*inparams))
             ind, wght = self.weights_kNN(inparams, k=self.n_neighbors)
             if self.verbose:
                 print("Parameters {0} outside model convex hull. "
@@ -574,56 +579,6 @@ class StarBasis(object):
         """
         pvec = [kwargs[n] for n in self.stellar_pars]
         return np.array(pvec)
-
-
-def smoothspec(inwave, spec, lsf, outwave=None,
-               min_wave_smooth=None, max_wave_smooth=None,
-               **kwargs):
-    """
-    Broaden a spectrum with a user defined line-spread function.
-
-    :param inwave:
-        The wavelength vector of the input spectrum, ndarray.
-
-    :param spec:
-        The flux vector of the input spectrum, ndarray
-
-    :param lsf:
-        A function describing the line_spread_function.  It should
-        take as inputs `wave` and any keyword arguments and return
-        sigma(wave).
-
-    :param outwave:
-        The output wavelength vector.  If None then the input
-        wavelength vector will be assumed.  If min_wave_smooth or
-        max_wave_smooth are also specified, then the output spectrum
-        may have differnt dimensions than spec or inwave.
-
-    :param min_wave_smooth:
-        The minimum wavelength of the input vector to consider when
-        smoothing the spectrum.  If None then it is determined from
-        the minimum of the output wavelength vector, minus 50.0.
-
-    :param max_wave_smooth:
-        The maximum wavelength of the input vector to consider when
-        smoothing the spectrum.  If None then it is determined from
-        the minimum of the output wavelength vector, plus 50.0
-
-    :returns outspec:
-        The smoothed spectrum.
-    """
-    this_lsf = lsf[0]
-    if outwave is None:
-        outwave = inwave
-    if min_wave_smooth is None:
-        min_wave_smooth = [inwave.min() - 50.0]
-    if max_wave_smooth is None:
-        max_wave_smooth = [inwave.max() + 50.0]
-
-    smask = (inwave > min_wave_smooth[0]) & (inwave < max_wave_smooth[0])
-    ospec = lsf_broaden(inwave[smask], spec[smask], this_lsf,
-                        outwave=outwave, **kwargs)
-    return ospec
 
 
 def gauss(x, mu, A, sigma):

@@ -1,12 +1,11 @@
 import numpy as np
 import fsps
-from sedpy import attenuation
-from bsfh import priors, sedmodel, elines
+from bsfh import priors, sedmodel
 tophat = priors.tophat
 
-#############
+# --------------
 # RUN_PARAMS
-#############
+# --------------
 
 run_params = {'verbose':True,
               'outfile':'results/csphot_test',
@@ -18,23 +17,26 @@ run_params = {'verbose':True,
               'mock': False,
               'logify_spectrum':False,
               'normalize_spectrum':False,
-              'data_loading_function_name': "load_obs_mmt",
-              'photname':'/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.cat',
-              'fastname':'/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.fout',
               'objname':'32206',
               'wlo':3750., 'whi':7200.
               }
 
-def load_obs_3dhst(filename, objnum):
+# --------------
+# OBS
+# --------------
+    
+def load_obs(objname, **extras):
     """Load a 3D-HST data file and choose a particular object.
     """
-    obs ={}
-    fieldname=filename.split('/')[-1].split('_')[0].upper()
-    with open(filename, 'r') as f:
+    photname = '/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.cat'
+    # fastname = '/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.fout'
+    obs = {}
+    fieldname = photname.split('/')[-1].split('_')[0].upper()
+    with open(photname, 'r') as f:
         hdr = f.readline().split()
-    dat = np.loadtxt(filename, comments = '#',
+    dat = np.loadtxt(photname, comments = '#',
                      dtype = np.dtype([(n, np.float) for n in hdr[1:]]))
-    obj_ind = np.where(dat['id'] == int(objnum))[0][0]
+    obj_ind = np.where(dat['id'] == int(objname))[0][0]
     
     # extract fluxes+uncertainties for all objects and all filters
     flux_fields = [f for f in dat.dtype.names if f[0:2] == 'f_']
@@ -55,49 +57,19 @@ def load_obs_3dhst(filename, objnum):
     
     return obs
 
-def load_fast_3dhst(filename, objnum):
-    """Load a 3D-HST data file and choose a particular object.
-    """
+# --------------
+# SPS Object
+# --------------
 
-    fieldname=filename.split('/')[-1].split('_')[0].upper()
-    with open(filename, 'r') as f:
-        hdr = f.readline().split()
-    dat = np.loadtxt(filename, comments = '#',
-                     dtype = np.dtype([(n, np.float) for n in hdr[1:]]))
-    obj_ind = np.where(dat['id'] == int(objnum))[0][0]
-    	
-    # extract values and field names
-    fields = [f for f in dat.dtype.names]
-    #values = dat[fields].view(float).reshape(len(dat),-1)[obj_ind]
-    values = dat[obj_ind]
-    # translate
-    output = {}
-    translate = {'zred': ('z', lambda x: x),
-                 'tau':  ('ltau', lambda x: (10**x)/1e9),
-                 'tage': ('lage', lambda x:  (10**x)/1e9),
-                 'dust2':('Av', lambda x: x),
-                 'mass': ('lmass', lambda x: (10**x))}
-    for k, v in translate.iteritems():
-        output[k] = v[1](values[v[0]])
-        
-    return output
+sps = fsps.StellarPopulation(zcontinuous=1)
 
-############
-# OBS
-#############
-
-obs = load_obs_3dhst(run_params['photname'], run_params['objname'])
-
-#############
+# --------------
 # MODEL_PARAMS
-#############
-model_type = sedmodel.CSPModel
-model_params = []
-param_template = {'name':'', 'N':1, 'isfree': False,
-                  'init':0.0, 'units':'', 'label':'',
-                  'prior_function_name': None, 'prior_args': None}
+# --------------
 
-###### Distance ##########
+model_params = []
+
+# --- Distance ---
 model_params.append({'name': 'zred', 'N': 1,
                         'isfree': False,
                         'init': 0.91,
@@ -105,7 +77,7 @@ model_params.append({'name': 'zred', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':0.0, 'maxi':4.0}})
 
-###### SFH   ########
+# --- SFH --------
 
 model_params.append({'name': 'sfh', 'N': 1,
                         'isfree': False,
@@ -119,10 +91,10 @@ model_params.append({'name': 'mass', 'N': 1,
                         'init': 1e10,
                         'units': r'M_\odot',
                         'prior_function':tophat,
-                        'prior_args': {'mini':1e9, 'maxi':1e12}})
+                        'prior_args': {'mini':1e7, 'maxi':1e12}})
 
 model_params.append({'name': 'logzsol', 'N': 1,
-                        'isfree': False,
+                        'isfree': True,
                         'init': 0,
                         'units': r'$\log (Z/Z_\odot)$',
                         'prior_function': tophat,
@@ -132,7 +104,7 @@ model_params.append({'name': 'tau', 'N': 1,
                         'isfree': True,
                         'init': 1.0,
                         'units': 'Gyr',
-                        'prior_function':tophat,
+                        'prior_function':priors.logarithmic,
                         'prior_args': {'mini':0.1, 'maxi':100}})
 
 model_params.append({'name': 'tage', 'N': 1,
@@ -156,7 +128,7 @@ model_params.append({'name': 'fburst', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':0.0, 'maxi':0.5}})
 
-########    Dust ##############
+# --- Dust ---------
 
 model_params.append({'name': 'dust1', 'N': 1,
                         'isfree': False,
@@ -200,7 +172,7 @@ model_params.append({'name': 'dust_type', 'N': 1,
                         'init': 0,
                         'units': 'index'})
 
-###### Nebular Emission ###########
+# --- Nebular Emission ------
 
 model_params.append({'name': 'gas_logz', 'N': 1,
                         'isfree': False,
@@ -216,7 +188,7 @@ model_params.append({'name': 'gas_logu', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':-4, 'maxi':-1}})
 
-####### Calibration ##########
+# --- Calibration ---------
 
 model_params.append({'name': 'phot_jitter', 'N': 1,
                         'isfree': False,
@@ -225,13 +197,12 @@ model_params.append({'name': 'phot_jitter', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':0.0, 'maxi':0.2}})
 
-####### FAST PARAMS ##########
-fast_params = True
-if fast_params == True:
-    fparams = load_fast_3dhst(run_params['fastname'],
-                              run_params['objname'])
-    for par in model_params:
-        if (par['name'] in fparams):
-            par['init'] = fparams[par['name']]
-            
-####### ADD CHECK: ALL PARAMS WITHIN LIMITS #######
+def load_model(objname, **extras):
+    return sedmodel.CSPModel(model_params)
+
+# -----------------
+# Gaussian Process
+# ------------------
+
+def load_gp(**extras):
+    return None, None
