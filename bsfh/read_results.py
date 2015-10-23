@@ -138,6 +138,18 @@ def subtriangle(sample_results, outname=None, showpars=None,
     Make a triangle plot of the (thinned, latter) samples of the posterior
     parameter space.  Optionally make the plot only for a supplied subset
     of the parameters.
+
+    :param start:
+        The iteration number to start with when drawing samples to plot.
+
+    :param thin:
+        The thinning of each chain to perform when drawing samples to plot.
+
+    :param showpars:
+        List of string names of parameters to include in the corner plot.
+
+    :param truths:
+        List of truth values
     """
     import triangle
     # pull out the parameter names and flatten the thinned chains

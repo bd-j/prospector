@@ -80,8 +80,11 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     lnp_prior = model.prior_product(theta)
     if np.isfinite(lnp_prior):
         # Generate mean model and GP kernel(s)
-        t1 = time.time()        
-        mu, phot, x = model.mean_model(theta, obs, sps = sps)
+        t1 = time.time()
+        try:
+            mu, phot, x = model.mean_model(theta, obs, sps=sps)
+        except(ValueError):
+            return -np.infty
         try:
             s, a, l = model.spec_gp_params()
             gp_spec.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
@@ -188,8 +191,8 @@ if __name__ == "__main__":
         powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
         powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta,
                                                 args=chi2args, model=model,
-                                                method ='powell', opts=powell_opt,
-                                                pool = pool, nthreads = rp.get('nthreads',1))
+                                                method='powell', opts=powell_opt,
+                                                pool=pool, nthreads=rp.get('nthreads',1))
         best = np.argmin([p.fun for p in powell_guesses])
         initial_center = utils.reinitialize(powell_guesses[best].x, model,
                                             edge_trunc=rp.get('edge_trunc',0.1))
@@ -203,7 +206,8 @@ if __name__ == "__main__":
         powell_guesses = None
         pdur = 0.0
         initial_center = initial_theta.copy()
-        
+        initial_prob = None
+
     ###################
     # Sample
     ####################
@@ -211,7 +215,7 @@ if __name__ == "__main__":
         print('emcee sampling...')
     tstart = time.time()
     esampler, burn_p0, burn_prob0 = utils.run_emcee_sampler(lnprobfn, initial_center, model,
-                                       postkwargs=postkwargs, pool = pool, initial_prob=initial_prob,
+                                       postkwargs=postkwargs, pool=pool, initial_prob=initial_prob,
                                        **rp)
     edur = time.time() - tstart
     if rp['verbose']:

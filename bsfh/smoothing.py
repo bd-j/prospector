@@ -14,7 +14,8 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
                **kwargs):
     """
     :param wave:
-        The wavelength vector of the input spectrum, ndarray.
+        The wavelength vector of the input spectrum, ndarray.  Assumed
+        angstroms.
 
     :param spec:
         The flux vector of the input spectrum, ndarray
@@ -67,6 +68,10 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
         return smooth_vel(w, s, outwave, sigma, **kwargs)
     elif smoothtype == 'R':
         sigma_vel = 2.998e5 / sigma
+        try:
+            kwargs['inres'] =  2.998e5 / kwargs['inres']
+        except(KeyError):
+            pass
         return smooth_vel(w, s, outwave, sigma_vel, **kwargs)
     elif smoothtype == 'lambda':
         return smooth_wave(w, s, outwave, sigma, **kwargs)
@@ -97,7 +102,7 @@ def smooth_vel(wave, spec, outwave, sigma, nsigma=10,
 
     lnwave = np.log(wave)
     flux = np.zeros(len(outwave))
-    maxdiff = nsigma * sigma
+    maxdiff = nsigma * sigma_eff
 
     for i, w in enumerate(outwave):
         x = np.log(w) - lnwave

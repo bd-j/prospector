@@ -580,6 +580,9 @@ class StarBasis(object):
         pvec = [kwargs[n] for n in self.stellar_pars]
         return np.array(pvec)
 
+    @property
+    def wavelengths(self):
+        return self._wave
 
 def gauss(x, mu, A, sigma):
     """
