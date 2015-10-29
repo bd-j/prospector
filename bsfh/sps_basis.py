@@ -1,8 +1,13 @@
 import numpy as np
-import fsps
 from scipy.spatial import Delaunay
 from .smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
+
+try:
+    import fsps
+except(ImportError):
+    pass
+
 try:
     import sklearn.neighbors
 except(ImportError):
