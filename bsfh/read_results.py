@@ -151,7 +151,11 @@ def subtriangle(sample_results, outname=None, showpars=None,
     :param truths:
         List of truth values
     """
-    import triangle
+    try:
+        import triangle
+    except(ImportError):
+        import corner as triangle
+        
     # pull out the parameter names and flatten the thinned chains
     parnames = np.array(sample_results['model'].theta_labels())
     flatchain = sample_results['chain'][:,start::thin,:]
