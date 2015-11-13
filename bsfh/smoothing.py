@@ -94,7 +94,8 @@ def smooth_vel(wave, spec, outwave, sigma, nsigma=10,
         constant in the O(N_out * N_in) algorithm used here.
 
     :param inres:
-        The velocity resolution of the input spectrum (km/s)
+        The velocity resolution of the input spectrum (km/s), *not*
+        FWHM.
     """
     sigma_eff = np.sqrt(sigma**2 - inres**2)/2.998e5
     if sigma_eff <= 0.0:
@@ -102,17 +103,16 @@ def smooth_vel(wave, spec, outwave, sigma, nsigma=10,
 
     lnwave = np.log(wave)
     flux = np.zeros(len(outwave))
-    maxdiff = nsigma * sigma_eff
 
     for i, w in enumerate(outwave):
-        x = np.log(w) - lnwave
+        x = (np.log(w) - lnwave) / sigma_eff
         if nsigma > 0:
-            good = (x > -maxdiff) & (x < maxdiff)
+            good = np.abs(x) < nsigma
             x = x[good]
             _spec = spec[good]
         else:
             _spec = spec
-        f = np.exp(-0.5 * (x / sigma_eff)**2)
+        f = np.exp(-0.5 * x**2)
         flux[i] = np.trapz(f * _spec, x) / np.trapz(f, x)
     return flux
 
@@ -144,7 +144,7 @@ def smooth_wave(wave, spec, outwave, sigma, nsigma=10,
         sigma_eff = sigma
     elif in_vel:
         sigma_min = np.max(outwave) / input_res
-        if sigma < sigma_min:
+        if np.any(sigma < sigma_min):
             raise ValueError("Desired wavelength sigma is lower "
                              "than the value possible for this input "
                              "spectrum ({0}).".format(sigma_min))
@@ -152,7 +152,7 @@ def smooth_wave(wave, spec, outwave, sigma, nsigma=10,
         # dependent dispersion.  This doesn't really work.
         sigma_eff = np.sqrt(sigma**2 - (wave / input_res)**2)
     else:
-        if sigma < inres:
+        if np.any(sigma < inres):
             raise ValueError("Desired wavelength sigma is lower "
                              "than the value possible for this input "
                              "spectrum ({0}).".format(sigma_min))
@@ -165,12 +165,12 @@ def smooth_wave(wave, spec, outwave, sigma, nsigma=10,
             good = np.abs(x) < nsigma
             x = x[good]
             _spec = spec[good]
-            _wave = wave[good]
+#            _wave = wave[good]
         else:
             _spec = spec
-            _wave = wave
+#            _wave = wave
         f = np.exp(-0.5 * x**2)
-        flux[i] = np.trapz(f * _spec, _wave) / np.trapz(f, _wave)
+        flux[i] = np.trapz(f * _spec, x) / np.trapz(f, x)
     return flux
 
 
