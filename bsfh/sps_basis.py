@@ -453,7 +453,7 @@ class StarBasis(object):
         if peraa:
             smspec *= lightspeed / outwave**2
 
-        return smspec, phot, None
+        return smspec / conv, phot, None
 
     def get_star_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
                           **extras):
