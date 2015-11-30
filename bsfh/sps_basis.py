@@ -1,3 +1,4 @@
+from itertools import chain
 import numpy as np
 from scipy.spatial import Delaunay
 from .smoothing import smoothspec
@@ -339,12 +340,11 @@ log_SB_solar = np.log10(5.6704e-5) + 2 * log_rsun_cgs - log_lsun_cgs
 
 class StarBasis(object):
 
-    _params = None
     _spectra = None
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
-                 n_neighbors=0, log_interp=False, logify_Z=False,
-                 **kwargs):
+                 n_neighbors=0, driver=None, log_interp=False,
+                 logify_Z=True, **kwargs):
         """An object which holds the stellar spectral library,
         performs interpolations of that library, and has methods to
         return attenuated, normalized, smoothed stellar spoectra.
@@ -366,7 +366,13 @@ class StarBasis(object):
         self.logarithmic = log_interp
         self.logify_Z = logify_Z
         self._libname = libname
-        self.load_ckc(libname)
+        if 'ckc' in libname:
+            self.load_ckc(libname)
+        elif 'ykc' in libname:
+            self.load_ykc(libname, driver=driver)
+        else:
+            raise ValueError("Must have 'ykc' or 'ckc' in ``libname``")
+        # Do some important bookkeeping
         self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
         self.triangulate()
@@ -374,8 +380,8 @@ class StarBasis(object):
             self.build_kdtree()
         except NameError:
             pass
-        self.params = {'logl': 0.0, 'logt': 3.77, 'logg': 4.5, 'Z': 0.019}
         self.n_neighbors = n_neighbors
+        self.params = {}
 
     def load_ckc(self, libname=''):
         """Read a CKC library which has been pre-convolved to be close
@@ -399,13 +405,20 @@ class StarBasis(object):
         if self.logify_Z:
             self._libparams['Z'] = np.log10(self._libparams['Z'])
 
+    def load_ykc(self, libname='', driver=None):
+        import h5py
+        f =  h5py.File(libname, "r", driver=driver)
+        self._wave = np.array(f['wavelengths'])
+        self._libparams = np.array(f['parameters'])
+        self._spectra = f['spectra']
+
     def update(self, **kwargs):
         for k, v in kwargs.iteritems():
             try:
                 self.params[k] = np.squeeze(v)
             except:
                 pass
-        
+
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):
         """
         :returns spec:
@@ -463,13 +476,9 @@ class StarBasis(object):
 
         return smspec / conv, phot, None
 
-    def get_star_spectrum(self, Z=0.0134, logg=4.5, logt=3.76,
-                          **extras):
+    def get_star_spectrum(self, **kwargs):
         """Given stellar parameters, obtain an interpolated spectrum
         at those parameters.
-
-        :param logarithmic: (default: False)
-            If True, interpolate in log(flux)
 
         :returns wave:
             The wavelengths at which the spectrum is defined.
@@ -482,8 +491,9 @@ class StarBasis(object):
             interpolation error.  Curently unimplemented (i.e. it is a
             None type object)
         """
-        inparams = np.squeeze(np.array([Z, logg, logt]))
-        inds, wghts = self.weights(inparams, **extras)
+        inparams = [kwargs[p] for p in self.stellar_pars]
+        inparams = np.squeeze(np.array(inparams))
+        inds, wghts = self.weights(inparams, **kwargs)
         if self.logarithmic:
             spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :])))
         else:
@@ -515,16 +525,17 @@ class StarBasis(object):
         return norm * 4 * np.pi
 
     def weights(self, inparams, **extras):
-        """Delauynay weighting.  Return indices of the models forming
-        the enclosing simplex, as well as the barycentric coordinates
-        of the point within this simplex to use as weights.
-        """
+        """Delauynay weighting.  Return indices of the models forming the
+        enclosing simplex, as well as the barycentric coordinates of the point
+        within this simplex to use as weights.  """
         triangle_ind = self._dtri.find_simplex(inparams)
         if triangle_ind == -1:
             if self.n_neighbors == 0:
-                raise ValueError("Requested spectrum (Z={}, logg={}, logt={}) "
-                                 "outside convex hull, and nearest neighbor "
-                                 "interpolation turned off.".format(*inparams))
+                pstring = ', '.join(self.ndim * ['{}={}'])
+                pstring = pstring.format(*chain(*zip(self.stellar_pars, inparams)))
+                raise ValueError("Requested spectrum ({}) outside convex hull, "
+                                 "and nearest neighbor interpolation turned "
+                                 "off.".format(*pstring))
             ind, wght = self.weights_kNN(inparams, k=self.n_neighbors)
             if self.verbose:
                 print("Parameters {0} outside model convex hull. "
@@ -537,8 +548,9 @@ class StarBasis(object):
         x_r = inparams - transform[self.ndim, :]
         bary = np.dot(Tinv, x_r)
         last = 1.0 - bary.sum()
-
-        return inds, np.append(bary, last)
+        wghts = np.append(bary, last)
+        oo = inds.argsort()
+        return inds[oo], wghts[oo]
 
     def triangulate(self):
         """Build the Delauynay Triangulation of the model library.
