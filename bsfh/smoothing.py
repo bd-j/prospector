@@ -1,19 +1,18 @@
 # Spectral smoothing functionality
 # To do:
-# 1) Clean up smooth_wave
-# 2) Deal properly with vectorized sigma input to smooth_wave, smooth_vel
-# 3) sort out how to deal with input spectral resolution.  Is sigma
-# the output sigma accounting for input, or just the amount of extra
-# broadening to apply?
-# 4) speed up smooth_lsf
+# 1) offload the wavelength padding in smoothspec to mask_wave
+# 2) clean up smoothspec (define all quantities, R, sigma_v, sigma_lambda,
+#    FWHM, etc...), and allow it ot accessthe FFT algorithms
+# 3) add extra zero-padding for FFT algorithms so they don't go funky at the edges?
+# 4) standardize API for lower level smoothing functions
 
 import numpy as np
 
 ckms = 2.998e5
 
-def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
-               min_wave_smooth=None, max_wave_smooth=None, fast=False,
-               **kwargs):
+
+def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel', fast=False,
+               min_wave_smooth=None, max_wave_smooth=None, **kwargs):
     """
     :param wave:
         The wavelength vector of the input spectrum, ndarray.  Assumed
@@ -24,7 +23,7 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
 
     :param sigma:
         The smoothing parameter.  Units depend on ``smoothtype``
-        
+
     :param outwave:
         The output wavelength vector.  If None then the input wavelength vector
         will be assumed, though if min_wave_smooth or max_wave_smooth are also
@@ -33,7 +32,7 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
 
     :param smoothtype:
         The type of smoothing to do.  One of
-        
+
         * `vel` - velocity smoothing, ``sigma`` units are in km/s
           (dispersion not FWHM)
         * `R` - resolution smoothing, ``sigma`` is in units of \lambda/
@@ -43,7 +42,7 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
           function, which must be present as the ``lsf`` keyword.  In
           this case ``sigma`` is ignored, but all additional keywords
           will be passed to the `lsf` function.
-          
+
     :param min_wave_smooth:
         The minimum wavelength of the input vector to consider when smoothing
         the spectrum.  If None then it is determined from the minimum of the
@@ -65,13 +64,13 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
     smask = (wave > min_wave_smooth[0]) & (wave < max_wave_smooth[0])
     w = wave[smask]
     s = spec[smask]
-    
+
     if smoothtype == 'vel':
         return smooth_vel(w, s, outwave, sigma, **kwargs)
     elif smoothtype == 'R':
         sigma_vel = ckms / sigma
         try:
-            kwargs['inres'] =  ckms / kwargs['inres']
+            kwargs['inres'] = ckms / kwargs['inres']
         except(KeyError):
             pass
         return smooth_vel(w, s, outwave, sigma_vel, **kwargs)
@@ -81,8 +80,7 @@ def smoothspec(wave, spec, sigma, outwave=None, smoothtype='vel',
         return smooth_lsf(w, s, outwave, **kwargs)
 
 
-def smooth_vel(wave, spec, outwave, sigma, nsigma=10,
-                inres=0, **extras):
+def smooth_vel(wave, spec, outwave, sigma, nsigma=10, inres=0, **extras):
     """Smooth a spectrum in velocity space.  This is insanely slow, but general
     and correct.
 
@@ -127,8 +125,8 @@ def smooth_vel(wave, spec, outwave, sigma, nsigma=10,
     return flux
 
 
-def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out,
-                   sigma_in=0.0, **extras):
+def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out, sigma_in=0.0,
+                   **extras):
     """Smooth a spectrum in wavelength space, using FFTs. This is fast, but makes
     some assumptions about the form of the input spectrum and can have some
     issues at the ends of the spectrum depending on how it is padded.
@@ -150,19 +148,18 @@ def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out,
         The velocity resolution of the input spectrum (km/s), dispersion *not*
         FWHM.
     """
-    
+
     # make lngth of spectrum a power of 2 by resampling
-    wave, spec = resample_wave(wavelength[mask], spectrum[mask])
+    wave, spec = resample_wave(wavelength, spectrum)
 
     # The kernel width for the convolution.
-    #sigma_out, sigma_in = ckms / Rout, ckms / Rin
     sigma = np.sqrt(sigma_out**2 - sigma_in**2)
     if sigma <= 0:
         return np.interp(wave, outwave, flux)
-    
+
     # get grid resolution (*not* the resolution of the input spectrum) and make
     # sure it's nearly constant.  Should be by design (see resample_wave)
-    invRgrid =  np.diff(np.log(wave))
+    invRgrid = np.diff(np.log(wave))
     assert invRgrid.max() / invRgrid.min() < 1.05
     dv = ckms * np.median(invRgrid)
 
@@ -175,8 +172,8 @@ def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out,
     return spec_conv
 
 
-def smooth_wave(wave, spec, outwave, sigma, nsigma=10, 
-                input_res=0, in_vel=False, **extras):
+def smooth_wave(wave, spec, outwave, sigma, nsigma=10, input_res=0,
+                in_vel=False, **extras):
     """Smooth a spectrum in wavelength space.  This is insanely slow, but
     general and correct (except for the treatment of the input resolution if it
     is velocity)
@@ -271,18 +268,18 @@ def smooth_wave_fft(wavelength, spectrum, outwave, sigma_out=1.0,
     # restrict wavelength range (for speed)
     # should also make nearest power of 2
     wave, spec = resample_wave(wavelength, spectrum, linear=True)
-    
+
     # The kernel width for the convolution.
     sigma = np.sqrt(sigma_out**2 - sigma_in**2)
     if sigma < 0:
         return np.interp(wave, outwave, flux)
-    
+
     # get grid resolution (*not* the resolution of the input spectrum) and make
     # sure it's nearly constant.  Should be by design (see resample_wave)
     Rgrid = np.diff(wave)
     assert Rgrid.max() / Rgrid.min() < 1.05
     dw = np.median(Rgrid)
-    
+
     # Do the convolution
     spec_conv = smooth_fft(dw, spec, sigma)
     # interpolate onto output grid
@@ -323,7 +320,7 @@ def smooth_lsf(wave, spec, outwave, lsf=None, return_kernel=False,
               np.exp(-kernel**2 / (2 * sigma[:, None]**2)) *
               dw[None, :])
     # should this be axis=0 or axis=1?
-    kernel = kernel / kernel.sum(axis=1)[:,None]
+    kernel = kernel / kernel.sum(axis=1)[:, None]
     newspec = np.dot(kernel, spec)
     # kernel /= np.trapz(kernel, wave, axis=1)[:, None]
     # newspec = np.trapz(kernel * spec[None, :], wave, axis=1)
@@ -345,7 +342,7 @@ def smooth_fft(dx, spec, sigma):
     """
     # The Fourier coordinate
     ss = rfftfreq(len(spec), d=dx)
-    # Make the fourier space taper
+    # Make the fourier space taper; just the analytical fft of a gaussian
     taper = np.exp(-2 * (np.pi ** 2) * (sigma ** 2) * (ss ** 2))
     ss[0] = 0.01  # hack
     # Fourier transform the spectrum
@@ -377,14 +374,14 @@ def mask_wave(wavelength, R=20000, wlo=0, whi=np.inf, outwave=None,
 def resample_wave(wavelength, spectrum, linear=False):
     """Resample spectrum, so that the number of elements is the next highest
     power of two.  Assumes the input spectrum is constant velocity resolution
-    unless ``linear`` is True, in which case it is assumed that the spectrum has
-    constant wavelength resolution (e.g. 1AA)
+    unless ``linear`` is True, in which case it is assumed that the spectrum
+    has constant wavelength resolution (e.g. 1AA)
     """
     wmin, wmax = wavelength.min(), wavelength.max()
     nw = len(wavelength)
     nnew = 2.0**(np.ceil(np.log2(nw)))
     if linear:
-        Rgrid = np.diff(wavelength) # in same units as ``wavelength`` 
+        Rgrid = np.diff(wavelength)  # in same units as ``wavelength``
         w = np.linspace(wmin, wmax, nnew)
     else:
         Rgrid = np.diff(np.log(wavelength))  # actually 1/R
@@ -418,5 +415,3 @@ def downsample_onespec(wave, spec, outwave, outres,
                            smoothtype=smoothtype, outwave=owave, **kwargs)
         outspec += [ospec]
     return outspec
-
-
