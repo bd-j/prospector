@@ -398,6 +398,13 @@ class StarBasis(object):
         self._spectra = self._spectra[good, :]
         if self.logify_Z:
             self._libparams['Z'] = np.log10(self._libparams['Z'])
+
+    def update(self, **kwargs):
+        for k, v in kwargs.iteritems():
+            try:
+                self.params[k] = np.squeeze(v)
+            except:
+                pass
         
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):
         """
@@ -415,14 +422,15 @@ class StarBasis(object):
         :returns x:
             A blob of extra quantities (e.g. mass, uncertainty)
         """
-        self.params.update(kwargs)
+        self.update(**kwargs)
+        
         # star spectrum
         wave, spec, unc = self.get_star_spectrum(**self.params)
         spec *= self.normalize()
 
         # dust
         if 'dust_curve' in self.params:
-            att = self.params['dust_curve'][0](self._wave, **self.params)
+            att = self.params['dust_curve'](self._wave, **self.params)
             spec *= np.exp(-att)
 
         # distance dimming
@@ -436,7 +444,7 @@ class StarBasis(object):
         # Broadening, redshifting, and interpolation onto observed
         # wavelengths.  The redshift treatment needs to be checked
         a = (1 + self.params.get('zred', 0.0))
-        wa, sa = vac2air(self._wave) * a, spec * a
+        wa, sa = vac2air(wave) * a, spec * a
         if outwave is None:
             outwave = wa
         if 'sigma_smooth' in self.params:

@@ -91,7 +91,7 @@ def smoothspec(wave, spec, resolution, outwave=None,
         width = 100
 
     # Mask the input spectrum depending on outwave or the wave_smooth kwargs
-    mask = mask_wave(wave, R=width, outwave=outwave, linear=linear,
+    mask = mask_wave(wave, width=width, outwave=outwave, linear=linear,
                      wlo=min_wave_smooth, whi=max_wave_smooth, **kwargs)
     w = wave[mask]
     s = spec[mask]
@@ -183,14 +183,13 @@ def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out, inres=0.0,
         The velocity resolution of the input spectrum (km/s), dispersion *not*
         FWHM.
     """
-
-    # make lngth of spectrum a power of 2 by resampling
-    wave, spec = resample_wave(wavelength, spectrum)
-
     # The kernel width for the convolution.
     sigma = np.sqrt(sigma_out**2 - inres**2)
     if sigma <= 0:
-        return np.interp(wave, outwave, flux)
+        return np.interp(outwave, wavelength, spectrum)
+
+    # make lngth of spectrum a power of 2 by resampling
+    wave, spec = resample_wave(wavelength, spectrum)
 
     # get grid resolution (*not* the resolution of the input spectrum) and make
     # sure it's nearly constant.  Should be by design (see resample_wave)
@@ -246,7 +245,7 @@ def smooth_wave(wave, spec, outwave, sigma, nsigma=10, inres=0, in_vel=False,
     """
     # sigma_eff is in angstroms
     if inres <= 0:
-        sigma_eff_sq = sigma**
+        sigma_eff_sq = sigma**2
     elif in_vel:
         # Make an approximate correction for the intrinsic wavelength
         # dependent dispersion.  This sort of maybe works.
@@ -395,7 +394,7 @@ def mask_wave(wavelength, width=1, wlo=0, whi=np.inf, outwave=None,
     if outwave is not None:
         wlim = np.array([outwave.min(), outwave.max()])
     else:
-        wlim = np.array([wlo, whi])
+        wlim = np.squeeze(np.array([wlo, whi]))
     # Pad by nsigma * sigma_wave
     if linear:
         wlim += nsigma_pad * width * np.array([-1, 1])
@@ -422,7 +421,7 @@ def resample_wave(wavelength, spectrum, linear=False):
         lnlam = np.linspace(np.log(wmin), np.log(wmax), nnew)
         w = np.exp(lnlam)
     # Make sure the resolution really is nearly constant
-    assert Rgrid.max() / Rgrid.min() < 1.05
+    #assert Rgrid.max() / Rgrid.min() < 1.05
     s = np.interp(w, wavelength, spectrum)
     return w, s
 
