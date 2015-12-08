@@ -343,24 +343,25 @@ class StarBasis(object):
     _spectra = None
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
-                 n_neighbors=0, driver=None, log_interp=False,
-                 logify_Z=True, **kwargs):
-        """An object which holds the stellar spectral library,
-        performs interpolations of that library, and has methods to
-        return attenuated, normalized, smoothed stellar spoectra.
+                 n_neighbors=0, driver=None, log_interp=False, logify_Z=True,
+                 **kwargs):
+        """An object which holds the stellar spectral library, performs
+        interpolations of that library, and has methods to return attenuated,
+        normalized, smoothed stellar spoectra.
 
-            :param libname:
-                Path to the hdf5 file to use for the spectral library.
+        :param libname:
+            Path to the hdf5 file to use for the spectral library. Must have
+            "ckc" or "ykc" in the filename (to specify which kind of loader to
+            use)
 
-            :param n_neighbors: (default:0)
-                Number of nearest neighbors to use when requested
-                parameters are outside the convex hull of the library
-                prameters.  If ``0`` then a ValueError is raised
-                instead of the nearest spectrum.
+        :param n_neighbors: (default:0)
+            Number of nearest neighbors to use when requested parameters are
+            outside the convex hull of the library prameters.  If ``0`` then a
+            ValueError is raised instead of the nearest spectrum.
 
-            :param verbose:
-                If True, print information about the parameters used
-                when a point is outside the convex hull
+        :param verbose:
+            If True, print information about the parameters used when a point
+            is outside the convex hull
         """
         self.verbose = verbose
         self.logarithmic = log_interp
@@ -384,13 +385,12 @@ class StarBasis(object):
         self.params = {}
 
     def load_ckc(self, libname=''):
-        """Read a CKC library which has been pre-convolved to be close
-        to your resolution.  This library should be stored as an HDF5
-        file, with the datasets ``wavelengths``, ``parameters`` and
-        ``spectra``.  These are ndarrays of shape (nwave,),
-        (nmodels,), and (nmodels, nwave) respecitvely.  The
-        ``parameters`` array is a structured array.  Spectra with no
-        fluxes > 1e-32 are removed from the library
+        """Read a CKC library which has been pre-convolved to be close to your
+        resolution.  This library should be stored as an HDF5 file, with the
+        datasets ``wavelengths``, ``parameters`` and ``spectra``.  These are
+        ndarrays of shape (nwave,), (nmodels,), and (nmodels, nwave)
+        respecitvely.  The ``parameters`` array is a structured array.  Spectra
+        with no fluxes > 1e-32 are removed from the library
         """
         import h5py
         with h5py.File(libname, "r") as f:
@@ -406,6 +406,13 @@ class StarBasis(object):
             self._libparams['Z'] = np.log10(self._libparams['Z'])
 
     def load_ykc(self, libname='', driver=None):
+        """Read a ykc library which has been preconvolved to be close to your
+        data resolution. This library should be stored as an HDF5 file, with
+        the datasets ``wavelengths``, ``parameters`` and ``spectra``.  These
+        are ndarrays of shape (nwave,), (nmodels,), and (nmodels, nwave)
+        respecitvely.  The ``parameters`` array is a structured array.  The h5
+        file object is left open so that spectra can be accessed from disk.
+        """
         import h5py
         f =  h5py.File(libname, "r", driver=driver)
         self._wave = np.array(f['wavelengths'])
@@ -422,15 +429,15 @@ class StarBasis(object):
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):
         """
         :returns spec:
-            The spectrum on the outwave grid (assumed in air), in
-            erg/s/Hz.  If peraa is True then the spectrum is /AA
-            instead of /Hz. If ``lumdist`` is a member of the params
-            dictionary, then the units are /cm**2 as well
+            The spectrum on the outwave grid (assumed in air), in erg/s/Hz.  If
+            peraa is True then the spectrum is /AA instead of /Hz. If
+            ``lumdist`` is a member of the params dictionary, then the units
+            are /cm**2 as well
 
         :returns phot:
-            Observed frame photometry in units of AB maggies.  If
-            ``lumdist`` is not present in the parameters then these
-            are absolute maggies, otherwise they are apparent.
+            Observed frame photometry in units of AB maggies.  If ``lumdist``
+            is not present in the parameters then these are absolute maggies,
+            otherwise they are apparent.
 
         :returns x:
             A blob of extra quantities (e.g. mass, uncertainty)
@@ -477,9 +484,13 @@ class StarBasis(object):
         return smspec / conv, phot, None
 
     def get_star_spectrum(self, **kwargs):
-        """Given stellar parameters, obtain an interpolated spectrum
-        at those parameters.
+        """Given stellar parameters, obtain an interpolated spectrum at those
+        parameters.
 
+        :param **kwargs:
+            Keyword arguments must include values for the ``stellar_pars``
+            parameters that are stored in ``_libparams``.
+            
         :returns wave:
             The wavelengths at which the spectrum is defined.
 
@@ -488,8 +499,8 @@ class StarBasis(object):
 
         :returns unc:
             The uncertainty spectrum, where the uncertainty is due to
-            interpolation error.  Curently unimplemented (i.e. it is a
-            None type object)
+            interpolation error.  Curently unimplemented (i.e. it is a None
+            type object)
         """
         inparams = [kwargs[p] for p in self.stellar_pars]
         inparams = np.squeeze(np.array(inparams))
@@ -506,12 +517,12 @@ class StarBasis(object):
         return outspec
 
     def normalize(self):
-        """Use either logr or logl to normalize the spectrum.  Both
-        should be in solar units.  logr is checked first.
+        """Use either logr or logl to normalize the spectrum.  Both should be
+        in solar units.  logr is checked first.
 
         :returns norm:
-            Factor by which the CKC spectrum should be multiplied to
-            get units of erg/s/Hz
+            Factor by which the CKC spectrum should be multiplied to get units
+            of erg/s/Hz
         """
         if 'logr' in self.params:
             logr = self.params['logr']
@@ -527,7 +538,8 @@ class StarBasis(object):
     def weights(self, inparams, **extras):
         """Delauynay weighting.  Return indices of the models forming the
         enclosing simplex, as well as the barycentric coordinates of the point
-        within this simplex to use as weights.  """
+        within this simplex to use as weights.
+        """
         triangle_ind = self._dtri.find_simplex(inparams)
         if triangle_ind == -1:
             if self.n_neighbors == 0:
@@ -567,8 +579,8 @@ class StarBasis(object):
         self._kdt = sklearn.neighbors.KDTree(model_points)
 
     def weights_kNN(self, target_points, k=1):
-        """The interpolation weights are determined from the inverse
-        distance to the k nearest neighbors.
+        """The interpolation weights are determined from the inverse distance
+        to the k nearest neighbors.
 
         :param target_points: ndarray, shape(ntarg,npar)
             The coordinates to which you wish to interpolate.
@@ -580,8 +592,7 @@ class StarBasis(object):
              The model indices of the interpolates.
 
         :returns weights: narray, shape (ntarg,npar+1)
-             The weights of each model given by ind in the
-             interpolates.
+             The weights of each model given by ind in the interpolates.
         """
         try:
             dists, inds = self._kdt.query(target_points, k=k,
@@ -597,10 +608,10 @@ class StarBasis(object):
         return inds, np.atleast_1d(np.squeeze(weights))
 
     def param_vector(self, **kwargs):
-        """Take a dictionary of parameters and return the stellar
-        library parameter vector corresponding to these parameters as
-        an ndarray.  Raises a KeyError if the dictionary does not
-        contain *all* of the required stellar parameters.
+        """Take a dictionary of parameters and return the stellar library
+        parameter vector corresponding to these parameters as an ndarray.
+        Raises a KeyError if the dictionary does not contain *all* of the
+        required stellar parameters.
         """
         pvec = [kwargs[n] for n in self.stellar_pars]
         return np.array(pvec)
