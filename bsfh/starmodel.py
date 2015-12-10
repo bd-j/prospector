@@ -9,7 +9,7 @@ try:
 except(ImportError):
     from scipy.spatial import KDTree
 
-__all__ == ["StarBasis", "BigStarBasis"]
+__all__ = ["StarBasis", "BigStarBasis"]
 
 
 # Useful constants
@@ -367,8 +367,8 @@ class BigStarBasis(StarBasis):
         return self._wave, spec, spec_unc
 
     def weights(self, **params):
-        inds = self.knearest_inds(**kwargs)
-        wghts = self.linear_weights(inds, **kwargs)
+        inds = self.knearest_inds(**params)
+        wghts = self.linear_weights(inds, **params)
         # if wghts.sum() < 1.0:
         #     raise ValueError("Something is wrong with the weights")
         good = wghts > 0
