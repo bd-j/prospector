@@ -712,15 +712,19 @@ class BigStarBasis(StarBasis):
                 for i, p in zip(inds, self.stellar_pars)]
         return inds + np.squeeze(find)
 
-    def knearest_inds(self, k=None, **params):
+    def knearest_inds(self, **params):
         """Find k Nearest models.  If k is not specified, use 2**ndim.
         """
-        if k is None:
-            k = 2**(self.ndim + 1)
         # Convert from physical space to grid index space
         xtarg = self.params_to_grid(**params)
-        _, inds = self.tree.query(xtarg.reshape(1, -1), k=k)
-        inds = inds[0, :]
+        # Query the tree within radius sqrt(ndim)
+        try:
+            _ , inds = self.tree.query_radius(xtarg.reshape(1, -1),
+                                              r=np.sqrt(self.ndim))
+            inds = inds[0]
+        except(AttributeError):
+            inds = self.tree.query_ball_point(xtarg.reshape(1, -1),
+                                              np.sqrt(self.ndim))
         return np.sort(inds)
 
     def linear_weights(self, knearest, **params):
