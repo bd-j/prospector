@@ -16,7 +16,7 @@ except(ImportError):
 
 # Useful constants
 lsun = 3.846e33
-pc = 3.085677581467192e18 #in cm
+pc = 3.085677581467192e18  # in cm
 lightspeed = 2.998e18  # AA/s
 # value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
@@ -399,7 +399,7 @@ class StarBasis(object):
         self._spectra = self._spectra[good, :]
         if self.logify_Z:
             self._libparams['Z'] = np.log10(self._libparams['Z'])
-        
+
     def update(self, **kwargs):
         for k, v in kwargs.iteritems():
             try:
@@ -424,7 +424,7 @@ class StarBasis(object):
             A blob of extra quantities (e.g. mass, uncertainty)
         """
         self.update(**kwargs)
-        
+
         # star spectrum
         wave, spec, unc = self.get_star_spectrum(**self.params)
         spec *= self.normalize()
@@ -471,7 +471,7 @@ class StarBasis(object):
         :param **kwargs:
             Keyword arguments must include values for the ``stellar_pars``
             parameters that are stored in ``_libparams``.
-            
+
         :returns wave:
             The wavelengths at which the spectrum is defined.
 
@@ -526,8 +526,8 @@ class StarBasis(object):
             if self.n_neighbors == 0:
                 pstring = ', '.join(self.ndim * ['{}={}'])
                 pstring = pstring.format(*chain(*zip(self.stellar_pars, inparams)))
-                raise ValueError("Requested spectrum ({}) outside convex hull, "
-                                 "and nearest neighbor interpolation turned "
+                raise ValueError("Requested spectrum ({}) outside convex hull,"
+                                 " and nearest neighbor interpolation turned "
                                  "off.".format(*pstring))
             ind, wght = self.weights_kNN(inparams, k=self.n_neighbors)
             if self.verbose:
@@ -639,7 +639,7 @@ class BigStarBasis(StarBasis):
         self.lib_as_grid()
         self.n_neighbors = n_neighbors
         self.params = {}
-        
+
     def load_lib(self, libname='', driver=None):
         """Read a ykc library which has been preconvolved to be close to your
         data resolution. This library should be stored as an HDF5 file, with
@@ -649,7 +649,7 @@ class BigStarBasis(StarBasis):
         file object is left open so that spectra can be accessed from disk.
         """
         import h5py
-        f =  h5py.File(libname, "r", driver=driver)
+        f = h5py.File(libname, "r", driver=driver)
         self._wave = np.array(f['wavelengths'])
         self._libparams = np.array(f['parameters'])
         self._spectra = f['spectra']
@@ -661,7 +661,7 @@ class BigStarBasis(StarBasis):
         :param **kwargs:
             Keyword arguments must include values for the ``stellar_pars``
             parameters that are stored in ``_libparams``.
-            
+
         :returns wave:
             The wavelengths at which the spectrum is defined.
 
@@ -675,13 +675,13 @@ class BigStarBasis(StarBasis):
         """
         inds = self.knearest_inds(**kwargs)
         wghts = self.linear_weights(inds, **kwargs)
-        #if wghts.sum() < 1.0:
-        #    raise ValueError("Did not find all vertices of the enclosing hypercube.")
+        # if wghts.sum() < 1.0:
+        #     raise ValueError("Did not find all vertices of the hypercube.")
         good = wghts > 0
         inds = inds[good]
         wghts = wghts[good]
         wghts /= wghts.sum()
-        
+
         if self.logarithmic:
             spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :])))
         else:
@@ -695,8 +695,8 @@ class BigStarBasis(StarBasis):
         for p in self.stellar_pars:
             self.gridpoints[p] = np.unique(self._libparams[p])
         # digitize the library parameters
-        X = np.array([np.digitize(self._libparams[p], bins=self.gridpoints[p], right=True)
-                      for p in self.stellar_pars])
+        X = np.array([np.digitize(self._libparams[p], bins=self.gridpoints[p],
+                                  right=True) for p in self.stellar_pars])
         self.X = X.T
         # Build the KDTree
         self.tree = KDTree(self.X, metric='euclidean')
@@ -707,8 +707,9 @@ class BigStarBasis(StarBasis):
                          for p in self.stellar_pars])
         inds = np.squeeze(inds)
         # fractional index.  Could use stored denominator to be slightly faster
-        find = [(targ[p] - self.gridpoints[p][i]) / (self.gridpoints[p][i+1] - self.gridpoints[p][i])
-                for i,p in zip(inds, self.stellar_pars)]
+        find = [(targ[p] - self.gridpoints[p][i]) /
+                (self.gridpoints[p][i+1] - self.gridpoints[p][i])
+                for i, p in zip(inds, self.stellar_pars)]
         return inds + np.squeeze(find)
 
     def knearest_inds(self, k=None, **params):
@@ -718,18 +719,18 @@ class BigStarBasis(StarBasis):
             k = 2**(self.ndim + 1)
         # Convert from physical space to grid index space
         xtarg = self.params_to_grid(**params)
-        inds = self.tree.query(xtarg.reshape(1,-1), k=k, return_distance=False)
-        inds = inds[0,:]
+        inds = self.tree.query(xtarg.reshape(1, -1), k=k, return_distance=False)
+        inds = inds[0, :]
         return np.sort(inds)
 
     def linear_weights(self, knearest, **params):
         """Use linear interpolation over the k-nearest neighbors.
         """
         xtarg = self.params_to_grid(**params)
-        x = self.X[knearest,:]
+        x = self.X[knearest, :]
         dx = xtarg - x
         # Fractional pixel weights
-        wght = ((1 - dx) * (dx >=0) + (1 + dx) * (dx < 0))
+        wght = ((1 - dx) * (dx >= 0) + (1 + dx) * (dx < 0))
         # set weights to zero if model is more than a pixel away
         wght *= (dx > -1) * (dx < 1)
         # compute hyperarea for each model and return
@@ -740,7 +741,7 @@ class BigStarBasis(StarBasis):
         enclosing simplex to interpolate.
         """
         inparams = np.array([params[p] for p in self.stellar_pars])
-        dtri = Delaunay(self.model_points[knearest,:])
+        dtri = Delaunay(self.model_points[knearest, :])
         triangle_ind = dtri.find_simplex(inparams)
         inds = dtri.simplices[triangle_ind, :]
         transform = dtri.transform[triangle_ind, :, :]
