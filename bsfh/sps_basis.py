@@ -12,7 +12,7 @@ except(ImportError):
 try:
     from sklearn.neighbors import KDTree
 except(ImportError):
-    pass
+    from scipy.spatial import  KDTree
 
 # Useful constants
 lsun = 3.846e33
@@ -699,7 +699,7 @@ class BigStarBasis(StarBasis):
                                   right=True) for p in self.stellar_pars])
         self.X = X.T
         # Build the KDTree
-        self.tree = KDTree(self.X, metric='euclidean')
+        self.tree = KDTree(self.X)#, metric='euclidean')
 
     def params_to_grid(self, **targ):
         # bin index
@@ -719,7 +719,7 @@ class BigStarBasis(StarBasis):
             k = 2**(self.ndim + 1)
         # Convert from physical space to grid index space
         xtarg = self.params_to_grid(**params)
-        inds = self.tree.query(xtarg.reshape(1, -1), k=k, return_distance=False)
+        _, inds = self.tree.query(xtarg.reshape(1, -1), k=k)
         inds = inds[0, :]
         return np.sort(inds)
 
