@@ -676,8 +676,11 @@ class BigStarBasis(StarBasis):
         inds = self.knearest_inds(**kwargs)
         wghts = self.linear_weights(inds, **kwargs)
         # if wghts.sum() < 1.0:
-        #     raise ValueError("Did not find all vertices of the hypercube.")
+        #     raise ValueError("Something is wrong with the weights")
         good = wghts > 0
+        # if good.sum() < 2**self.ndim:
+        #     raise ValueError("Did not find all vertices of the hypercube, "
+        #                      "or there is no enclosing hypercube in the library.")
         inds = inds[good]
         wghts = wghts[good]
         wghts /= wghts.sum()
@@ -690,45 +693,83 @@ class BigStarBasis(StarBasis):
         return self._wave, spec, spec_unc
 
     def lib_as_grid(self):
-        # get the unique gridpoints in each param
+        """Convert the library parameters to pixel indices in each dimension,
+        and build and store a KDTree for the pixel coordinates.
+        """
+        # Get the unique gridpoints in each param
         self.gridpoints = {}
         for p in self.stellar_pars:
             self.gridpoints[p] = np.unique(self._libparams[p])
-        # digitize the library parameters
+        # Digitize the library parameters
         X = np.array([np.digitize(self._libparams[p], bins=self.gridpoints[p],
                                   right=True) for p in self.stellar_pars])
         self.X = X.T
         # Build the KDTree
-        self.tree = KDTree(self.X)#, metric='euclidean')
+        self._kdt = KDTree(self.X)#, metric='euclidean')
 
     def params_to_grid(self, **targ):
+        """Convert a set of parameters to grid pixel coordinates.
+
+        :param targ:
+            The target parameter location, as keyword arguments.  The elements
+            of ``stellar_pars`` must be present as keywords.
+
+        :returns x:
+            The target parameter location in pixel coordinates.
+        """
         # bin index
-        inds = np.array([np.digitize([targ[p]], bins=self.gridpoints[p], right=True) - 1
+        inds = np.array([np.digitize([targ[p]], bins=self.gridpoints[p], right=False) - 1
                          for p in self.stellar_pars])
         inds = np.squeeze(inds)
         # fractional index.  Could use stored denominator to be slightly faster
-        find = [(targ[p] - self.gridpoints[p][i]) /
-                (self.gridpoints[p][i+1] - self.gridpoints[p][i])
-                for i, p in zip(inds, self.stellar_pars)]
+        try:
+            find = [(targ[p] - self.gridpoints[p][i]) /
+                    (self.gridpoints[p][i+1] - self.gridpoints[p][i])
+                    for i, p in zip(inds, self.stellar_pars)]
+        except(IndexError):
+            s = ["{0}: min={2} max={3} targ={1}\n".format(p, targ[p], *self.gridpoints[p][[0,-1]])
+                 for p in self.stellar_pars]
+            raise ValueError("At least one parameter outside grid.\n{}".format(' '.join(s)))
         return inds + np.squeeze(find)
 
     def knearest_inds(self, **params):
-        """Find k Nearest models.  If k is not specified, use 2**ndim.
+        """Find all parameter ``vertices`` within a sphere of radius
+        sqrt(ndim).  The parameter values are converted to pixel coordinates
+        before a search of the KDTree.
+
+        :param params:
+             Keyword arguments which must include keys corresponding to
+             ``stellar_pars``, the parameters of the grid.
+
+        :returns inds:
+             The sorted indices of all vertices within sqrt(ndim) of the pixel
+             coordinates, corresponding to **params.
         """
         # Convert from physical space to grid index space
         xtarg = self.params_to_grid(**params)
         # Query the tree within radius sqrt(ndim)
         try:
-            _ , inds = self.tree.query_radius(xtarg.reshape(1, -1),
-                                              r=np.sqrt(self.ndim))
+            inds = self._kdt.query_radius(xtarg.reshape(1, -1),
+                                          r=np.sqrt(self.ndim))
             inds = inds[0]
         except(AttributeError):
-            inds = self.tree.query_ball_point(xtarg.reshape(1, -1),
+            inds = self._kdt.query_ball_point(xtarg.reshape(1, -1),
                                               np.sqrt(self.ndim))
         return np.sort(inds)
 
     def linear_weights(self, knearest, **params):
-        """Use linear interpolation over the k-nearest neighbors.
+        """Use ND-linear interpolation over the knearest neighbors.
+
+        :param knearest:
+            The indices of the ``vertices`` for which to calculate weights.
+
+        :param params:
+            The target parameter location, as keyword arguments.
+
+        :returns wght:
+            The weight for each vertex, computed as the volume of the hypercube
+            formed by the target parameter and each vertex.  Vertices more than
+            1 away from the target in any dimension are given a weight of zero.
         """
         xtarg = self.params_to_grid(**params)
         x = self.X[knearest, :]
