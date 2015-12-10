@@ -440,11 +440,10 @@ class BigStarBasis(StarBasis):
         try:
             inds = self._kdt.query_radius(xtarg.reshape(1, -1),
                                           r=np.sqrt(self.ndim))
-            inds = inds[0]
         except(AttributeError):
             inds = self._kdt.query_ball_point(xtarg.reshape(1, -1),
                                               np.sqrt(self.ndim))
-        return np.sort(inds)
+        return np.sort(inds[0])
 
     def linear_weights(self, knearest, **params):
         """Use ND-linear interpolation over the knearest neighbors.
