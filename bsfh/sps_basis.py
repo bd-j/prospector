@@ -10,7 +10,7 @@ except(ImportError):
     pass
 
 try:
-    import sklearn.neighbors
+    from sklearn.neighbors import KDTree
 except(ImportError):
     pass
 
@@ -343,7 +343,7 @@ class StarBasis(object):
     _spectra = None
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
-                 n_neighbors=0, driver=None, log_interp=False, logify_Z=True,
+                 n_neighbors=0, log_interp=False, logify_Z=True,
                  **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
@@ -367,12 +367,7 @@ class StarBasis(object):
         self.logarithmic = log_interp
         self.logify_Z = logify_Z
         self._libname = libname
-        if 'ckc' in libname:
-            self.load_ckc(libname)
-        elif 'ykc' in libname:
-            self.load_ykc(libname, driver=driver)
-        else:
-            raise ValueError("Must have 'ykc' or 'ckc' in ``libname``")
+        self.load_lib(libname)
         # Do some important bookkeeping
         self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
@@ -384,7 +379,7 @@ class StarBasis(object):
         self.n_neighbors = n_neighbors
         self.params = {}
 
-    def load_ckc(self, libname=''):
+    def load_lib(self, libname=''):
         """Read a CKC library which has been pre-convolved to be close to your
         resolution.  This library should be stored as an HDF5 file, with the
         datasets ``wavelengths``, ``parameters`` and ``spectra``.  These are
@@ -404,21 +399,7 @@ class StarBasis(object):
         self._spectra = self._spectra[good, :]
         if self.logify_Z:
             self._libparams['Z'] = np.log10(self._libparams['Z'])
-
-    def load_ykc(self, libname='', driver=None):
-        """Read a ykc library which has been preconvolved to be close to your
-        data resolution. This library should be stored as an HDF5 file, with
-        the datasets ``wavelengths``, ``parameters`` and ``spectra``.  These
-        are ndarrays of shape (nwave,), (nmodels,), and (nmodels, nwave)
-        respecitvely.  The ``parameters`` array is a structured array.  The h5
-        file object is left open so that spectra can be accessed from disk.
-        """
-        import h5py
-        f =  h5py.File(libname, "r", driver=driver)
-        self._wave = np.array(f['wavelengths'])
-        self._libparams = np.array(f['parameters'])
-        self._spectra = f['spectra']
-
+        
     def update(self, **kwargs):
         for k, v in kwargs.iteritems():
             try:
@@ -572,11 +553,11 @@ class StarBasis(object):
         self._dtri = Delaunay(model_points)
 
     def build_kdtree(self):
-        """Build the kdtree of the model points
+        """Build the kdtree of the model points.
         """
         # slow.  should use a view based method
         model_points = np.array([list(d) for d in self._libparams])
-        self._kdt = sklearn.neighbors.KDTree(model_points)
+        self._kdt = KDTree(model_points)
 
     def weights_kNN(self, target_points, k=1):
         """The interpolation weights are determined from the inverse distance
@@ -619,6 +600,158 @@ class StarBasis(object):
     @property
     def wavelengths(self):
         return self._wave
+
+
+class BigStarBasis(StarBasis):
+
+    def __init__(self, libname='', verbose=False, log_interp=True,
+                 n_neighbors=0,  driver=None, **kwargs):
+        """An object which holds the stellar spectral library, performs
+        interpolations of that library, and has methods to return attenuated,
+        normalized, smoothed stellar spoectra.
+
+        This object is set up to work with large grids, so the models file is
+        kept open for acces from disk.  scikits-learn kd-trees are required for
+        model access.  Ideally the grid should be regular (though the spacings
+        need not be equal along a given dimension).
+
+        :param libname:
+            Path to the hdf5 file to use for the spectral library. Must have
+            "ckc" or "ykc" in the filename (to specify which kind of loader to
+            use)
+
+        :param n_neighbors: (default:0)
+            Number of nearest neighbors to use when requested parameters are
+            outside the convex hull of the library prameters.  If ``0`` then a
+            ValueError is raised instead of the nearest spectrum.
+
+        :param verbose:
+            If True, print information about the parameters used when a point
+            is outside the convex hull
+        """
+        self.verbose = verbose
+        self.logarithmic = log_interp
+        self._libname = libname
+        self.load_lib(libname, driver=driver)
+        # Do some important bookkeeping
+        self.stellar_pars = self._libparams.dtype.names
+        self.ndim = len(self.stellar_pars)
+        self.lib_as_grid()
+        self.n_neighbors = n_neighbors
+        self.params = {}
+        
+    def load_lib(self, libname='', driver=None):
+        """Read a ykc library which has been preconvolved to be close to your
+        data resolution. This library should be stored as an HDF5 file, with
+        the datasets ``wavelengths``, ``parameters`` and ``spectra``.  These
+        are ndarrays of shape (nwave,), (nmodels,), and (nmodels, nwave)
+        respecitvely.  The ``parameters`` array is a structured array.  The h5
+        file object is left open so that spectra can be accessed from disk.
+        """
+        import h5py
+        f =  h5py.File(libname, "r", driver=driver)
+        self._wave = np.array(f['wavelengths'])
+        self._libparams = np.array(f['parameters'])
+        self._spectra = f['spectra']
+
+    def get_star_spectrum(self, **kwargs):
+        """Given stellar parameters, obtain an interpolated spectrum at those
+        parameters.
+
+        :param **kwargs:
+            Keyword arguments must include values for the ``stellar_pars``
+            parameters that are stored in ``_libparams``.
+            
+        :returns wave:
+            The wavelengths at which the spectrum is defined.
+
+        :returns spec:
+            The spectrum interpolated to the requested parameters
+
+        :returns unc:
+            The uncertainty spectrum, where the uncertainty is due to
+            interpolation error.  Curently unimplemented (i.e. it is a None
+            type object)
+        """
+        inds = self.knearest_inds(**kwargs)
+        wghts = self.linear_weights(inds, **kwargs)
+        #if wghts.sum() < 1.0:
+        #    raise ValueError("Did not find all vertices of the enclosing hypercube.")
+        good = wghts > 0
+        inds = inds[good]
+        wghts = wghts[good]
+        wghts /= wghts.sum()
+        
+        if self.logarithmic:
+            spec = np.exp(np.dot(wghts, np.log(self._spectra[inds, :])))
+        else:
+            spec = np.dot(wghts, self._spectra[inds, :])
+        spec_unc = None
+        return self._wave, spec, spec_unc
+
+    def lib_as_grid(self):
+        # get the unique gridpoints in each param
+        self.gridpoints = {}
+        for p in self.stellar_pars:
+            self.gridpoints[p] = np.unique(self._libparams[p])
+        # digitize the library parameters
+        X = np.array([np.digitize(self._libparams[p], bins=self.gridpoints[p], right=True)
+                      for p in self.stellar_pars])
+        self.X = X.T
+        # Build the KDTree
+        self.tree = KDTree(self.X, metric='euclidean')
+
+    def params_to_grid(self, **targ):
+        # bin index
+        inds = np.array([np.digitize([targ[p]], bins=self.gridpoints[p], right=True) - 1
+                         for p in self.stellar_pars])
+        inds = np.squeeze(inds)
+        # fractional index.  Could use stored denominator to be slightly faster
+        find = [(targ[p] - self.gridpoints[p][i]) / (self.gridpoints[p][i+1] - self.gridpoints[p][i])
+                for i,p in zip(inds, self.stellar_pars)]
+        return inds + np.squeeze(find)
+
+    def knearest_inds(self, k=None, **params):
+        """Find k Nearest models.  If k is not specified, use 2**ndim.
+        """
+        if k is None:
+            k = 2**(self.ndim + 1)
+        # Convert from physical space to grid index space
+        xtarg = self.params_to_grid(**params)
+        inds = self.tree.query(xtarg.reshape(1,-1), k=k, return_distance=False)
+        inds = inds[0,:]
+        return np.sort(inds)
+
+    def linear_weights(self, knearest, **params):
+        """Use linear interpolation over the k-nearest neighbors.
+        """
+        xtarg = self.params_to_grid(**params)
+        x = self.X[knearest,:]
+        dx = xtarg - x
+        # Fractional pixel weights
+        wght = ((1 - dx) * (dx >=0) + (1 + dx) * (dx < 0))
+        # set weights to zero if model is more than a pixel away
+        wght *= (dx > -1) * (dx < 1)
+        # compute hyperarea for each model and return
+        return wght.prod(axis=-1)
+
+    def triangle_weights(self, knearest, **params):
+        """Triangulate the k-nearest models, then use the barycenter of the
+        enclosing simplex to interpolate.
+        """
+        inparams = np.array([params[p] for p in self.stellar_pars])
+        dtri = Delaunay(self.model_points[knearest,:])
+        triangle_ind = dtri.find_simplex(inparams)
+        inds = dtri.simplices[triangle_ind, :]
+        transform = dtri.transform[triangle_ind, :, :]
+        Tinv = transform[:self.ndim, :]
+        x_r = inparams - transform[self.ndim, :]
+        bary = np.dot(Tinv, x_r)
+        last = 1.0 - bary.sum()
+        wghts = np.append(bary, last)
+        oo = inds.argsort()
+        return inds[oo], wghts[oo]
+
 
 def gauss(x, mu, A, sigma):
     """
