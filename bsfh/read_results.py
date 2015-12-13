@@ -171,8 +171,13 @@ def subtriangle(sample_results, outname=None, showpars=None,
         parnames= parnames[ind_show]
     if trim_outliers is not None:
         trim_outliers = len(parnames) * [trim_outliers]
-    fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
-                          quantiles=[0.16, 0.5, 0.84], extents=trim_outliers, **kwargs)
+    try:
+        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
+                              quantiles=[0.16, 0.5, 0.84], extents=trim_outliers, **kwargs)
+    except:
+        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
+                              quantiles=[0.16, 0.5, 0.84], range=trim_outliers, **kwargs)
+        
     if outname is not None:
         fig.savefig('{0}.triangle.png'.format(outname))
         pl.close(fig)
