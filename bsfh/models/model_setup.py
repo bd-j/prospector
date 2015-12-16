@@ -2,7 +2,7 @@ import sys, os, getopt, json
 from copy import deepcopy
 import numpy as np
 from . import parameters, sedmodel
-from bsfh.obsutils import fix_obs
+from ..utils.obsutils import fix_obs
 
 """This module has methods to take a .json or .py file containing run
 parameters, model parameters and other info and return a run_params dictionary,
@@ -102,7 +102,7 @@ def load_model(param_file=None, **extras):
     """Load the model object from a model config list given in the config file.
 
     :returns model:
-        An instance of the parameters.ProspectrParams object which has
+        An instance of the parameters.ProspectorParams object which has
         been configured
     """
     ext = param_file.split('.')[-1]

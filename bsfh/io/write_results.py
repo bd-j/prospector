@@ -1,6 +1,6 @@
 import pickle, os, subprocess, time
 import numpy as np
-from bsfh import parameters
+from ..models import parameters
 
 def run_command(cmd):
     """

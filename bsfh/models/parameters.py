@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 import json
 from . import priors
-from bsfh.obsutils import logify_data, norm_spectrum
+from ..utils.obsutils import logify_data, norm_spectrum
 
 param_template = {'name': '', 'N': 1, 'isfree': False,
                   'init': 0.0, 'units': '',

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from .parameters import ProspectrParams
+from .parameters import ProspectorParams
 try:
     from astropy.cosmology import WMAP9 as cosmo
 except(ImportError):
@@ -12,7 +12,7 @@ jansky_mks = 1e-26
 #value to go from L_sun/Hz to erg/s/cm^2/Hz at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
-class SedModel(ProspectrParams):
+class SedModel(ProspectorParams):
     """
     For models composed of SSPs and sums of SSPs which use the
     sps_basis.StellarPopBasis as the sps object.
@@ -146,7 +146,7 @@ class SedModel(ProspectrParams):
         return s, [0.0], [0]
 
     
-class CSPModel(ProspectrParams):
+class CSPModel(ProspectorParams):
     """
     For parameterized SFHs where fsps.StellarPopulation is used as the
     sps object.
