@@ -1,4 +1,4 @@
-#Module containg various functions to be used as priors
+# Module containg various functions to be used as priors
 import numpy as np
 
 def zeros(theta, **extras):
