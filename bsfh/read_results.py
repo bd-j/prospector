@@ -3,14 +3,13 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as pl
 
-"""Convenience functions for reading and reconstruction results from a
-fitting run, including reconstruction of the model for posterior
-samples"""
+"""Convenience functions for reading and reconstruction results from a fitting
+run, including reconstruction of the model for posterior samples
+"""
     
 def read_pickles(sample_file, model_file=None,
                  inmod=None):
-    """
-    Read a pickle file with stored model and MCMC chains.
+    """Read a pickle file with stored model and MCMC chains.
 
     :returns sample_results:
         A dictionary of various results including the sampling chain.
@@ -19,33 +18,35 @@ def read_pickles(sample_file, model_file=None,
         A list of the optimizer results for each of the starting conditions.
 
     :returns model:
-        The bsfh.sedmodel object. 
+        The bsfh.sedmodel object.
     """
-    sample_results = pickle.load( open(sample_file, 'rb'))
+    with open(sample_file, 'rb') as rf:
+        sample_results = pickle.load(rf)
     powell_results = None
     model = None
-    if model_file:
-        try:
-            mf = pickle.load( open(model_file, 'rb'))
-        except(AttributeError):
-            mf = load( open(model_file, 'rb'))
-       
-        inmod = mf['model']
-        powell_results = mf['powell']
 
+    # try to read the model from a pickle
+    if model_file is not None:
+        with open(model_file, 'rb') as mf:
+            try:
+                mod = pickle.load(mf)
+            except(AttributeError):
+                mod = load(mf)
+        model = mod['model']
+        powell_results = mod['powell']
+
+    # now pull the model either from sample results or from the pickle
     try:
         model = sample_results['model']
     except (KeyError):
-        model = inmod
-        #model.theta_desc = sample_results['theta']
         sample_results['model'] = model
-        
+
     return sample_results, powell_results, model
 
+
 def model_comp(theta, model, obs, sps, photflag=0, gp=None):
-    """
-    Generate and return various components of the total model for a
-    given set of parameters
+    """Generate and return various components of the total model for a given
+    set of parameters.
     """
     logarithmic = obs.get('logify_spectrum')
     obs, _, _ = obsdict(obs, photflag=photflag)    
@@ -79,10 +80,10 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
         
     return sed, cal, delta, mask, wave
 
+
 def param_evol(sample_results, outname=None, showpars=None, start=0, **plot_kwargs):
-    """
-    Plot the evolution of each parameter value with iteration #, for
-    each chain.
+    """Plot the evolution of each parameter value with iteration #, for each
+    chain.
     """
     
     chain = sample_results['chain'][:,start:,:]
@@ -107,7 +108,7 @@ def param_evol(sample_results, outname=None, showpars=None, start=0, **plot_kwar
     whspace = 0.05*factor         # w/hspace size
     plotdim = factor * sz + factor *(sz-1)* whspace
     dim = lbdim + plotdim + trdim
-    
+
     fig, axes = pl.subplots(nx, ny, figsize = (dim[1], dim[0]))
     lb = lbdim / dim
     tr = (lbdim + plotdim) / dim
@@ -133,11 +134,11 @@ def param_evol(sample_results, outname=None, showpars=None, start=0, **plot_kwar
 
 
 def subtriangle(sample_results, outname=None, showpars=None,
-                start=0, thin=1, truths=None):
-    """
-    Make a triangle plot of the (thinned, latter) samples of the posterior
-    parameter space.  Optionally make the plot only for a supplied subset
-    of the parameters.
+                start=0, thin=1, truths=None, trim_outliers=None,
+                extents=None, **kwargs):
+    """Make a triangle plot of the (thinned, latter) samples of the posterior
+    parameter space.  Optionally make the plot only for a supplied subset of
+    the parameters.
 
     :param start:
         The iteration number to start with when drawing samples to plot.
@@ -155,31 +156,35 @@ def subtriangle(sample_results, outname=None, showpars=None,
         import triangle
     except(ImportError):
         import corner as triangle
-        
+
     # pull out the parameter names and flatten the thinned chains
     parnames = np.array(sample_results['model'].theta_labels())
-    flatchain = sample_results['chain'][:,start::thin,:]
+    flatchain = sample_results['chain'][:, start::thin, :]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
-    #if truths is None:
-    #    truths = sample_results['sampling_initial_center']
 
     # restrict to parameters you want to show
     if showpars is not None:
         ind_show = np.array([p in showpars for p in parnames], dtype= bool)
-        flatchain = flatchain[:,ind_show]
+        flatchain = flatchain[:, ind_show]
         #truths = truths[ind_show]
         parnames= parnames[ind_show]
+    if trim_outliers is not None:
+        trim_outliers = len(parnames) * [trim_outliers]
+    try:
+        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
+                              quantiles=[0.16, 0.5, 0.84], extents=trim_outliers, **kwargs)
+    except:
+        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
+                              quantiles=[0.16, 0.5, 0.84], range=trim_outliers, **kwargs)
         
-    fig = triangle.corner(flatchain, labels = parnames,
-                          quantiles=[0.16, 0.5, 0.84], verbose=False,
-                          truths = truths)
     if outname is not None:
         fig.savefig('{0}.triangle.png'.format(outname))
         pl.close(fig)
     else:
         return fig
 
+    
 def obsdict(inobs, photflag):
     """
     Return a dictionary of observational data, generated depending on
@@ -198,6 +203,7 @@ def obsdict(inobs, photflag):
         obs['mask'] = obs['phot_mask'] > 0
         
     return obs, outn, marker
+
 
 def use_old_module_names():
     """Fix module renames here if necessary for reading pickle files
