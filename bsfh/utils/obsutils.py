@@ -1,10 +1,11 @@
 import numpy as np
-np.errstate(invalid='ignore')
 import warnings
+np.errstate(invalid='ignore')
+
 
 def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
             logify_spectrum=True, **kwargs):
-    """Make all required changes to the obs dictionary.  
+    """Make all required changes to the obs dictionary.
     """
     obs = rectify_obs(obs)
     obs['ndof'] = 0
@@ -18,7 +19,7 @@ def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
         if (normalize_spectrum):
             sp_norm, pivot_wave = norm_spectrum(obs, **kwargs)
             obs['normalization_guess'] = sp_norm
-            obs['pivot_wave'] = pivot_wave                
+            obs['pivot_wave'] = pivot_wave
         if (logify_spectrum):
             s, u, m = logify_data(obs['spectrum'], obs['unc'], obs['mask'])
             obs['spectrum'] = s
@@ -34,68 +35,62 @@ def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
         obs['maggies_unc'] = None
     return obs
 
-def logify_data(data, sigma, mask):
-    """
-    Convert data to ln(data) and uncertainty to fractional uncertainty
-    for use in additive GP models.  This involves filtering for
-    negative data values and replacing them with something else.
-    """
 
+def logify_data(data, sigma, mask):
+    """Convert data to ln(data) and uncertainty to fractional uncertainty for
+    use in additive GP models.  This involves filtering for negative data
+    values and replacing them with something else.
+    """
     tiny = 0.01 * data[data > 0].min()
     bad = data < tiny
     nbad = bad.sum()
-    
     if nbad == 0:
         return np.log(data), sigma/data, mask
-    
     else:
-        message = "Setting {0} datapoints to {1} to insure positivity.".format(nbad, tiny)
-        #warnings.warn(message)
+        message = ("Setting {0} datapoints to {1} to insure "
+                   "positivity.".format(nbad, tiny))
+        # warnings.warn(message)
         print(message)
         data[bad] = tiny
         sigma[bad] = np.sqrt(sigma[bad]**2 + (data[bad] - tiny)**2)
-        return np.log(data), sigma/data, mask    
+        return np.log(data), sigma/data, mask
+
 
 def norm_spectrum(obs, norm_band_name='f475w', **kwargs):
-    """
-    Initial guess of spectral normalization using photometry.
+    """Initial guess of spectral normalization using photometry.
 
-    This obtains the multiplicative factor required to reproduce the
-    the photometry in one band from the observed spectrum
-    (model.obs['spectrum']) using the bsfh unit conventions.  Thus
-    multiplying the observed spectrum by this factor gives a spectrum
-    that is approximately erg/s/cm^2/AA at the central wavelength of
-    the normalizing band.
+    This obtains the multiplicative factor required to reproduce the the
+    photometry in one band from the observed spectrum (model.obs['spectrum'])
+    using the bsfh unit conventions.  Thus multiplying the observed spectrum by
+    this factor gives a spectrum that is approximately erg/s/cm^2/AA at the
+    central wavelength of the normalizing band.
 
-    The inverse of the multiplication factor is saved as a fixed
-    parameter to be used in producing the mean model.
+    The inverse of the multiplication factor is saved as a fixed parameter to
+    be used in producing the mean model.
     """
     from sedpy import observate
-    
-    norm_band = [i for i,f in enumerate(obs['filters'])
+
+    norm_band = [i for i, f in enumerate(obs['filters'])
                  if norm_band_name in f.name][0]
 
-    synphot = observate.getSED(obs['wavelength'],
-                               obs['spectrum'],
-                               obs['filters'])
+    synphot = observate.getSED(obs['wavelength'], obs['spectrum'], obs['filters'])
     synphot = np.atleast_1d(synphot)
-    # Factor by which the observed spectra should be *divided* to give
-    #  you the photometry (or the cgs apparent spectrum), using the
-    #  given filter as truth.  Alternatively, the factor by which the
-    #  model spectrum (in cgs apparent) should be multiplied to give
-    #  you the observed spectrum.
+    # Factor by which the observed spectra should be *divided* to give you the
+    #  photometry (or the cgs apparent spectrum), using the given filter as
+    #  truth.  Alternatively, the factor by which the model spectrum (in cgs
+    #  apparent) should be multiplied to give you the observed spectrum.
     norm = 10**(-0.4 * synphot[norm_band]) / obs['maggies'][norm_band]
-       
+
     # Pivot the calibration polynomial near the filter used for approximate
     # normalization
-    pivot_wave =  obs['filters'][norm_band].wave_effective 
-    #model.params['pivot_wave'] = 4750.
- 
+    pivot_wave = obs['filters'][norm_band].wave_effective
+    # model.params['pivot_wave'] = 4750.
+
     return norm, pivot_wave
 
+
 def rectify_obs(obs):
-    """
-    Make sure the passed obs dictionary conforms to code expectations,
+    """Make sure the passed obs dictionary conforms to code expectations,
     and make simple fixes when possible.
     """
     k = obs.keys()
@@ -108,41 +103,38 @@ def rectify_obs(obs):
     if obs['maggies'] is not None:
         assert (len(obs['filters']) == len(obs['maggies']))
         assert ('maggies_unc' in k)
-        assert (( len(obs['maggies']) == len(obs['maggies_unc'])) or
-                 (np.size(obs['maggies_unc'] == 1)))
-        obs['phot_mask'] = (obs.get('phot_mask',
-                                    np.ones(len(obs['maggies']), dtype= bool)) *
-                            np.isfinite(obs['maggies']) *
+        assert ((len(obs['maggies']) == len(obs['maggies_unc'])) or
+                (np.size(obs['maggies_unc'] == 1)))
+        m = obs.get('phot_mask', np.ones(len(obs['maggies']), dtype=bool))
+        obs['phot_mask'] = (m * np.isfinite(obs['maggies']) *
                             np.isfinite(obs['maggies_unc']) *
                             (obs['maggies_unc'] > 0))
-        
+
     if 'logify_spectrum' not in k:
         obs['logify_spectrum'] = False
     if obs['spectrum'] is not None:
         assert (len(obs['wavelength']) == len(obs['spectrum']))
         assert ('unc' in k)
         np.errstate(invalid='ignore')
-        obs['mask'] = (obs.get('mask',
-                               np.ones(len(obs['wavelength']), dtype= bool)) *
-                            np.isfinite(obs['spectrum']) *
-                            np.isfinite(obs['unc']) * (obs['unc'] > 0))
+        m = obs.get('mask', np.ones(len(obs['wavelength']), dtype=bool))
+        obs['mask'] = (m * np.isfinite(obs['spectrum']) *
+                       np.isfinite(obs['unc']) * (obs['unc'] > 0))
     return obs
-        
-def generate_mock(model, sps, mock_info):
-    """
-    Generate a mock data set given model, mock parameters, wavelength
-    grid, and filter set.
-    """
 
+
+def generate_mock(model, sps, mock_info):
+    """Generate a mock data set given model, mock parameters, wavelength grid,
+    and filter set.  Very old and unused.
+    """
     # Generate mock spectrum and photometry given mock parameters, and
     # Apply calibration.
 
-    #NEED TO DEAL WITH FILTERNAMES ADDED FOR SPS_BASIS 
+    # NEED TO DEAL WITH FILTERNAMES ADDED FOR SPS_BASIS
     obs = {'wavelength': mock_info['wavelength'],
            'filters': mock_info['filters']}
     model.configure(**mock_info['params'])
     mock_theta = model.theta.copy()
-    #print('generate_mock: mock_theta={}'.format(mock_theta))
+    # print('generate_mock: mock_theta={}'.format(mock_theta))
     s, p, x = model.mean_model(mock_theta, obs, sps=sps)
     cal = model.calibration(mock_theta, obs)
     if 'calibration' in mock_info:
@@ -152,20 +144,20 @@ def generate_mock(model, sps, mock_info):
     # Add noise to the mock data
     if mock_info['filters'] is not None:
         p_unc = p / mock_info['phot_snr']
-        noisy_p = (p + p_unc * np.random.normal(size = len(p)))
+        noisy_p = (p + p_unc * np.random.normal(size=len(p)))
         obs['maggies'] = noisy_p
         obs['maggies_unc'] = p_unc
-        obs['phot_mask'] = np.ones(len(obs['filters']), dtype= bool)
+        obs['phot_mask'] = np.ones(len(obs['filters']), dtype=bool)
     else:
         obs['maggies'] = None
     if mock_info['wavelength'] is not None:
         s_unc = s / mock_info.get('spec_snr', 10.0)
-        noisy_s = (s + s_unc * np.random.normal(size = len(s)))
+        noisy_s = (s + s_unc * np.random.normal(size=len(s)))
         obs['spectrum'] = noisy_s
         obs['unc'] = s_unc
-        obs['mask'] = np.ones(len(obs['wavelength']), dtype= bool)
+        obs['mask'] = np.ones(len(obs['wavelength']), dtype=bool)
     else:
         obs['spectrum'] = None
         obs['mask'] = None
-    
+
     return obs
