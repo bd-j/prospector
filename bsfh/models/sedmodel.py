@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from bsfh.parameters import ProspectrParams
+from .parameters import ProspectrParams
 try:
     from astropy.cosmology import WMAP9 as cosmo
 except(ImportError):

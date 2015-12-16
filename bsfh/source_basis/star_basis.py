@@ -1,7 +1,7 @@
 from itertools import chain
 import numpy as np
 from scipy.spatial import Delaunay
-from .smoothing import smoothspec
+from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
 
 try:

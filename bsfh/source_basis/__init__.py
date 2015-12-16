@@ -1,6 +1,6 @@
 import numpy as np
-from .galaxymodel import *
-from .starmodel import *
+from .galaxy_basis import *
+from .star_basis import *
 
 __all__ = ["StellarPopBasis", "CSPBasis", "StarBasis", "BigStarBasis"]
 
