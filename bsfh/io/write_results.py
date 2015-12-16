@@ -2,12 +2,12 @@ import pickle, os, subprocess, time
 import numpy as np
 from ..models import parameters
 
+
 def run_command(cmd):
+    """Open a child process, and return its exit status and stdout.
     """
-    Open a child process, and return its exit status and stdout
-    """
-    child = subprocess.Popen(cmd, shell =True, stderr = subprocess.PIPE, 
-                             stdin=subprocess.PIPE, stdout = subprocess.PIPE)
+    child = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE,
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     out = [s for s in child.stdout]
     w = child.wait()
     return os.WEXITSTATUS(w), out
@@ -31,23 +31,23 @@ def write_pickles(run_params, model, obs,
     try:
         bsfh_dir = os.path.dirname(parameters.__file__)
         bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
-                        )[1][0].replace('\n','')
+                          )[1][0].replace('\n', '')
     except:
         print("Couldn't get Prospector git hash")
         bgh = ''
-        
-    results, model_store = {}, {} 
+
+    results, model_store = {}, {}
 
     results['run_params'] = run_params
     results['obs'] = obs
     results['model_params'] = [parameters.functions_to_names(p) for p in model.config_list]
-    results['model_params_dict'] =  parameters.plist_to_pdict([parameters.functions_to_names(p)
-                                                               for p in model.config_list])
+    results['model_params_dict'] = parameters.plist_to_pdict([parameters.functions_to_names(p)
+                                                              for p in model.config_list])
     results['initial_theta'] = model.initial_theta
     results['sampling_initial_center'] = sampling_initial_center
     results['post_burnin_center'] = post_burnin_center
     results['post_burnin_prob'] = post_burnin_prob
-    
+
     results['chain'] = sampler.chain
     results['lnprobability'] = sampler.lnprobability
     results['acceptance'] = sampler.acceptance_fraction
@@ -60,7 +60,7 @@ def write_pickles(run_params, model, obs,
     model_store['model'] = model
     model_store['bsfh_version'] = bgh
 
-    # prospectr_dir = 
+    # prospectr_dir =
     # cgh = run_command('git rev-parse HEAD')[1][0].replace('\n','')
     # results['cetus_version'] = cgh
 
