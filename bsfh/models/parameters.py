@@ -4,11 +4,13 @@ import json
 from . import priors
 from ..utils.obsutils import logify_data, norm_spectrum
 
+__all__ = ["ProspectorParams", "ProspectorParamsHMC"]
+
 param_template = {'name': '', 'N': 1, 'isfree': False,
                   'init': 0.0, 'units': '',
                   'prior_function_name': None, 'prior_args': None}
 
-
+    
 class ProspectorParams(object):
     """
     :param config_list:
@@ -272,7 +274,7 @@ class ProspectorParams(object):
         return thetas
 
 
-class HMCParams(ProspectorParams):
+class ProspectorParamsHMC(ProspectorParams):
     """Object describing a model parameter set, and conversions between a
     parameter dictionary and a theta vector (for use in MCMC sampling).  Also
     contains a method for computing the prior probability of a given theta

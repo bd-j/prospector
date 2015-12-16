@@ -135,9 +135,8 @@ def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
         except(AttributeError):
             obs = deepcopy(getattr(setup_module, 'obs', None))
     if obs is None:
-        from bsfh import loadspec
         funcname = data_loading_function_name
-        obsfunction = getattr(loadspec, funcname)
+        obsfunction = getattr(setup_module, funcname)
         obs = obsfunction(**kwargs)
 
     obs = fix_obs(obs, **kwargs)
@@ -159,7 +158,7 @@ def import_module_from_file(path_to_file):
 def load_mock(filename, run_params, model, sps):
     """Load the obs dictionary using mock data.
     """
-    from bsfh.datautils import generate_mock
+    from ..utils.obsutils import generate_mock
     ext = filename.split('.')[-1]
     mock_info = None
     if ext == 'py':

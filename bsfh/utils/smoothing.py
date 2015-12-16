@@ -7,6 +7,10 @@
 import numpy as np
 from numpy.fft import fft, ifft, fftfreq, rfftfreq
 
+__all__ = ["smoothspec", "smooth_wave", "smooth_vel", "smooth_lsf",
+           "smooth_wave_fft", "smooth_vel_fft", "smooth_fft", "mask_wave",
+           "resample_wave"]
+
 ckms = 2.998e5
 sigma_to_fwhm = 2.355
 

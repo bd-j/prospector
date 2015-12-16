@@ -5,8 +5,9 @@ import numpy as np
 np.errstate(invalid='ignore')
 import pickle
 
-from bsfh import model_setup, write_results, gp
-import bsfh.fitterutils as utils
+from bsfh.models import model_setup
+from bsfh.io import write_results
+import bsfh.fitting as utils
 from bsfh.likelihood import LikelihoodFunction
 
 #########

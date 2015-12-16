@@ -2,6 +2,8 @@ import numpy as np
 import warnings
 np.errstate(invalid='ignore')
 
+__all__ = ["fix_obs", "rectify_obs", "norm_spectrum", "logify_data"]
+
 
 def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
             logify_spectrum=True, **kwargs):
