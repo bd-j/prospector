@@ -4,33 +4,33 @@ import json
 from bsfh import priors
 from bsfh.datautils import logify_data, norm_spectrum
 
-param_template = {'name':'', 'N':1, 'isfree': False,
-                  'init':0.0, 'units':'',
+param_template = {'name': '', 'N': 1, 'isfree': False,
+                  'init': 0.0, 'units': '',
                   'prior_function_name': None, 'prior_args': None}
+
 
 class ProspectorParams(object):
     """
     :param config_list:
         A list of ``model parameters``.
-    
     """
     # information about each parameter stored as a list
-    #config_list = [] 
+    # config_list = []
     # information about each parameter as a dictionary keyed by
     # parameter name for easy access
-    #_config_dict = {}
+    # _config_dict = {}
     # Model parameter state, keyed by parameter name
-    #params = {}
+    # params = {}
     # Mapping from parameter name to index in the theta vector
-    #theta_index = {}
+    # theta_index = {}
     # the initial theta vector
-    #theta_init = np.array([])
+    # theta_init = np.array([])
 
     # Information about the fiting parameters, filenames, fitting and
     # configure options, runtime variables, etc.
-    #run_params = {}
-    #obs = {}
-    
+    # run_params = {}
+    # obs = {}
+
     def __init__(self, config_list, verbose=True):
         self.init_config_list = config_list
         self.config_list = config_list
@@ -61,11 +61,11 @@ class ProspectorParams(object):
             if info.get('depends_on', None) is not None:
                 self._has_parameter_dependencies = True
         # propogate user supplied values, overriding the configure
-        for k,v in kwargs.iteritems():
+        for k, v in list(kwargs.items()):
             self.params[k] = np.atleast_1d(v)
         # store these initial values
-        self.initial_theta = self.theta.copy()#self.rectify_theta((self.theta.copy()))
-        
+        self.initial_theta = self.theta.copy()  # self.rectify_theta((self.theta.copy()))
+
     def map_theta(self):
         """Construct the mapping from parameter name to the index in the theta
         vector corresponding to the first element of that parameter.
@@ -73,8 +73,7 @@ class ProspectorParams(object):
         self.theta_index = {}
         count = 0
         for par in self.free_params:
-            self.theta_index[par] = (count,
-                                     count + self._config_dict[par]['N'])
+            self.theta_index[par] = (count, count+self._config_dict[par]['N'])
             count += self._config_dict[par]['N']
         self.ndim = count
 
@@ -92,9 +91,11 @@ class ProspectorParams(object):
         self.propagate_parameter_dependencies()
 
     def prior_product(self, theta):
-        return self.simple_prior_product(theta)
-            
-    def simple_prior_product(self, theta):
+        """Public version of _prior_product to be overridden by subclasses
+        """
+        return self._prior_product(theta)
+
+    def _prior_product(self, theta):
         """Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the prior
         functions are defined in the theta descriptor.
@@ -107,9 +108,8 @@ class ProspectorParams(object):
             parameter values.
         """
         lnp_prior = 0
-        for k, v in self.theta_index.iteritems():
+        for k, v in list(self.theta_index.items()):
             start, end = v
-            #print(k)
             this_prior = np.sum(self._config_dict[k]['prior_function']
                                 (theta[start:end], **self._config_dict[k]['prior_args']))
 
@@ -117,13 +117,13 @@ class ProspectorParams(object):
                 print('WARNING: ' + k + ' is out of bounds')
             lnp_prior += this_prior
         return lnp_prior
-            
+
     def rescale_parameter(self, par, func):
         """Superceded by the ``depends_on`` pattern.
         """
         ind = [p['name'] for p in self.config_list].index(par)
         self.config_list[ind]['init'] = func(self.config_list[ind]['init'])
-        for k,v in self.config_list[ind]['prior_args'].iteritems():
+        for k, v in list(self.config_list[ind]['prior_args'].items()):
             self.config_list[ind]['prior_args'][k] = func(v)
 
     def propagate_parameter_dependencies(self):
@@ -143,7 +143,7 @@ class ProspectorParams(object):
         zero = (theta == 0)
         theta[zero] = tiny_number
         return theta
-    
+
     @property
     def theta(self):
         """The current value of the theta vector, pulled from the ``params``
@@ -170,21 +170,21 @@ class ProspectorParams(object):
         return [k['name'] for k in pdict_to_plist(self.config_list)
                 if (k['isfree'] is False)]
 
-    def theta_labels(self, name_map={'amplitudes':'A',
-                                     'emission_luminosity':'eline'}):
+    def theta_labels(self, name_map={'amplitudes': 'A',
+                                     'emission_luminosity': 'eline'}):
         """Using the theta_index parameter map, return a list of the model
         parameter names that has the same order as the sampling chain array.
 
         :param name_map:
             A dictionary mapping model parameter names to output label
             names.
-            
+
         :returns labels:
             A list of labels of the same length and order as the theta
             vector.
         """
         label, index = [], []
-        for p,v in self.theta_index.iteritems():
+        for p, v in list(self.theta_index.items()):
             nt = v[1]-v[0]
             try:
                 name = name_map[p]
@@ -197,8 +197,8 @@ class ProspectorParams(object):
                 for i in xrange(nt):
                     label.append(name+'_{0}'.format(i+1))
                     index.append(v[0]+i)
-        return [l for (i,l) in sorted(zip(index,label))]
-    
+        return [l for (i, l) in sorted(zip(index, label))]
+
     def info(self, par):
         pass
 
@@ -215,8 +215,8 @@ class ProspectorParams(object):
             A list of length self.ndim of tuples (lo, hi) giving the parameter
             bounds.
         """
-        bounds = self.ndim * [(0.,0.)]
-        for p, v in self.theta_index.iteritems():
+        bounds = self.ndim * [(0., 0.)]
+        for p, v in list(self.theta_index.items()):
             sz = v[1] - v[0]
             pb = priors.plotting_range(self._config_dict[p]['prior_args'])
             if sz == 1:
@@ -224,14 +224,15 @@ class ProspectorParams(object):
             else:
                 for k in range(sz):
                     try:
-                        bounds[v[0]+k] = (pb[0][k], pb[1][k])
+                        bounds[v[0] + k] = (pb[0][k], pb[1][k])
                     except(TypeError, IndexError):
-                        bounds[v[0]+k] = (pb[0], pb[1])
-        #force types
-        bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a,b in bounds]        
+                        bounds[v[0] + k] = (pb[0], pb[1])
+        # Force types
+        bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a, b in bounds]
         return bounds
 
-    def theta_disps(self, initial_thetas, initial_disp=0.1, fractional_disp=False):
+    def theta_disps(self, initial_thetas, initial_disp=0.1,
+                    fractional_disp=False):
         """Get a vector of absolute dispersions for each parameter to use in
         generating sampler balls for emcee's Ensemble sampler.  This can be
         overridden by subclasses if fractional dispersions are desired.
@@ -245,17 +246,18 @@ class ProspectorParams(object):
         """
         disp = np.zeros(self.ndim) + initial_disp
         for par, inds in self.theta_index.iteritems():
-            disp[inds[0]:inds[1]] = self._config_dict[par].get('init_disp', initial_disp)
+            d = self._config_dict[par].get('init_disp', initial_disp)
+            disp[inds[0]: inds[1]] = d
         if fractional_disp:
             disp = self.theta * disp
         return disp
-    
+
     def theta_disp_floor(self, thetas):
         """Get a vector of dispersions for each parameter to use as a floor for
         the walker-calculated dispersions. This can be overridden by subclasses
         """
         return np.zeros_like(thetas)
-    
+
     def clip_to_bounds(self, thetas):
         """Clip a set of parameters theta to within the priors.
 
@@ -264,7 +266,7 @@ class ProspectorParams(object):
         """
         bounds = self.theta_bounds()
         for i in xrange(len(bounds)):
-            lower,upper = bounds[i]
+            lower, upper = bounds[i]
             thetas[i] = np.clip(thetas[i], lower, upper)
 
         return thetas
@@ -287,13 +289,11 @@ class HMCParams(ProspectorParams):
         """
         lnp_prior_grad = np.zeros_like(theta)
         for k, v in self.theta_index.iteritems():
-            start, stop =v
+            start, stop = v
             lnp_prior_grad[start:stop] = (self._config_dict[k]['prior_gradient_function']
-                                          (theta[start:stop],
-                                           **self._config_dict[k]['prior_args']))
+                                          (theta[start:stop], **self._config_dict[k]['prior_args']))
         return lnp_prior_grad
 
-    
     def check_constrained(self, theta):
         """For HMC, check if the trajectory has hit a wall in any parameter.
         If so, reflect the momentum and update the parameter position in the
@@ -306,10 +306,11 @@ class HMCParams(ProspectorParams):
         """
         oob = True
         sign = np.ones_like(theta)
-        if self.verbose: print('theta in={0}'.format(theta))
+        if self.verbose:
+            print('theta in={0}'.format(theta))
         while oob:
             oob = False
-            for k,v in self.theta_index.iteritems():
+            for k, v in list(self.theta_index.items()):
                 start, end = v
                 par = self._config_dict[k]
                 if 'upper' in par.keys():
@@ -322,8 +323,10 @@ class HMCParams(ProspectorParams):
                     oob = oob or np.any(below)
                     theta[start:end][below] = 2 * par['lower'] - theta[start:end][below]
                     sign[start:end][below] *= -1
-        if self.verbose: print('theta out={0}'.format(theta))            
+        if self.verbose:
+            print('theta out={0}'.format(theta))
         return theta, sign, oob
+
 
 def plist_to_pdict(inplist):
     """Convert from a parameter list to a parameter dictionary, where the keys
@@ -338,6 +341,7 @@ def plist_to_pdict(inplist):
         pdict[name] = p
     return pdict
 
+
 def pdict_to_plist(pdict):
     """Convert from a parameter dictionary to a parameter list of dictionaries,
     adding each key to each value dictionary as the `name' keyword.
@@ -350,6 +354,7 @@ def pdict_to_plist(pdict):
         plist += [v]
     return plist
 
+
 def write_plist(plist, runpars, filename=None):
     """Write the list of parameter dictionaries to a JSON file, taking care to
     replace functions with their names.
@@ -361,42 +366,43 @@ def write_plist(plist, runpars, filename=None):
         runpars['param_file'] = filename
         f = open(filename + '.bpars.json', 'w')
         json.dump([runpars, plist], f)
-        f.close()    
+        f.close()
     else:
         return json.dumps([runpars, plist])
-    
+
+
 def read_plist(filename, raw_json=False):
     """Read a JSON file into a run_param dictionary and a list of model
     parameter dictionaries, taking care to add actual functions when given
     their names.
     """
-    
     with open(filename, 'r') as f:
         runpars, modelpars = json.load(f)
     runpars['param_file'] = filename
     if raw_json:
         return runpars, modelpars
-    
     for p in modelpars:
         p = names_to_functions(p)
-        
+
     return runpars, modelpars
+
 
 def names_to_functions(p):
     """Replace names of functions in a parameter description with the actual
     functions.
     """
-    #put the dust curve function in
+    # put the dust curve function in
     if 'dust_curve_name' in p:
         from sedpy import attenuation
         p['init'] = attenuation.__dict__[p['dust_curve_name']]
-    #put the prior function in
+    # put the prior function in
     if 'prior_function_name' in p:
         p['prior_function'] = priors.__dict__[p['prior_function_name']]
-        #print(p['prior_function_name'], p['prior_function'])
+        # print(p['prior_function_name'], p['prior_function'])
     else:
         p['prior_function'] = p.get('prior_function', None)
     return p
+
 
 def functions_to_names(p):
     """Replace prior and dust functions with the names of those functions.
@@ -409,8 +415,8 @@ def functions_to_names(p):
     else:
         p.pop('prior_function_name', None)
     _ = p.pop('prior_function', None)
-        
-    #replace dust curve functions with name of function
+
+    # replace dust curve functions with name of function
     if p['name'] == 'dust_curve':
         from sedpy import attenuation
         df = p.get('init', None)
