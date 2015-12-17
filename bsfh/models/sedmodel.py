@@ -6,6 +6,8 @@ try:
 except(ImportError):
     pass
 
+__all__ = ["SedModel", "CSPModel"]
+
 lsun = 3.846e33  # ergs/s
 pc = 3.085677581467192e18  # cm
 jansky_mks = 1e-26

@@ -7,7 +7,7 @@ import pickle
 
 from bsfh.models import model_setup
 from bsfh.io import write_results
-import bsfh.fitting as utils
+from bsfh import fitting
 from bsfh.likelihood import LikelihoodFunction
 
 #########
@@ -190,14 +190,14 @@ if __name__ == "__main__":
             print('minimizing chi-square...')
         ts = time.time()
         powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
-        powell_guesses, pinit = utils.pminimize(chisqfn, initial_theta,
-                                                args=chi2args, model=model,
-                                                method='powell', opts=powell_opt,
-                                                pool=pool, nthreads=rp.get('nthreads',1))
+        powell_guesses, pinit = fitting.pminimize(chisqfn, initial_theta,
+                                                  args=chi2args, model=model,
+                                                  method='powell', opts=powell_opt,
+                                                  pool=pool, nthreads=rp.get('nthreads',1))
         best = np.argmin([p.fun for p in powell_guesses])
-        initial_center = utils.reinitialize(powell_guesses[best].x, model,
-                                            edge_trunc=rp.get('edge_trunc',0.1))
-        initial_prob = -1*powell_guesses[best]['fun']
+        initial_center = fitting.reinitialize(powell_guesses[best].x, model,
+                                              edge_trunc=rp.get('edge_trunc',0.1))
+        initial_prob = -1 * powell_guesses[best]['fun']
         
         pdur = time.time() - ts
         if rp['verbose']:
@@ -215,7 +215,7 @@ if __name__ == "__main__":
     if rp['verbose']:
         print('emcee sampling...')
     tstart = time.time()
-    esampler, burn_p0, burn_prob0 = utils.run_emcee_sampler(lnprobfn, initial_center, model,
+    esampler, burn_p0, burn_prob0 = fitting.run_emcee_sampler(lnprobfn, initial_center, model,
                                        postkwargs=postkwargs, pool=pool, initial_prob=initial_prob,
                                        **rp)
     edur = time.time() - tstart
@@ -229,8 +229,7 @@ if __name__ == "__main__":
                                 esampler, powell_guesses,
                                 toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center,
-                                post_burnin_center=burn_p0,
-                                post_burnin_prob=burn_prob0)
+                                post_burnin_center=burn_p0, post_burnin_prob=burn_prob0)
 
     
     try:

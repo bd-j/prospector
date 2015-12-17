@@ -8,7 +8,14 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["StellarPopBasis", "CSPBasis"]
+__all__ = ["StellarPopBasis", "CSPBasis", "to_cgs"]
+
+# Useful constants
+lsun = 3.846e33
+pc = 3.085677581467192e18  # in cm
+lightspeed = 2.998e18  # AA/s
+# value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
+to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 
 
 class StellarPopBasis(object):

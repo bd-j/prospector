@@ -8,8 +8,15 @@ from ..utils.obsutils import fix_obs
 parameters, model parameters and other info and return a run_params dictionary,
 an obs dictionary, and a model.  It also has methods to parse command line
 options and return an sps object and a gp object.
+
+Most of the load_<x> methods are just really shallow wrappers on
+```import_module_from_file(param_file).load_<x>(**kwargs)``` and could probably
+be done away with at this point, as they add a mostly useless layer of
+abstraction.  Kept here for future flexibility.
 """
 
+__all__ = [ "parse_args", "import_module_from_file", "get_run_params",
+           "load_model", "load_obs", "load_sps", "load_gp", "show_syntax"]
 
 def parse_args(argv, argdict={}):
     """Parse command line arguments, allowing for optional arguments.

@@ -1,7 +1,7 @@
 import pickle, os, subprocess, time
 import numpy as np
-from ..models import parameters
 
+__all__ = ["run_command", "write_pickles"]
 
 def run_command(cmd):
     """Open a child process, and return its exit status and stdout.
@@ -29,7 +29,7 @@ def write_pickles(run_params, model, obs,
 
     # Pull out the git hash for bsfh here.
     try:
-        bsfh_dir = os.path.dirname(parameters.__file__)
+        bsfh_dir = os.path.dirname(__file__)
         bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
                           )[1][0].replace('\n', '')
     except:
