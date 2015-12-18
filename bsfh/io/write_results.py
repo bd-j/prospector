@@ -1,5 +1,6 @@
 import pickle, os, subprocess, time
 import numpy as np
+from ..models.parameters import functions_to_names, plist_to_pdict
 
 __all__ = ["run_command", "write_pickles"]
 
@@ -13,13 +14,10 @@ def run_command(cmd):
     return os.WEXITSTATUS(w), out
 
 
-def write_pickles(run_params, model, obs,
-                  sampler, powell_results,
+def write_pickles(run_params, model, obs, sampler, powell_results,
                   tsample=None, toptimize=None,
                   sampling_initial_center=None,
-                  post_burnin_center=None,
-                  post_burnin_prob=None):
-
+                  post_burnin_center=None, post_burnin_prob=None):
     """Write results to two different pickle files.  One (``*_mcmc``)
     contains only lists, dictionaries, and numpy arrays and is
     therefore robust to changes in object definitions.  The other
@@ -40,9 +38,9 @@ def write_pickles(run_params, model, obs,
 
     results['run_params'] = run_params
     results['obs'] = obs
-    results['model_params'] = [parameters.functions_to_names(p) for p in model.config_list]
-    results['model_params_dict'] = parameters.plist_to_pdict([parameters.functions_to_names(p)
-                                                              for p in model.config_list])
+    results['model_params'] = [functions_to_names(p) for p in model.config_list]
+    results['model_params_dict'] = plist_to_pdict([functions_to_names(p)
+                                                   for p in model.config_list])
     results['initial_theta'] = model.initial_theta
     results['sampling_initial_center'] = sampling_initial_center
     results['post_burnin_center'] = post_burnin_center

@@ -9,18 +9,19 @@ tophat = priors.tophat
 
 run_params = {'verbose':True, 'debug':False,
               'outfile':'results/csphot_test',
-              # Sampling parameters
+              # Fitter parameters
               'nwalkers':128,
               'nburn':[32, 32, 64], 'niter':128,
               'ftol':0.5e-5, 'maxfev':5000,
               'initial_disp':0.1,
-              # Obs parameters
+              # Obs data parameters
               'photname': '/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.cat',
-              'mock': False,
               'logify_spectrum':False,
               'normalize_spectrum':False,
               'objname':'32206',
-              'wlo':3750., 'whi':7200.
+              'wlo':3750., 'whi':7200.,
+              # SPS parameters
+              'zcontinuous': 1,
               }
 
 # --------------
