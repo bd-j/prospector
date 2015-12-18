@@ -1,4 +1,5 @@
 import numpy as np
+from sedpy import getSED
 
 __all__ = ["BlackBodyDustBasis"]
 
@@ -70,7 +71,7 @@ class BlackBodyDustBasis(object):
                 cpars[k] = np.squeeze(self.params[k])
 
         spec = cpars['mass'] * modified_BB(wave, **cpars)
-        phot = getSED(wave*1e4, spec, filters)
+        phot = 10**(-0.4 * getSED(wave*1e4, spec, filters))
         return spec, phot, None
 
     def normalization(self):
