@@ -245,7 +245,7 @@ class CSPModel(ProspectorParams):
         # Pass the model parameters through to the sps object,
         # and keep track of the mass of this component
         mass = 1.0
-        for k, vs in self.params.iteritems():
+        for k, vs in list(self.params.items()):
             try:
                 v = vs[component_index]
                 #n_param_is_vec += 1

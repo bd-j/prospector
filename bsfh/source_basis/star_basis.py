@@ -85,7 +85,7 @@ class StarBasis(object):
             self._libparams['Z'] = np.log10(self._libparams['Z'])
 
     def update(self, **kwargs):
-        for k, v in kwargs.iteritems():
+        for k, v in list(kwargs.items()):
             try:
                 self.params[k] = np.squeeze(v)
             except:

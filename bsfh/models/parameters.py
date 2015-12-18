@@ -58,7 +58,7 @@ class ProspectorParams(object):
         self._config_dict = plist_to_pdict(self.config_list)
         self.map_theta()
         # propogate initial parameter values from the configure dictionary
-        for par, info in self._config_dict.iteritems():
+        for par, info in list(self._config_dict.items()):
             self.params[par] = np.atleast_1d(info['init'])
             if info.get('depends_on', None) is not None:
                 self._has_parameter_dependencies = True
@@ -87,7 +87,7 @@ class ProspectorParams(object):
             ndarray of shape (ndim,)
         """
         assert len(theta) == self.ndim
-        for k, v in self.theta_index.iteritems():
+        for k, v in list(self.theta_index.items()):
             start, end = v
             self.params[k] = np.atleast_1d(theta[start:end])
         self.propagate_parameter_dependencies()
@@ -135,7 +135,7 @@ class ProspectorParams(object):
         """
         if self._has_parameter_dependencies is False:
             return
-        for p, info in self._config_dict.iteritems():
+        for p, info in list(self._config_dict.items()):
             if 'depends_on' in info:
                 value = info['depends_on'](**self.params)
                 self.params[p] = np.atleast_1d(value)
@@ -152,7 +152,7 @@ class ProspectorParams(object):
         state dictionary.
         """
         theta = np.zeros(self.ndim)
-        for k, v in self.theta_index.iteritems():
+        for k, v in list(self.theta_index.items()):
             start, end = v
             theta[start:end] = self.params[k]
         return theta
@@ -247,7 +247,7 @@ class ProspectorParams(object):
             Treat the dispersion values as fractional dispersions
         """
         disp = np.zeros(self.ndim) + initial_disp
-        for par, inds in self.theta_index.iteritems():
+        for par, inds in list(self.theta_index.items()):
             d = self._config_dict[par].get('init_disp', initial_disp)
             disp[inds[0]: inds[1]] = d
         if fractional_disp:
@@ -290,7 +290,7 @@ class ProspectorParamsHMC(ProspectorParams):
             parameters.  ndarray of shape (ndim,)
         """
         lnp_prior_grad = np.zeros_like(theta)
-        for k, v in self.theta_index.iteritems():
+        for k, v in list(self.theta_index.items()):
             start, stop = v
             lnp_prior_grad[start:stop] = (self._config_dict[k]['prior_gradient_function']
                                           (theta[start:stop], **self._config_dict[k]['prior_args']))
@@ -351,7 +351,7 @@ def pdict_to_plist(pdict):
     if type(pdict) is list:
         return pdict[:]
     plist = []
-    for k, v in pdict.iteritems():
+    for k, v in list(pdict.items()):
         v['name'] = k
         plist += [v]
     return plist

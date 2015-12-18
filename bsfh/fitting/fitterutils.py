@@ -87,7 +87,7 @@ def sampler_ball(center, disp, nwalkers, model):
     initial = np.zeros([nwalkers, ndim])
     if np.size(disp) == 1:
         disp = np.zeros(ndim) + disp
-    for p, v in model.theta_index.iteritems():
+    for p, v in list(model.theta_index.items()):
         start, stop = v
         lo, hi = plotting_range(model._config_dict[p]['prior_args'])
         try_param = (center[None, start:stop] +
@@ -179,7 +179,7 @@ def reinitialize(best_guess, model, edge_trunc=0.1,
     bounds = model.theta_bounds()
     output = np.array(best_guess)
     reinit = np.zeros(model.ndim, dtype= bool)
-    for p, inds in model.theta_index.iteritems():
+    for p, inds in list(model.theta_index.items()):
         reinit[inds[0]:inds[1]] = (model._config_dict[p].get('reinit', False)
                                    or (p in reinit_params))
         
@@ -200,7 +200,7 @@ def minimizer_ball(center, nminimizers, model):
     pinitial = [center]
     if size > 1:
         ginitial = np.zeros( [size -1, model.ndim] )
-        for p, v in model.theta_index.iteritems():
+        for p, v in list(model.theta_index.items()):
             start, stop = v
             lo, hi = plotting_range(model._config_dict[p]['prior_args'])
             if model._config_dict[p]['N'] > 1:

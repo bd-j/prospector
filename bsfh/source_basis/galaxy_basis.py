@@ -7,6 +7,10 @@ try:
     import fsps
 except(ImportError):
     pass
+try:
+    from astropy.cosmology import WMAP9 as cosmo
+except(ImportError):
+    pass
 
 __all__ = ["StellarPopBasis", "CSPBasis", "to_cgs"]
 
@@ -223,7 +227,7 @@ class StellarPopBasis(object):
         basis parameters.  If either of those changed, regenerate the relevant
         spectral grid(s).
         """
-        for k, v in newparams.iteritems():
+        for k, v in list(newparams.items()):
             if k in self.basis_params:
                 # Make sure parameter is in dict, and check if it changed
                 if k not in self.params:
