@@ -2,6 +2,8 @@ import time, sys, os
 import numpy as np
 from scipy.linalg import LinAlgError
 
+__all__ = ["LikelihoodFunction"]
+
 
 class LikelihoodFunction(object):
 
