@@ -50,7 +50,7 @@ class StellarPopBasis(object):
         self.safe = safe
         # This is a StellarPopulation object from fsps
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
-                                          zcontinuous=zcontinuous, **kwargs)
+                                          zcontinuous=zcontinuous)
 
         # This is the main state vector for the model
         self.params = {'outwave': self.ssp.wavelengths.copy(),

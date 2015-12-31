@@ -96,6 +96,7 @@ def load_gp(param_file=None, **kwargs):
     ext = param_file.split('.')[-1]
     if ext == 'py':
         setup_module = import_module_from_file(param_file)
+        gp_spec, gp_phot = setup_module.load_gp(**kwargs)
         try:
             gp_spec, gp_phot = setup_module.load_gp(**kwargs)
         except:
@@ -137,6 +138,7 @@ def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
     if ext == 'py':
         print('reading py script {}'.format(param_file))
         setup_module = import_module_from_file(param_file)
+        obs = setup_module.load_obs(**kwargs)
         try:
             obs = setup_module.load_obs(**kwargs)
         except(AttributeError):
