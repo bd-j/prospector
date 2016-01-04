@@ -1,10 +1,12 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from bsfh.parameters import ProspectrParams
+from .parameters import ProspectorParams
 try:
     from astropy.cosmology import WMAP9 as cosmo
 except(ImportError):
     pass
+
+__all__ = ["SedModel", "CSPModel"]
 
 lsun = 3.846e33  # ergs/s
 pc = 3.085677581467192e18  # cm
@@ -12,7 +14,7 @@ jansky_mks = 1e-26
 #value to go from L_sun/Hz to erg/s/cm^2/Hz at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
 
-class SedModel(ProspectrParams):
+class SedModel(ProspectorParams):
     """
     For models composed of SSPs and sums of SSPs which use the
     sps_basis.StellarPopBasis as the sps object.
@@ -146,7 +148,7 @@ class SedModel(ProspectrParams):
         return s, [0.0], [0]
 
     
-class CSPModel(ProspectrParams):
+class CSPModel(ProspectorParams):
     """
     For parameterized SFHs where fsps.StellarPopulation is used as the
     sps object.
@@ -243,7 +245,7 @@ class CSPModel(ProspectrParams):
         # Pass the model parameters through to the sps object,
         # and keep track of the mass of this component
         mass = 1.0
-        for k, vs in self.params.iteritems():
+        for k, vs in list(self.params.items()):
             try:
                 v = vs[component_index]
                 #n_param_is_vec += 1
@@ -355,66 +357,3 @@ def gauss(x, mu, A, sigma):
     mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
     val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
     return val.sum(axis = -1)
-
-
-class HMCThetaParameters(SedModel):
-    """
-    Object describing a model parameter set, and conversions between a
-    parameter dictionary and a theta vector (for use in MCMC sampling).
-    Also contains a method for computing the prior probability of a given
-    theta vector.
-    """
-
-    def lnp_prior_grad(self, theta):
-        """
-        Return a vector of gradients in the prior probability.
-        Requires  that functions giving the gradients are given in the
-        theta descriptor.
-
-        :param theta:
-            A theta parameter vector containing the desired
-            parameters.  ndarray of shape (ndim,)
-        """
-        lnp_prior_grad = np.zeros_like(theta)
-        for k, v in self.theta_index.iteritems():
-            start, stop =v
-            lnp_prior_grad[start:stop] = (self._config_dict[k]['prior_gradient_function']
-                                          (theta[start:stop],
-                                           **self._config_dict[k]['prior_args']))
-        return lnp_prior_grad
-
-    
-    def check_constrained(self, theta):
-        """
-        For HMC, check if the trajectory has hit a wall in any
-        parameter.   If so, reflect the momentum and update the
-        parameter position in the  opposite direction until the
-        parameter is within the bounds. Bounds  are specified via the
-        'upper' and 'lower' keys of the theta descriptor.
-
-        :param theta:
-            A theta parameter vector containing the desired
-            parameters.  ndarray of shape (ndim,)
-        """
-        oob = True
-        sign = np.ones_like(theta)
-        if self.verbose: print('theta in={0}'.format(theta))
-        while oob:
-            oob = False
-            for k,v in self.theta_index.iteritems():
-                start, end = v
-                par = self._config_dict[k]
-                if 'upper' in par.keys():
-                    above = theta[start:end] > par['upper']
-                    oob = oob or np.any(above)
-                    theta[start:end][above] = 2 * par['upper'] - theta[start:end][above]
-                    sign[start:end][above] *= -1
-                if 'lower' in par.keys():
-                    below = theta[start:end] < par['lower']
-                    oob = oob or np.any(below)
-                    theta[start:end][below] = 2 * par['lower'] - theta[start:end][below]
-                    sign[start:end][below] *= -1
-        if self.verbose: print('theta out={0}'.format(theta))            
-        return theta, sign, oob
-
-

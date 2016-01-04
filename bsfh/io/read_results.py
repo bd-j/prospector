@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as pl
 
 """Convenience functions for reading and reconstruction results from a fitting
-run, including reconstruction of the model for posterior samples
+run, including reconstruction of the model for making posterior samples
 """
     
 def read_pickles(sample_file, model_file=None,
@@ -203,22 +203,6 @@ def obsdict(inobs, photflag):
         obs['mask'] = obs['phot_mask'] > 0
         
     return obs, outn, marker
-
-
-def use_old_module_names():
-    """Fix module renames here if necessary for reading pickle files
-    """
-    import bsfh.sedmodel as sedmodel
-    import bsfh.gp as gp
-    import bsfh.sps_basis as sps_basis
-    import bsfh.elines as elines
-    import bsfh.priors as priors
-
-    sys.modules['sedmodel'] = sedmodel
-    sys.modules['gp'] = gp
-    sys.modules['sps_basis'] = sps_basis
-    sys.modules['elines'] = elines
-    sys.modules['priors'] = priors
 
 # All this because scipy changed the name of one class, which
 # shouldn't even be a class.

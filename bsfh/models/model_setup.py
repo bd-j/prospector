@@ -1,15 +1,22 @@
 import sys, os, getopt, json
 from copy import deepcopy
 import numpy as np
-from bsfh import parameters, sedmodel
-from bsfh.datautils import fix_obs
+from . import parameters, sedmodel
+from ..utils.obsutils import fix_obs
 
 """This module has methods to take a .json or .py file containing run
-parameters, model parameters and other info and return a run_params
-dictionary, an obs dictionary, and a model.  It also has methods to
-parse command line options and return an sps object and a gp object.
+parameters, model parameters and other info and return a run_params dictionary,
+an obs dictionary, and a model.  It also has methods to parse command line
+options and return an sps object and a gp object.
+
+Most of the load_<x> methods are just really shallow wrappers on
+```import_module_from_file(param_file).load_<x>(**kwargs)``` and could probably
+be done away with at this point, as they add a mostly useless layer of
+abstraction.  Kept here for future flexibility.
 """
 
+__all__ = [ "parse_args", "import_module_from_file", "get_run_params",
+           "load_model", "load_obs", "load_sps", "load_gp", "show_syntax"]
 
 def parse_args(argv, argdict={}):
     """Parse command line arguments, allowing for optional arguments.
@@ -37,13 +44,13 @@ def parse_args(argv, argdict={}):
 
 
 def get_run_params(param_file=None, argv=None, **kwargs):
-    """Get a run_params dictionary from the param_file (if passed)
-    otherwise return the kwargs dictionary.
+    """Get a run_params dictionary from the param_file (if passed) otherwise
+    return the kwargs dictionary.
 
-    The order of precedence of parameter specification locations is
-        1. param_file (lowest)
-        2. kwargs passsed to this function
-        3. command line arguments
+    The order of precedence of parameter specification locations is:
+        * 1. param_file (lowest)
+        * 2. kwargs passsed to this function
+        * 3. command line arguments
     """
     if param_file is None:
         rp = {}
@@ -63,17 +70,9 @@ def get_run_params(param_file=None, argv=None, **kwargs):
     return rp
 
 
-def show_syntax(args, ad):
-    """Show command line syntax corresponding to the provided arg
-    dictionary `ad`.
-    """
-    print('Usage:\n {0} '.format(args[0]) +
-          ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
-
-
 def load_sps(param_file=None, **kwargs):
-    """Return an ``sps`` object which is used to hold spectral
-    libraries, perform interpolations, convolutions, etc.
+    """Return an ``sps`` object which is used to hold spectral libraries,
+    perform interpolations, convolutions, etc.
     """
     ext = param_file.split('.')[-1]
     if ext == 'py':
@@ -85,8 +84,8 @@ def load_sps(param_file=None, **kwargs):
 
 
 def load_gp(param_file=None, **kwargs):
-    """Return two Gaussian Processes objects, either using BSFH's
-    internal GP objects or George.
+    """Return two Gaussian Processes objects, either using BSFH's internal GP
+    objects or George.
 
     :returns gp_spec:
         The gaussian process object to use for the spectroscopy.
@@ -97,6 +96,7 @@ def load_gp(param_file=None, **kwargs):
     ext = param_file.split('.')[-1]
     if ext == 'py':
         setup_module = import_module_from_file(param_file)
+        gp_spec, gp_phot = setup_module.load_gp(**kwargs)
         try:
             gp_spec, gp_phot = setup_module.load_gp(**kwargs)
         except:
@@ -107,11 +107,10 @@ def load_gp(param_file=None, **kwargs):
 
 
 def load_model(param_file=None, **extras):
-    """Load the model object from a model config list given in the
-    config file.
+    """Load the model object from a model config list given in the config file.
 
     :returns model:
-        An instance of the parameters.ProspectrParams object which has
+        An instance of the parameters.ProspectorParams object which has
         been configured
     """
     ext = param_file.split('.')[-1]
@@ -127,9 +126,9 @@ def load_model(param_file=None, **extras):
 
 
 def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
-    """Load the obs dictionary using information in ``param_file``.
-    kwargs are passed to ``fix_obs()`` and, if using a json
-    configuration file, to the data_loading_function.
+    """Load the obs dictionary using information in ``param_file``.  kwargs are
+    passed to ``fix_obs()`` and, if using a json configuration file, to the
+    data_loading_function.
 
     :returns obs:
         A dictionary of observational data.
@@ -139,14 +138,14 @@ def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
     if ext == 'py':
         print('reading py script {}'.format(param_file))
         setup_module = import_module_from_file(param_file)
+        obs = setup_module.load_obs(**kwargs)
         try:
             obs = setup_module.load_obs(**kwargs)
         except(AttributeError):
             obs = deepcopy(getattr(setup_module, 'obs', None))
     if obs is None:
-        from bsfh import loadspec
         funcname = data_loading_function_name
-        obsfunction = getattr(loadspec, funcname)
+        obsfunction = getattr(setup_module, funcname)
         obs = obsfunction(**kwargs)
 
     obs = fix_obs(obs, **kwargs)
@@ -168,7 +167,7 @@ def import_module_from_file(path_to_file):
 def load_mock(filename, run_params, model, sps):
     """Load the obs dictionary using mock data.
     """
-    from bsfh.datautils import generate_mock
+    from ..utils.obsutils import generate_mock
     ext = filename.split('.')[-1]
     mock_info = None
     if ext == 'py':
@@ -182,6 +181,14 @@ def load_mock(filename, run_params, model, sps):
     mockdat = fix_obs(mockdat, **run_params)
     mockdat['mock_info'] = mock_info
     return mockdat
+
+
+def show_syntax(args, ad):
+    """Show command line syntax corresponding to the provided arg dictionary
+    `ad`.
+    """
+    print('Usage:\n {0} '.format(args[0]) +
+          ' '.join(['--{0}=<value>'.format(k) for k in ad.keys()]))
 
 
 class Bunch(object):

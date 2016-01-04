@@ -1,14 +1,16 @@
 import sys
 import numpy as np
 import emcee
-from bsfh import minimizer
-from bsfh.priors import plotting_range
+from . import minimizer
+from ..models.priors import plotting_range
 
 try:
     import multiprocessing
 except(ImportError):
     pass
 
+__all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball",
+           "pminimize", "minimizer_ball", "reinitialize"]
 
 def run_emcee_sampler(lnprobf, initial_center, model,
                       postargs=[], postkwargs={}, initial_prob=None,
@@ -16,8 +18,7 @@ def run_emcee_sampler(lnprobf, initial_center, model,
                       walker_factor = 4, initial_disp=0.1,
                       nthreads=1, pool=None, verbose=True,
                       **kwargs):
-    """
-    Run an emcee sampler, including iterations of burn-in and
+    """Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the production sampler.
     """
     # Set up initial positions
@@ -25,10 +26,9 @@ def run_emcee_sampler(lnprobf, initial_center, model,
     if nwalkers is None:
         nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
     if verbose:
-        print('number of walkers={}'.format(nwalkers))    
-    initial = sampler_ball(initial_center,
-                           model.theta_disps(initial_center, initial_disp=initial_disp),
-                           nwalkers, model)
+        print('number of walkers={}'.format(nwalkers))
+    disps = model.theta_disps(initial_center, initial_disp=initial_disp)
+    initial = sampler_ball(initial_center, disps, nwalkers, model)
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      args=postargs, kwargs=postkwargs,
@@ -65,8 +65,8 @@ def run_emcee_sampler(lnprobf, initial_center, model,
 
 def reinitialize_ball(initial_center, pos, nwalkers, model,
                       ptiles=[0.25, 0.5, 0.75], **extras):
-    """Choose the best walker and build a ball around it based on the
-    other walkers.
+    """Choose the best walker and build a ball around it based on the other
+    walkers.
     """
     pos = np.atleast_2d(pos)
     tmp = np.percentile(pos, ptiles, axis=0)  
@@ -81,14 +81,13 @@ def reinitialize_ball(initial_center, pos, nwalkers, model,
 
 
 def sampler_ball(center, disp, nwalkers, model):
-    """Produce a ball around a given position, clipped to the prior
-    range.
+    """Produce a ball around a given position, clipped to the prior range.
     """
     ndim = model.ndim
     initial = np.zeros([nwalkers, ndim])
     if np.size(disp) == 1:
         disp = np.zeros(ndim) + disp
-    for p, v in model.theta_index.iteritems():
+    for p, v in list(model.theta_index.items()):
         start, stop = v
         lo, hi = plotting_range(model._config_dict[p]['prior_args'])
         try_param = (center[None, start:stop] +
@@ -107,15 +106,17 @@ def sampler_ball(center, disp, nwalkers, model):
                     
         initial[:, start:stop] = try_param
     return initial
-    
+
+
 def restart_sampler(sample_results, lnprobf, sps, niter,
                     nthreads=1, pool=None):
-    """Restart a sampler from its last position and run it for a
-    specified number of iterations.  The sampler chain and the model
-    object should be given in the sample_results dictionary.  Note
-    that lnprobfn and sps must be defined at the global level in the
-    same way as the sampler originally ran, or your results will be
-    super weird (and wrong)!
+    """Restart a sampler from its last position and run it for a specified
+    number of iterations.  The sampler chain and the model object should be
+    given in the sample_results dictionary.  Note that lnprobfn and sps must be
+    defined at the global level in the same way as the sampler originally ran,
+    or your results will be super weird (and wrong)!
+
+    Unimplemented/tested
     """
     model = sample_results['model']
     initial = sample_results['chain'][:,-1,:]
@@ -126,17 +127,14 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     return esampler
 
         
-def pminimize(chi2fn, initial, args=None,
-              model=None,
+def pminimize(chi2fn, initial, args=None, model=None,
               method='powell', opts=None,
               pool=None, nthreads=1):
-    """Do as many minimizations as you have threads, in parallel.
-    Always use initial_center for one of the minimization streams, the
-    rest will be sampled from the prior for each parameter.  Returns
-    each of the minimization result dictionaries, as well as the
-    starting positions.
+    """Do as many minimizations as you have threads, in parallel.  Always use
+    initial_center for one of the minimization streams, the rest will be
+    sampled from the prior for each parameter.  Returns each of the
+    minimization result dictionaries, as well as the starting positions.
     """
-    
     # Instantiate the minimizer
     mini = minimizer.Pminimize(chi2fn, args, opts,
                                method=method,
@@ -147,41 +145,41 @@ def pminimize(chi2fn, initial, args=None,
 
     return [powell_guesses, pinitial]
 
+
 def reinitialize(best_guess, model, edge_trunc=0.1,
                  reinit_params = [], **extras):
-    """Check if the Powell minimization found a minimum close to
-    the edge of the prior for any parameter. If so, reinitialize
-    to the center of the prior.
+    """Check if the Powell minimization found a minimum close to the edge of
+    the prior for any parameter. If so, reinitialize to the center of the
+    prior.
 
     This is only done for parameters where ``'reinit':True`` in the model
     configuration dictionary, or for parameters in the supplied
     ``reinit_params`` list.
 
     :param buest_guess:
-        The result of some sort of optimization step, iterable of
-        length model.ndim.
+        The result of some sort of optimization step, iterable of length
+        model.ndim.
 
     :param model:
-        A bsfh.parameters.ProspectrParams() object.
+        A ..models.parameters.ProspectorParams() object.
 
     :param edge_trunc: (optional, default 0.1)
-        The fractional distance from the edge of the priors that
-        triggers reinitialization.
+        The fractional distance from the edge of the priors that triggers
+        reinitialization.
 
     :param reinit_params: optional
-        A list of model parameter names to reinitialize, overrides the
-        value or presence of the ``reinit`` key in the model
-        configuration dictionary.
+        A list of model parameter names to reinitialize, overrides the value or
+        presence of the ``reinit`` key in the model configuration dictionary.
         
     :returns output:
-        The best_guess with parameters near the edge reset to be at
-        the center of the prior.  ndarray of shape (ndim,)
+        The best_guess with parameters near the edge reset to be at the center
+        of the prior.  ndarray of shape (ndim,)
     """
     edge = edge_trunc
     bounds = model.theta_bounds()
     output = np.array(best_guess)
     reinit = np.zeros(model.ndim, dtype= bool)
-    for p, inds in model.theta_index.iteritems():
+    for p, inds in list(model.theta_index.items()):
         reinit[inds[0]:inds[1]] = (model._config_dict[p].get('reinit', False)
                                    or (p in reinit_params))
         
@@ -193,16 +191,16 @@ def reinitialize(best_guess, model, edge_trunc=0.1,
             output[k] = b[0] + prange/2
     return output
 
+
 def minimizer_ball(center, nminimizers, model):
-    """Setup a 'grid' of parameter values uniformly distributed
-    between min and max More generally, this should sample from the
-    prior for each parameter.
+    """Setup a 'grid' of parameter values uniformly distributed between min and
+    max More generally, this should sample from the prior for each parameter.
     """
     size = nminimizers
     pinitial = [center]
     if size > 1:
         ginitial = np.zeros( [size -1, model.ndim] )
-        for p, v in model.theta_index.iteritems():
+        for p, v in list(model.theta_index.items()):
             start, stop = v
             lo, hi = plotting_range(model._config_dict[p]['prior_args'])
             if model._config_dict[p]['N'] > 1:
@@ -213,9 +211,10 @@ def minimizer_ball(center, nminimizers, model):
         pinitial += ginitial.tolist()
     return pinitial
 
+
 def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
-    """
-    Run a (single) HMC chain, performing initial steps to adjust the epsilon.
+    """Run a (single) HMC chain, performing initial steps to adjust the
+    epsilon.
     """
     import hmc
 

@@ -1,14 +1,25 @@
 from itertools import chain
 import numpy as np
-from .smoothing import smoothspec
+from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
 
 try:
     import fsps
 except(ImportError):
     pass
+try:
+    from astropy.cosmology import WMAP9 as cosmo
+except(ImportError):
+    pass
 
-__all__ = ["StellarPopBasis", "CSPBasis"]
+__all__ = ["StellarPopBasis", "CSPBasis", "to_cgs"]
+
+# Useful constants
+lsun = 3.846e33
+pc = 3.085677581467192e18  # in cm
+lightspeed = 2.998e18  # AA/s
+# value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
+to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 
 
 class StellarPopBasis(object):
@@ -39,7 +50,7 @@ class StellarPopBasis(object):
         self.safe = safe
         # This is a StellarPopulation object from fsps
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
-                                          zcontinuous=zcontinuous, **kwargs)
+                                          zcontinuous=zcontinuous)
 
         # This is the main state vector for the model
         self.params = {'outwave': self.ssp.wavelengths.copy(),
@@ -216,7 +227,7 @@ class StellarPopBasis(object):
         basis parameters.  If either of those changed, regenerate the relevant
         spectral grid(s).
         """
-        for k, v in newparams.iteritems():
+        for k, v in list(newparams.items()):
             if k in self.basis_params:
                 # Make sure parameter is in dict, and check if it changed
                 if k not in self.params:

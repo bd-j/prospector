@@ -1,7 +1,7 @@
 from itertools import chain
 import numpy as np
 from scipy.spatial import Delaunay
-from .smoothing import smoothspec
+from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
 
 try:
@@ -85,7 +85,7 @@ class StarBasis(object):
             self._libparams['Z'] = np.log10(self._libparams['Z'])
 
     def update(self, **kwargs):
-        for k, v in kwargs.iteritems():
+        for k, v in list(kwargs.items()):
             try:
                 self.params[k] = np.squeeze(v)
             except:

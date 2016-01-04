@@ -1,8 +1,14 @@
-#Module containg various functions to be used as priors
+# Module containg various functions to be used as priors
 import numpy as np
+
+__all__ = ["normal", "tophat", "normal_clipped", "positive",
+           "lognormal", "logarithmic",
+           "plotting_range"]
+
 
 def zeros(theta, **extras):
     return np.zeros_like(theta)
+
 
 def positive(theta, **extras):
     """
@@ -13,6 +19,7 @@ def positive(theta, **extras):
     p[n] = -np.infty
     return p
 
+
 def tophat(theta, mini=0.0, maxi=1.0, **extras):
     """
     A simple tophat function.  Input can be scalar or matched vectors
@@ -21,6 +28,7 @@ def tophat(theta, mini=0.0, maxi=1.0, **extras):
     n = (theta < mini) | (theta > maxi)
     lnp[n] = -np.infty
     return lnp
+
 
 def normal(theta, mean=0.0, sigma=1.0, **extras):
     """
@@ -39,6 +47,7 @@ def normal_clipped(theta, mean=0.0, sigma=1.0, mini=0.0, maxi=1.0, **extras):
 
     return lnp
 
+
 def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
     """
     A lognormal  gaussian.  should make sure it can be vectorized.
@@ -49,6 +58,7 @@ def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
     else:
         return np.zeros(np.size(theta))-np.infty
 
+
 def logarithmic(theta, mini=0.0, maxi=np.inf, **extras):
     """A logarithmic (1/x) prior, with optional bounds.
     """
@@ -56,7 +66,8 @@ def logarithmic(theta, mini=0.0, maxi=np.inf, **extras):
     n = (theta < mini) | (theta > maxi)
     lnp[n] = -np.infty
     return lnp
-    
+
+
 def plotting_range(prior_args):
     if 'mini' in prior_args:
         return prior_args['mini'], prior_args['maxi']

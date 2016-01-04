@@ -1,34 +1,37 @@
 import numpy as np
 import fsps
-from bsfh import priors, sedmodel
+from bsfh.models import priors, sedmodel
 tophat = priors.tophat
 
 # --------------
 # RUN_PARAMS
 # --------------
 
-run_params = {'verbose':True,
+run_params = {'verbose':True, 'debug':False,
               'outfile':'results/csphot_test',
-              'ftol':0.5e-5, 'maxfev':5000,
+              # Fitter parameters
               'nwalkers':128,
               'nburn':[32, 32, 64], 'niter':128,
+              'ftol':0.5e-5, 'maxfev':5000,
               'initial_disp':0.1,
-              'debug':False,
-              'mock': False,
+              # Obs data parameters
+              'photname': '/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.cat',
               'logify_spectrum':False,
               'normalize_spectrum':False,
               'objname':'32206',
-              'wlo':3750., 'whi':7200.
+              'wlo':3750., 'whi':7200.,
+              # SPS parameters
+              'zcontinuous': 1,
               }
 
 # --------------
 # OBS
 # --------------
     
-def load_obs(objname, **extras):
+def load_obs(objname='', photname='', **extras):
     """Load a 3D-HST data file and choose a particular object.
     """
-    photname = '/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.cat'
+   
     # fastname = '/Users/bjohnson/Projects/threedhst_bsfh/data/cosmos_3dhst.v4.1.test.fout'
     obs = {}
     fieldname = photname.split('/')[-1].split('_')[0].upper()
@@ -61,7 +64,16 @@ def load_obs(objname, **extras):
 # SPS Object
 # --------------
 
-sps = fsps.StellarPopulation(zcontinuous=1)
+def load_sps(zcontinuous=1, compute_vega_mags=False, **extras)
+    sps = fsps.StellarPopulation(zcontinuous=zcontinuous)
+    return sps
+
+# -----------------
+# Gaussian Process
+# ------------------
+
+def load_gp(**extras):
+    return None, None
 
 # --------------
 # MODEL_PARAMS
@@ -200,9 +212,3 @@ model_params.append({'name': 'phot_jitter', 'N': 1,
 def load_model(objname, **extras):
     return sedmodel.CSPModel(model_params)
 
-# -----------------
-# Gaussian Process
-# ------------------
-
-def load_gp(**extras):
-    return None, None
