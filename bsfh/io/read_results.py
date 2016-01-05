@@ -1,7 +1,10 @@
 import sys
 import pickle
 import numpy as np
-import matplotlib.pyplot as pl
+try:
+    import matplotlib.pyplot as pl
+except:
+    pass
 
 """Convenience functions for reading and reconstruction results from a fitting
 run, including reconstruction of the model for making posterior samples
