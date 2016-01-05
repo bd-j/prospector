@@ -18,20 +18,24 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
                   tsample=None, toptimize=None,
                   sampling_initial_center=None,
                   post_burnin_center=None, post_burnin_prob=None):
-    """Write results to two different pickle files.  One (``*_mcmc``)
-    contains only lists, dictionaries, and numpy arrays and is
-    therefore robust to changes in object definitions.  The other
-    (``*_model``) contains the actual model object (and minimization
-    result objects) and is therefore more fragile.
+    """Write results to two different pickle files.  One (``*_mcmc``) contains
+    only lists, dictionaries, and numpy arrays and is therefore robust to
+    changes in object definitions.  The other (``*_model``) contains the actual
+    model object (and minimization result objects) and is therefore more
+    fragile.
     """
 
     # Pull out the git hash for bsfh here.
-    try:
-        bsfh_dir = os.path.dirname(__file__)
-        bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
+    nofork = run_params.get('nofork', False)
+    if not nofork:
+        try:
+            bsfh_dir = os.path.dirname(__file__)
+            bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
                           )[1][0].replace('\n', '')
-    except:
-        print("Couldn't get Prospector git hash")
+        except:
+            print("Couldn't get Prospector git hash")
+            bgh = ''
+    else:
         bgh = ''
 
     results, model_store = {}, {}

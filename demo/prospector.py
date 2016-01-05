@@ -229,7 +229,8 @@ if __name__ == "__main__":
                                 esampler, powell_guesses,
                                 toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center,
-                                post_burnin_center=burn_p0, post_burnin_prob=burn_prob0)
+                                post_burnin_center=burn_p0,
+                                post_burnin_prob=burn_prob0)
 
     
     try:
