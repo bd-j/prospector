@@ -18,6 +18,7 @@ __all__ = ["StellarPopBasis", "CSPBasis", "to_cgs"]
 lsun = 3.846e33
 pc = 3.085677581467192e18  # in cm
 lightspeed = 2.998e18  # AA/s
+jansky_mks = 1e-26
 # value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 
@@ -345,7 +346,7 @@ class CSPBasis(object):
             A list of None type objects, only included for consistency with the
             SedModel class.
         """
-        self.params.update(**kwargs)
+        self.params.update(**params)
         # Pass the model parameters through to the sps object
         ncomp = len(self.params['mass'])
         for ic in range(ncomp):
@@ -363,7 +364,7 @@ class CSPBasis(object):
 
         # Modern FSPS does the distance modulus for us in get_mags,
         # !but python-FSPS does not!
-        if self.csp.params['zred'] == 0:
+        if self.params['zred'] == 0:
             # Use 10pc for the luminosity distance (or a number
             # provided in the dist key in units of Mpc)
             dfactor = (self.params.get('dist', 1e-5) * 1e5)**2
@@ -371,10 +372,10 @@ class CSPBasis(object):
             dfactor_spec = 1.0
         else:
             dfactor = ((cosmo.luminosity_distance(self.csp.params['zred']).value *
-                        1e5)**2 / (1 + self.csp.params['zred']))
+                        1e5)**2 / (1 + self.params['zred']))
             # convert to maggies
             dfactor_spec = to_cgs / 1e3 / dfactor / (3631*jansky_mks)
-        return (spec * dfactor_spec + self.sky(), maggies / dfactor, extra)
+        return (spec * dfactor_spec, maggies / dfactor, extra)
 
     def one_sed(self, component_index=0, filterlist=[]):
         """Get the SED of one component for a multicomponent composite SFH.
@@ -408,15 +409,17 @@ class CSPBasis(object):
                 v = vs
             if k in self.csp.params.all_params:
                 if k == 'zmet':
-                    vv = np.abs(v - (np.arange(len(sps.zlegend)) + 1)).argmin() + 1
+                    vv = np.abs(v - (np.arange(len(self.csp.zlegend)) + 1)).argmin() + 1
                 else:
                     vv = v.copy()
                 self.csp.params[k] = vv
             if k == 'mass':
                 mass = v
         # Now get the magnitudes and spectrum
-        w, spec = self.csp.get_spectrum(tage=sps.params['tage'], peraa=False)
-        mags = self.csp.get_mags(tage=sps.params['tage'], bands=filterlist)
+        a = 1 + self.csp.params['zred']
+        w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
+        mags = getSED(w * a, lightspeed/w**2 * spec * to_cgs * a, filterlist)
+        #mags = self.csp.get_mags(tage=self.csp.params['tage'], bands=filterlist)
         # Normalize by (current) stellar mass and get correct units
         cmass = self.csp.stellar_mass
         mass_norm = mass / cmass
