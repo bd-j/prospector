@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import pickle
 import numpy as np
 try:
@@ -29,7 +29,9 @@ def read_pickles(sample_file, model_file=None,
     model = None
 
     # try to read the model from a pickle
-    if model_file is not None:
+    if model_file is None:
+        model_file = sample_file.replace('_mcmc', '_model')
+    if os.path.exists(model_file):
         with open(model_file, 'rb') as mf:
             try:
                 mod = pickle.load(mf)
@@ -37,6 +39,7 @@ def read_pickles(sample_file, model_file=None,
                 mod = load(mf)
         model = mod['model']
         powell_results = mod['powell']
+
 
     # now pull the model either from sample results or from the pickle
     try:
