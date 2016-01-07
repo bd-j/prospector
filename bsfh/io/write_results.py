@@ -1,9 +1,13 @@
-import pickle, os, subprocess, time
+import os, subprocess, time
+import pickle, json
 import numpy as np
 from ..models.parameters import functions_to_names, plist_to_pdict
-import json
+try:
+    import h5py
+except:
+    pass
 
-__all__ = ["run_command", "write_pickles"]
+__all__ = ["run_command", "githash", "write_pickles", "write_hdf5"]
 
 def run_command(cmd):
     """Open a child process, and return its exit status and stdout.
@@ -13,6 +17,23 @@ def run_command(cmd):
     out = [s for s in child.stdout]
     w = child.wait()
     return os.WEXITSTATUS(w), out
+
+
+def githash(nofork=False, **extras):
+    """Pull out the git hash for bsfh here.
+    """
+    if not nofork:
+        try:
+            bsfh_dir = os.path.dirname(__file__)
+            bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
+                          )[1][0].replace('\n', '')
+        except:
+            print("Couldn't get Prospector git hash")
+            bgh = "Can't get hash for some reason"
+    else:
+        bgh = "Can't check hash (nofork=True)."
+
+    return bgh
 
 
 def write_pickles(run_params, model, obs, sampler, powell_results,
@@ -26,18 +47,7 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
     fragile.
     """
 
-    # Pull out the git hash for bsfh here.
-    nofork = run_params.get('nofork', False)
-    if not nofork:
-        try:
-            bsfh_dir = os.path.dirname(__file__)
-            bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
-                          )[1][0].replace('\n', '')
-        except:
-            print("Couldn't get Prospector git hash")
-            bgh = ''
-    else:
-        bgh = ''
+    bgh = githash(**run_params)
 
     results, model_store = {}, {}
 
@@ -75,9 +85,62 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
         pickle.dump(model_store, out)
 
 
-def hdf5_output(run_params, model, obs, sampler, powell_results,
-                tsample=None, toptimize=None, sampling_initial_center=None):
-    tt = int(time.time())
-    filename = '{1}_{0}.mcmc.h5'.format(tt, run_params['outfile'])
-    with h5py.File(filename) as out:
-        obs = json.dumps(obs)
+def write_hdf5(hf, run_params, model, obs, sampler, powell_results,
+               tsample=0.0, toptimize=0.0, sampling_initial_center=None):
+    """Write output and information to an already open HDF5 file object (or
+    group)
+    """
+
+    # ----------------------
+    # High level parameter and version info
+    bgh = githash(**run_params)
+    serialize = {'run_params': run_params,
+                 'model_params': [functions_to_names(p) for p in model.config_list],
+                 'bsfh_version': bgh,
+                 }
+
+    for k, v in list(serialize.items()):
+        try:
+            hf.attrs[k] = json.dumps(v)
+        except(TypeError):
+            hf.attrs[k] = 'Unserializable'
+            print("Could not serialize {}".format(k))
+
+    hf.attrs['optimizer_duration'] = toptimize
+    hf.flush()
+
+    # ----------------------
+    # Sampling info
+    try:
+        sdat = hf['sampling']
+    except(KeyError):
+        sdat = hf.create_group('sampling')
+        sdat.create_dataset('chain', data=sampler.chain)
+        sdat.create_dataset('lnprobability', data=sampler.lnprobability)
+
+    sdat.create_dataset('acceptance', data=sampler.acceptance_fraction)
+    sdat.attrs['rstate'] = sampler.random_state
+    sdat.attrs['sampling_duration'] = tsample
+    hf.flush()
+
+    # ----------------------
+    # Observational data
+    dnames = ['wavelength', 'spectrum', 'unc', 'mask',
+              'maggies', 'maggies_unc', 'phot_mask']
+    odat = hf.create_group('obs')
+    for k, v in list(obs.items):
+        if k == 'filters':
+            try:
+                v = [f.name for f in v]
+            except:
+                pass
+        if v in dnames:
+            odat.create_dataset(k, data=v)
+        else:
+            try:
+                odat.attrs[k] = json.dumps(v)
+            except(TypeError):
+                odat.attrs[k] = 'Unserializable'
+                print("Could not serialize {}".format(k))
+    
+    hf.close()

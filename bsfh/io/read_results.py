@@ -1,17 +1,23 @@
 import sys, os
-import pickle
+import pickle, json
 import numpy as np
 try:
     import matplotlib.pyplot as pl
+except:
+    pass
+try:
+    import h5py
 except:
     pass
 
 """Convenience functions for reading and reconstruction results from a fitting
 run, including reconstruction of the model for making posterior samples
 """
-    
-def read_pickles(sample_file, model_file=None,
-                 inmod=None):
+
+__all__ = ["read_pickles", "read_hdf5",
+           "subtriangle", "param_evol"]
+
+def read_pickles(sample_file, model_file=None):
     """Read a pickle file with stored model and MCMC chains.
 
     :returns sample_results:
@@ -40,7 +46,6 @@ def read_pickles(sample_file, model_file=None,
         model = mod['model']
         powell_results = mod['powell']
 
-
     # now pull the model either from sample results or from the pickle
     try:
         model = sample_results['model']
@@ -48,6 +53,23 @@ def read_pickles(sample_file, model_file=None,
         sample_results['model'] = model
 
     return sample_results, powell_results, model
+
+def read_hdf5(filename):
+    res = {}
+    with h5py.File(filename, "r") as hf:
+        for k, v in hf['sampling'].items():
+            res[k] = np.array(v)
+        for k, v in hf['sampling'].attrs.items():
+            res[k] = v
+        for k, v in hf.attrs.items():
+            res[k] = v
+        obs = {}
+        for k, v in hf['obs']:
+            obs[k] = np.array(v)
+        
+    # try to read the model from a pickle
+    if model_file is None:
+        model_file = sample_file.replace('_mcmc.h5', '_model')
 
 
 def model_comp(theta, model, obs, sps, photflag=0, gp=None):

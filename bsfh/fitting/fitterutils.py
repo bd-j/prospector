@@ -4,26 +4,56 @@ import emcee
 from . import minimizer
 from ..models.priors import plotting_range
 
-try:
-    import multiprocessing
-except(ImportError):
-    pass
-
-__all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball",
+__all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball", "emcee_burn",
            "pminimize", "minimizer_ball", "reinitialize"]
 
-def run_emcee_sampler(lnprobf, initial_center, model,
+def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                       postargs=[], postkwargs={}, initial_prob=None,
                       nwalkers=None, nburn=[16], niter=32,
                       walker_factor=4, initial_disp=0.1,
-                      nthreads=1, pool=None, verbose=True,
-                      h5file=None, interval=1,
+                      nthreads=1, pool=None, hdf5=None, interval=1,
                       **kwargs):
-    """Run an emcee sampler, including iterations of burn-in and
-    re-initialization.  Returns the production sampler.
+    """Run an emcee sampler, including iterations of burn-in and re -
+    initialization.  Returns the production sampler.
+
+    :param lnprobfn:
+        The posterior probability function.
+
+    :param initial_center:
+        The initial center for the sampler ball
+
+    :param model:
+        An instance of a models.ProspectrParams object.
+
+    :param postargs:
+        Positional arguments for ``lnprobfn``.
+
+    :param postkwargs:
+        Keyword arguments for ``lnprobfn``.
+
+    :param nwalkers:
+        The number of walkers to use.  If None, use the nearest power of two to
+        ``ndim * walker_factor``.
+
+    :param niter:
+        Number of iterations for the production run
+
+    :param nburn:
+        List of the number of iterations to run in each round of brun-in (for
+        removing stuck walkers)
+
+    :param pool:
+        A ``Pool`` object, either from ``multiprocessing`` or from
+        ``emcee.mpi_pool``.
+
+    :param hdf5: (optional)
+        H5py.File object that will be used to store the chain in the datasets
+        ``"chain"`` and ``"lnprobability"``.  If not set, the chin will instead
+        be stored as a numpy array in the returned sampler object
 
     :param interval:
-        Fraction of the full run at which to flush to disk, if using hdf5
+        Fraction of the full run at which to flush to disk, if using hdf5 for
+        output.
     """
     # Get dimensions
     ndim = model.ndim
@@ -46,25 +76,29 @@ def run_emcee_sampler(lnprobf, initial_center, model,
     # Production run
     esampler.reset()
     if hdf5 is not None:
-        # Set up output
+        # Set up output        
         chain = hdf5.create_dataset("chain", (nwalkers, niter, ndim))
         lnpout = hdf5.create_dataset("lnprobability", (nwalkers, niter))
-        blob = hdf5.create_dataset("blob")
+        # blob = hdf5.create_dataset("blob")
         storechain = False
     else:
         storechain = True
 
+    # Main loop over iterations of the MCMC sampler
     for i, result in enumerate(esampler.sample(initial, iterations=niter, storechain=storechain)):
-        if hdf5 is not None
+        if hdf5 is not None:
             chain[:, i, :] = result[0]
             lnpout[:, i] = result[1]
             if np.mod(i+1, int(interval*niter)) == 0:
                 # do stuff every once in awhile
+                # this would be the place to put some callback functions
+                #[do(result, i, esampler) for do in things_to_do]
                 hdf5.flush()
     if verbose:
         print('done production')
 
     return esampler, initial_center, initial_prob
+
 
 def emcee_burn(sampler, initial, nburn, initial_prob=None):
     """Run the emcee sampler for nburn iterations, reinitializing after each
