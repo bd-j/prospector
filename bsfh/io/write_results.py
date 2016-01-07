@@ -1,6 +1,7 @@
 import pickle, os, subprocess, time
 import numpy as np
 from ..models.parameters import functions_to_names, plist_to_pdict
+import json
 
 __all__ = ["run_command", "write_pickles"]
 
@@ -67,10 +68,16 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
     # results['cetus_version'] = cgh
 
     tt = int(time.time())
-    out = open('{1}_{0}_mcmc'.format(tt, run_params['outfile']), 'wb')
-    pickle.dump(results, out)
-    out.close()
+    with open('{1}_{0}_mcmc'.format(tt, run_params['outfile']), 'wb') as out:
+        pickle.dump(results, out)
 
-    out = open('{1}_{0}_model'.format(tt, run_params['outfile']), 'wb')
-    pickle.dump(model_store, out)
-    out.close()
+    with open('{1}_{0}_model'.format(tt, run_params['outfile']), 'wb') as out:
+        pickle.dump(model_store, out)
+
+
+def hdf5_output(run_params, model, obs, sampler, powell_results,
+                tsample=None, toptimize=None, sampling_initial_center=None):
+    tt = int(time.time())
+    filename = '{1}_{0}.mcmc.h5'.format(tt, run_params['outfile'])
+    with h5py.File(filename) as out:
+        obs = json.dumps(obs)

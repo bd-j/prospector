@@ -15,29 +15,69 @@ __all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball",
 def run_emcee_sampler(lnprobf, initial_center, model,
                       postargs=[], postkwargs={}, initial_prob=None,
                       nwalkers=None, nburn=[16], niter=32,
-                      walker_factor = 4, initial_disp=0.1,
+                      walker_factor=4, initial_disp=0.1,
                       nthreads=1, pool=None, verbose=True,
+                      h5file=None, interval=1,
                       **kwargs):
     """Run an emcee sampler, including iterations of burn-in and
     re-initialization.  Returns the production sampler.
+
+    :param interval:
+        Fraction of the full run at which to flush to disk, if using hdf5
     """
-    # Set up initial positions
+    # Get dimensions
     ndim = model.ndim
     if nwalkers is None:
         nwalkers = int(2 ** np.round(np.log2(ndim * walker_factor)))
     if verbose:
         print('number of walkers={}'.format(nwalkers))
+
+    # Set up initial positions
     disps = model.theta_disps(initial_center, initial_disp=initial_disp)
     initial = sampler_ball(initial_center, disps, nwalkers, model)
+
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      args=postargs, kwargs=postkwargs,
                                      threads=nthreads, pool=pool)
-    # Loop over the number of burn-in reintializations
+    # Burn in sampler
+    initial, in_cent, in_prob = emcee_burn(sampler, initial, nburn,
+                                           initial_prob=initial_prob)
+    # Production run
+    esampler.reset()
+    if hdf5 is not None:
+        # Set up output
+        chain = hdf5.create_dataset("chain", (nwalkers, niter, ndim))
+        lnpout = hdf5.create_dataset("lnprobability", (nwalkers, niter))
+        blob = hdf5.create_dataset("blob")
+        storechain = False
+    else:
+        storechain = True
+
+    for i, result in enumerate(esampler.sample(initial, iterations=niter, storechain=storechain)):
+        if hdf5 is not None
+            chain[:, i, :] = result[0]
+            lnpout[:, i] = result[1]
+            if np.mod(i+1, int(interval*niter)) == 0:
+                # do stuff every once in awhile
+                hdf5.flush()
+    if verbose:
+        print('done production')
+
+    return esampler, initial_center, initial_prob
+
+def emcee_burn(sampler, initial, nburn, initial_prob=None):
+    """Run the emcee sampler for nburn iterations, reinitializing after each
+    round.
+
+    :param nburn:
+        List giving the number of iterations in each round of burn-in.
+        E.g. nburn=[32, 64] will run the sampler for 32 iterations before
+        reinittializing and then run the sampler for another 64 iterations
+    """
     for k, iburn in enumerate(nburn[:-1]):
-        epos, eprob, state = esampler.run_mcmc(initial, iburn)
+        epos, eprob, state = esampler.run_mcmc(initial, iburn, storechain=False)
         # find best walker position
-        # if multiple walkers in best position, cut down to one walker
         best = esampler.flatlnprobability.argmax()
         # is new position better than old position?
         if esampler.flatlnprobability[best] > initial_prob:
@@ -49,18 +89,10 @@ def run_emcee_sampler(lnprobf, initial_center, model,
             print('done burn #{}'.format(k))
 
     # Do the final burn-in
-    epos, eprob, state = esampler.run_mcmc(initial, nburn[-1])
-    initial = epos
-    esampler.reset()
+    epos, eprob, state = esampler.run_mcmc(initial, nburn[-1], storechain=False)
     if verbose:
         print('done all burn-in, starting production')
-
-    # Production run
-    epos, eprob, state = esampler.run_mcmc(initial, niter)
-    if verbose:
-        print('done production')
-
-    return esampler, initial_center, initial_prob
+    return epos, initial_center, inital_prob
 
 
 def reinitialize_ball(initial_center, pos, nwalkers, model,
