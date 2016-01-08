@@ -21,6 +21,11 @@ def run_command(cmd):
 
 def githash(nofork=False, **extras):
     """Pull out the git hash for bsfh here.
+
+    :param nofork: (optional, default: False)
+        If ``True``, do *not* get the githash, since this involves creating a
+        fork, which can cause a problem on some MPI implementations (in a way
+        that cannot be caught niceley)
     """
     if not nofork:
         try:
@@ -90,23 +95,19 @@ def write_hdf5(hf, run_params, model, obs, sampler, powell_results,
     """Write output and information to an already open HDF5 file object (or
     group)
     """
-
+    unserial = json.dumps('Unserializable')
     # ----------------------
     # High level parameter and version info
-    bgh = githash(**run_params)
     serialize = {'run_params': run_params,
                  'model_params': [functions_to_names(p) for p in model.config_list],
-                 'bsfh_version': bgh,
                  }
-
     for k, v in list(serialize.items()):
         try:
             hf.attrs[k] = json.dumps(v)
         except(TypeError):
-            hf.attrs[k] = 'Unserializable'
+            hf.attrs[k] = unserial
             print("Could not serialize {}".format(k))
-
-    hf.attrs['optimizer_duration'] = toptimize
+    hf.attrs['optimizer_duration'] = json.dumps(toptimize)
     hf.flush()
 
     # ----------------------
@@ -117,30 +118,37 @@ def write_hdf5(hf, run_params, model, obs, sampler, powell_results,
         sdat = hf.create_group('sampling')
         sdat.create_dataset('chain', data=sampler.chain)
         sdat.create_dataset('lnprobability', data=sampler.lnprobability)
-
     sdat.create_dataset('acceptance', data=sampler.acceptance_fraction)
-    sdat.attrs['rstate'] = sampler.random_state
-    sdat.attrs['sampling_duration'] = tsample
+    # JSON Attrs
+    sdat.attrs['rstate'] = json.dumps(sampler.random_state)
+    sdat.attrs['sampling_duration'] = json.dumps(tsample)
+    sdat.attrs['sampling_initial_center'] = json.dumps(sampling_initial_center)
+    sdat.attrs['initial_theta'] = json.dumps(model.initial_theta)
     hf.flush()
 
     # ----------------------
     # Observational data
+    odat = hf.create_group('obs')
+    # The items of this list are keys in the ``obs`` dictionary that have numpy
+    # arrays as values and so can be datasets (instead of JSON attrs)
     dnames = ['wavelength', 'spectrum', 'unc', 'mask',
               'maggies', 'maggies_unc', 'phot_mask']
-    odat = hf.create_group('obs')
     for k, v in list(obs.items):
         if k == 'filters':
             try:
                 v = [f.name for f in v]
             except:
                 pass
-        if v in dnames:
+        if k in dnames:
             odat.create_dataset(k, data=v)
         else:
             try:
                 odat.attrs[k] = json.dumps(v)
             except(TypeError):
-                odat.attrs[k] = 'Unserializable'
+                odat.attrs[k] = unserial
                 print("Could not serialize {}".format(k))
-    
+    hf.flush()
+    # Store the githash last after flushing since getting it might cause an
+    # uncatchable crash
+    hf.attrs['bsfh_version'] = json.dumps(githash(**run_params))
     hf.close()

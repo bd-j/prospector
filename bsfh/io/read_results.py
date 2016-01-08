@@ -14,11 +14,11 @@ except:
 run, including reconstruction of the model for making posterior samples
 """
 
-__all__ = ["read_pickles", "read_hdf5",
+__all__ = ["results_from", "read_hdf5",
            "subtriangle", "param_evol"]
 
-def read_pickles(sample_file, model_file=None):
-    """Read a pickle file with stored model and MCMC chains.
+def results_from(filename, model_file=None, **kwargs):
+    """Read a results file with stored model and MCMC chains.
 
     :returns sample_results:
         A dictionary of various results including the sampling chain.
@@ -29,14 +29,19 @@ def read_pickles(sample_file, model_file=None):
     :returns model:
         The bsfh.sedmodel object.
     """
-    with open(sample_file, 'rb') as rf:
-        sample_results = pickle.load(rf)
-    powell_results = None
-    model = None
+    # Read the basic chain, parameter, and run_params info
+    if filename.split('.')[-1] == 'h5':
+        res = read_hdf5(filename, **kwargs)
+        mf_default = filename.replace('_mcmc.h5', '_model')
+    else:
+        with open(sample_file, 'rb') as rf:
+            res = pickle.load(rf)
+        mf_default = filename.replace('_mcmc', '_model')
 
-    # try to read the model from a pickle
+    # Now try to read the model object itself from a pickle
+    model = powell_results = None
     if model_file is None:
-        model_file = sample_file.replace('_mcmc', '_model')
+        model_file = mf_default
     if os.path.exists(model_file):
         with open(model_file, 'rb') as mf:
             try:
@@ -45,31 +50,60 @@ def read_pickles(sample_file, model_file=None):
                 mod = load(mf)
         model = mod['model']
         powell_results = mod['powell']
+        res['model'] = model
 
-    # now pull the model either from sample results or from the pickle
-    try:
-        model = sample_results['model']
-    except (KeyError):
-        sample_results['model'] = model
+    return res, powell_results, model
+        
 
-    return sample_results, powell_results, model
+def read_hdf5(filename, **extras):
+    """Read an HDF5 file (with a specific format) into a dictionary of results.
 
-def read_hdf5(filename):
+    This HDF5 file is assumed to have the groups ``sampling`` and ``obs`` which
+    respectively contain the sampling chain and the observational data used in
+    the inference.
+
+    All attributes of these groups as well as top-level attributes are loaded
+    into the top-level of the dictionary using ``json.loads``, and therefore
+    must have been written with ``json.dumps``.  This should probably use
+    JSONDecoders, but who has time to learn that.
+
+    :param filename:
+        Name of the HDF5 file.
+    """
+    groups = {'sampling': {}, 'obs': {}}
     res = {}
     with h5py.File(filename, "r") as hf:
-        for k, v in hf['sampling'].items():
-            res[k] = np.array(v)
-        for k, v in hf['sampling'].attrs.items():
-            res[k] = v
+        # loop over the groups
+        for group, d in groups.items():
+            # read the arrays in that group into the dictionary for that group
+            for k, v in hf[group].items():
+                d[k] = np.array(v)
+            # unserialize the attributes and put them in the dictionary
+            for k, v in hf[group].attrs.items():
+                try:
+                    d[k] = json.loads(v)
+                except:
+                    d[k] = v
+        # do top-level attributes.
         for k, v in hf.attrs.items():
-            res[k] = v
-        obs = {}
-        for k, v in hf['obs']:
-            obs[k] = np.array(v)
-        
-    # try to read the model from a pickle
-    if model_file is None:
-        model_file = sample_file.replace('_mcmc.h5', '_model')
+            try:
+                res[k] = json.loads(v)
+            except:
+                res[k] = v
+        res.update(groups['sampling'])
+        res['obs'] = groups['obs']
+        try:
+            res['obs']['filters'] = load_filters(res['obs']['filters'])
+        except:
+            pass
+
+    return res
+
+
+def read_pickles(filename, **kwargs):
+    """Alias for backwards compatability
+    """
+    return results_from(filename, **kwargs)
 
 
 def model_comp(theta, model, obs, sps, photflag=0, gp=None):
