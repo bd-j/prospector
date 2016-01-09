@@ -409,22 +409,7 @@ def names_to_functions(p):
 def functions_to_names(p):
     """Replace prior and dust functions with the names of those functions.
     """
-    pf = p.get('prior_function', None)
-    cond = ((pf in priors.__dict__.values()) and
-            (pf is not None))
-    if cond:
-        p['prior_function_name'] = pf.func_name
-    else:
-        p.pop('prior_function_name', None)
-    _ = p.pop('prior_function', None)
-
-    # replace dust curve functions with name of function
-    if p['name'] == 'dust_curve':
-        from sedpy import attenuation
-        df = p.get('init', None)
-        cond = ((df is not None) and
-                (df in attenuation.__dict__.values()))
-        if cond:
-            p['dust_curve_name'] = df.func_name
-            _ = p.pop('init', None)
+    for k, v in list(p.items()):
+        if callable(v):
+            p[k] = [v.__name__, v.__module__]
     return p

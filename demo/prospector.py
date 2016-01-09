@@ -221,14 +221,19 @@ if __name__ == "__main__":
     # -------------------------
     # Output pickles (and HDF5)
     # -------------------------
-    write_results.write_pickles(rp, model, obsdat,
-                                esampler, powell_guesses,
-                                toptimize=pdur, tsample=edur,
+    outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
+    write_results.write_pickles(rp, model, obsdat, esampler, powell_guesses,
+                                outroot=outroot, toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center,
                                 post_burnin_center=burn_p0,
                                 post_burnin_prob=burn_prob0)
 
-    
+    hfile, mfile = outroot + '_mcmc.h5', outroot + '_model'
+    write_results.write_hdf5(hfile, rp, model, obsdat, esampler, powell_guesses,
+                             mfile=mfile, toptimize=pdur, tsample=edur,
+                             sampling_initial_center=initial_center,
+                             post_burnin_center=burn_p0,
+                             post_burnin_prob=burn_prob0)
     try:
         pool.close()
     except:

@@ -42,9 +42,9 @@ def githash(nofork=False, **extras):
 
 
 def write_pickles(run_params, model, obs, sampler, powell_results,
-                  tsample=None, toptimize=None,
-                  sampling_initial_center=None,
-                  post_burnin_center=None, post_burnin_prob=None):
+                  outroot=None, tsample=None, toptimize=None,
+                  post_burnin_center=None, post_burnin_prob=None,
+                  sampling_initial_center=None, **extras):
     """Write results to two different pickle files.  One (``*_mcmc``) contains
     only lists, dictionaries, and numpy arrays and is therefore robust to
     changes in object definitions.  The other (``*_model``) contains the actual
@@ -74,33 +74,56 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
     results['optimizer_duration'] = toptimize
     results['bsfh_version'] = bgh
 
-    model_store['powell'] = powell_results
-    model_store['model'] = model
-    model_store['bsfh_version'] = bgh
-
     # prospectr_dir =
     # cgh = run_command('git rev-parse HEAD')[1][0].replace('\n','')
     # results['cetus_version'] = cgh
 
-    tt = int(time.time())
-    with open('{1}_{0}_mcmc'.format(tt, run_params['outfile']), 'wb') as out:
+    if outroot is None:
+        tt = int(time.time())
+        outroot = '{1}_{0}'.format(tt, run_params['outfile'])
+    
+    write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
+    with open(outroot + '_mcmc', "wb") as out:
         pickle.dump(results, out)
 
-    with open('{1}_{0}_model'.format(tt, run_params['outfile']), 'wb') as out:
+
+def write_model_pickle(outname, model, bgh=None, powell=None):
+    model_store = {}
+    model_store['powell'] = powell
+    model_store['model'] = model
+    model_store['bsfh_version'] = bgh
+    with open(outname, "wb") as out:
         pickle.dump(model_store, out)
 
 
-def write_hdf5(hf, run_params, model, obs, sampler, powell_results,
-               tsample=0.0, toptimize=0.0, sampling_initial_center=None):
-    """Write output and information to an already open HDF5 file object (or
-    group)
+def paramfile_string(param_file=None, **extras):
+    pstr = ''
+    try:
+        with open(param_file, "r") as pfile:
+            pstr = pfile.read()
+    except:
+        pass
+    return pstr
+
+        
+def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
+               tsample=0.0, toptimize=0.0, sampling_initial_center=None,
+               mfile=None, **extras):
+    """Write output and information to an HDF5 file object (or
+    group).  
     """
+    try:
+        # If ``hfile`` is not a file object, assume it is a filename and open
+        hf = h5py.File(hfile, "a")
+    except(AttributeError):
+        hf = hfile
+
     unserial = json.dumps('Unserializable')
     # ----------------------
     # High level parameter and version info
     serialize = {'run_params': run_params,
                  'model_params': [functions_to_names(p) for p in model.config_list],
-                 }
+                 'paramfile_text': paramfile_string(**run_params)}
     for k, v in list(serialize.items()):
         try:
             hf.attrs[k] = json.dumps(v)
@@ -119,11 +142,11 @@ def write_hdf5(hf, run_params, model, obs, sampler, powell_results,
         sdat.create_dataset('chain', data=sampler.chain)
         sdat.create_dataset('lnprobability', data=sampler.lnprobability)
     sdat.create_dataset('acceptance', data=sampler.acceptance_fraction)
-    # JSON Attrs
-    sdat.attrs['rstate'] = json.dumps(sampler.random_state)
+    sdat.create_dataset('sampling_initial_center', data=sampling_initial_center)
+    sdat.create_dataset('initial_theta', data=model.initial_theta.copy())
+    # JSON Attrs    
+    sdat.attrs['rstate'] = pickle.dumps(sampler.random_state)
     sdat.attrs['sampling_duration'] = json.dumps(tsample)
-    sdat.attrs['sampling_initial_center'] = json.dumps(sampling_initial_center)
-    sdat.attrs['initial_theta'] = json.dumps(model.initial_theta)
     hf.flush()
 
     # ----------------------
@@ -131,15 +154,15 @@ def write_hdf5(hf, run_params, model, obs, sampler, powell_results,
     odat = hf.create_group('obs')
     # The items of this list are keys in the ``obs`` dictionary that have numpy
     # arrays as values and so can be datasets (instead of JSON attrs)
-    dnames = ['wavelength', 'spectrum', 'unc', 'mask',
-              'maggies', 'maggies_unc', 'phot_mask']
-    for k, v in list(obs.items):
+#    dnames = ['wavelength', 'spectrum', 'unc', 'mask',
+#              'maggies', 'maggies_unc', 'phot_mask']
+    for k, v in list(obs.items()):
         if k == 'filters':
             try:
                 v = [f.name for f in v]
             except:
                 pass
-        if k in dnames:
+        if type(v) is np.ndarray:
             odat.create_dataset(k, data=v)
         else:
             try:
@@ -150,5 +173,9 @@ def write_hdf5(hf, run_params, model, obs, sampler, powell_results,
     hf.flush()
     # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
-    hf.attrs['bsfh_version'] = json.dumps(githash(**run_params))
+    bgh = githash(**run_params)
+    hf.attrs['bsfh_version'] = json.dumps(bgh)
     hf.close()
+    #if mfile is None:
+    #    mfile = hf.name.replace('.h5', '_model')
+    #write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
