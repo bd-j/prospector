@@ -10,6 +10,9 @@ try:
 except:
     pass
 
+from ..models.model_setup import import_module_from_string
+from ..models.parameters import names_to_functions
+
 """Convenience functions for reading and reconstruction results from a fitting
 run, including reconstruction of the model for making posterior samples
 """
@@ -34,26 +37,56 @@ def results_from(filename, model_file=None, **kwargs):
         res = read_hdf5(filename, **kwargs)
         mf_default = filename.replace('_mcmc.h5', '_model')
     else:
-        with open(sample_file, 'rb') as rf:
+        with open(filename, 'rb') as rf:
             res = pickle.load(rf)
         mf_default = filename.replace('_mcmc', '_model')
 
     # Now try to read the model object itself from a pickle
-    model = powell_results = None
     if model_file is None:
-        model_file = mf_default
-    if os.path.exists(model_file):
-        with open(model_file, 'rb') as mf:
-            try:
-                mod = pickle.load(mf)
-            except(AttributeError):
-                mod = load(mf)
-        model = mod['model']
-        powell_results = mod['powell']
-        res['model'] = model
+        mname = mf_default
+    else:
+        mname = model_file
+    param_file = (res['run_params']['param_file'],
+                  res.get("paramfile_text", ''))
+    model, powell_results = read_model(mname, param_file=param_file, **kwargs)
+    res['model'] = model
 
     return res, powell_results, model
-        
+
+
+def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
+    """Read the model pickle.  This can be difficult if there are user defined
+    functions that have to be loaded dynamically.  In that case, import the
+    string version of the paramfile and *then* try to unpickle the model
+    object.
+    """
+    model = powell_results = None
+    if os.path.exists(model_file):
+        try:
+            with open(model_file, 'rb') as mf:
+                mod = pickle.load(mf)
+        except(AttributeError):
+            # Here one can deal with module and class names that changed
+            with open(model_file, 'rb') as mf:
+                mod = load(mf)
+        except(ImportError):
+            # here we load the parameter file as a module using the stored
+            # source string.  Obviously this is dangerous as it will execute
+            # whatever is in the stored source string.  But it can be used to
+            # recover functions (especially dependcy functions) that are user
+            # defined
+            path, filename = os.path.split(param_file[0])
+            modname = filename.replace('.py', '')
+            if dangerous:
+                user_module = import_module_from_string(param_file[1], modname)
+            with open(model_file, 'rb') as mf:
+                mod = pickle.load(mf)
+
+        model = mod['model']
+        powell_results = mod['powell']
+
+    return model, powell_results
+
 
 def read_hdf5(filename, **extras):
     """Read an HDF5 file (with a specific format) into a dictionary of results.
@@ -96,9 +129,17 @@ def read_hdf5(filename, **extras):
             res['obs']['filters'] = load_filters(res['obs']['filters'])
         except:
             pass
+        try:
+            res['rstate'] = pickle.loads(res['rstate'])
+        except:
+            pass
+        try:
+            mp = [names_to_functions(p.copy()) for p in res['model_params']]
+            res['model_params'] = mp
+        except:
+            pass
 
     return res
-
 
 def read_pickles(filename, **kwargs):
     """Alias for backwards compatability

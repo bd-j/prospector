@@ -20,18 +20,18 @@ def run_command(cmd):
 
 
 def githash(nofork=False, **extras):
-    """Pull out the git hash for bsfh here.
+    """Pull out the git hash history for bsfh here.
 
     :param nofork: (optional, default: False)
         If ``True``, do *not* get the githash, since this involves creating a
         fork, which can cause a problem on some MPI implementations (in a way
         that cannot be caught niceley)
     """
+    cmd = 'cd {0}; git log --format="format:%h"'
     if not nofork:
         try:
             bsfh_dir = os.path.dirname(__file__)
-            bgh = run_command('cd {0}\n git rev-parse HEAD'.format(bsfh_dir)
-                          )[1][0].replace('\n', '')
+            bgh = run_command(cmd.format(bsfh_dir))[1]
         except:
             print("Couldn't get Prospector git hash")
             bgh = "Can't get hash for some reason"
@@ -54,44 +54,51 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
 
     bgh = githash(**run_params)
 
-    results, model_store = {}, {}
+    results = {}
 
+    # Useful global info and parameters
     results['run_params'] = run_params
     results['obs'] = obs
-    results['model_params'] = [functions_to_names(p) for p in model.config_list]
-    results['model_params_dict'] = plist_to_pdict([functions_to_names(p)
-                                                   for p in model.config_list])
+    results['model_params'] = [functions_to_names(p.copy()) for p in model.config_list]
+    results['theta_labels'] = list(model.theta_labels())
+
+    # Parameter value at variopus phases
     results['initial_theta'] = model.initial_theta
     results['sampling_initial_center'] = sampling_initial_center
     results['post_burnin_center'] = post_burnin_center
     results['post_burnin_prob'] = post_burnin_prob
 
+    # Chain and ancillary sampling info
     results['chain'] = sampler.chain
     results['lnprobability'] = sampler.lnprobability
     results['acceptance'] = sampler.acceptance_fraction
     results['rstate'] = sampler.random_state
     results['sampling_duration'] = tsample
     results['optimizer_duration'] = toptimize
+
     results['bsfh_version'] = bgh
-
-    # prospectr_dir =
-    # cgh = run_command('git rev-parse HEAD')[1][0].replace('\n','')
-    # results['cetus_version'] = cgh
-
+    results['paramfile_text'] = paramfile_string(**run_params)
+    
     if outroot is None:
         tt = int(time.time())
         outroot = '{1}_{0}'.format(tt, run_params['outfile'])
     
-    write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
+    write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results,
+                       paramfile_text=results['paramfile_text'])
     with open(outroot + '_mcmc', "wb") as out:
         pickle.dump(results, out)
 
 
-def write_model_pickle(outname, model, bgh=None, powell=None):
+def write_model_pickle(outname, model, bgh=None, powell=None, **kwargs):
     model_store = {}
     model_store['powell'] = powell
     model_store['model'] = model
     model_store['bsfh_version'] = bgh
+    for k, v in kwargs.items():
+        try:
+            model_store[k] = v
+        except:
+            pass
     with open(outname, "wb") as out:
         pickle.dump(model_store, out)
 
@@ -122,7 +129,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     # ----------------------
     # High level parameter and version info
     serialize = {'run_params': run_params,
-                 'model_params': [functions_to_names(p) for p in model.config_list],
+                 'model_params': [functions_to_names(p.copy()) for p in model.config_list],
                  'paramfile_text': paramfile_string(**run_params)}
     for k, v in list(serialize.items()):
         try:
@@ -147,15 +154,12 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     # JSON Attrs    
     sdat.attrs['rstate'] = pickle.dumps(sampler.random_state)
     sdat.attrs['sampling_duration'] = json.dumps(tsample)
+    sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
     hf.flush()
 
     # ----------------------
     # Observational data
     odat = hf.create_group('obs')
-    # The items of this list are keys in the ``obs`` dictionary that have numpy
-    # arrays as values and so can be datasets (instead of JSON attrs)
-#    dnames = ['wavelength', 'spectrum', 'unc', 'mask',
-#              'maggies', 'maggies_unc', 'phot_mask']
     for k, v in list(obs.items()):
         if k == 'filters':
             try:
@@ -176,6 +180,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     bgh = githash(**run_params)
     hf.attrs['bsfh_version'] = json.dumps(bgh)
     hf.close()
+
     #if mfile is None:
     #    mfile = hf.name.replace('.h5', '_model')
     #write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)

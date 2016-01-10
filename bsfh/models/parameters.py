@@ -357,6 +357,30 @@ def pdict_to_plist(pdict):
     return plist
 
 
+def names_to_functions(p):
+    """Replace names of functions in a parameter description with the actual
+    functions.
+    """
+    from importlib import import_module
+    for k, v in list(p.items()):
+        try:
+            m = import_module(v[1])
+            f = m.__dict__[v[0]]
+        except:
+            pass
+        else:
+            p[k] = f
+    return p
+
+def functions_to_names(p):
+    """Replace prior and dust functions with the names of those functions.
+    """
+    for k, v in list(p.items()):
+        if callable(v):
+            p[k] = [v.__name__, v.__module__]
+    return p
+
+
 def write_plist(plist, runpars, filename=None):
     """Write the list of parameter dictionaries to a JSON file, taking care to
     replace functions with their names.
@@ -389,27 +413,3 @@ def read_plist(filename, raw_json=False):
     return runpars, modelpars
 
 
-def names_to_functions(p):
-    """Replace names of functions in a parameter description with the actual
-    functions.
-    """
-    # put the dust curve function in
-    if 'dust_curve_name' in p:
-        from sedpy import attenuation
-        p['init'] = attenuation.__dict__[p['dust_curve_name']]
-    # put the prior function in
-    if 'prior_function_name' in p:
-        p['prior_function'] = priors.__dict__[p['prior_function_name']]
-        # print(p['prior_function_name'], p['prior_function'])
-    else:
-        p['prior_function'] = p.get('prior_function', None)
-    return p
-
-
-def functions_to_names(p):
-    """Replace prior and dust functions with the names of those functions.
-    """
-    for k, v in list(p.items()):
-        if callable(v):
-            p[k] = [v.__name__, v.__module__]
-    return p
