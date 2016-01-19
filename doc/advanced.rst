@@ -1,16 +1,31 @@
 Advanced Usage
 ==============
 
+Parameter transfomations
+------------------------
+
+Problem: But I don't want to sample in ``dumb_parameter``!
+Solution: Transform to parameters that are easier to sample in.
+
+This can be done by making ``dumb_parameter`` fixed (``"isfree" = False``) and adding another key to the parameter description, ``"depends_on"``.
+The value of ``"depends_on"`` is a function which takes as arguments all the model parameters and returns the value of ``dumb_parameter``.
+This function must take optional extra keywords (``**extras``) because the entire parameter dictionary will be passed to it.
+Then add another parameter ``smart_parameter`` to ``model_list`` that can vary (and upon which ``dumb_parameter`` depends).
+
+Note that this pattern can also be used to tie arbitrary parameters together (e.g. gas-phase and stellar metallicity) while still allowing them to vary.
+
 
 User defined models
 -------------------
 
-The pre-packaged models suck! You can do better.
-Or, you have stars instead of stellar populations. Or spectra of the IGM or planets or AGN or something. What to do?
+Problem: The pre-packaged models suck! You can do better.
+Or, you have stars instead of stellar populations. Or spectra of the IGM or planets or AGN or something.
+What to do?
 
-Make a new ``source_basis`` object. Thats it.
-Your new subclass should have a ``get_spectrum(outwave=[], filters=[], **params)`` method that converts a dictionary of parameters, a list of filters, and a wavelength grid into a model spectrum.
-You will have to write those. 
+Solution:  Make a new ``source_basis`` object. Thats it.
+Your new subclass should have a ``get_spectrum(outwave=[], filters=[], **params)`` method that converts a dictionary of parameters, a list of filters, and a wavelength grid into a model SED and spectrum, and returns the spectrum, the photometry, and any ancillary info.
+You will have to write that.
+Note that ``source_basis.StarBasis`` and ``source_basis.BigStarBasis`` are fairly general objects for grid storage and interpolation, feel free to subclass them if you are using grids of SEDs that can be stored in HDF5 files.
 
 Multiple Spectra
 ---------------
@@ -36,22 +51,14 @@ make sure mpi4py is also installed against this MPI installation,
 and use the syntax
 ``mpirun -np <N> python prospectr.py –param_file=<param_file>``
 
-Done.
-
-Parameter transfomations
-------------------------
-
-But I don’t want to sample in ``dumb_parameter``!
-Transform to parameters that are easier to sample in.
-
-This can be done by making ``dumb_parameter`` fixed (``"isfree" = False``) and adding another key to the parameter description, ``"depends_on"``.
-The value of ``"depends_on"`` is a function which takes as arguments all the model parameters and returns the value of ``dumb_parameter``.
-This function must take optional extra keywords (``**extras``) because the entire parameter dictionary will be passed to it.
-Then add another parameter ``smart_parameter`` to **model\_list** that can vary (and upon which ``dumb_parameter`` depends).
+This causes likelihood evaluations for different walkers to be made in parallel.
+For optimal results, the number of emcee walkers should be :math:`N*(np-1)` where N is an even integer and np is the number of processors.
 
 Noise Modeling
 --------------
+
 This is handled by specifiying rules for constructing a covariance matrix, and supplying a ``load_gp()`` method in the parameter file.
+Flexibility in this is an active area of code development.
 
 Mock data
 ---------

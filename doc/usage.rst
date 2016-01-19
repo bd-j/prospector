@@ -1,10 +1,9 @@
 User Interaction
 ================
 
-The primary user interaction is through a **parameter file**,
+The primary user interaction is through the prospector.py script and a **parameter file**,
 a python file in which several variables and functions must be defined.
-Command line syntax calls the prospector script as an executable and
-is as follows for single thread execution:
+Command line syntax calls the ``prospector.py`` script as an executable and is as follows for single thread execution:
 
 .. code-block:: shell
 		
@@ -12,79 +11,116 @@ is as follows for single thread execution:
 		python prospector.py –param_file=demo_params.py
 
 Additional command line options can be given (see below).
+You can copy the ``prospector.py`` script to wherever you intend to run the code, or put it in your path.
 The required variables and functions in ``demo_params.py`` are
 
-- ``run_params``: A dictionary.
-  This dictionary specifies global options and parameters used for setting up and running the code.
+1. ``run_params``: A dictionary.
+   
+   This dictionary specifies global options and parameters used for setting up and running the code.
 
-- ``model_params``: A list of dictionaries.
-  Each element is a dictionary discribing an individiual model parameter,
-  to be varied or kept constant during the fitting
+2. ``model_params``: A list of dictionaries.
+   
+   Each element is a dictionary discribing an individiual model parameter,
+   to be varied or kept constant during the fitting
 
-- ``load_obs``: A function.
-  This function will take the ``run_params`` distionary as keyword arguments and returns on obs dictionary (see Data_)
+3. ``load_obs``: A function.
+   
+   This function will take the ``run_params`` dictionary as keyword arguments
+   and returns on obs dictionary (see Data_)
 
-- ``load_model``: A function
+4. ``load_model``: A function
 
-- ``load_sps``: A function
+   
+5. ``load_sps``: A function
 
-See ``tests.sh`` and the parameter files and prospectr.py script in the
+
+See ``tests.sh`` and the parameter files and ``prospector.py script`` in the
 “demo” directory of the repository for more examples of proper usage.
 
 The ``run_params`` dictionary
 ----------------------------
 
-The following parameters conrol key aspects of the operation of the
-code, and are stored in a special dictionary called ``run_params``:
+The following parameters conrol key aspects of the operation of the code,
+and are stored in a special dictionary called ``run_params``:
 
 General parameters:
 
--  ``"verbose"`` Boolean
+``"verbose"``
+    Boolean.
+    If ``True`` lots of diagnostic information will be written to stdout during execution.
 
--  ``"debug"`` Boolean.  If ``True``, halt before starting minimization or sampling.
-   Can be useful to debug inputs when used with an interactive python session.
+``"debug"``
+    Boolean.  If ``True``, halt before starting minimization or sampling.
+    Can be useful to debug inputs when used with an interactive python session.
 
--  ``"outfile"`` string.  Base name of the output files.
-   Various extensions as well as a time stamp will be appened to this string.
+``"outfile"``
+    String.  Base name of the output files.
+    Various extensions as well as a time stamp will be appened to this string.
 
 Fitter parameters:
 
--  ``"nwalkers"`` integer.  Number of emcee walkers.
+``"nwalkers"``
+    Integer.  Number of emcee walkers.
 
--  ``"nburn"`` list of integers, e.g. ``[32, 64, 64]``
-   Number of iterations in each burn-in run.  After each number of iterations the walkers will be
-   trimmed and a new ball of samplers will be initialized around the highest-probability walker.
-   This can help avoid stuck walkers and speed up burn-in.
+``"nburn"``
+    List of integers, e.g. ``[32, 64, 64]`` giving the number of iterations in each burn-in run.
+    After each number of iterations the walkers will be trimmed and a new ball of
+    samplers will be initialized around the highest-probability walker.
+    This can help avoid stuck walkers and speed up burn-in.
 
--  ``"niter"`` integer.  Number of iterations for the final production run.
+``"niter"``
+    Integer.  Number of iterations for the final production run.
 
--  ``"initial_disp"`` float
+``"initial_disp"``
+    Float.  Default value to use for the dispersion in the parameter
 
--  ``"do_powell"`` Boolean.  If ``True``, do a round of Powell minimization before MCMC sampling.
-   If MPI is enabled then ``np`` minimizations from different initial conditions will be run,
-   and the highest likelihood result chosen as the center for the sampler ball.
+``"do_powell"``
+    Boolean.  If ``True``, do a round of Powell minimization before MCMC sampling.
+    If MPI is enabled then ``np`` minimizations from different initial conditions will be run,
+    and the highest likelihood result chosen as the center for the sampler ball.
 
--  ``"ftol"`` float.  For the Powell minimization.
+``"ftol"``
+    Float.  For the Powell minimization.
 
--  ``"maxfev"`` integer.  For the Powell minimization.
+``"maxfev"``
+    Integer.  For the Powell minimization.
 
 Data manipulation parameters:
    
--  ``"logify_data"`` optional Boolean
+``"logify_data"``
+    optional Boolean.  Switch to do the fitting in log flux space.
+    Not recommended, as it distorts your errors.
 
--  ``"rescale"``  Boolean.  If ``True``, rescale the spectrum to have an average of 1.  Recommended.
+``"rescale"``
+    Boolean.  If ``True``, rescale the spectrum to have an average of 1 before doing anything.
+    Highly recommended.
+    The scaling parameter is stored in the ``obs`` dict as ``obs["rescale"]``
 
--  ``"normalize_spectrum"`` optional Boolean.  If ``True``,
-   make an intial guess of the relative normalization of the spectrum and the photometry,
-   using synthetic photometry of the spectrum through the filter specified ``"norm_band_name"``.
+``"normalize_spectrum"``
+    optional Boolean.
+    If ``True`` make an initial guess of the relative normalization of the spectrum and the photometry,
+    using synthetic photometry of the spectrum through the filter specified ``"norm_band_name"``.
+    The normalization guess is stored in the obs dictionary (as ``normalization_guess``).
 
--  ``"norm_band_name"`` string.  Name of the filter to use for making an  initial guess at
-   the spectral normalization.
+``"norm_band_name"``
+    String.  Name of the filter to use for making an  initial guess at the spectral normalization.
 
--  ``"filename"`` string
+Source Basis Parameters:
 
-The run params dictionary is passed as keyword arguments to the ``load_obs``, ``load_sps``, and ``load_model`` functions.
+``"zcontinuous"``
+    Integer.  If fitting galaxy spectra using py-FSPS, this is passed to the StellarPopulation
+    object on instantiation and controls how metallicity interpolation is done.
+    See the python-FSPS documentation for details.
+
+``"libname"``
+   String.  If fitting stellar spectra, this is the name of the HDF5 file containing the stellar spectral grid.
+
+    
+    
+The run params dictionary is passed as keyword arguments to the
+``load_obs``, ``load_sps``, ``load_model``, and ``load_gp`` functions.
 This means you can add to it if you want additional parameters to control the output of these functions.
+
 There is limited support for command line overrides of the ``run_params`` dictionary values.
 For example
 

@@ -28,3 +28,5 @@ Installation
 
 Then just git clone the repo and make sure it is somewhere in your
 python path. |Codename| is pure python.
+
+.. |Codename| replace:: BSFH
