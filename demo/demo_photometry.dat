@@ -1,0 +1,6 @@
+# objid filterset mag0 mag1 mag2 mag3 mag4 mag5 mag6 mag7 mag8 mag9 mag10
+  0  1 -11.93 -12.37 -13.37 -14.22 -14.61 -14.86 -14.94 -14.09 -13.62 -13.23 -12.78
+  1  0 -11.75 -11.87 -12.27 -12.53 -12.56 -12.66  nan -11.91 -11.45 -10.90 -9.24
+  2  1 -11.36 -11.36 -11.65 -12.15 -12.38 -12.43 -12.66 -11.53 -11.21 -10.79 -10.82
+#
+# The filterset column encodes the optical photometric system. 0:Johnson/Cousins, 1:SDSS

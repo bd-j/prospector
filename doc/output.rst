@@ -112,3 +112,6 @@ Taking the MAP as an example, this would be accomplished by
 		import matplotlib.pyplot as pl
 		pl.plot(obs['wavelength'], obs['spectrum'], label="Data")
 		pl.plot(obs['wavelength'], spec, label="MAP model")
+
+
+.. |Codename| replace:: BSFH

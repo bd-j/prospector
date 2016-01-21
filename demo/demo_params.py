@@ -10,21 +10,16 @@ from sedpy.observate import load_filters
 
 run_params = {'verbose':True,
               'debug':False,
-              'outfile':'demo_galphot_mockdata',
+              'outfile':'demo_galphot',
               # Fitter parameters
               'nwalkers':128,
               'nburn':[10, 10, 10], 'niter':512,
               'do_powell': False,
               'ftol':0.5e-5, 'maxfev':5000,
               'initial_disp':0.1,
-              # Mock parameters
-              'snr':20.0,
-              'mass': 1e7,
-              'logzsol': -0.5,
-              'tage': 4,
-              'tau': 3,
-              'dust2': 0.0,
-              # Data manipulation parameters
+              # Obs data parameters
+              'objid':0,
+              'phottable': 'demo_photometry.dat',
               'logify_spectrum':False,
               'normalize_spectrum':False,
               'wlo':3750., 'whi':7200.,
@@ -37,53 +32,84 @@ run_params = {'verbose':True,
 # --------------
 
 # Here we are going to put together some filter names
+galex = ['galex_FUV', 'galex_NUV']
+spitzer = ['spitzer_irac_ch'+n for n in ['1','2','3','4']]
+bessell = ['bessell_'+n for n in ['U', 'B', 'V', 'R', 'I']]
+sdss = ['sdss_{0}0'.format(b) for b in ['u','g','r','i','z']]
+
+# The first filter set is Johnson/Cousins, the second is SDSS. We will use a
+# flag in the photometry table to tell us which set to use for each object
+# (some were not in the SDSS footprint, and therefore have Johnson/Cousins
+# photometry)
+#
 # All these filters are available in sedpy.  If you want to use other filters,
 # add their transmission profiles to sedpy/sedpy/data/filters/ with appropriate
 # names (and format)
-galex = ['galex_FUV', 'galex_NUV']
-spitzer = ['spitzer_irac_ch'+n for n in ['1','2','3','4']]
-sdss = ['sdss_{0}0'.format(b) for b in ['u','g','r','i','z']]
+filtersets = (galex + bessell + spitzer,
+              galex + sdss + spitzer)
 
 
-def load_obs(snr=10.0, **kwargs):
-    """Make a mock dataset.  Feel free to add more complicated kwargs, and put
-    other things in the run_params dictionary to control how the mock is
-    generated.
+def load_obs(objid=0, phottable='demo_photometry.dat', **kwargs):
+    """Load photometry from an ascii file.  Assumes the following columns:
+    `objid`, `filterset`, [`mag0`,....,`magN`] where N >= 11.  The User should
+    modify this function (including adding keyword arguments) to read in their
+    particular data format and put it in the required dictionary.
+
+    :param objid:
+        The object id for the row of the photomotery file to use.  Integer.
+        Requires that there be an `objid` column in the ascii file.
+
+    :param phottable:
+        Name (and path) of the ascii file containing the photometry.
+
+    :returns obs:
+        Dictionary of observational data.
     """
-    # We'll put the mock data in this dictionary, just as we would for real
-    # data.  But we need to know which filters (and wavelengths if doing
-    # spectroscopy) with which to generate mock data.
-    mock = {}
-    mock['wavelength'] = None # No spectrum
-    filterset = galex + sdss + spitzer[:2] # only warm spitzer
-    mock['filters'] = load_filters(filterset)
+    # Writes your code here to read data.  Can use FITS, h5py, astropy.table,
+    # sqlite, whatever.
+    # e.g.:
+    # import astropy.io.fits as pyfits
+    # catalog = pyfits.getdata(phottable)
 
-    # We need the models to make a mock
-    sps = load_sps(**kwargs)
-    mod = load_model(**kwargs)
+    # Here we will read in an ascii catalog of magnitudes as a numpy structured
+    # array
+    with open(phottable, 'r') as f:
+        # drop the comment hash
+        header = f.readline().split()[1:]
+    catalog = np.genfromtxt(phottable, comments='#',
+                            dtype=np.dtype([(n, np.float) for n in header]))
 
-    # Now we get the mock params from the kwargs dict
-    params = {}
-    for p in mod.params.keys():
-        if p in kwargs:
-            params[p] = np.atleast_1d(kwargs[p])
+    # Find the right row
+    ind = catalog['objid'] == float(objid)
+    # Here we are dynamically choosing which filters to use based on the object
+    # and a flag in the catalog.  Feel free to make this logic more (or less)
+    # complicated.
+    filternames = filtersets[ int(catalog[ind]['filterset']) ]
+    # And here we loop over the magnitude columns
+    mags = [catalog[ind]['mag{}'.format(i)] for i in range(len(filternames))]
+    mags = np.array(mags)
 
-    # And build the mock
-    mod.params.update(params)
-    spec, phot, _ = mod.mean_model(mod.theta, mock, sps=sps)
-    # Now store some output
-    mock['true_spectrum'] = spec.copy()
-    mock['true_maggies'] = phot.copy()
-    mock['mock_params'] = mod.params
-    # And add noise
-    pnoise_sigma = phot / snr
-    pnoise = np.random.normal(0, 1, len(phot)) * pnoise_sigma
-    mock['maggies'] = phot + pnoise
-    mock['maggies_unc'] = pnoise_sigma
-    mock['mock_snr'] = snr
-    mock['phot_mask'] = np.ones(len(phot), dtype=bool)
+    # Build output dictionary. 
+    obs = {}
+    # This is a list of sedpy filter objects.    See the
+    # sedpy.observate.load_filters command for more details on its syntax.
+    obs['filters'] = load_filters(filternames)
+    # This is a list of maggies, converted from mags.  It should have the same
+    # order as `filters` above.
+    obs['maggies'] = np.squeeze(10**(-mags/2.5))
+    # Hack.  you should use real flux uncertainties
+    obs['maggies_unc'] = obs['maggies'] * 0.07
+    # Here we mask out any NaNs or infs
+    obs['phot_mask'] = np.isfinite(np.squeeze(mags))
+    # We have no spectrum
+    obs['wavelength'] = None
 
-    return mock
+    # Add unessential bonus info.  This will be sored in output
+    #obs['dmod'] = catalog[ind]['dmod']
+    obs['objid'] = objid
+
+    return obs
+
 
 # --------------
 # SPS Object

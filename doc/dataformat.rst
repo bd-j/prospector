@@ -37,7 +37,7 @@ This dictionary should have (at least) the following keys and values:
    where ``False`` elements are ignored in the likelihood calculation.
 
 ``"filters"``
-   A sequence of `sedpy<https://github.com/bd-j/sedpy>`_ filter objects or filter names,
+   A sequence of `sedpy <https://github.com/bd-j/sedpy>`_ filter objects or filter names,
    used to calculate model magnitudes.
 
 ``"maggies"``

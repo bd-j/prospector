@@ -14,6 +14,7 @@ Then add another parameter ``smart_parameter`` to ``model_list`` that can vary (
 
 Note that this pattern can also be used to tie arbitrary parameters together (e.g. gas-phase and stellar metallicity) while still allowing them to vary.
 
+It is important that any parameter with the ``"depends_on"`` key is fixed.
 
 User defined models
 -------------------
@@ -30,7 +31,8 @@ Note that ``source_basis.StarBasis`` and ``source_basis.BigStarBasis`` are fairl
 Multiple Spectra
 ---------------
 
-We are working on this.  It will involve a new ThetaParameters subclass that can loop over ``obs['spectra']`` and apportion vectors of parameters correctly.
+We are working on this.
+It will involve a new ThetaParameters subclass that can loop over ``obs['spectra']`` and apportion vectors of parameters correctly.
 
 Linear Algebra
 --------------
@@ -52,7 +54,11 @@ and use the syntax
 ``mpirun -np <N> python prospectr.py –param_file=<param_file>``
 
 This causes likelihood evaluations for different walkers to be made in parallel.
-For optimal results, the number of emcee walkers should be :math:`N*(np-1)` where N is an even integer and np is the number of processors.
+For optimal results, the number of emcee walkers should be :math:`N*(np-1)`,
+where N is an even integer and :math:`np` is the number of available processors.
+
+Note that specific MPI implementations may have different mpirun commands, or
+may require that python-mpi be called instead of just python.
 
 Noise Modeling
 --------------
@@ -63,5 +69,7 @@ Flexibility in this is an active area of code development.
 Mock data
 ---------
 
-Really this should not be advanced. Everyone should do mock data tests.
+Really this should not be advanced.
+Everyone should do mock data tests.
 So we are trying to make it easy.
+See demo/demo_mock_params.py for a suggestion, especially the ``load_obs()`` function.
