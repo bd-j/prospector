@@ -4,17 +4,38 @@ The Model
 Parameter specification
 -------------------------------
 
-All model parameters require a specification in the parameters file.
+All model parameters require a specification in the **parameter file**.
 For a single parameter the specification is a dictionary that must at minimum include several keys:
 
-``"name", "N", "init", "isfree"``
+``"name"``
+    The name of the parameter, string.
 
-Parameters with ``"isfree": True`` will be varied during the optimization and sampling.
-For these parameters the following additional keys of the dictionary are required:
-``"prior_function"`` and ``"prior_args"``
-with values consisting of a the prior function (e.g. ``tophat``) and a dictionary of arguments to the prior function (e.g. ``"mini":0, "maxi":100``).
+``"N"``
+    An integer specifying the length of the parameter.
+    For the common case of a scalar parameter, use ``1``.
+
+``"init"``
+    The initial value of the parameter.
+    If the parameter is free to vary, this is where optimization will start from.
+    If the parameter is not free, then this is the value that will be used throughout optimization and sampling.
+
+``"isfree"``
+    Boolean specifying whether a parameter is free to vary during
+    optimization and sampling (``True``) or not (``False``).
+
+For parameters with ``"isfree": True`` the following additional keys of the dictionary are required:
+
+``"prior_function"``
+    The prior function (e.g. ``tophat``)
+
+``"prior_args"``
+    A dictionary of arguments to the prior function (e.g. ``"mini":0, "maxi":100``)    
+
+``"init_disp"``
+    The dispersion in this parameter to use when generating an emcee sampler ball.  This is not technically required, as defaults 
 Prior functions can be found in the ``priors`` module.
 
+You should also have
 It's also a good idea to have a ``"units"`` key, a string describing the units of the the parameter.
 
 
@@ -29,7 +50,7 @@ For fixed parameters the ``"init"`` value gives the value of that parameter to u
 (unless the ``"depends_on"`` key is present, see Advanced_.)
 
 Nearly all parameters used by FSPS can be set (or varied) here.
-The default FSPS parameter values will be used unless specified in a fixed parameter,
+When fitting galaxies the default FSPS parameter values will be used unless specified in a fixed parameter,
 e.g. ``imf_type`` can be changed by including it as a fixed parameter with value given by ``"init"``.
 More generally any parameter used by the source basis object to build an SED can be in the ``model_params`` list.
 
@@ -39,7 +60,7 @@ The ``load_model()`` method
 
 This should return an instance of a subclass of the ``bsfh.models.ProspectorParams`` object.
 It is given the ``run_params`` dictionary as an argument list,
-so the model can be modified based on keywaords given there (or at the command line).
+so the model can be modified based on keywords given there (or at the command line).
 
 
 The ``load_sps()`` function
@@ -56,6 +77,5 @@ and sent to other processors.
 The ``load_gp()`` function
 -------------------------------------
 
-This function should return a GaussianProcess object for the
-spectroscopy or photometry. Either or both can be ``None`` in which case
-the likelihood will not include covariant noise.
+This function should return a GaussianProcess object for the spectroscopy or photometry.
+Either or both can be ``None`` in which case the likelihood will not include covariant noise.

@@ -18,20 +18,24 @@ and/or spectroscopic data.  BSFH allows you to:
 
 * Forward model many aspects of spectroscopic data analysis and
   calibration, including sky emission, spectrophotometric calibration,
-  and wavelength solutions, thus proprly incorporating uncertainties
+  and wavelength solutions, thus properly incorporating uncertainties
   in these components in the final  parameter uncertainties.
-
-Requirements
--------
-BSFH requires numpy, scipy, emcee, and h5py.  For galaxy modeling it requires
-python-FSPS, and in some cases sedpy.  For stellar modeling it requires sedpy.
-For parallel processing it requires mpi4py.  Visulaization requires matplotlib,
-and optionally corner.py
 
 Installation
 ------
 ```
 cd <install_dir>
 git clone https://github.com/bd-j/bsfh
+```
+
+Then in C-Shell:
+```
 setenv $PYTHONPATH:+<install_dir>/bsfh
 ```
+or in bash:
+```
+export $PYTHONPATH=$PYTHONPATH:<install_dir>/bsfh
+```
+
+See ``docs/installation.rst`` for requirements.  Other files in the ``docs/``
+directory explain the usage of the code
