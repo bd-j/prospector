@@ -10,21 +10,25 @@ Solution: Transform to parameters that are easier to sample in.
 This can be done by making ``dumb_parameter`` fixed (``"isfree" = False``) and adding another key to the parameter description, ``"depends_on"``.
 The value of ``"depends_on"`` is a function which takes as arguments all the model parameters and returns the value of ``dumb_parameter``.
 For example:
+
 .. code-block:: python
 
 		def delogify(logtau=0, **extras):
 		    return 10**logtau
 
-could be used to set the value of ``tau`` using the sampling parameter ``logtau``
+could be used to set the value of ``tau`` using the free parameter ``logtau``
 (i.e., sample in the log of a parameter, though setting a logarithmic prior is equivalent in terms of the posterior).
+
 This dependency function must take optional extra keywords (``**extras``) because the entire parameter dictionary will be passed to it.
 Then add another parameter ``smart_parameter`` to ``model_list`` that can vary (and upon which ``dumb_parameter`` depends).
+In this eample that new free parameter would be ``logtau``.
 
 This pattern can also be used to tie arbitrary parameters together (e.g. gas-phase and stellar metallicity) while still allowing them to vary.
-A parameter may depend on multiple other parameters, and several parameters may depend on a single other parameter.
+A parameter may depend on multiple other (free or fixed) parameters, and multiple parameters may depend on a single other (free or fixed) parameter.
 
-It is important that any parameter with the ``"depends_on"`` key is fixed.
-For portability and easy reconstruction of the model is important that the ``depends_on`` function be defined within the parameter file.
+**Note.**
+It is important that any parameter with the ``"depends_on"`` key present is a fixed parameter.
+For portability and easy reconstruction of the model it is important that the ``depends_on`` function be defined within the parameter file.
 
 User defined models
 -------------------
