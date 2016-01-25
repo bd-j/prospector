@@ -1,18 +1,27 @@
 import sys, os
-import pickle
+import pickle, json
 import numpy as np
 try:
     import matplotlib.pyplot as pl
 except:
     pass
+try:
+    import h5py
+except:
+    pass
+
+from ..models.model_setup import import_module_from_string
+from ..models.parameters import names_to_functions
 
 """Convenience functions for reading and reconstruction results from a fitting
 run, including reconstruction of the model for making posterior samples
 """
-    
-def read_pickles(sample_file, model_file=None,
-                 inmod=None):
-    """Read a pickle file with stored model and MCMC chains.
+
+__all__ = ["results_from", "read_hdf5",
+           "subtriangle", "param_evol"]
+
+def results_from(filename, model_file=None, **kwargs):
+    """Read a results file with stored model and MCMC chains.
 
     :returns sample_results:
         A dictionary of various results including the sampling chain.
@@ -23,31 +32,119 @@ def read_pickles(sample_file, model_file=None,
     :returns model:
         The bsfh.sedmodel object.
     """
-    with open(sample_file, 'rb') as rf:
-        sample_results = pickle.load(rf)
-    powell_results = None
-    model = None
+    # Read the basic chain, parameter, and run_params info
+    if filename.split('.')[-1] == 'h5':
+        res = read_hdf5(filename, **kwargs)
+        mf_default = filename.replace('_mcmc.h5', '_model')
+    else:
+        with open(filename, 'rb') as rf:
+            res = pickle.load(rf)
+        mf_default = filename.replace('_mcmc', '_model')
 
-    # try to read the model from a pickle
+    # Now try to read the model object itself from a pickle
     if model_file is None:
-        model_file = sample_file.replace('_mcmc', '_model')
+        mname = mf_default
+    else:
+        mname = model_file
+    param_file = (res['run_params']['param_file'],
+                  res.get("paramfile_text", ''))
+    model, powell_results = read_model(mname, param_file=param_file, **kwargs)
+    res['model'] = model
+
+    return res, powell_results, model
+
+
+def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
+    """Read the model pickle.  This can be difficult if there are user defined
+    functions that have to be loaded dynamically.  In that case, import the
+    string version of the paramfile and *then* try to unpickle the model
+    object.
+    """
+    model = powell_results = None
     if os.path.exists(model_file):
-        with open(model_file, 'rb') as mf:
-            try:
+        try:
+            with open(model_file, 'rb') as mf:
                 mod = pickle.load(mf)
-            except(AttributeError):
+        except(AttributeError):
+            # Here one can deal with module and class names that changed
+            with open(model_file, 'rb') as mf:
                 mod = load(mf)
+        except(ImportError):
+            # here we load the parameter file as a module using the stored
+            # source string.  Obviously this is dangerous as it will execute
+            # whatever is in the stored source string.  But it can be used to
+            # recover functions (especially dependcy functions) that are user
+            # defined
+            path, filename = os.path.split(param_file[0])
+            modname = filename.replace('.py', '')
+            if dangerous:
+                user_module = import_module_from_string(param_file[1], modname)
+            with open(model_file, 'rb') as mf:
+                mod = pickle.load(mf)
+
         model = mod['model']
         powell_results = mod['powell']
 
+    return model, powell_results
 
-    # now pull the model either from sample results or from the pickle
-    try:
-        model = sample_results['model']
-    except (KeyError):
-        sample_results['model'] = model
 
-    return sample_results, powell_results, model
+def read_hdf5(filename, **extras):
+    """Read an HDF5 file (with a specific format) into a dictionary of results.
+
+    This HDF5 file is assumed to have the groups ``sampling`` and ``obs`` which
+    respectively contain the sampling chain and the observational data used in
+    the inference.
+
+    All attributes of these groups as well as top-level attributes are loaded
+    into the top-level of the dictionary using ``json.loads``, and therefore
+    must have been written with ``json.dumps``.  This should probably use
+    JSONDecoders, but who has time to learn that.
+
+    :param filename:
+        Name of the HDF5 file.
+    """
+    groups = {'sampling': {}, 'obs': {}}
+    res = {}
+    with h5py.File(filename, "r") as hf:
+        # loop over the groups
+        for group, d in groups.items():
+            # read the arrays in that group into the dictionary for that group
+            for k, v in hf[group].items():
+                d[k] = np.array(v)
+            # unserialize the attributes and put them in the dictionary
+            for k, v in hf[group].attrs.items():
+                try:
+                    d[k] = json.loads(v)
+                except:
+                    d[k] = v
+        # do top-level attributes.
+        for k, v in hf.attrs.items():
+            try:
+                res[k] = json.loads(v)
+            except:
+                res[k] = v
+        res.update(groups['sampling'])
+        res['obs'] = groups['obs']
+        try:
+            res['obs']['filters'] = load_filters(res['obs']['filters'])
+        except:
+            pass
+        try:
+            res['rstate'] = pickle.loads(res['rstate'])
+        except:
+            pass
+        try:
+            mp = [names_to_functions(p.copy()) for p in res['model_params']]
+            res['model_params'] = mp
+        except:
+            pass
+
+    return res
+
+def read_pickles(filename, **kwargs):
+    """Alias for backwards compatability
+    """
+    return results_from(filename, **kwargs)
 
 
 def model_comp(theta, model, obs, sps, photflag=0, gp=None):

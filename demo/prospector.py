@@ -161,30 +161,25 @@ def halt():
     
 if __name__ == "__main__":
 
-    ################
+    # --------------
     # Setup
-    ################
+    # --------------
     rp = run_params
     rp['sys.argv'] = sys.argv
-    # Reload model and obs from specific files?
-    #model = model_setup.load_model(param_file=clargs['param_file'])
-    #obsdat = model_setup.load_obs(**rp)
-    #chi2args = [model, obsdat]
-    #postkwargs = {'obs':obsdat, 'model':model}
-    # Or just use the globals?
+    # Use the globals
     model = global_model
     obsdat = global_obs
     chi2args = [None, None]
     postkwargs = {}
 
-    #make zeros into tiny numbers
+    # make zeros into tiny numbers
     initial_theta = model.rectify_theta(model.initial_theta)
     if rp.get('debug', False):
         halt()
 
-    #################
+    # -----------------------------------------
     # Initial guesses using powell minimization
-    #################
+    # -----------------------------------------
     if bool(rp.get('do_powell', True)):
         if rp['verbose']:
             print('minimizing chi-square...')
@@ -209,30 +204,36 @@ if __name__ == "__main__":
         initial_center = initial_theta.copy()
         initial_prob = None
 
-    ###################
+    # -------
     # Sample
-    ####################
+    # -------
     if rp['verbose']:
         print('emcee sampling...')
     tstart = time.time()
-    esampler, burn_p0, burn_prob0 = fitting.run_emcee_sampler(lnprobfn, initial_center, model,
-                                       postkwargs=postkwargs, pool=pool, initial_prob=initial_prob,
-                                       **rp)
+    out = fitting.run_emcee_sampler(lnprobfn, initial_center, model,
+                                    postkwargs=postkwargs, initial_prob=initial_prob,
+                                    pool=pool, **rp)
+    esampler, burn_p0, burn_prob0 = out
     edur = time.time() - tstart
     if rp['verbose']:
         print('done emcee in {0}s'.format(edur))
 
-    ###################
-    # Pickle Output
-    ###################
-    write_results.write_pickles(rp, model, obsdat,
-                                esampler, powell_guesses,
-                                toptimize=pdur, tsample=edur,
+    # -------------------------
+    # Output pickles (and HDF5)
+    # -------------------------
+    outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
+    write_results.write_pickles(rp, model, obsdat, esampler, powell_guesses,
+                                outroot=outroot, toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center,
                                 post_burnin_center=burn_p0,
                                 post_burnin_prob=burn_prob0)
 
-    
+    hfile, mfile = outroot + '_mcmc.h5', outroot + '_model'
+    write_results.write_hdf5(hfile, rp, model, obsdat, esampler, powell_guesses,
+                             mfile=mfile, toptimize=pdur, tsample=edur,
+                             sampling_initial_center=initial_center,
+                             post_burnin_center=burn_p0,
+                             post_burnin_prob=burn_prob0)
     try:
         pool.close()
     except:

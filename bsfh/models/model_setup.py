@@ -164,23 +164,16 @@ def import_module_from_file(path_to_file):
     return user_module
 
 
-def load_mock(filename, run_params, model, sps):
-    """Load the obs dictionary using mock data.
+def import_module_from_string(source, name, add_to_sys_modules=True):
+    """Well this seems dangerous.
     """
-    from ..utils.obsutils import generate_mock
-    ext = filename.split('.')[-1]
-    mock_info = None
-    if ext == 'py':
-        print('reading py script {}'.format(filename))
-        setup_module = import_module_from_file(filename)
-        mock_info = deepcopy(getattr(setup_module, 'mock_info', None))
-    if mock_info is None:
-        mock_info = run_params.get('mock_info', None)
+    import imp
+    user_module = imp.new_module(name)
+    exec(source, user_module.__dict__)
+    if add_to_sys_modules:
+        sys.modules[name] = user_module
 
-    mockdat = generate_mock(model, sps, mock_info)
-    mockdat = fix_obs(mockdat, **run_params)
-    mockdat['mock_info'] = mock_info
-    return mockdat
+    return user_module
 
 
 def show_syntax(args, ad):
