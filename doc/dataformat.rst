@@ -12,7 +12,8 @@ You could, using say an ``objname`` parameter, dynamically load data (including 
 Feel free to import helper functions, modules, and packages (like astropy, h5py, sqlite, etc.)
 
 The point of this function is that you don't have to externally coerce your data format to be what |Codename| expects and keep another version of files lying around: the coercion happens *within* the code itself.
-Again, the only requirement is that the function can take a ``run_params`` dictionary as keyword arguments and that it return an ``obs`` dictionary as described below.
+Again, the only requirement is that the function can take a ``run_params`` dictionary as keyword arguments
+and that it return an ``obs`` dictionary as described below.
 
 The ``obs`` Dictionary
 --------------------------------
@@ -57,5 +58,7 @@ This dictionary should have (at least) the following keys and values:
 
 If you do not have spectral or photometric data, set ``"wavelength": None`` or ``"maggies": None`` respectively.
 Feel free to add keys that store other metadata, these will be stored on output.
+However, for ease of storage these keys should either be numpy arrays or basic python datatypes that are JSON serializable
+(e.g. strings, ints, and floats and lists, dicts, and tuples thereof.)
 
 .. |Codename| replace:: BSFH

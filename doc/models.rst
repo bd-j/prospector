@@ -66,7 +66,7 @@ so the model can be modified based on keywords given there (or at the command li
 The ``load_sps()`` function
 -------------------------------------
 
-The likelihood function and SED models take a source basis (``sps``) object as an argument.
+The likelihood function and SED models take an object (``sps``) from  ``bsfh.source_basis`` as an argument.
 This object should be returned by the ``load_sps()`` function in the **parameter file**.
 The source basis object generally includes all the spectral libraries necessary to build a model,
 as well as some model building code.

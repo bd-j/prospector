@@ -37,5 +37,7 @@ or in bash:
 export $PYTHONPATH=$PYTHONPATH:<install_dir>/bsfh
 ```
 
-See ``docs/installation.rst`` for requirements.  Other files in the ``docs/``
-directory explain the usage of the code
+See [installation](doc/installation.rst) for requirements.
+Other files in the [doc/](doc/) directory explain the usage of the code.
+
+See also the [tutorial](demo/tutorial.rst) for fitting photometric data with composite stellar populations.
