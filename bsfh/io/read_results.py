@@ -2,10 +2,6 @@ import sys, os
 import pickle, json
 import numpy as np
 try:
-    import matplotlib.pyplot as pl
-except:
-    pass
-try:
     import h5py
 except:
     pass
@@ -188,7 +184,8 @@ def param_evol(sample_results, outname=None, showpars=None, start=0, **plot_kwar
     """Plot the evolution of each parameter value with iteration #, for each
     chain.
     """
-    
+    import matplotlib.pyplot as pl
+
     chain = sample_results['chain'][:,start:,:]
     lnprob = sample_results['lnprobability'][:,start:]
     nwalk = chain.shape[0]
@@ -283,7 +280,7 @@ def subtriangle(sample_results, outname=None, showpars=None,
         
     if outname is not None:
         fig.savefig('{0}.triangle.png'.format(outname))
-        pl.close(fig)
+        #pl.close(fig)
     else:
         return fig
 
