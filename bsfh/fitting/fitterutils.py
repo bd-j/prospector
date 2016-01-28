@@ -126,7 +126,8 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
         if sampler.flatlnprobability[best] > prob0:
             prob0 = sampler.flatlnprobability[best]
             initial_center = sampler.flatchain[best,:]
-        initial = reinitialize_ball(initial_center, epos, epos.shape[0], model, **kwargs)
+        initial = reinitialize_ball(epos, eprob, center=initial_center,
+                                    limits=limits, disp_floor=disp_floor, **kwargs)
 #        initial = reinitalize_ball_covar(epos, eprob, center=initial_center,
 #                                         limits=limits, disp_floor=disp_floor, **kwargs)
         sampler.reset()
@@ -173,12 +174,14 @@ def reinitialize_ball_covar(pos, prob, threshold=50.0, center=None,
     :returns pnew:
         New positions for the sampler, ndarray of shape (nwalker, ndim)
     """
+    pos = np.atleast_2d(pos)
     nwalkers = prob.shape[0]
     good = prob > np.percentile(prob, threshold)
-    Sigma = np.cov(pos[good, :].T)
-    Sigma[np.diag_indices_from(Sigma)] += disp_floor**2
     if center is None:
         center = pos[good,:].mean(axis=0)
+    Sigma = np.cov(pos[good, :].T)
+    Sigma[np.diag_indices_from(Sigma)] += disp_floor**2
+    
     pnew = multivariate_normal(center, Sigma, size=nwalkers)
     if limits is None:
         return pnew
@@ -187,34 +190,38 @@ def reinitialize_ball_covar(pos, prob, threshold=50.0, center=None,
         return pnew
 
 
-def reinitialize_ball(initial_center, pos, nwalkers, model,
-                      ptiles=[25, 50, 75], **extras):
+def reinitialize_ball(pos, prob, center=None, limits=None,
+                      ptiles=[25, 50, 75], disp_floor=0.00, **extras):
     """Choose the best walker and build a ball around it based on the other
-    walkers.
+    walkers.  The scatter in the new ball is based on the interquartile range
+    for the walkers in their current positions
     """
     pos = np.atleast_2d(pos)
+    nwalkers = pos.shape[0]
+    if center is None:
+        center = pos[prob.argmax(), :]
     tmp = np.percentile(pos, ptiles, axis=0)  
     # 1.35 is the ratio between the 25-75% interquartile range and 1
     # sigma (for a normal distribution)
     scatter = np.abs((tmp[2] -tmp[0]) / 1.35)
-    if hasattr(model, 'theta_disp_floor'):
-        disp_floor = model.theta_disp_floor(initial_center)
-        scatter = np.sqrt(scatter**2 + disp_floor**2)    
-    initial = sampler_ball(initial_center, scatter, nwalkers, model)
-    return initial
+    scatter = np.sqrt(scatter**2 + disp_floor**2)
+     
+    pnew = sampler_ball(initial_center, scatter, nwalkers)
+    if limits is None:
+        return pnew
+    else:
+        pnew = clip_ball(pnew, limits, np.diag(Sigma))
+        return pnew
 
 
-def sampler_ball(center, disp, nwalkers, model):
-    """Produce a ball around a given position, clipped to the prior range.
+def sampler_ball(center, disp, nwalkers):
+    """Produce a ball around a given position.
     """
-    ndim = model.ndim
-    
+    ndim = center.shape[0]
     if np.size(disp) == 1:
         disp = np.zeros(ndim) + disp
-    initial = normal(size=[nwalkers, ndim]) * disp[None, :] + center[None, :]
-    limits = np.array(model.theta_bounds()).T
-    initial = clip_ball(initial, limits, disp)
-    return initial
+    pos = normal(size=[nwalkers, ndim]) * disp[None, :] + center[None, :]
+    return pos
     
 
 def clip_ball(pos, limits, disp):
