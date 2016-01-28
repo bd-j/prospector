@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+from numpy.random import normal, multivariate_normal
 import emcee
 from . import minimizer
 from ..models.priors import plotting_range
@@ -111,6 +112,12 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
         E.g. nburn=[32, 64] will run the sampler for 32 iterations before
         reinittializing and then run the sampler for another 64 iterations
     """
+    limits = np.array(model.theta_bounds()).T
+    if hasattr(model, 'theta_disp_floor'):
+        disp_floor = model.theta_disp_floor()
+    else:
+        disp_floor = 0.0
+
     for k, iburn in enumerate(nburn[:-1]):
         epos, eprob, state = sampler.run_mcmc(initial, iburn, storechain=True)
         # find best walker position
@@ -120,6 +127,8 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
             prob0 = sampler.flatlnprobability[best]
             initial_center = sampler.flatchain[best,:]
         initial = reinitialize_ball(initial_center, epos, epos.shape[0], model, **kwargs)
+#        initial = reinitalize_ball_covar(epos, eprob, center=initial_center,
+#                                         limits=limits, disp_floor=disp_floor, **kwargs)
         sampler.reset()
         if verbose:
             print('done burn #{}'.format(k))
@@ -131,8 +140,55 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
     return epos, initial_center, prob0
 
 
+def reinitialize_ball_covar(pos, prob, threshold=50.0, center=None,
+                            limits=None, disp_floor=0.0, **extras):
+    """Estimate the parameter covariance matrix from the positions of a
+    fraction of the current ensemble and sample positions from the multivariate
+    gaussian corresponding to that covariance matrix.  If ``center`` is not
+    given the center will be the mean of the (fraction of) the ensemble.
+
+    :param pos:
+        The current positions of the ensemble, ndarray of shape (nwalkers, ndim)
+
+    :param prob:
+        The current probabilities of the ensemble, used to reject some fraction
+        of walkers with lower probability (presumably stuck walkers).  ndarray
+        of shape (nwalkers,)
+
+    :param threshold: default 50.0
+        Float in the range [0,100] giving the fraction of walkers to throw away
+        based on their ``prob`` before estimating the covariance matrix.
+
+    :param center: optional
+        The center of the multivariate gaussian. If not given or ``None``, then
+        the center will be estimated from the mean of the postions of the
+        acceptable walkers.  ndarray of shape (ndim,)
+
+    :param limits: optional
+        An ndarray of shape (2, ndim) giving lower and upper limits for each
+        parameter.  The newly generated values will be clipped to these limits.
+        If the result consists only of the limit then a vector of small random
+        numbers will be added to the result.
+        
+    :returns pnew:
+        New positions for the sampler, ndarray of shape (nwalker, ndim)
+    """
+    nwalkers = prob.shape[0]
+    good = prob > np.percentile(prob, threshold)
+    Sigma = np.cov(pos[good, :].T)
+    Sigma[np.diag_indices_from(Sigma)] += disp_floor**2
+    if center is None:
+        center = pos[good,:].mean(axis=0)
+    pnew = multivariate_normal(center, Sigma, size=nwalkers)
+    if limits is None:
+        return pnew
+    else:
+        pnew = clip_ball(pnew, limits, np.diag(Sigma))
+        return pnew
+
+
 def reinitialize_ball(initial_center, pos, nwalkers, model,
-                      ptiles=[0.25, 0.5, 0.75], **extras):
+                      ptiles=[25, 50, 75], **extras):
     """Choose the best walker and build a ball around it based on the other
     walkers.
     """
@@ -152,28 +208,29 @@ def sampler_ball(center, disp, nwalkers, model):
     """Produce a ball around a given position, clipped to the prior range.
     """
     ndim = model.ndim
-    initial = np.zeros([nwalkers, ndim])
+    
     if np.size(disp) == 1:
         disp = np.zeros(ndim) + disp
-    for p, v in list(model.theta_index.items()):
-        start, stop = v
-        lo, hi = plotting_range(model._config_dict[p]['prior_args'])
-        try_param = (center[None, start:stop] +
-                     (np.random.normal(0, 1, (nwalkers, stop-start)) *
-                      disp[None, start:stop]))
-        try_param = np.clip(try_param, np.atleast_1d(lo)[None, :],
-                            np.atleast_1d(hi)[None, :])
-        u = np.unique(try_param)
-        if len(u) == 1:
-            tweak = (np.random.uniform(0, 1, (nwalkers ,stop-start)) *
-                     disp[None, start:stop])
-            if u == lo:
-                try_param += tweak
-            elif u == hi:
-                try_param -= tweak
-                    
-        initial[:, start:stop] = try_param
+    initial = normal(size=[nwalkers, ndim]) * disp[None, :] + center[None, :]
+    limits = np.array(model.theta_bounds()).T
+    initial = clip_ball(initial, limits, disp)
     return initial
+    
+
+def clip_ball(pos, limits, disp):
+    """Clip to limits.  If all samples below (above) limit, add (subtract) a
+    uniform random number (scaled by ``disp``) to the limit.
+    """
+    pos = np.clip(pos, limits[0][None, :], limits[1][None, :])
+    for i, p in enumerate(pos.T):
+        u = np.unique(p)
+        if len() == 1:
+            tiny = disp[i] * np.random.uniform(0, disp[i], npos)
+            if u == limits[0, i]:
+                pos[:, i] += tiny
+            if u == limits[1, i]:
+                pos[:, i] -= tiny
+    return pos
 
 
 def restart_sampler(sample_results, lnprobf, sps, niter,

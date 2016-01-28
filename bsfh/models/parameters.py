@@ -254,11 +254,15 @@ class ProspectorParams(object):
             disp = self.theta * disp
         return disp
 
-    def theta_disp_floor(self, thetas):
+    def theta_disp_floor(self, thetas=None):
         """Get a vector of dispersions for each parameter to use as a floor for
         the walker-calculated dispersions. This can be overridden by subclasses
         """
-        return np.zeros_like(thetas)
+        dfloor = np.zeros(self.ndim)
+        for par, inds in list(self.theta_index.items()):
+            d = self._config_dict[par].get('disp_floor', 0.0)
+            dfloor[inds[0]: inds[1]] = d
+        return dfloor
 
     def clip_to_bounds(self, thetas):
         """Clip a set of parameters theta to within the priors.
