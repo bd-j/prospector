@@ -5,7 +5,7 @@ You will need:
 
 -  `numpy <http://www.numpy.org>`_ and `SciPy <http://www.scipy.org>`_
 
--  `emcee <http://dan.iel.fm/emcee/current/>`_
+-  `emcee <http://dan.iel.fm/emcee/current/>`_ (Please cite this package in any publications)
 
 - `HDF5 <https://www.hdfgroup.org/HDF5/>`_ and `h5py <http://www.h5py.org>`_
 

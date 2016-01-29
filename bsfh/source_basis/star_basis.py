@@ -7,7 +7,7 @@ from sedpy.observate import getSED, vac2air, air2vac
 try:
     from sklearn.neighbors import KDTree
 except(ImportError):
-    from scipy.spatial import KDTree
+    from scipy.spatial import cKDTree as KDTree
 
 __all__ = ["StarBasis", "BigStarBasis"]
 
