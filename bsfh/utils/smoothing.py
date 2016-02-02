@@ -2,7 +2,6 @@
 # To do:
 # 3) add extra zero-padding for FFT algorithms so they don't go funky at the
 #    edges?
-# 4) standardize API for lower level smoothing functions
 
 import numpy as np
 from numpy.fft import fft, ifft, fftfreq, rfftfreq
@@ -33,7 +32,8 @@ def smoothspec(wave, spec, resolution, outwave=None,
         The output wavelength vector.  If None then the input wavelength vector
         will be assumed, though if min_wave_smooth or max_wave_smooth are also
         specified, then the output spectrum may have different length than spec
-        or wave
+        or wave, or the convulution may be strange outside of min_wave_smooth
+        and max_wave_smooth.  Basically, always set outwave to be safe.
 
     :param smoothtype:
         The type of smoothing to do.  One of:
@@ -57,6 +57,32 @@ def smoothspec(wave, spec, resolution, outwave=None,
         The maximum wavelength of the input vector to consider when smoothing
         the spectrum.  If None then it is determined from the output wavelength
         vector and padded by some multiple of the desired resolution.
+
+    :param inres: (optional)
+        If given, this parameter specifies the resolution of the input.  This
+        resolution is subtracted in quadrature from the target output
+        resolution before the kernel is formed.
+
+        In certain cases this can be used to properly switch from resolution
+        that is constant in velocity to one that is constant in wavelength,
+        taking into account the wavelength dependence of the input resolution
+        when defined in terms of lambda.  This is possible iff:
+        * ``fftsmooth`` is False
+        * ``smoothtype`` is ``"lambda"``
+        * The optional ``in_vel`` parameter is supplied and True.
+
+        The units of ``inres`` should be the same as the units of
+        ``resolution``, except in the case of switching from velocity to
+        wavelength resolution, in which case the units of ``inres`` should be
+        in units of lambda/sigma_lambda.
+
+    :param in_vel: (optional)
+        If supplied and True, the ``inres`` parameter is assumed to be in units
+        of lambda/sigma_lambda. This parameter is ignored **unless** the
+        ``smoothtype`` is ``"lambda"`` and ``fftsmooth`` is False.
+
+    :returns flux:
+        The smoothed spectrum on the `outwave` grid, ndarray.
     """
     if smoothtype == 'vel':
         linear = False
@@ -192,7 +218,7 @@ def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out, inres=0.0,
     if sigma <= 0:
         return np.interp(outwave, wavelength, spectrum)
 
-    # make lngth of spectrum a power of 2 by resampling
+    # make length of spectrum a power of 2 by resampling
     wave, spec = resample_wave(wavelength, spectrum)
 
     # get grid resolution (*not* the resolution of the input spectrum) and make
@@ -228,7 +254,7 @@ def smooth_wave(wave, spec, outwave, sigma, nsigma=10, inres=0, in_vel=False,
     :param sigma:
         Desired resolution (*not* FWHM) in wavelength units.  This can be a
         vector of same length as ``wave``, in which case a wavelength dependent
-        broiadening is calculated
+        broadening is calculated
 
     :param inres:
         Resolution of the input, in either wavelength units or
@@ -410,9 +436,9 @@ def mask_wave(wavelength, width=1, wlo=0, whi=np.inf, outwave=None,
 
 def resample_wave(wavelength, spectrum, linear=False):
     """Resample spectrum, so that the number of elements is the next highest
-    power of two.  Assumes the input spectrum is constant velocity resolution
-    unless ``linear`` is True, in which case it is assumed that the spectrum
-    has constant wavelength resolution (e.g. 1AA)
+    power of two.  This uses np.interp.  Note that if the input wavelength grid
+    did not critically sample the spectrum then there is no gaurantee the
+    output wavelength grid will.
     """
     wmin, wmax = wavelength.min(), wavelength.max()
     nw = len(wavelength)
