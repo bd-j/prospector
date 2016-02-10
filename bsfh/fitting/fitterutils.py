@@ -44,7 +44,7 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         List of the number of iterations to run in each round of brun-in (for
         removing stuck walkers)
 
-    :param pool:
+    :param pool: (optional)
         A ``Pool`` object, either from ``multiprocessing`` or from
         ``emcee.mpi_pool``.
 
@@ -195,7 +195,7 @@ def reinitialize_ball_covar(pos, prob, threshold=50.0, center=None,
                                 **extras)
     return pnew
 
-            
+
 def reinitialize_ball(pos, prob, center=None, ptiles=[25, 50, 75],
                       disp_floor=0., **extras):
     """Choose the best walker and build a ball around it based on the other
@@ -221,6 +221,36 @@ def resample_until_valid(sampling_function, center, sigma, nwalkers,
     """Sample from the sampling function, with optional clipping to prior
     bounds and resampling in the case of parameter positions that are outside
     complicated custom priors.
+
+    :param sampling_function:
+        The sampling function to use, it must have the calling sequence
+        ``sampling_function(center, sigma, size=size)``
+
+    :param center:
+        The center of the distribution
+
+    :param sigma:
+        Array describing the scatter of the distribution in each dimension.
+        Can be two-dimensional, e.g. to describe a covariant multivariate
+        normal (if the sampling function takes such a thing).
+
+    :param nwalkers:
+        The number of valid samples to produce.
+
+    :param limits: (optional)
+        Simple limits on the parameters, passed to ``clip_ball``.
+
+    :param prior_check: (optional)
+        An object that has a ``lnp_prior`` method which returns the prior
+        probability for a given parameter position.
+
+    :param maxiter:
+        Maximum number of iterations to try resampling before giving up and
+        returning a set of parameter positions at least one of which is not
+        within the prior.
+
+    :returns pnew:
+        New parameter positions, ndarray of shape (nwalkers, ndim)
     """
     invalid = np.ones(nwalkers, dtype=bool)
     pnew = np.zeros([nwalkers, len(center)])
