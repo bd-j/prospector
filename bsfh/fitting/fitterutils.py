@@ -25,7 +25,7 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         The initial center for the sampler ball
 
     :param model:
-        An instance of a models.ProspectrParams object.
+        An instance of a models.ProspectorParams object.
 
     :param postargs:
         Positional arguments for ``lnprobfn``.
@@ -70,8 +70,8 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
     limits = np.array(model.theta_bounds()).T
     if hasattr(model, 'theta_disp_floor'):
         disps = np.sqrt(disps**2 + model.theta_disp_floor()**2)
-    initial = sampler_ball(initial_center, disps, nwalkers)
-    initial = clip_ball(initial, limits, disps)
+    initial = resample_until_valid(sampler_ball, initial_center, disps, nwalkers,
+                                   limits=limits, prior_check=model)
 
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
@@ -135,7 +135,7 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
         if epos.shape[0] < model.ndim*2:
             initial = reinitialize_ball(epos, eprob, center=initial_center,
                                         limits=limits, disp_floor=disp_floor,
-                                        **kwargs)
+                                        prior_check=model, **kwargs)
         else:
             initial = reinitialize_ball_covar(epos, eprob, center=initial_center,
                                               limits=limits, disp_floor=disp_floor,
@@ -152,7 +152,7 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
 
 
 def reinitialize_ball_covar(pos, prob, threshold=50.0, center=None,
-                            limits=None, disp_floor=0.0, **extras):
+                            disp_floor=0.0, **extras):
     """Estimate the parameter covariance matrix from the positions of a
     fraction of the current ensemble and sample positions from the multivariate
     gaussian corresponding to that covariance matrix.  If ``center`` is not
@@ -191,17 +191,13 @@ def reinitialize_ball_covar(pos, prob, threshold=50.0, center=None,
         center = pos[good, :].mean(axis=0)
     Sigma = np.cov(pos[good, :].T)
     Sigma[np.diag_indices_from(Sigma)] += disp_floor**2
+    pnew = resample_until_valid(multivariate_normal, center, Sigma, nwalkers,
+                                **extras)
+    return pnew
 
-    pnew = multivariate_normal(center, Sigma, size=nwalkers)
-    if limits is None:
-        return pnew
-    else:
-        pnew = clip_ball(pnew, limits, np.diag(Sigma))
-        return pnew
-
-
-def reinitialize_ball(pos, prob, center=None, limits=None,
-                      ptiles=[25, 50, 75], disp_floor=0.00, **extras):
+            
+def reinitialize_ball(pos, prob, center=None, ptiles=[25, 50, 75],
+                      disp_floor=0., **extras):
     """Choose the best walker and build a ball around it based on the other
     walkers.  The scatter in the new ball is based on the interquartile range
     for the walkers in their current positions
@@ -216,21 +212,48 @@ def reinitialize_ball(pos, prob, center=None, limits=None,
     scatter = np.abs((tmp[2] - tmp[0]) / 1.35)
     scatter = np.sqrt(scatter**2 + disp_floor**2)
 
-    pnew = sampler_ball(initial_center, scatter, nwalkers)
-    if limits is None:
-        return pnew
-    else:
-        pnew = clip_ball(pnew, limits, np.diag(Sigma))
-        return pnew
+    pnew = resample_until_valid(sampler_ball, initial_center, scatter, nwalkers)
+    return pnew
 
 
-def sampler_ball(center, disp, nwalkers):
-    """Produce a ball around a given position.
+def resample_until_valid(sampling_function, center, sigma, nwalkers,
+                         limits=None, maxiter=1e3, prior_check=None, **extras):
+    """Sample from the sampling function, with optional clipping to prior
+    bounds and resampling in the case of parameter positions that are outside
+    complicated custom priors.
+    """
+    invalid = np.ones(nwalkers, dtype=bool)
+    pnew = np.zeros([nwalkers, len(center)])
+    for i in range(int(maxiter)):
+        # replace invalid elements with new samples
+        tmp = sampling_function(center, sigma, size=invalid.sum())
+        pnew[invalid, :] = tmp
+        if limits is not None:
+            # clip to simple limits
+            pnew = clip_ball(pnew, limits, np.diag(Sigma))
+        if prior_check is not None:
+            # check the prior
+            lnp = np.array([prior_check.lnp_prior(pos) for pos in pnew])
+            invalid = ~np.isfinite(lnp)
+            if invalid.sum() == 0:
+                # everything is valid, return
+                return pnew
+        else:
+            # No prior check, return on first iteration
+            return pnew
+    # reached maxiter, return whatever exists so far
+    print("initial position resampler hit ``maxiter``")
+    return pnew
+
+
+def sampler_ball(center, disp, size=1):
+    """Produce a ball around a given position.  This should probably be a
+    one-liner.
     """
     ndim = center.shape[0]
     if np.size(disp) == 1:
         disp = np.zeros(ndim) + disp
-    pos = normal(size=[nwalkers, ndim]) * disp[None, :] + center[None, :]
+    pos = normal(size=[size, ndim]) * disp[None, :] + center[None, :]
     return pos
 
 
