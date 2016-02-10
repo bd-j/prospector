@@ -6,18 +6,23 @@ try:
 except:
     pass
 
-from ..models.model_setup import import_module_from_string
 from ..models.parameters import names_to_functions
 
-"""Convenience functions for reading and reconstruction results from a fitting
+"""Convenience functions for reading and reconstructing results from a fitting
 run, including reconstruction of the model for making posterior samples
 """
 
-__all__ = ["results_from", "read_hdf5",
+__all__ = ["results_from", "read_hdf5", "read_pickles", "read_model",
            "subtriangle", "param_evol"]
+
 
 def results_from(filename, model_file=None, **kwargs):
     """Read a results file with stored model and MCMC chains.
+
+    :param filename:
+        Name and path to the file holding the results.  If ``filename`` ends in
+        "h5" then it is assumed that this is an HDF5 file, otherwise it is
+        assumed to be a pickle.
 
     :returns sample_results:
         A dictionary of various results including the sampling chain.
@@ -55,6 +60,18 @@ def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
     functions that have to be loaded dynamically.  In that case, import the
     string version of the paramfile and *then* try to unpickle the model
     object.
+
+    :param model_file:
+        String, name and path to the model pickle.
+
+    :param dangerous: (default: False)
+        If True, try to import the given paramfile.
+
+    :param param_file:
+        2-element tuple.  The first element is the name of the paramfile, which
+        will be used to set the name of the imported module.  The second
+        element is the param_file contents as a string.  The code in this
+        string will be imported.
     """
     model = powell_results = None
     if os.path.exists(model_file):
@@ -74,6 +91,7 @@ def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
             path, filename = os.path.split(param_file[0])
             modname = filename.replace('.py', '')
             if dangerous:
+                from ..models.model_setup import import_module_from_string
                 user_module = import_module_from_string(param_file[1], modname)
             with open(model_file, 'rb') as mf:
                 mod = pickle.load(mf)
@@ -137,8 +155,9 @@ def read_hdf5(filename, **extras):
 
     return res
 
+
 def read_pickles(filename, **kwargs):
-    """Alias for backwards compatability
+    """Alias for backwards compatability. Calls results_from().
     """
     return results_from(filename, **kwargs)
 
@@ -148,19 +167,19 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
     set of parameters.
     """
     logarithmic = obs.get('logify_spectrum')
-    obs, _, _ = obsdict(obs, photflag=photflag)    
+    obs, _, _ = obsdict(obs, photflag=photflag)
     mask = obs['mask']
     mu = model.mean_model(theta, obs, sps=sps)[photflag][mask]
     sed = model.sed(theta, obs, sps=sps)[photflag][mask]
     wave = obs['wavelength'][mask]
-    
+
     if photflag == 0:
         cal = model.spec_calibration(theta, obs)
         if type(cal) is not float:
             cal = cal[mask]
         try:
             s, a, l = model.spec_gp_params()
-            gp.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
+            gp.kernel[:] = np.log(np.array([s[0], a[0]**2, l[0]**2]))
             spec = obs['spectrum'][mask]
             if logarithmic:
                 gp.compute(wave, obs['unc'][mask])
@@ -173,10 +192,10 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
         except(TypeError, AttributeError, KeyError):
             delta = 0
     else:
-        mask = np.ones(len(obs['wavelength']), dtype= bool)
+        mask = np.ones(len(obs['wavelength']), dtype=bool)
         cal = np.ones(len(obs['wavelength']))
         delta = np.zeros(len(obs['wavelength']))
-        
+
     return sed, cal, delta, mask, wave
 
 
@@ -186,45 +205,48 @@ def param_evol(sample_results, outname=None, showpars=None, start=0, **plot_kwar
     """
     import matplotlib.pyplot as pl
 
-    chain = sample_results['chain'][:,start:,:]
-    lnprob = sample_results['lnprobability'][:,start:]
+    chain = sample_results['chain'][:, start:, :]
+    lnprob = sample_results['lnprobability'][:, start:]
     nwalk = chain.shape[0]
-    parnames = np.array(sample_results['model'].theta_labels())
+    try:
+        parnames = np.array(sample_results['theta_labels'])
+    except(KeyError):
+        parnames = np.array(sample_results['model'].theta_labels())
 
-    #restrict to desired parameters
+    # Restrict to desired parameters
     if showpars is not None:
-        ind_show = np.array([p in showpars for p in parnames], dtype= bool)
+        ind_show = np.array([p in showpars for p in parnames], dtype=bool)
         parnames = parnames[ind_show]
-        chain = chain[:,:,ind_show]
+        chain = chain[:, :, ind_show]
 
-    #set up plot windows
-    ndim = len(parnames) +1
+    # Set up plot windows
+    ndim = len(parnames) + 1
     nx = int(np.floor(np.sqrt(ndim)))
-    ny = int(np.ceil(ndim*1.0/nx))
-    sz = np.array([nx,ny])
+    ny = int(np.ceil(ndim * 1.0 / nx))
+    sz = np.array([nx, ny])
     factor = 3.0           # size of one side of one panel
     lbdim = 0.2 * factor   # size of left/bottom margin
     trdim = 0.2 * factor   # size of top/right margin
-    whspace = 0.05*factor         # w/hspace size
-    plotdim = factor * sz + factor *(sz-1)* whspace
+    whspace = 0.05 * factor         # w/hspace size
+    plotdim = factor * sz + factor * (sz - 1) * whspace
     dim = lbdim + plotdim + trdim
 
-    fig, axes = pl.subplots(nx, ny, figsize = (dim[1], dim[0]))
+    fig, axes = pl.subplots(nx, ny, figsize=(dim[1], dim[0]))
     lb = lbdim / dim
     tr = (lbdim + plotdim) / dim
     fig.subplots_adjust(left=lb[1], bottom=lb[0], right=tr[1], top=tr[0],
                         wspace=whspace, hspace=whspace)
 
-    #sequentially plot the chains in each parameter
-    for i in range(ndim-1):
+    # Sequentially plot the chains in each parameter
+    for i in range(ndim - 1):
         ax = axes.flatten()[i]
         for j in range(nwalk):
-            ax.plot(chain[j,:,i], **plot_kwargs)
+            ax.plot(chain[j, :, i], **plot_kwargs)
         ax.set_title(parnames[i])
-    #plot lnprob
+    # Plot lnprob
     ax = axes.flatten()[-1]
     for j in range(nwalk):
-        ax.plot(lnprob[j,:])
+        ax.plot(lnprob[j, :])
     ax.set_title('lnP')
     if outname is not None:
         fig.savefig('{0}.x_vs_step.png'.format(outname))
@@ -258,17 +280,20 @@ def subtriangle(sample_results, outname=None, showpars=None,
         import corner as triangle
 
     # pull out the parameter names and flatten the thinned chains
-    parnames = np.array(sample_results['model'].theta_labels())
+    try:
+        parnames = np.array(sample_results['theta_labels'])
+    except(KeyError):
+        parnames = np.array(sample_results['model'].theta_labels())
     flatchain = sample_results['chain'][:, start::thin, :]
     flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
                                   flatchain.shape[2])
 
     # restrict to parameters you want to show
     if showpars is not None:
-        ind_show = np.array([p in showpars for p in parnames], dtype= bool)
+        ind_show = np.array([p in showpars for p in parnames], dtype=bool)
         flatchain = flatchain[:, ind_show]
         #truths = truths[ind_show]
-        parnames= parnames[ind_show]
+        parnames = parnames[ind_show]
     if trim_outliers is not None:
         trim_outliers = len(parnames) * [trim_outliers]
     try:
@@ -277,17 +302,16 @@ def subtriangle(sample_results, outname=None, showpars=None,
     except:
         fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
                               quantiles=[0.16, 0.5, 0.84], range=trim_outliers, **kwargs)
-        
+
     if outname is not None:
         fig.savefig('{0}.triangle.png'.format(outname))
         #pl.close(fig)
     else:
         return fig
 
-    
+
 def obsdict(inobs, photflag):
-    """
-    Return a dictionary of observational data, generated depending on
+    """Return a dictionary of observational data, generated depending on
     whether you're matching photometry or spectroscopy.
     """
     obs = inobs.copy()
@@ -299,9 +323,9 @@ def obsdict(inobs, photflag):
         marker = 'o'
         obs['wavelength'] = np.array([f.wave_effective for f in obs['filters']])
         obs['spectrum'] = obs['maggies']
-        obs['unc'] = obs['maggies_unc'] 
+        obs['unc'] = obs['maggies_unc']
         obs['mask'] = obs['phot_mask'] > 0
-        
+
     return obs, outn, marker
 
 # All this because scipy changed the name of one class, which
@@ -311,16 +335,19 @@ renametable = {
     'Result': 'OptimizeResult',
     }
 
+
 def mapname(name):
     if name in renametable:
         return renametable[name]
     return name
+
 
 def mapped_load_global(self):
     module = mapname(self.readline()[:-1])
     name = mapname(self.readline()[:-1])
     klass = self.find_class(module, name)
     self.append(klass)
+
 
 def load(file):
     unpickler = pickle.Unpickler(file)

@@ -1,11 +1,13 @@
 import sys
 import numpy as np
+from numpy.random import normal, multivariate_normal
 import emcee
 from . import minimizer
 from ..models.priors import plotting_range
 
 __all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball", "emcee_burn",
            "pminimize", "minimizer_ball", "reinitialize"]
+
 
 def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                       postargs=[], postkwargs={}, prob0=None,
@@ -23,7 +25,7 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         The initial center for the sampler ball
 
     :param model:
-        An instance of a models.ProspectrParams object.
+        An instance of a models.ProspectorParams object.
 
     :param postargs:
         Positional arguments for ``lnprobfn``.
@@ -42,7 +44,7 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         List of the number of iterations to run in each round of brun-in (for
         removing stuck walkers)
 
-    :param pool:
+    :param pool: (optional)
         A ``Pool`` object, either from ``multiprocessing`` or from
         ``emcee.mpi_pool``.
 
@@ -63,8 +65,13 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         print('number of walkers={}'.format(nwalkers))
 
     # Set up initial positions
-    disps = model.theta_disps(initial_center, initial_disp=initial_disp)
-    initial = sampler_ball(initial_center, disps, nwalkers, model)
+    model.set_parameters(initial_center)
+    disps = model.theta_disps(default_disp=initial_disp)
+    limits = np.array(model.theta_bounds()).T
+    if hasattr(model, 'theta_disp_floor'):
+        disps = np.sqrt(disps**2 + model.theta_disp_floor()**2)
+    initial = resample_until_valid(sampler_ball, initial_center, disps, nwalkers,
+                                   limits=limits, prior_check=model)
 
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
@@ -76,7 +83,7 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
     # Production run
     esampler.reset()
     if hdf5 is not None:
-        # Set up output        
+        # Set up output
         chain = hdf5.create_dataset("chain", (nwalkers, niter, ndim))
         lnpout = hdf5.create_dataset("lnprobability", (nwalkers, niter))
         # blob = hdf5.create_dataset("blob")
@@ -93,7 +100,7 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
             if np.mod(i+1, int(interval*niter)) == 0:
                 # do stuff every once in awhile
                 # this would be the place to put some callback functions
-                #[do(result, i, esampler) for do in things_to_do]
+                # e.g. [do(result, i, esampler) for do in things_to_do]
                 hdf5.flush()
     if verbose:
         print('done production')
@@ -111,6 +118,12 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
         E.g. nburn=[32, 64] will run the sampler for 32 iterations before
         reinittializing and then run the sampler for another 64 iterations
     """
+    limits = np.array(model.theta_bounds()).T
+    if hasattr(model, 'theta_disp_floor'):
+        disp_floor = model.theta_disp_floor()
+    else:
+        disp_floor = 0.0
+
     for k, iburn in enumerate(nburn[:-1]):
         epos, eprob, state = sampler.run_mcmc(initial, iburn, storechain=True)
         # find best walker position
@@ -118,8 +131,15 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
         # is new position better than old position?
         if sampler.flatlnprobability[best] > prob0:
             prob0 = sampler.flatlnprobability[best]
-            initial_center = sampler.flatchain[best,:]
-        initial = reinitialize_ball(initial_center, epos, epos.shape[0], model, **kwargs)
+            initial_center = sampler.flatchain[best, :]
+        if epos.shape[0] < model.ndim*2:
+            initial = reinitialize_ball(epos, eprob, center=initial_center,
+                                        limits=limits, disp_floor=disp_floor,
+                                        prior_check=model, **kwargs)
+        else:
+            initial = reinitialize_ball_covar(epos, eprob, center=initial_center,
+                                              limits=limits, disp_floor=disp_floor,
+                                              **kwargs)
         sampler.reset()
         if verbose:
             print('done burn #{}'.format(k))
@@ -131,49 +151,156 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
     return epos, initial_center, prob0
 
 
-def reinitialize_ball(initial_center, pos, nwalkers, model,
-                      ptiles=[0.25, 0.5, 0.75], **extras):
-    """Choose the best walker and build a ball around it based on the other
-    walkers.
+def reinitialize_ball_covar(pos, prob, threshold=50.0, center=None,
+                            disp_floor=0.0, **extras):
+    """Estimate the parameter covariance matrix from the positions of a
+    fraction of the current ensemble and sample positions from the multivariate
+    gaussian corresponding to that covariance matrix.  If ``center`` is not
+    given the center will be the mean of the (fraction of) the ensemble.
+
+    :param pos:
+        The current positions of the ensemble, ndarray of shape (nwalkers, ndim)
+
+    :param prob:
+        The current probabilities of the ensemble, used to reject some fraction
+        of walkers with lower probability (presumably stuck walkers).  ndarray
+        of shape (nwalkers,)
+
+    :param threshold: default 50.0
+        Float in the range [0,100] giving the fraction of walkers to throw away
+        based on their ``prob`` before estimating the covariance matrix.
+
+    :param center: optional
+        The center of the multivariate gaussian. If not given or ``None``, then
+        the center will be estimated from the mean of the postions of the
+        acceptable walkers.  ndarray of shape (ndim,)
+
+    :param limits: optional
+        An ndarray of shape (2, ndim) giving lower and upper limits for each
+        parameter.  The newly generated values will be clipped to these limits.
+        If the result consists only of the limit then a vector of small random
+        numbers will be added to the result.
+
+    :returns pnew:
+        New positions for the sampler, ndarray of shape (nwalker, ndim)
     """
     pos = np.atleast_2d(pos)
-    tmp = np.percentile(pos, ptiles, axis=0)  
+    nwalkers = prob.shape[0]
+    good = prob > np.percentile(prob, threshold)
+    if center is None:
+        center = pos[good, :].mean(axis=0)
+    Sigma = np.cov(pos[good, :].T)
+    Sigma[np.diag_indices_from(Sigma)] += disp_floor**2
+    pnew = resample_until_valid(multivariate_normal, center, Sigma, nwalkers,
+                                **extras)
+    return pnew
+
+
+def reinitialize_ball(pos, prob, center=None, ptiles=[25, 50, 75],
+                      disp_floor=0., **extras):
+    """Choose the best walker and build a ball around it based on the other
+    walkers.  The scatter in the new ball is based on the interquartile range
+    for the walkers in their current positions
+    """
+    pos = np.atleast_2d(pos)
+    nwalkers = pos.shape[0]
+    if center is None:
+        center = pos[prob.argmax(), :]
+    tmp = np.percentile(pos, ptiles, axis=0)
     # 1.35 is the ratio between the 25-75% interquartile range and 1
     # sigma (for a normal distribution)
-    scatter = np.abs((tmp[2] -tmp[0]) / 1.35)
-    if hasattr(model, 'theta_disp_floor'):
-        disp_floor = model.theta_disp_floor(initial_center)
-        scatter = np.sqrt(scatter**2 + disp_floor**2)    
-    initial = sampler_ball(initial_center, scatter, nwalkers, model)
-    return initial
+    scatter = np.abs((tmp[2] - tmp[0]) / 1.35)
+    scatter = np.sqrt(scatter**2 + disp_floor**2)
+
+    pnew = resample_until_valid(sampler_ball, initial_center, scatter, nwalkers)
+    return pnew
 
 
-def sampler_ball(center, disp, nwalkers, model):
-    """Produce a ball around a given position, clipped to the prior range.
+def resample_until_valid(sampling_function, center, sigma, nwalkers,
+                         limits=None, maxiter=1e3, prior_check=None, **extras):
+    """Sample from the sampling function, with optional clipping to prior
+    bounds and resampling in the case of parameter positions that are outside
+    complicated custom priors.
+
+    :param sampling_function:
+        The sampling function to use, it must have the calling sequence
+        ``sampling_function(center, sigma, size=size)``
+
+    :param center:
+        The center of the distribution
+
+    :param sigma:
+        Array describing the scatter of the distribution in each dimension.
+        Can be two-dimensional, e.g. to describe a covariant multivariate
+        normal (if the sampling function takes such a thing).
+
+    :param nwalkers:
+        The number of valid samples to produce.
+
+    :param limits: (optional)
+        Simple limits on the parameters, passed to ``clip_ball``.
+
+    :param prior_check: (optional)
+        An object that has a ``lnp_prior`` method which returns the prior
+        probability for a given parameter position.
+
+    :param maxiter:
+        Maximum number of iterations to try resampling before giving up and
+        returning a set of parameter positions at least one of which is not
+        within the prior.
+
+    :returns pnew:
+        New parameter positions, ndarray of shape (nwalkers, ndim)
     """
-    ndim = model.ndim
-    initial = np.zeros([nwalkers, ndim])
+    invalid = np.ones(nwalkers, dtype=bool)
+    pnew = np.zeros([nwalkers, len(center)])
+    for i in range(int(maxiter)):
+        # replace invalid elements with new samples
+        tmp = sampling_function(center, sigma, size=invalid.sum())
+        pnew[invalid, :] = tmp
+        if limits is not None:
+            # clip to simple limits
+            pnew = clip_ball(pnew, limits, np.diag(Sigma))
+        if prior_check is not None:
+            # check the prior
+            lnp = np.array([prior_check.lnp_prior(pos) for pos in pnew])
+            invalid = ~np.isfinite(lnp)
+            if invalid.sum() == 0:
+                # everything is valid, return
+                return pnew
+        else:
+            # No prior check, return on first iteration
+            return pnew
+    # reached maxiter, return whatever exists so far
+    print("initial position resampler hit ``maxiter``")
+    return pnew
+
+
+def sampler_ball(center, disp, size=1):
+    """Produce a ball around a given position.  This should probably be a
+    one-liner.
+    """
+    ndim = center.shape[0]
     if np.size(disp) == 1:
         disp = np.zeros(ndim) + disp
-    for p, v in list(model.theta_index.items()):
-        start, stop = v
-        lo, hi = plotting_range(model._config_dict[p]['prior_args'])
-        try_param = (center[None, start:stop] +
-                     (np.random.normal(0, 1, (nwalkers, stop-start)) *
-                      disp[None, start:stop]))
-        try_param = np.clip(try_param, np.atleast_1d(lo)[None, :],
-                            np.atleast_1d(hi)[None, :])
-        u = np.unique(try_param)
+    pos = normal(size=[size, ndim]) * disp[None, :] + center[None, :]
+    return pos
+
+
+def clip_ball(pos, limits, disp):
+    """Clip to limits.  If all samples below (above) limit, add (subtract) a
+    uniform random number (scaled by ``disp``) to the limit.
+    """
+    pos = np.clip(pos, limits[0][None, :], limits[1][None, :])
+    for i, p in enumerate(pos.T):
+        u = np.unique(p)
         if len(u) == 1:
-            tweak = (np.random.uniform(0, 1, (nwalkers ,stop-start)) *
-                     disp[None, start:stop])
-            if u == lo:
-                try_param += tweak
-            elif u == hi:
-                try_param -= tweak
-                    
-        initial[:, start:stop] = try_param
-    return initial
+            tiny = disp[i] * np.random.uniform(0, disp[i], npos)
+            if u == limits[0, i]:
+                pos[:, i] += tiny
+            if u == limits[1, i]:
+                pos[:, i] -= tiny
+    return pos
 
 
 def restart_sampler(sample_results, lnprobf, sps, niter,
@@ -187,14 +314,14 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
     Unimplemented/tested
     """
     model = sample_results['model']
-    initial = sample_results['chain'][:,-1,:]
+    initial = sample_results['chain'][:, -1, :]
     nwalkers, ndim = initial.shape
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf, args = [model],
-                                     threads = nthreads,  pool = pool)
-    epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0 =state)
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf, args=[model],
+                                     threads=nthreads,  pool=pool)
+    epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0=state)
     return esampler
 
-        
+
 def pminimize(chi2fn, initial, args=None, model=None,
               method='powell', opts=None,
               pool=None, nthreads=1):
@@ -205,8 +332,7 @@ def pminimize(chi2fn, initial, args=None, model=None,
     """
     # Instantiate the minimizer
     mini = minimizer.Pminimize(chi2fn, args, opts,
-                               method=method,
-                               pool=pool, nthreads=1)
+                               method=method, pool=pool, nthreads=1)
     size = mini.size
     pinitial = minimizer_ball(initial, size, model)
     powell_guesses = mini.run(pinitial)
@@ -214,8 +340,8 @@ def pminimize(chi2fn, initial, args=None, model=None,
     return [powell_guesses, pinitial]
 
 
-def reinitialize(best_guess, model, edge_trunc=0.1,
-                 reinit_params = [], **extras):
+def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
+                 **extras):
     """Check if the Powell minimization found a minimum close to the edge of
     the prior for any parameter. If so, reinitialize to the center of the
     prior.
@@ -238,7 +364,7 @@ def reinitialize(best_guess, model, edge_trunc=0.1,
     :param reinit_params: optional
         A list of model parameter names to reinitialize, overrides the value or
         presence of the ``reinit`` key in the model configuration dictionary.
-        
+
     :returns output:
         The best_guess with parameters near the edge reset to be at the center
         of the prior.  ndarray of shape (ndim,)
@@ -246,15 +372,15 @@ def reinitialize(best_guess, model, edge_trunc=0.1,
     edge = edge_trunc
     bounds = model.theta_bounds()
     output = np.array(best_guess)
-    reinit = np.zeros(model.ndim, dtype= bool)
+    reinit = np.zeros(model.ndim, dtype=bool)
     for p, inds in list(model.theta_index.items()):
-        reinit[inds[0]:inds[1]] = (model._config_dict[p].get('reinit', False)
-                                   or (p in reinit_params))
-        
+        reinit[inds[0]:inds[1]] = (model._config_dict[p].get('reinit', False) or
+                                   (p in reinit_params))
+
     for k, (guess, bound) in enumerate(zip(best_guess, bounds)):
-        #normalize the guess and the bounds
+        # Normalize the guess and the bounds
         prange = bound[1] - bound[0]
-        g, b = guess/prange, bound/prange 
+        g, b = guess/prange, bound/prange
         if ((g - b[0] < edge) or (b[1] - g < edge)) and (reinit[k]):
             output[k] = b[0] + prange/2
     return output
@@ -267,15 +393,15 @@ def minimizer_ball(center, nminimizers, model):
     size = nminimizers
     pinitial = [center]
     if size > 1:
-        ginitial = np.zeros( [size -1, model.ndim] )
+        ginitial = np.zeros([size - 1, model.ndim])
         for p, v in list(model.theta_index.items()):
             start, stop = v
             lo, hi = plotting_range(model._config_dict[p]['prior_args'])
             if model._config_dict[p]['N'] > 1:
-                ginitial[:,start:stop] = np.array([np.random.uniform(l, h,size - 1)
-                                                   for l,h in zip(lo,hi)]).T
+                ginitial[:, start:stop] = np.array([np.random.uniform(l, h, size - 1)
+                                                    for l, h in zip(lo, hi)]).T
             else:
-                ginitial[:,start] = np.random.uniform(lo, hi, size - 1)
+                ginitial[:, start] = np.random.uniform(lo, hi, size - 1)
         pinitial += ginitial.tolist()
     return pinitial
 
@@ -286,23 +412,20 @@ def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
     """
     import hmc
 
-    sampler = hmc.BasicHMC() 
+    sampler = hmc.BasicHMC()
     eps = 0.
-    ##need to fix this:
-    length = None
-    niter = None
-    nsegmax= None
-    nchains = None
-    
-    #initial conditions and calulate initial epsilons
+    # need to fix this:
+    length = niter = nsegmax = nchains = None
+
+    # initial conditions and calulate initial epsilons
     pos, prob, thiseps = sampler.sample(initial_center, model,
-                                        iterations = 10, epsilon = None,
-                                        length = length, store_trajectories = False,
-                                        nadapt = 0)
+                                        iterations=10, epsilon=None,
+                                        length=length, store_trajectories=False,
+                                        nadapt=0)
     eps = thiseps
     # Adaptation of stepsize
     for k in range(nsegmax):
-        #advance each sampler after adjusting step size
+        # Advance each sampler after adjusting step size
         afrac = sampler.accepted.sum()*1.0/sampler.chain.shape[0]
         if afrac >= 0.9:
             shrink = 2.0
@@ -310,18 +433,19 @@ def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
             shrink = 1/2.0
         else:
             shrink = 1.00
-        
+
         eps *= shrink
-        pos, prob, thiseps = sampler.sample(sampler.chain[-1,:], model,
-                                            iterations = iterations,
-                                            epsilon = eps, length = length,
-                                            store_trajectories = False, nadapt = 0)
-        alleps[k] = thiseps #this should not have actually changed during the sampling
-    #main run
+        pos, prob, thiseps = sampler.sample(sampler.chain[-1, :], model,
+                                            iterations=iterations,
+                                            epsilon=eps, length=length,
+                                            store_trajectories=False, nadapt=0)
+        # this should not have actually changed during the sampling
+        alleps[k] = thiseps
+    # Main run
     afrac = sampler.accepted.sum()*1.0/sampler.chain.shape[0]
     if afrac < 0.6:
         eps = eps/1.5
-    hpos, hprob, eps = sampler.sample(initial_center, model, iterations = niter,
-                                      epsilon = eps, length = length,
-                                      store_trajectories = False, nadapt = 0)
+    hpos, hprob, eps = sampler.sample(initial_center, model, iterations=niter,
+                                      epsilon=eps, length=length,
+                                      store_trajectories=False, nadapt=0)
     return sampler

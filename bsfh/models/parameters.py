@@ -10,7 +10,7 @@ param_template = {'name': '', 'N': 1, 'isfree': False,
                   'init': 0.0, 'units': '',
                   'prior_function_name': None, 'prior_args': None}
 
-    
+
 class ProspectorParams(object):
     """
     :param config_list:
@@ -233,8 +233,7 @@ class ProspectorParams(object):
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a, b in bounds]
         return bounds
 
-    def theta_disps(self, initial_thetas, initial_disp=0.1,
-                    fractional_disp=False):
+    def theta_disps(self, default_disp=0.1, fractional_disp=False):
         """Get a vector of absolute dispersions for each parameter to use in
         generating sampler balls for emcee's Ensemble sampler.  This can be
         overridden by subclasses if fractional dispersions are desired.
@@ -246,19 +245,23 @@ class ProspectorParams(object):
         :param fractional_disp: (default: False)
             Treat the dispersion values as fractional dispersions
         """
-        disp = np.zeros(self.ndim) + initial_disp
+        disp = np.zeros(self.ndim) + default_disp
         for par, inds in list(self.theta_index.items()):
-            d = self._config_dict[par].get('init_disp', initial_disp)
+            d = self._config_dict[par].get('init_disp', default_disp)
             disp[inds[0]: inds[1]] = d
         if fractional_disp:
             disp = self.theta * disp
         return disp
 
-    def theta_disp_floor(self, thetas):
+    def theta_disp_floor(self, thetas=None):
         """Get a vector of dispersions for each parameter to use as a floor for
         the walker-calculated dispersions. This can be overridden by subclasses
         """
-        return np.zeros_like(thetas)
+        dfloor = np.zeros(self.ndim)
+        for par, inds in list(self.theta_index.items()):
+            d = self._config_dict[par].get('disp_floor', 0.0)
+            dfloor[inds[0]: inds[1]] = d
+        return dfloor
 
     def clip_to_bounds(self, thetas):
         """Clip a set of parameters theta to within the priors.
@@ -372,6 +375,7 @@ def names_to_functions(p):
             p[k] = f
     return p
 
+
 def functions_to_names(p):
     """Replace prior and dust functions with the names of those functions.
     """
@@ -411,5 +415,3 @@ def read_plist(filename, raw_json=False):
         p = names_to_functions(p)
 
     return runpars, modelpars
-
-
