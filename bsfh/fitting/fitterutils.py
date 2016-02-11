@@ -241,8 +241,8 @@ def resample_until_valid(sampling_function, center, sigma, nwalkers,
         Simple limits on the parameters, passed to ``clip_ball``.
 
     :param prior_check: (optional)
-        An object that has a ``lnp_prior`` method which returns the prior
-        probability for a given parameter position.
+        An object that has a ``prior_product()`` method which returns the prior
+        ln(probability) for a given parameter position.
 
     :param maxiter:
         Maximum number of iterations to try resampling before giving up and
@@ -260,10 +260,14 @@ def resample_until_valid(sampling_function, center, sigma, nwalkers,
         pnew[invalid, :] = tmp
         if limits is not None:
             # clip to simple limits
-            pnew = clip_ball(pnew, limits, np.diag(Sigma))
+            if sigma.ndim > 1:
+                diag = np.diag(sigma)
+            else:
+                diag = sigma
+            pnew = clip_ball(pnew, limits, diag)
         if prior_check is not None:
             # check the prior
-            lnp = np.array([prior_check.lnp_prior(pos) for pos in pnew])
+            lnp = np.array([prior_check.prior_product(pos) for pos in pnew])
             invalid = ~np.isfinite(lnp)
             if invalid.sum() == 0:
                 # everything is valid, return

@@ -85,9 +85,15 @@ class StarBasis(object):
             self._libparams['Z'] = np.log10(self._libparams['Z'])
 
     def update(self, **kwargs):
+        """Turn length 1 arrays into scalars and pull out functions from length
+        one arrays
+        """
         for k, v in list(kwargs.items()):
             try:
-                self.params[k] = np.squeeze(v)
+                if (len(v) == 1) and callable(v[0]):
+                    self.params[k] = v[0]
+                else:
+                    self.params[k] = np.squeeze(v)
             except:
                 pass
 
