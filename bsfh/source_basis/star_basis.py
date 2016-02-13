@@ -33,7 +33,10 @@ class StarBasis(object):
                  **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
-        normalized, smoothed stellar spoectra.
+        normalized, smoothed stellar spectra.  The interpolations are performed
+        using barycenter coordinates of the enclosing simplex found from the
+        Delauynay triangulation.  This is not tractable for large dimension
+        (see BigStarBasis for that case).
 
         :param libname:
             Path to the hdf5 file to use for the spectral library.
@@ -296,7 +299,7 @@ class StarBasis(object):
 class BigStarBasis(StarBasis):
 
     def __init__(self, libname='', verbose=False, log_interp=True,
-                 n_neighbors=0,  driver=None, **kwargs):
+                 n_neighbors=0,  driver=None, in_memory=False, **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
         normalized, smoothed stellar spoectra.
@@ -319,16 +322,26 @@ class BigStarBasis(StarBasis):
         :param verbose:
             If True, print information about the parameters used when a point
             is outside the convex hull
+
+        :param log_interp: (default: True)
+            Interpolate in log(flux) instead of flux.
+
+        :param in_memory: (default: False)
+            Switch to determine whether the grid is loaded in memory or read
+            from disk each time a model is constructed (like you'd want for
+            very large grids).
         """
         self.verbose = verbose
         self.logarithmic = log_interp
         self._libname = libname
+        self.n_neighbors = n_neighbors
+        self._in_memory = in_memory
+
         self.load_lib(libname, driver=driver)
         # Do some important bookkeeping
         self.stellar_pars = self._libparams.dtype.names
         self.ndim = len(self.stellar_pars)
         self.lib_as_grid()
-        self.n_neighbors = n_neighbors
         self.params = {}
 
     def load_lib(self, libname='', driver=None):
@@ -343,7 +356,11 @@ class BigStarBasis(StarBasis):
         f = h5py.File(libname, "r", driver=driver)
         self._wave = np.array(f['wavelengths'])
         self._libparams = np.array(f['parameters'])
-        self._spectra = f['spectra']
+        if self._in_memory:
+            self._spectra = np.array(f['spectra'])
+            f.close()
+        else:
+            self._spectra = f['spectra']
 
     def get_star_spectrum(self, **kwargs):
         """Given stellar parameters, obtain an interpolated spectrum at those

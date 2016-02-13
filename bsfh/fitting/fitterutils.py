@@ -12,7 +12,7 @@ __all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball", "emcee_burn
 def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                       postargs=[], postkwargs={}, prob0=None,
                       nwalkers=None, nburn=[16], niter=32,
-                      walker_factor=4, initial_disp=0.1,
+                      walker_factor=4,
                       nthreads=1, pool=None, hdf5=None, interval=1,
                       **kwargs):
     """Run an emcee sampler, including iterations of burn-in and re -
@@ -64,21 +64,12 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
     if verbose:
         print('number of walkers={}'.format(nwalkers))
 
-    # Set up initial positions
-    model.set_parameters(initial_center)
-    disps = model.theta_disps(default_disp=initial_disp)
-    limits = np.array(model.theta_bounds()).T
-    if hasattr(model, 'theta_disp_floor'):
-        disps = np.sqrt(disps**2 + model.theta_disp_floor()**2)
-    initial = resample_until_valid(sampler_ball, initial_center, disps, nwalkers,
-                                   limits=limits, prior_check=model)
-
     # Initialize sampler
     esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
                                      args=postargs, kwargs=postkwargs,
                                      threads=nthreads, pool=pool)
     # Burn in sampler
-    initial, in_cent, in_prob = emcee_burn(esampler, initial, nburn, model,
+    initial, in_cent, in_prob = emcee_burn(esampler, initial_center, nburn, model,
                                            prob0=prob0, verbose=verbose, **kwargs)
     # Production run
     esampler.reset()
@@ -92,6 +83,8 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         storechain = True
 
     # Main loop over iterations of the MCMC sampler
+    if verbose:
+        print('starting production')
     for i, result in enumerate(esampler.sample(initial, iterations=niter,
                                                storechain=storechain)):
         if hdf5 is not None:
@@ -108,8 +101,8 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
     return esampler, in_cent, in_prob
 
 
-def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
-               **kwargs):
+def emcee_burn(sampler, initial_center, nburn, model=None, prob0=None,
+               initial_disp=0.1, verbose=True, **kwargs):
     """Run the emcee sampler for nburn iterations, reinitializing after each
     round.
 
@@ -118,20 +111,34 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
         E.g. nburn=[32, 64] will run the sampler for 32 iterations before
         reinittializing and then run the sampler for another 64 iterations
     """
+    # Set up initial positions
+    model.set_parameters(initial_center)
+    disps = model.theta_disps(default_disp=initial_disp)
     limits = np.array(model.theta_bounds()).T
     if hasattr(model, 'theta_disp_floor'):
         disp_floor = model.theta_disp_floor()
     else:
         disp_floor = 0.0
+    disps = np.sqrt(disps**2 + disp_floor**2)
+    initial = resample_until_valid(sampler_ball, initial_center, disps, sampler.k,
+                                   limits=limits, prior_check=model)
 
-    for k, iburn in enumerate(nburn[:-1]):
+    # Start the burn-in
+    for k, iburn in enumerate(nburn):
         epos, eprob, state = sampler.run_mcmc(initial, iburn, storechain=True)
-        # find best walker position
+        # Find best walker position
         best = sampler.flatlnprobability.argmax()
-        # is new position better than old position?
+        # Is new position better than old position?
         if sampler.flatlnprobability[best] > prob0:
             prob0 = sampler.flatlnprobability[best]
             initial_center = sampler.flatchain[best, :]
+        if k == len(nburn):
+            # Done burning.
+            if verbose:
+                print('done all burn-in.')
+            # Don't construct new sampler ball after last burn-in.
+            sampler.reset()
+            continue
         if epos.shape[0] < model.ndim*2:
             initial = reinitialize_ball(epos, eprob, center=initial_center,
                                         limits=limits, disp_floor=disp_floor,
@@ -144,10 +151,6 @@ def emcee_burn(sampler, initial, nburn, model=None, prob0=None, verbose=True,
         if verbose:
             print('done burn #{}'.format(k))
 
-    # Do the final burn-in
-    epos, eprob, state = sampler.run_mcmc(initial, nburn[-1], storechain=False)
-    if verbose:
-        print('done all burn-in, starting production')
     return epos, initial_center, prob0
 
 
