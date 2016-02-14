@@ -1,5 +1,5 @@
 import os, subprocess, time
-import pickle, json
+import pickle, json, base64
 import numpy as np
 from ..models.parameters import functions_to_names, plist_to_pdict
 try:
@@ -133,10 +133,15 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
                  'paramfile_text': paramfile_string(**run_params)}
     for k, v in list(serialize.items()):
         try:
-            hf.attrs[k] = json.dumps(v)
+            hf.attrs[k] = json.dumps(v) #, cls=NumpyEncoder)
         except(TypeError):
+            # Should this fall back to pickle.dumps?
+            hf.attrs[k] = pickle.dumps(v)
+            print("Could not JSON serialize {}, pickled instead".format(k))
+        except:
             hf.attrs[k] = unserial
             print("Could not serialize {}".format(k))
+
     hf.attrs['optimizer_duration'] = json.dumps(toptimize)
     hf.flush()
 
@@ -166,14 +171,19 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
                 v = [f.name for f in v]
             except:
                 pass
-        if type(v) is np.ndarray:
+        if isinstance(v, np.ndarray):
             odat.create_dataset(k, data=v)
         else:
             try:
-                odat.attrs[k] = json.dumps(v)
+                odat.attrs[k] = json.dumps(v)#, cls=NumpyEncoder)
             except(TypeError):
+                # Should this fall back to pickle.dumps?
+                odat.attrs[k] = pickle.dumps(v)
+                print("Could not JSON serialize {}, pickled instead".format(k))
+            except:
                 odat.attrs[k] = unserial
                 print("Could not serialize {}".format(k))
+
     hf.flush()
     # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
@@ -184,3 +194,35 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     #if mfile is None:
     #    mfile = hf.name.replace('.h5', '_model')
     #write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
+
+class NumpyEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        """If input object is an ndarray it will be converted into a dict 
+        holding dtype, shape and the data, base64 encoded.
+        """
+        if isinstance(obj, np.ndarray):
+            if obj.flags['C_CONTIGUOUS']:
+                obj_data = obj.data
+            else:
+                cont_obj = np.ascontiguousarray(obj)
+                assert(cont_obj.flags['C_CONTIGUOUS'])
+                obj_data = cont_obj.data
+            data_b64 = base64.b64encode(obj_data)
+            return dict(__ndarray__=data_b64,
+                        dtype=str(obj.dtype),
+                        shape=obj.shape)
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder(self, obj)
+
+
+#def json_numpy_obj_hook(dct):
+#    """Decodes a previously encoded numpy ndarray with proper shape and dtype.
+#
+#    :param dct: (dict) json encoded ndarray
+#    :return: (ndarray) if input was an encoded ndarray
+#    """
+#    if isinstance(dct, dict) and '__ndarray__' in dct:
+#        data = base64.b64decode(dct['__ndarray__'])
+#        return np.frombuffer(data, dct['dtype']).reshape(dct['shape'])
+#    return dct
