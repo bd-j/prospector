@@ -29,7 +29,8 @@ def get_truths(res):
 
 
 def get_prior(res, pname):
-    mp = res['model_params']
+    from ..models.parameters import names_to_functions
+    mp = [names_to_functions(p) for p in res['model_params']]
     mpn = [m['name'] for m in mp]
     ind = mpn.index(pname)
     return mp[ind]['prior_function'], mp[ind]['prior_args']
