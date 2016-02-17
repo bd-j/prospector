@@ -360,8 +360,7 @@ class CSPBasis(object):
 
         if outwave is not None:
             w = self.csp.wavelengths
-            spec = interp1d(w, spec, axis=-1, bounds_error=False)(outwave)
-
+            spec = np.interp(outwave, w, spec)
         # Modern FSPS does the distance modulus for us in get_mags,
         # !but python-FSPS does not!
         if self.params['zred'] == 0:

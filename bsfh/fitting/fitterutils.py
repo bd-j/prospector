@@ -298,6 +298,7 @@ def clip_ball(pos, limits, disp):
     """Clip to limits.  If all samples below (above) limit, add (subtract) a
     uniform random number (scaled by ``disp``) to the limit.
     """
+    npos = pos.shape[0]
     pos = np.clip(pos, limits[0][None, :], limits[1][None, :])
     for i, p in enumerate(pos.T):
         u = np.unique(p)
