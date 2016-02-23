@@ -53,8 +53,11 @@ def get_stats(res, pnames, **kwargs):
     truth = get_truths(res)
     best = dict(zip(*get_best(res)))
     pct = get_percentiles(res, **kwargs)
-    
-    truths = np.array([truth[k] for k in pnames])
+
+    if truth is not None:
+        truths = np.array([truth[k] for k in pnames])
+    else:
+        truths = None
     pcts = np.array([pct[k] for i,k in enumerate(pnames)])
     bests = np.array([best[k] for i,k in enumerate(pnames)])
 
@@ -153,12 +156,19 @@ def compute_sigma_level(trace1, trace2, nbins=30, **extras):
     return xbins, ybins, L_cumsum[i_unsort].reshape(shape)
 
 
-def figgrid(ny, nx):
+def figgrid(ny, nx, figsize=None, left=0.1, right=0.85,
+            top=0.9, bottom=0.1, wspace=0.2, hspace=0.10):
+    """Gridpars is
+    left, right
+    """
     from matplotlib import gridspec
-    fig = pl.figure(figsize=(nx*4.5, ny*3))
+    if figsize is None:
+        figsize=(nx*4.5, ny*3)
+    fig = pl.figure(figsize=figsize)
     axarray = np.zeros([ny, nx], dtype=np.dtype('O'))
     gs1 = gridspec.GridSpec(ny, nx)
-    gs1.update(left=0.1, right=0.85, top=0.9, bottom=0.1, wspace=0.2, hspace=0.10)
+    gs1.update(left=left, right=right, top=top, bottom=bottom,
+               wspace=wspace, hspace=hspace)
     for i in range(ny):
         for j in range(nx):
             axarray[i,j] = fig.add_subplot(gs1[i,j])
