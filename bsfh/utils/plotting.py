@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as pl
 
 __all__ = ["get_best", "get_truths", "get_percentiles", "get_stats",
-           "hist_samples", "joint_pdf", "compute_sigma_level", "get_prior",
-           "trim_walkers", "fill_between", "figgrid"]
+           "posterior_samples", "hist_samples", "joint_pdf", "compute_sigma_level",
+           "get_prior", "trim_walkers", "fill_between", "figgrid"]
 
 def get_best(res, **kwargs):
     """Get the maximum a posteriori parameters.
@@ -108,8 +108,23 @@ def joint_pdf(res, p1, p2, pmap={}, **kwargs):
     return xbins, ybins, sigma.T
 
 
+def posterior_samples(res, samples=[1.0], **kwargs):
+    """Pull samples of theta from the MCMC chain
+
+    :param start:
+        Fraction of the chain at which to start, number between 0 and 1.
+
+    : param thin:
+        Only take every ``thin`` step for each walker
+    """
+    flatchain, pnames = hist_samples(res, **kwargs)
+    ns = flatchain.shape[0]
+    thetas = [flatchain[s,:] for s in np.floor(np.array(samples) * (ns-1)).astype(int)]
+    return thetas
+
+
 def hist_samples(res, showpars=None, start=0, thin=1,
-                 return_lnprob=False, **extras):
+                 return_lnprob=False, samples=None, **extras):
     """Get posterior samples for the parameters listed in ``showpars``.  This
     can be done for different ending fractions of the (thinned) chain.
     """
