@@ -5,6 +5,10 @@ try:
     import h5py
 except:
     pass
+try:
+    from sedpy.observate import load_filters
+except:
+    pass
 
 from ..models.parameters import names_to_functions
 
@@ -140,7 +144,7 @@ def read_hdf5(filename, **extras):
         res.update(groups['sampling'])
         res['obs'] = groups['obs']
         try:
-            res['obs']['filters'] = load_filters(res['obs']['filters'])
+            res['obs']['filters'] = load_filters([str(f) for f in res['obs']['filters']])
         except:
             pass
         try:

@@ -337,10 +337,10 @@ class CSPBasis(object):
             generating the SED.
 
         :returns spec:
-            The restframe spectrum in units of L_\odot/Hz
+            The restframe spectrum in units of maggies.
 
         :returns phot:
-            The apparent (redshifted) maggies in each of the filters.
+            The apparent (redshifted) observed frame maggies in each of the filters.
 
         :returns extras:
             A list of None type objects, only included for consistency with the
@@ -388,7 +388,7 @@ class CSPBasis(object):
             the spectrum will be projected.
 
         :returns spec:
-            The restframe spectrum in units of L_\odot/Hz.
+            The restframe spectrum in units of maggies.
 
         :returns maggies:
             Broadband fluxes through the filters named in ``filterlist``,
