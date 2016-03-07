@@ -1,0 +1,48 @@
+\documentclass[12pt, letterpaper, preprint]{aastex} 
+
+\usepackage{graphicx}
+
+\newcommand{\tmin}[1][]{t_{\mathrm{min} #1}}
+\newcommand{\tmax}[1][]{t_{\mathrm{max} #1}}
+\newcommand{\amin}{a_{\mathrm{min}}}
+\newcommand{\amax} {a_{\mathrm{max}}}
+
+\begin{document}
+\author{B. Johnson}
+
+\begin{center}
+\today
+\end{center}
+
+We wish to find the proper weighting of discrete SSPs to reproduce the spectrum from SFR occurring within some bin of  lookback times $(\amin, \amax)$.
+If we approximate the spectrum at any lookback time $t$ as a linear interpolation of the spectra at the discrete SSP lookback times $t_i$, for $i=1,...,N$ then we can write the total contribution of SSP $i$ to the total spectrum as a sum of the integrated weight due to SF in the sub-bin to the ``right'' (higher lookback times) and the  sub-bin to the ``left'' (lower lookback times).
+The sub-bins are defined by the spacing of the SSP $t_i$ values. 
+The limits of each integral are determined either by the spacing of the SSP points $t_i$ or, when the bin does not completely span the sub-bin, by the $\amin$ and/or $\amax$ values.
+\begin{eqnarray}
+w_i & = & w_{i, \mathrm{right}} + w_{i, \mathrm{left}} \\
+w_{i, \mathrm{right}} & = & \int_{\tmin[,i]}^{\tmax[,i]} dt \, \mathrm{SFR}(t) \, \frac{t_{i+1} - t}{t_{i+1}  - t_i} \\
+w_{i, \mathrm{left}} & = & \int_{\tmin[,i-1]}^{\tmax[,i-1]} dt \, \mathrm{SFR}(t) \, \frac{t - t_{i-1}}{t_{i}  - t_{i-1}} \\
+\tmin[,i] & = & \sup (t_i, \amin) \\
+\tmax[,i] & = & \inf (t_{i+1}, \amax) \\
+\end{eqnarray}
+If we take $\mathrm{SFR}(t) = 1$ then we can define
+\begin{eqnarray}
+s_i & \equiv & \int_{\tmin[,i]}^{\tmax[,i]} dt \, \mathrm{SFR}(t) \, \frac{t_{i+1} - t}{t_{i+1}  - t_i} \\
+ & = & \left. \frac{1}{t_{i+1} - t_i} \, \left[ t_{i+1} \, t - \frac{t^2}{2} \right] \right| _{\tmin[,i]}^{\tmax[,i]}
+\end{eqnarray}
+which leads to
+\begin{eqnarray}
+w_i & = & s_{i} - s_{i-1}
+\end{eqnarray}
+and one only has to calculate the $s_i$ once and then take differences between shifted versions to obtain the total weights. 
+
+In the case of a linear interpolation in $\log t$, which is probably more appropriate, we would simply replace $s_i$ by 
+\begin{eqnarray}
+s_i & \equiv & \int_{\tmin[,i]}^{\tmax[,i]} dt \, \mathrm{SFR}(t) \, \frac{\log t_{i+1} - \log t}{\log t_{i+1}  - \log t_i} \\
+ & = & \left. \frac{1}{\log t_{i+1} - \log t_i} \left[ t \, \log t_{i+1} - t \log\left(\frac{t}{e}\right) \right] \right|_{\tmin[,i]}^{\tmax[,i]}
+\end{eqnarray}
+
+The key in both cases is to properly calculate $\tmax$ and keep track of the indices (especially for the first and last SSP, where $s_{i-1}$ and $s_i$ are not defined, respectively.)  
+For more complicated SFH the integrals in the definition of $s_i$ must be calculated (remembering here that $t$ is \emph{lookback} time.)
+
+\end{document}
