@@ -124,7 +124,10 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
         hf = h5py.File(hfile, "a")
     except(AttributeError):
         hf = hfile
-
+    except(NameError):
+        print("HDF5 file could not be opened, as h5py could not be imported.")
+        return
+        
     unserial = json.dumps('Unserializable')
     # ----------------------
     # High level parameter and version info
