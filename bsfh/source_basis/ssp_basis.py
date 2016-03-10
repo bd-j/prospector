@@ -126,8 +126,10 @@ class StepSFHBasis(SSPBasis):
         return w
 
     def bin_weights(self, amin, amax):
-        """Compute normalizations required to get a piecewise constant
-        SFH (SFR=1) within an age bin.  This is super complicated and obscured.
+        """Compute normalizations required to get a piecewise constant SFH
+        within an age bin.  This is super complicated and obscured.  The output
+        weights are such that one solar mass will have formed during the bin
+        (i.e. SFR = 1/(amax-amin))
 
         This computes weights using \int_tmin^tmax dt (\log t_i - \log t) / (\log
         t_{i+1} - \log t_i) but see sfh.tex for the detailed calculation and
@@ -151,7 +153,7 @@ class StepSFHBasis(SSPBasis):
         tmin, tmax = np.clip(ages, amin, amax)
 
         # get contributions from SSP sub-bin to the left and from SSP sub-bin
-        # to the right, using linear interpolation in linear time
+        # to the right
         left, right = (func(ages, tmax) - func(ages, tmin)) / dt
         # put into full array
         ww = np.zeros(len(sspages))
