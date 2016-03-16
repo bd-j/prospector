@@ -15,8 +15,13 @@
 \newcommand{\tinterval}{\right|_{\tmin[,i]}^{\tmax[,i]}}
 \newcommand{\clip}[3][]{{#1}_{\top {#2}}^{\bot {#3}}}
 
-\newcommand{\sftrunc}{t_{\mathrm{trunc}}}
+\newcommand{\sftrunc}{T_{\mathrm{trunc}}}
 \newcommand{\tage}{t_{\mathrm{age}}} 
+\newcommand{\sfzero}{T_{\mathrm{zero}}}
+\newcommand{\tzero}{t_{\circ}}
+\newcommand{\sfslope}{m_{\mathrm{SF}}} 
+
+
 \begin{document}
 \author{B. Johnson}
 
@@ -46,14 +51,16 @@ W_{i, \mathrm{left}} & = & \int_{\tmin[,i-1]}^{\tmax[,i-1]} dt \, \mathrm{SFR}(t
 \end{eqnarray}
 where $\clip[x]{a}{b}$ denotes $x$ \emph{clipped} to the interval $(a,b)$. If we take $\mathrm{SFR}(t) = 1$ then we can define
 \begin{eqnarray}
-g_i & \equiv & \tintegral \, \mathrm{SFR}(t) \, \frac{t_{i+1} - t}{t_{i+1}  - t_i} \nonumber  \\
- & = & \left. \frac{1}{t_{i+1} - t_i} \, \left[ t_{i+1} \, t - \frac{t^2}{2} \right] \tinterval
+g_i(x) & \equiv & \tintegral \, \mathrm{SFR}(t) \, \frac{x - t}{t_{i+1}  - t_i} \nonumber  \\
+ & = & \left. \frac{1}{t_{i+1} - t_i} \, \left[ x\, t - \frac{t^2}{2} \right] \tinterval
 \end{eqnarray}
 which leads to
 \begin{eqnarray}
-W_i & = & g_{i} - g_{i-1}
+W_i & = & g_{i}(t_{i+1}) - g_{i-1}(t_{i-1})
 \end{eqnarray}
-and one only has to calculate the ${g_i}$ once and then take differences between shifted versions to obtain the total weights.
+and one only has to calculate the $\{g_i(t_i)\}, \{g_i(t_{i+1})\}$ once and then take differences between shifted versions to obtain the total weights.
+Note that for the smallest $i$ we define $g_{i-1}(t_{i-1})\equiv 0$ (there is no younger or ``left'' sub-bin) 
+and for the largest $i$ we define $g_{i}(t_{i+1}) \equiv 0$ (there is no older or ``right'' sub-bin) .
 
 This formalism works even if $\amin$ and $\amax$ both fall between the same $t_i$ and $t_{i+1}$; that is, if the desired bin is narrower than the SSP defined sub-bins.
 It also works if a sub-bin falls completely outside the $(amin, amax)$ interval.
@@ -67,22 +74,35 @@ w_{i}(t) & = & \frac{ \log t_{i+1} - \log t}{ \log t_{i+1}  - \log t_i} \nonumbe
 \end{eqnarray}
 in the first set of equations above. The we simply replace $g_i$ by $s_i$ defined as 
 \begin{eqnarray}
-s_i & \equiv & \tintegral \, \mathrm{SFR}(t) \, \frac{\log t_{i+1} - \log t}{\log t_{i+1}  - \log t_i} \nonumber \\
- & = & \left. \frac{1}{\log t_{i+1} - \log t_i} \left[ t \, \log t_{i+1} - t \log\left(\frac{t}{e}\right) \right] \tinterval
+s_i(x) & \equiv & \tintegral \, \mathrm{SFR}(t) \, \frac{x - \log t}{\log t_{i+1}  - \log t_i} \nonumber \\
+ & = & \left. \frac{1}{\log t_{i+1} - \log t_i} \left[ t \, x- t \log\left(\frac{t}{e}\right) \right] \tinterval
 \end{eqnarray}
 to obtain a total weight for SSP $i$ of
 \begin{eqnarray}
-W_i & = & s_{i} - s_{i-1} \nonumber
+W_i & = & s_{i}(\log t_{i+1}) - s_{i-1}(\log t_{i-1}) \nonumber
 \end{eqnarray}
 
 The key in both cases is to properly calculate $\tmax$ and keep track of the indices 
 (especially for the first and last SSP, where $s_{i-1}$ and $s_i$ are not defined, respectively.)  
 
 \section{Lookback Time Zero}
+The youngest age for which an SSP spectrum is availables is generally of order 1 Myr.  
+However, we need to account for SF occuring from 0-1 Myr lookback time.
+There's a couple ways to deal with this.  
+Probably the most straightforward is to simply approximate the $t=0$ spectrum by the youngest available SSP.
+
+In the case of logarithmic interpolation one has to define some minimum age, say 1 year, to act as zero.
+In practice the exact choice of minimum age does not matter, 
+as the total weights for the zeroth and first SSP converge such that fractional error is below $\sim 10^{-4}$ for a minimum age less than 10 years or so...
+The totally correct way to do this is to work out the definite integrals properly with $\tmin[,i]=0$.
+
 
 \section{More complex SFHs}
-For more complicated SFH the integrals in the basic definition of $s_i$ must be calculated again by hand, (remembering here that $t$ is \emph{lookback time}.)  
-We define $s_i$ for interpolation in $\log t$ and $g_i$ for interpolation in $t$.
+For more complicated SFH only the integrals in the basic definition of $s_i$ and $g_i$ must be calculated again by hand, 
+(remembering here that $t$ is \emph{lookback time}.)
+We define $s_i(x)$ for interpolation in $\log t$ and $g_i(x)$ for interpolation in $t$.  
+For simplicity and clarity we take the cases $x = \log t_{i+1}$ for $s_i$ and $x = t_{i+1}$ for $g_i$, 
+but substitution for $x$ is trivial (as long as it is not $t$ dependent):
 \begin{eqnarray}
 s_i & \equiv & \tintegral \, \mathrm{SFR}(t) \, \frac{\log t_{i+1} - \log t}{\dlt} \\
 g_i & \equiv & \tintegral \, \mathrm{SFR}(t) \, \frac{t_{i+1} - t}{\dt}
@@ -106,13 +126,13 @@ Here we have a SFH defined by three parameters
 \[ 
 \mathrm{SFR}(t) = 
 \begin{cases}
-K \, e^{-T/\tau}, &  \text{if } 0 < T \leq t_{\mathrm{trunc}} \\
+K \, e^{-T/\tau}, &  \text{if } 0 < T \leq \sftrunc \\
 0, & \text{otherwise}
 \end{cases}
 \]
 \begin{eqnarray}
 T & = & \tage - t \nonumber \\
-t_q & = & \tage - t_{\mathrm{trunc}} \nonumber 
+t_q & = & \tage - \sftrunc \nonumber 
 \end{eqnarray}
 where $T$ is defined as the time since the start of star formation, \emph{not} lookback time.  
 The lookback time  (in the reference frame of the galaxy) is given by $t$, which goes from 0 to $\tage$.
@@ -120,7 +140,7 @@ The parameters are:
 $\tage$, the age of the galaxy since the start of SF (\texttt{tage} in FSPS), 
 $\tau$, the $e$-folding time (\texttt{tau} in FSPS), and
 $\sftrunc$, the time since the start of SF that truncation occurs (\texttt{sf\_trunc} in FSPS).
-Note that in the current FSPS definition, $t_{\mathrm{trunc}}=0$ corresponds to no truncation, so it is actually $t_{\mathrm{trunc}} = \tage$ and $t_q=0$.
+Note that in the current FSPS definition, $\sftrunc = 0$ corresponds to no truncation, so it is actually $\sftrunc= \tage$ and $t_q=0$.
 The FSPS \texttt{sf\_start} is basically redundant with \texttt{tage} and confusing so we ignore it.
 
 In this case we have, for the logarithmic time interpolation,
@@ -147,13 +167,13 @@ Here the SFH is also defined by three parameters
 \[ 
 \mathrm{SFR}(t) = 
 \begin{cases}
-K \, T \, e^{-T/\tau}, &  \text{if } 0 < T \leq t_{\mathrm{trunc}} \\
+K \, T \, e^{-T/\tau}, &  \text{if } 0 < T \leq \sftrunc\\
 0, & \text{otherwise}
 \end{cases}
 \]
 \begin{eqnarray}
 T & = & \tage - t \nonumber \\
-t_q & = & \tage - t_{\mathrm{trunc}} \nonumber
+t_q & = & \tage - \sftrunc\nonumber
 \end{eqnarray}
 So now we have
 \begin{eqnarray}
@@ -164,6 +184,7 @@ The first and third terms are fairly straightforward.  The second term is basica
 \begin{eqnarray}
 s_i  & = & \frac{K \, \tau \,  e^{-\tage/\tau}}{\dlt} \left[\left.\left(t\,\log \frac{t}{t_{i+1}} + \tage\,\log t_{i+1}  + \tau\,\log \frac{t_{i+1}}{e}\right) e^{t/\tau}\tinterval - (\tage/\tau+1)\, H_i\right] \quad .
 \end{eqnarray}
+The limits $\tmin$ and $\tmax$ are as for the $\tau$-model above.
 
 For interpolation in linear time, we have
 \begin{eqnarray}
@@ -172,10 +193,61 @@ g_i  & = & \tintegral \, K \, (\tage-t) \, e^{(t-\tage) /\tau}\, \frac{t_{i+1} -
      & = & \frac{K \, \tau \, e^{-\tage/\tau}}{\dt} \left. e^{t/\tau} \, \left[ \tage \, t_{i+1} - (\tage + t_{i+1})\, (t-\tau) + t^2 - 2\, t\, \tau + 2\, \tau^2\right] \tinterval \quad .
 \end{eqnarray}
 
+One could, in principle, redefine the SSP $t_i$ to be in forward time instead of lookback time.  While this would simplify the integrals, keeping them in lookback time is conceptually simpler.
+
 \subsection{Simha}
-This is the SFH from \citet{simha14}.  It is defined by a delayed-$\tau$ SFH until some time $\sftrunc$, after which the SFH is linearly increasing or decreasing with some slope $m_{\mathrm{SF}}$.  The SFR is continuous at $\sftrunc$, but the derivative is not.  For this reason, we will treat the SFH in two separate pieces.  The trick is to get the proper normalization at $\sftrunc$ and, for linearly decreasing SF, find the time where the SF reaches zero. 
+This is the SFH from \citet{simha14}.  
+It is defined by a delayed-$\tau$ SFH until some time $\sftrunc$, after which the SFH is linearly increasing or decreasing with some slope $m_{\mathrm{SF}}$.  
+The SFR is continuous at $\sftrunc$, but the derivative is not.  
+For this reason, we will treat the SFH in two separate pieces.  
+The trick is to get the proper normalization at $\sftrunc$ and, for linearly decreasing SF, find the time where the SF reaches zero. 
+\[ 
+\mathrm{SFR}(t) = 
+\begin{cases}
+K \, T \, e^{-T/\tau}, &  \text{if } 0 < T \leq \sftrunc \\
+L\, \left[1 - \sfslope \, (T - \sftrunc)\right] & \text{if } \sftrunc < T  < \sfzero \\
+0 & \text{otherwise}
+\end{cases}
+\]
+\begin{eqnarray}
+T & = & \tage - t \nonumber \\
+t_q & = & \tage - \sftrunc \nonumber \\
+L & = & K \, \sftrunc \, e^{-\sftrunc/\tau} \nonumber \\
+\sfzero & = & \clip[\left(\sftrunc + \sfslope^{-1}\right)]{\sftrunc}{\tage}, \nonumber \\
+\tzero & = & \clip[\left( t_q - \sfslope^{-1}\right)]{0}{t_q} \nonumber
+\end{eqnarray}
+where $\tzero$ is the \emph{lookback} time at which the SFR becomes zero.
+
+The portion of the SFH that is a delayed-$\tau$ can be dealt with using the formulae in the last section.  The linear portion is relatively straightforward:
+\begin{eqnarray}
+s_i  & = & \tintegral \,  L\, \left[1 - \sfslope \, (t_q - t)\right] \, \frac{\log t_{i+1} - \log t}{\dlt}  \nonumber \\
+      & = & \frac{L}{\dlt} \left.\left[(1-\sfslope\, t_q) \, t \, \left(\log t_{i+1} - \log\frac{t}{e} \right) + \frac{\sfslope \, t^2}{2} \, \left(\log t_{i+1} - \log t +\frac{\log e}{2}\right)  \right] \tinterval \\
+\tmin[,i] & = & \clip[\tzero]{t_i}{t_{i+1}} \nonumber \\
+\tmax[,i] & = & \clip[t_q]{t_i}{t_{i+1}} \quad . \nonumber
+\end{eqnarray}
+
+The linear interpolation version of the linear SFH is given by 
+\begin{eqnarray}
+g_i  & = & \tintegral \,  L\, \left[1 - \sfslope \, (t_q - t)\right] \, \frac{t_{i+1} - t}{\dt}  \nonumber \\
+      & = & \frac{L}{\dt} \left.\left[(1-\sfslope\, t_q) \, t_{i+1} \, t + \left(\sfslope\, t_{i+1} + \sfslope \, t_q -1\right)\, \frac{t^2}{2} - \frac{\sfslope\, t^3}{3}\right] \tinterval
+\end{eqnarray}
 
 
 \subsection{Bursts}
+
+Here we have 
+\[ 
+\mathrm{SFR}(t) = \delta(T - T_{burst})
+\]
+\begin{eqnarray}
+T & = & \tage - t \nonumber \\
+T_{burst} & = & \tage - t_b
+\end{eqnarray}
+
+\begin{eqnarray}
+T & = & \tage - t \nonumber \\
+T_{burst} & = & \tage - t_b
+\end{eqnarray}
+
 
 \end{document}

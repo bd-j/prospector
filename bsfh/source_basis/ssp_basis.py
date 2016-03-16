@@ -1,5 +1,6 @@
 from itertools import chain
 import numpy as np
+from scipy.special import expi
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
 
@@ -12,7 +13,7 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["SSPBasis", "StepSFHBasis"]
+__all__ = ["SSPBasis", "StepSFHBasis", "CompositeSFH"]
 
 
 # Useful constants
@@ -23,17 +24,25 @@ jansky_mks = 1e-26
 # value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 
+# change base
+loge = np.log10(np.e)
+
+#minimum time for logarithmic sfhs
+mint_log = 1 #yr
 
 class SSPBasis(object):
 
     def __init__(self, compute_vega_mags=False, zcontinuous=1,
-                 interp_type='logarithmic', **kwargs):
+                 interp_type='logarithmic', sfh_type='ssp',
+                 mint_log=1e-3, **kwargs):
 
         self.interp_type = interp_type
+        self.sfh_type = sfh_type
+        self.mint_log = mint_log
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
                                           zcontinuous=zcontinuous)
         self.ssp.params['sfh'] = 0
-        self.reserved_params = []
+        self.reserved_params = ['sfh']
         self.params = {}
         self.update(**kwargs)
 
@@ -42,8 +51,11 @@ class SSPBasis(object):
             self.params[k] = v
             if k in self.reserved_params:
                 continue
+            # If a parameter exists in the FSPS parameter set, pass it in.
             if k in self.ssp.params.all_params:
                 self.ssp.params[k] = v
+
+        # We use FSPS for SSPs !!ONLY!!
         assert self.ssp.params['sfh'] == 0
 
     def get_spectrum(self, outwave=None, filters=None, **params):
@@ -57,8 +69,10 @@ class SSPBasis(object):
         self.update(**params)
         wave, ssp_spectra = self.ssp.get_spectrum(tage=0, peraa=True)
         masses = self.ssp_weights
-        spectrum = (masses[:, None] * ssp_spectra).sum(axis=0)
-
+        spectrum = (masses[1:, None] * ssp_spectra).sum(axis=0)
+        # Add the t=0 spectrum, using the t_1 spectrum
+        spectrum += masses[0] * ssp_spectra[0,:]
+        
         # redshifting
         a = 1 + self.params.get('zred', 0)
         wa, sa = vac2air(wave) * a, spectrum / a
@@ -173,3 +187,132 @@ class StepSFHBasis(SSPBasis):
         """
         t = 10**logt
         return logages * t - t * (logt - np.log10(np.e))
+
+
+class CompositeSFH(SSPBasis):
+
+    def configure(self):
+        fname = '{0}_{1}'.format(self.sfh_type, self.interp_type)
+        # is this the right pattern?
+        self.func = globals()[fname]
+        if self.interp_type == 'linear':
+            sspages = np.insert(10**self.logage, 0, 0)
+        elif self.interp_type == 'logarithmic':
+            sspages = np.insert(self.logage, 0, np.log10(self.mint_log))
+        self.ages = np.array([sspages[:-1], sspages[1:]])
+        self.dt = np.diff(self.ages, axis=0)
+            
+    @property
+    def ssp_weights(self):
+        tmin, tmax = self.integration_limits(self.ages)
+        left, right = (self.func(self.ages, tmax, **self.params) -
+                       self.func(self.ages, tmin, **self.params)) / self.dt
+        #put into full array, shifting the `right` terms by 1 element
+        ww = np.zeros(self.ages.shape[-1] + 1)
+        ww[:-1] += right  # last element has no sub-bin to the right
+        ww[1:] += -left   # first element has no subbin to the left.  also, need to flip sign
+
+        # Note that ww[1] = right[1] + left[0], where left[0] is the integral
+        # from tmin,0 to tmax,0 of dt*SFR(t) * (sspages[0] - t)/(sspages[1] - sspages[0])
+
+        #if simha in self.sfh_type:
+        #  #add the linear portion
+        #  tmin, tmax = self.simha_integration_limits(self.ages)
+        #  left, right = (func(self.ages, tmax, **self.params) -
+        #                 func(self.ages, tmin, **self.params)) / self.dt
+        #  ww[:-1] += right
+        #  ww[1:] -= left
+        # normalize to 1 solar mass formed and return
+        return ww / ww.sum()
+        
+    def integration_limits(self, ages):
+        tage = self.params['tage']
+        tq = (tage - self.params.get('sf_trunc', tage))
+        if self.interp_type == 'logarithmic':
+            tq = np.log10(np.max([tq, self.mint_log]))
+            tage = np.log10(np.max([tage, self.mint_log]))
+        return np.clip(ages, tq, tage)
+
+    def simha_integration_limits(self, ages):
+        tage = self.params['tage']
+        tq = tage - self.params.get('sf_trunc', tage)
+        tzero = tq -  1. / self.params.get('sf_slope', 0)# fix this to deal with slope=0
+        tzero = np.clip(tzero, 0) #fix this for negative slopes
+        return np.clip(ages, tzero, tq)
+    
+    def norm(self):
+        return self.params['K'] * self.params['tau'] * np.exp(-self.params['tage']/ self.params['tau'])
+
+
+def constant_linear(ages, t, **extras):
+    """SFR = 1
+    """
+    return ages * t - t**2 / 2
+
+
+def constant_logarithmic(logages, logt, **extras):
+    """SFR = 1
+    """
+    t = 10**logt
+    return logages * t - t * (logt - np.log10(np.e))
+
+
+def tau_linear(ages, t, tau=None, **extras):
+    """SFR = e^{(tage-t)/\tau}
+    """
+    return (ages - t + tau) * np.exp(t / tau)
+
+
+def tau_logarithmic(logages, logt, tau=None, **extras):
+    """SFR = e^{(tage-t)/\tau}
+    """
+    tprime = 10**logt / tau
+    return (logages - logt) * np.exp(tprime) + loge * expi(tprime)
+
+
+def delaytau_linear(ages, t, tau=None, tage=None, **extras):
+    """SFR = (tage-t) * e^{(tage-t)/\tau}
+    """
+    bracket = tage * ages - (tage + ages)*(t - tau) + t**2 - 2*t*tau + 2*tau**2
+    return bracket * np.exp(t / tau)
+
+
+def delaytau_logarithmic(logages, logt, tau=None, tage=None, **extras):
+    """SFR = (tage-t) * e^{(tage-t)/\tau}
+    """
+    t = 10**logt
+    tprime = t / tau
+    bracket = t * (logt - logages) + tage*logages + tau * (logages - loge)
+    term = bracket * np.exp(tprime)
+    h = tau * (logt * np.exp(tprime) - loge * expi(tprime))
+    return term - (tage / tau + 1) * h
+
+
+def linear_linear(ages, t, tage=None, sf_slope=None, **extras):
+    """SFR = [1 - sf_slope * (tage-t)]
+    """
+    k = 1 - sf_slope * tage
+    return k * ages * t + (sf_slope * ages - k) * t**2 / 2 - sf_slope * t**3 / 3
+
+
+def linear_logarithmic(logages, logt, tage=None, sf_slope=None, b=0, **extras):
+    """SFR = [1 - sf_slope * (tage-t)]
+    """
+    t = 10**logt
+    k = 1 - sf_slope * tage
+    term1 = k * t * (logages - logt + loge)
+    term2 = sf_slope * t**2 / 2 * (logages - logt + loge / 2)
+    return term1 + term2
+
+
+def delta_linear(ages, t, t_burst=None):
+    """Burst.  SFR = \delta(t-t_burst)
+    """
+    #return ages - t_burst
+    raise(NotImplementedError)
+
+def delta_logarithmic(logages, logt, t_burst=None):
+    """Burst.  SFR = \delta(t-t_burst)
+    """
+    #return logages - np.log10(t_burst)
+    raise(NotImplementedError)

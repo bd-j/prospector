@@ -3,4 +3,4 @@ from .star_basis import *
 from .ssp_basis import *
 
 __all__ = ["StellarPopBasis", "CSPBasis", "StarBasis", "BigStarBasis",
-           "SSPBasis", "StepSFHBasis", "to_cgs"]
+           "SSPBasis", "StepSFHBasis", "CompositeSFH", "to_cgs"]
