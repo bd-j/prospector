@@ -29,8 +29,8 @@ class StarBasis(object):
     _spectra = None
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
-                 n_neighbors=0, log_interp=False, logify_Z=True,
-                 **kwargs):
+                 n_neighbors=0, log_interp=True, logify_Z=True,
+                 use_params=None, **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
         normalized, smoothed stellar spectra.  The interpolations are performed
@@ -48,7 +48,16 @@ class StarBasis(object):
 
         :param verbose:
             If True, print information about the parameters used when a point
-            is outside the convex hull
+            is outside the convex hull.
+
+        :param log_interp: (default:True)
+            Switch to interpolate in log(flux) instead of linear flux.
+            
+        :param use_params:
+            Sequence of strings. If given, only use the listed parameters
+            (which must be present in the `_libparams` structure) to build the
+            grid and construct spectra.  Otherwise all fields of `_libparams`
+            will be used.
         """
         self.verbose = verbose
         self.logarithmic = log_interp
@@ -56,7 +65,10 @@ class StarBasis(object):
         self._libname = libname
         self.load_lib(libname)
         # Do some important bookkeeping
-        self.stellar_pars = self._libparams.dtype.names
+        if use_params is None:
+            self.stellar_pars = self._libparams.dtype.names
+        else:
+            self.stellar_pars = tuple(use_params)
         self.ndim = len(self.stellar_pars)
         self.triangulate()
         try:
@@ -85,7 +97,9 @@ class StarBasis(object):
         self._libparams = self._libparams[good]
         self._spectra = self._spectra[good, :]
         if self.logify_Z:
+            from numpy.lib import recfunctions as rfn
             self._libparams['Z'] = np.log10(self._libparams['Z'])
+            rfn.rename_fields(self._libparams, {'Z': 'logZ'})
 
     def update(self, **kwargs):
         """Turn length 1 arrays into scalars and pull out functions from length
@@ -217,6 +231,7 @@ class StarBasis(object):
         inparams = np.squeeze(self.param_vector(**kwargs))
         triangle_ind = self._dtri.find_simplex(inparams)
         if triangle_ind == -1:
+            self.edge_flag = True
             if self.n_neighbors == 0:
                 pstring = ', '.join(self.ndim * ['{}={}'])
                 pstring = pstring.format(*chain(*zip(self.stellar_pars, inparams)))
@@ -243,15 +258,15 @@ class StarBasis(object):
         """Build the Delauynay Triangulation of the model library.
         """
         # slow.  should use a view based method
-        model_points = np.array([list(d) for d in self._libparams])
-        self._dtri = Delaunay(model_points)
+        model_points = np.array([list(self._libparams[d]) for d in self.stellar_pars])
+        self._dtri = Delaunay(model_points.T)
 
     def build_kdtree(self):
         """Build the kdtree of the model points.
         """
         # slow.  should use a view based method
-        model_points = np.array([list(d) for d in self._libparams])
-        self._kdt = KDTree(model_points)
+        model_points = np.array([list(self._libparams[d]) for d in self.stellar_pars])
+        self._kdt = KDTree(model_points.T)
 
     def weights_kNN(self, target_points, k=1):
         """The interpolation weights are determined from the inverse distance
@@ -299,7 +314,8 @@ class StarBasis(object):
 class BigStarBasis(StarBasis):
 
     def __init__(self, libname='', verbose=False, log_interp=True,
-                 n_neighbors=0,  driver=None, in_memory=False, **kwargs):
+                 n_neighbors=0,  driver=None, in_memory=False,
+                 use_params=None, **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
         normalized, smoothed stellar spoectra.
@@ -330,6 +346,12 @@ class BigStarBasis(StarBasis):
             Switch to determine whether the grid is loaded in memory or read
             from disk each time a model is constructed (like you'd want for
             very large grids).
+
+        :param use_params:
+            Sequence of strings. If given, only use the listed parameters
+            (which must be present in the `_libparams` structure) to build the
+            grid and construct spectra.  Otherwise all fields of `_libparams`
+            will be used.
         """
         self.verbose = verbose
         self.logarithmic = log_interp
@@ -339,7 +361,10 @@ class BigStarBasis(StarBasis):
 
         self.load_lib(libname, driver=driver)
         # Do some important bookkeeping
-        self.stellar_pars = self._libparams.dtype.names
+        if use_params is None:
+            self.stellar_pars = self._libparams.dtype.names
+        else:
+            self.stellar_pars = tuple(use_params)
         self.ndim = len(self.stellar_pars)
         self.lib_as_grid()
         self.params = {}
