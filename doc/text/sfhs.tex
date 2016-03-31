@@ -88,8 +88,9 @@ The key in both cases is to properly calculate $\tmax$ and keep track of the ind
 \section{Lookback Time Zero}
 The youngest age for which an SSP spectrum is availables is generally of order 1 Myr.  
 However, we need to account for SF occuring from 0-1 Myr lookback time.
-There's a couple ways to deal with this.  
-Probably the most straightforward is to simply approximate the $t=0$ spectrum by the youngest available SSP.
+There's a couple ways to deal with this necessary extrapolation.
+Probably the most straightforward is nearest-neighbor extrapolation.  
+That is, simply approximate the $t=0$ spectrum by the youngest available SSP.
 
 In the case of logarithmic interpolation one has to define some minimum age, say 1 year, to act as zero.
 In practice the exact choice of minimum age does not matter, 
@@ -232,6 +233,7 @@ g_i  & = & \tintegral \,  L\, \left[1 - \sfslope \, (t_q - t)\right] \, \frac{t_
       & = & \frac{L}{\dt} \left.\left[(1-\sfslope\, t_q) \, t_{i+1} \, t + \left(\sfslope\, t_{i+1} + \sfslope \, t_q -1\right)\, \frac{t^2}{2} - \frac{\sfslope\, t^3}{3}\right] \tinterval
 \end{eqnarray}
 
+We verify that these expressions reduce to the constant SFR case when $\sfslope=0$.
 
 \subsection{Bursts}
 

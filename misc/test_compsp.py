@@ -21,7 +21,7 @@ sspages = np.insert(mysps.logage, 0, 0)
 
 
 def main():
-    figlist = test_taumodel_dust(sfh=1)
+    figlist = test_taumodel_sft(sfh=5)
     pl.show()
 
 def test_mint_convergence():
@@ -29,13 +29,13 @@ def test_mint_convergence():
      """
     sfh_params = {'tage': 1e9, 'tau':14e9}
     # set up an array of minimum values, and get the weights for each minimum value
-    mint = 10**np.linspace(-4, 2, 100)
+    mint = np.linspace(-4, 2, 100)
     w = np.zeros([len(mint), len(mysps.logage)+1])
     for i, m in enumerate(mint):
         mysps.update(**sfh_params)
         mysps.mint_log = m
         mysps.configure()
-        w[i,:] = mysps.ssp_weights
+        w[i,:] = mysps.all_ssp_weights
 
     # Plot summed weight for zeroth and 1st SSP
     pl.figure()
@@ -53,8 +53,16 @@ def test_mint_convergence():
 def test_normalization():
     sfh_params = {'tage': 1e9, 'tau':14e9}
     mtot = None
-    w = mysps.ssp_weights
+    w = mysps.all_ssp_weights
 
+
+def test_simha(values=np.linspace(0.0, 4.0, 9), tage=3.0):
+    pname = r'sf_trunc'
+    sps.params['sfh'] = 5
+    mysps.sfh_type = sfhtype[sfh]
+    mysps.configure()
+    sfig, saxes = pl.subplots(2, 1, figsize=(11, 8.5))
+    #for sf_trunc in 
 
 def test_taumodel_dust(values=np.linspace(0.0, 4.0, 9),
                        tage=3.0, tau=1.0, sfh=1):
@@ -74,20 +82,20 @@ def test_taumodel_dust(values=np.linspace(0.0, 4.0, 9),
         mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, dust2))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, dust2))
-        #wax.plot(sspages, mysps.ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, dust2))
+        #wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, dust2))
     rax.set_xlim(1e3, 1e7)
     rax.set_ylabel('pro / FSPS')
     dax.set_xlim(1e3, 1e7)
     dax.set_ylabel('FSPS - pro')
     [ax.set_xscale('log') for ax in [rax, dax]]
     [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax]]
-    [ax.text(0.1, 0.85, '$\tau_{{SF}}={}, tage={}$'.format(tau, tage), transform=ax.transAxes)
+    [ax.text(0.1, 0.85, r'$\tau_{{SF}}={}, tage={}$'.format(tau, tage), transform=ax.transAxes)
      for ax in [rax, dax]]
     #wax.set_yscale('log')
     #wax.set_xlabel('log t$_{lookback}$')
     #wax.set_ylabel('weight')
     [ax.set_title('SFH={} ({} model)'.format(sfh, sfhtype[sfh]))
-     for ax in [rax, wax]]
+     for ax in [rax]]
     return [sfig]
     
     
@@ -110,7 +118,7 @@ def test_taumodel_tau(values=10**np.linspace(-1, 1, 9),
         mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, tau))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, tau))
-        wax.plot(sspages, mysps.ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tau))
+        wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tau))
     rax.set_xlim(1e3, 2e4)
     rax.set_ylabel('pro / FSPS')
     dax.set_xlim(1e3, 2e4)
@@ -142,7 +150,7 @@ def test_taumodel_tage(values=10**np.linspace(np.log10(0.11), 1, 9),
         mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, tage))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, tage))
-        wax.plot(sspages, mysps.ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tage))
+        wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tage))
     rax.set_xlim(1e3, 2e4)
     rax.set_ylabel('pro / FSPS')
     dax.set_xlim(1e3, 2e4)
@@ -175,13 +183,15 @@ def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
         mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
-        wax.plot(sspages, mysps.ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_trunc))
+        wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_trunc))
         wax.axvline(np.log10((tage - sf_trunc) * 1e9), linestyle=':', color='k')
     rax.set_xlim(1e3, 2e4)
     rax.set_ylabel('pro / FSPS')
     dax.set_xlim(1e3, 2e4)
     dax.set_ylabel('FSPS - pro')
     [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax, wax]]
+    [ax.text(0.1, 0.85, r'$\tau_{{SF}}={}, tage={}$'.format(tau, tage), transform=ax.transAxes)
+     for ax in [rax, dax, wax]]
     wax.set_yscale('log')
     wax.set_xlabel('log t$_{lookback}$')
     wax.set_ylabel('weight')
