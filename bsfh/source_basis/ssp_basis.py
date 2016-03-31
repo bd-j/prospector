@@ -34,11 +34,12 @@ class SSPBasis(object):
 
     def __init__(self, compute_vega_mags=False, zcontinuous=1,
                  interp_type='logarithmic', sfh_type='ssp',
-                 mint_log=1e-3, **kwargs):
+                 flux_interp='linear', mint_log=1e-3, **kwargs):
 
         self.interp_type = interp_type
         self.sfh_type = sfh_type
         self.mint_log = mint_log
+        self.flux_interp = flux_interp
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
                                           zcontinuous=zcontinuous)
         self.ssp.params['sfh'] = 0
@@ -58,6 +59,20 @@ class SSPBasis(object):
         # We use FSPS for SSPs !!ONLY!!
         assert self.ssp.params['sfh'] == 0
 
+    def get_galaxy_spectrum(self, **params):
+        self.update(**params)
+        wave, ssp_spectra = self.ssp.get_spectrum(tage=0, peraa=True)
+        if self.flux_interp == 'logarithmic':
+            ssp_spectra = np.log(ssp_spectra)
+        masses = self.ssp_weights
+        spectrum = (masses[1:, None] * ssp_spectra).sum(axis=0)
+        # Add the t=0 spectrum, using the t_1 spectrum
+        spectrum += masses[0] * ssp_spectra[0,:]
+        if self.flux_interp == 'logarithmic':
+            spectrum = np.exp(spectrum)
+        return wave, spectrum
+            
+        
     def get_spectrum(self, outwave=None, filters=None, **params):
         """
         :returns spec:
@@ -66,13 +81,8 @@ class SSPBasis(object):
         :returns phot:
             Photometry in maggies
         """
-        self.update(**params)
-        wave, ssp_spectra = self.ssp.get_spectrum(tage=0, peraa=True)
-        masses = self.ssp_weights
-        spectrum = (masses[1:, None] * ssp_spectra).sum(axis=0)
-        # Add the t=0 spectrum, using the t_1 spectrum
-        spectrum += masses[0] * ssp_spectra[0,:]
         
+        wave, spectrum = self.get_galaxy_spectrum(**params)
         # redshifting
         a = 1 + self.params.get('zred', 0)
         wa, sa = vac2air(wave) * a, spectrum / a
