@@ -30,10 +30,10 @@
 %\end{center}
 
 \section{Introduction}
-We wish to find the proper weighting of discrete SSPs to reproduce the spectrum $f$ from SFR occurring within some bin of  lookback times $(\amin, \amax)$.
-We approximate the spectrum $f(t)$ at any lookback time $t$ as a linear interpolation of the (total stellar mass normalized) spectra at the discrete SSP lookback times $t_i$, for $i=1,...,N$ 
+We wish to find the proper weighting of discrete SSPs to reproduce the spectrum $F$ from SFR occurring within some bin of  lookback times $(\amin, \amax)$.
+We approximate the spectrum $f(t)$ at any lookback time $t$ as a linear interpolation of the (total stellar mass normalized) spectra $f_i$ at the discrete SSP lookback times $t_i$, for $i=1,...,N$ 
 \begin{eqnarray}
-f & = & \int_{\amin}^{\amax} dt \, f(t) \, SFR(t) \nonumber \\
+F & = & \int_{\amin}^{\amax} dt \, f(t) \, SFR(t) \nonumber \\
 f(t) & = & w_{i}(t) \, f_i + w_{i+1}(t) \, f_{i+1} \, , \quad t_i < t < t_{i+1}  \nonumber \\
 w_{i}(t) & = & \frac{t_{i+1} - t}{t_{i+1}  - t_i} \nonumber \\
 w_{i+1}(t) & = & 1 - w_i(t) \quad . \nonumber
@@ -42,7 +42,7 @@ Then we can write the \emph{total} contribution of SSP $i$ to the total spectrum
 The sub-bins are defined by the spacing of the SSP $t_i$ values. 
 The limits of each integral are determined either by the spacing of the SSP points $t_i$ or, when the bin does not completely span the sub-bin, by the $\amin$ and/or $\amax$ values.
 \begin{eqnarray}
-W_i & = &  \tintegral \, \mathrm{SFR}(t) \, w_i(t) \nonumber \\
+W_i & = &  \int_{\amin}^{\amax} dt \, \mathrm{SFR}(t) \, w_i(t) \nonumber \\
  & = & W_{i, \mathrm{right}} + W_{i, \mathrm{left}} \nonumber \\
 W_{i, \mathrm{right}} & = & \tintegral \, \mathrm{SFR}(t) \, \frac{t_{i+1} - t}{t_{i+1}  - t_i} \nonumber \\
 W_{i, \mathrm{left}} & = & \int_{\tmin[,i-1]}^{\tmax[,i-1]} dt \, \mathrm{SFR}(t) \, \frac{t - t_{i-1}}{t_{i}  - t_{i-1}} \nonumber \\
@@ -63,8 +63,8 @@ Note that for the smallest $i$ we define $g_{i-1}(t_{i-1})\equiv 0$ (there is no
 and for the largest $i$ we define $g_{i}(t_{i+1}) \equiv 0$ (there is no older or ``right'' sub-bin) .
 
 This formalism works even if $\amin$ and $\amax$ both fall between the same $t_i$ and $t_{i+1}$; that is, if the desired bin is narrower than the SSP defined sub-bins.
-It also works if a sub-bin falls completely outside the $(amin, amax)$ interval.
-This is because the clipping will cause $\tmin$ and $\tmax$ to be the same for bins not at least partially within the $(amin, amax)$ interval, and thus all integrals will evaluate to zero.
+It also works if a sub-bin falls completely outside the $(\amin, \amax)$ interval.
+This is because the clipping will cause $\tmin$ and $\tmax$ to be the same for bins not at least partially within the $(\amin, \amax)$ interval, and thus all integrals will evaluate to zero.
 
 \section{Interpolation in $\log t$}
 
@@ -75,7 +75,7 @@ w_{i}(t) & = & \frac{ \log t_{i+1} - \log t}{ \log t_{i+1}  - \log t_i} \nonumbe
 in the first set of equations above. The we simply replace $g_i$ by $s_i$ defined as 
 \begin{eqnarray}
 s_i(x) & \equiv & \tintegral \, \mathrm{SFR}(t) \, \frac{x - \log t}{\log t_{i+1}  - \log t_i} \nonumber \\
- & = & \left. \frac{1}{\log t_{i+1} - \log t_i} \left[ t \, x- t \log\left(\frac{t}{e}\right) \right] \tinterval
+ & = & \left. \frac{1}{\log t_{i+1} - \log t_i} t \, \left( x - \log t + \log e \right) \tinterval
 \end{eqnarray}
 to obtain a total weight for SSP $i$ of
 \begin{eqnarray}
@@ -198,7 +198,7 @@ One could, in principle, redefine the SSP $t_i$ to be in forward time instead of
 
 \subsection{Simha}
 This is the SFH from \citet{simha14}.  
-It is defined by a delayed-$\tau$ SFH until some time $\sftrunc$, after which the SFH is linearly increasing or decreasing with some slope $m_{\mathrm{SF}}$.  
+It is defined by a delayed-$\tau$ SFH until some time $\sftrunc$, after which the SFH is linearly increasing or decreasing with some slope $m_{\mathrm{SF}}$, which has units of inverse time.
 The SFR is continuous at $\sftrunc$, but the derivative is not.  
 For this reason, we will treat the SFH in two separate pieces.  
 The trick is to get the proper normalization at $\sftrunc$ and, for linearly decreasing SF, find the time where the SF reaches zero. 
@@ -217,12 +217,13 @@ L & = & K \, \sftrunc \, e^{-\sftrunc/\tau} \nonumber \\
 \sfzero & = & \clip[\left(\sftrunc + \sfslope^{-1}\right)]{\sftrunc}{\tage}, \nonumber \\
 \tzero & = & \clip[\left( t_q - \sfslope^{-1}\right)]{0}{t_q} \nonumber
 \end{eqnarray}
-where $\tzero$ is the \emph{lookback} time at which the SFR becomes zero.
+where $\tzero$ is the \emph{lookback} time at which the SFR becomes zero.  The clipping here is the wrong terminology.  Basically we want $\tzero$ to be 0 unless it falls within the interval $(t_q -\sfslope^{-1}, t_q)$, or if $\sfslope=0$.
 
 The portion of the SFH that is a delayed-$\tau$ can be dealt with using the formulae in the last section.  The linear portion is relatively straightforward:
 \begin{eqnarray}
 s_i  & = & \tintegral \,  L\, \left[1 - \sfslope \, (t_q - t)\right] \, \frac{\log t_{i+1} - \log t}{\dlt}  \nonumber \\
-      & = & \frac{L}{\dlt} \left.\left[(1-\sfslope\, t_q) \, t \, \left(\log t_{i+1} - \log\frac{t}{e} \right) + \frac{\sfslope \, t^2}{2} \, \left(\log t_{i+1} - \log t +\frac{\log e}{2}\right)  \right] \tinterval \\
+      & = & \frac{L}{\dlt} \left.\left[(1-\sfslope\, t_q) \, t \, \left(\log t_{i+1} - \log t +\log e \right) + 
+                                                     \frac{\sfslope \, t^2}{2} \, \left(\log t_{i+1} - \log t +\frac{\log e}{2}\right) \right] \tinterval \\
 \tmin[,i] & = & \clip[\tzero]{t_i}{t_{i+1}} \nonumber \\
 \tmax[,i] & = & \clip[t_q]{t_i}{t_{i+1}} \quad . \nonumber
 \end{eqnarray}
@@ -232,8 +233,9 @@ The linear interpolation version of the linear SFH is given by
 g_i  & = & \tintegral \,  L\, \left[1 - \sfslope \, (t_q - t)\right] \, \frac{t_{i+1} - t}{\dt}  \nonumber \\
       & = & \frac{L}{\dt} \left.\left[(1-\sfslope\, t_q) \, t_{i+1} \, t + \left(\sfslope\, t_{i+1} + \sfslope \, t_q -1\right)\, \frac{t^2}{2} - \frac{\sfslope\, t^3}{3}\right] \tinterval
 \end{eqnarray}
-
 We verify that these expressions reduce to the constant SFR case when $\sfslope=0$.
+
+Generally we will want to express the normalization as a ratio of total masses formed in the two segments (the delayed-$\tau$ and linear portions).
 
 \subsection{Bursts}
 

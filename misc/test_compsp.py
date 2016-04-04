@@ -20,10 +20,16 @@ mysps.configure()
 sspages = np.insert(mysps.logage, 0, 0)
 
 
+
 def main():
-    figlist = test_taumodel_sft(sfh=5)
+    tage = 1.4
+    sf_trunc = tage * np.linspace(0.90, 1.02, 9)
+    figlist, speclist = test_taumodel_sft(values=sf_trunc, tau=4.2,
+                                          sf_slope=10.0, tage=tage, sfh=5)
+    #figlist = test_taumodel_sfslope()
     pl.show()
 
+    
 def test_mint_convergence():
     """Test convergence of most recent bin.
      """
@@ -132,7 +138,7 @@ def test_taumodel_tau(values=10**np.linspace(-1, 1, 9),
     return [sfig, wfig]
 
 def test_taumodel_tage(values=10**np.linspace(np.log10(0.11), 1, 9),
-                       tau=1.0, sfh=1):
+                       tau=1.0, sf_slope=0.0, sfh=1):
     """Test (delayed-) tau models
     """
     pname = 'tage'
@@ -145,6 +151,7 @@ def test_taumodel_tage(values=10**np.linspace(np.log10(0.11), 1, 9),
     for tage in values:
         sps.params['tau'] = tau
         sps.params['tage'] = tage
+        #sps.params['sf_slope'] = sf_slope
         sfh_params = {'tage': tage*1e9, 'tau': tau*1e9}
         w, spec = sps.get_spectrum(tage=tage, peraa=True)
         mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
@@ -164,7 +171,7 @@ def test_taumodel_tage(values=10**np.linspace(np.log10(0.11), 1, 9),
     return [sfig, wfig]
 
 def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
-                      tau=1.0, tage=11.0, sfh=1):
+                      tau=1.0, sf_slope=0, tage=11.0, sfh=1):
     """Test (delayed-) tau models
     """
     pname = 'sf_trunc'
@@ -178,7 +185,9 @@ def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
         sps.params['tau'] = tau
         sps.params['tage'] = tage
         sps.params['sf_trunc'] = sf_trunc
-        sfh_params = {'tage': tage*1e9, 'tau': tau*1e9, 'sf_trunc': sf_trunc*1e9}
+        sps.params['sf_slope'] = sf_slope
+        sfh_params = {'tage': tage*1e9, 'tau': tau*1e9, 'sf_trunc': sf_trunc*1e9,
+                      'sf_slope': sf_slope / 1e9}
         w, spec = sps.get_spectrum(tage=tage, peraa=True)
         mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
@@ -200,6 +209,47 @@ def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
     [ax.set_title('SFH={} ({} model)'.format(sfh, sfhtype[sfh]))
      for ax in [rax, wax]]
     return [sfig, wfig]
+
+def test_taumodel_sfslope(values=np.linspace(-10, 10, 9),
+                          tau=10.0, sf_trunc=10.0, tage=11.0, sfh=5):
+    """Test (delayed-) tau models
+    """
+    pname = 'sf_slope'
+    sps.params['sfh'] = sfh
+    mysps.sfh_type = sfhtype[sfh]
+    mysps.configure()
+    sfig, saxes = pl.subplots(2, 1, figsize=(11, 8.5))
+    rax, dax = saxes
+    wfig, wax = pl.subplots()
+    for sf_slope in values:
+        sps.params['tau'] = tau
+        sps.params['tage'] = tage
+        sps.params['sf_trunc'] = sf_trunc
+        sps.params['sf_slope'] = sf_slope
+        sfh_params = {'tage': tage*1e9, 'tau': tau*1e9, 'sf_trunc': sf_trunc*1e9,
+                      'sf_slope': sf_slope / 1e9}
+        w, spec = sps.get_spectrum(tage=tage, peraa=True)
+        mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
+        rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, sf_slope))
+        dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, sf_slope))
+        wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_slope))
+        wax.axvline(np.log10((tage - sf_trunc) * 1e9), linestyle=':', color='k')
+    rax.set_xlim(1e3, 2e4)
+    rax.set_ylabel('pro / FSPS')
+    dax.set_xlim(1e3, 2e4)
+    dax.set_ylabel('FSPS - pro')
+    [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax, wax]]
+    [ax.text(0.1, 0.85, r'$\tau_{{SF}}={}, tage={}$'.format(tau, tage), transform=ax.transAxes)
+     for ax in [rax, dax, wax]]
+    wax.set_yscale('log')
+    wax.set_xlabel('log t$_{lookback}$')
+    wax.set_ylabel('weight')
+    logttrunc = np.log10((tage - values) * 1e9)
+    wax.set_xlim(logttrunc.min() - 0.5, logttrunc.max() + 0.5)
+    [ax.set_title('SFH={} ({} model)'.format(sfh, sfhtype[sfh]))
+     for ax in [rax, wax]]
+    return [sfig, wfig]
+
 
 if __name__ == "__main__":
     main()

@@ -261,10 +261,11 @@ class CompositeSFH(SSPBasis):
             Tmax = sf_trunc
         # Tau models.  SFH=1 -> power=1; SFH=4,5 -> power=2
         if ('delay' in self.sfh_type) or ('simha' in self.sfh_type):
-            power = 2
+            power = 2.
         else:
-            power = 1
+            power = 1.
         mass_tau = tau * gammainc(power, Tmax/tau)
+        # SFR at Tmax
         sfr_q = (Tmax/tau)**(power-1) * np.exp(-Tmax/tau)
 
         # linear.  integral of (1 - m * (T - Tmax)) from Tmax to Tzero
@@ -272,7 +273,7 @@ class CompositeSFH(SSPBasis):
         if (Tz < Tmax) or (Tz > tage) or (not np.isfinite(Tz)):
             Tz = tage
         m = sf_slope
-        mass_linear = (Tz - Tmax) - m/2*(Tz**2 + Tmax**2) + m*Tz*Tmax
+        mass_linear = (Tz - Tmax) - m/2.*(Tz**2 + Tmax**2) + m*Tz*Tmax
 
         # normalize the linear portion relative to the tau portion
         norms = np.array([1, mass_linear * sfr_q / mass_tau])
@@ -304,13 +305,13 @@ def simha_limits(ages, tage=0., sf_trunc=0, sf_slope=0., mint_log=-3,
             tq = 0
         else:
             tq = tage - sf_trunc
+        t0 = tq - 1. / np.float64(sf_slope)
+        if (t0 > tq) or (t0 <= 0) or (not np.isfinite(t0)):
+            t0 = 0.
         if interp_type == 'logarithmic':
             tq = np.max([np.log10(tq), mint_log])
-            tage = np.max([np.log10(tage), mint_log])
-        tzero = tq - 1. / np.float64(sf_slope)
-        if (tzero > tq) or (tzero <= 0) or (not np.isfinite(tzero)):
-            tzero = 0.
-        return np.clip(ages, tzero, tq)
+            t0 = np.max([np.log10(t0), mint_log])
+        return np.clip(ages, t0, tq)
 
 
 def constant_linear(ages, t, **extras):
@@ -329,7 +330,7 @@ def constant_logarithmic(logages, logt, **extras):
     """SFR = 1
     """
     t = 10**logt
-    return logages * t - t * (logt - np.log10(np.e))
+    return t * (logages - logt + loge)
 
 
 def tau_linear(ages, t, tau=None, **extras):
@@ -363,18 +364,20 @@ def delaytau_logarithmic(logages, logt, tau=None, tage=None, **extras):
     return term - (tage / tau + 1) * h
 
 
-def linear_linear(ages, t, tage=None, sf_slope=0., **extras):
+def linear_linear(ages, t, tage=None, sf_trunc=0, sf_slope=0., **extras):
     """SFR = [1 - sf_slope * (tage-t)]
     """
-    k = 1 - sf_slope * tage
+    tq = np.max([0, tage-sf_trunc])
+    k = 1 - sf_slope * tq
     return k * ages * t + (sf_slope*ages - k) * t**2 / 2 - sf_slope * t**3 / 3
 
 
-def linear_logarithmic(logages, logt, tage=None, sf_slope=0., **extras):
+def linear_logarithmic(logages, logt, tage=None, sf_trunc=0, sf_slope=0., **extras):
     """SFR = [1 - sf_slope * (tage-t)]
     """
+    tq = np.max([0, tage-sf_trunc])
     t = 10**logt
-    k = 1 - sf_slope * tage
+    k = 1 - sf_slope * tq
     term1 = k * t * (logages - logt + loge)
     term2 = sf_slope * t**2 / 2 * (logages - logt + loge / 2)
     return term1 + term2
