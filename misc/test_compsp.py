@@ -24,9 +24,10 @@ sspages = np.insert(mysps.logage, 0, 0)
 def main():
     tage = 1.4
     sf_trunc = tage * np.linspace(0.90, 1.02, 9)
-    figlist, speclist = test_taumodel_sft(values=sf_trunc, tau=4.2,
-                                          sf_slope=10.0, tage=tage, sfh=5)
+    #figlist, speclist = test_taumodel_sft(values=sf_trunc, tau=4.2,
+    #                                      sf_slope=10.0, tage=tage, sfh=5)
     #figlist = test_taumodel_sfslope()
+    figlist = test_taumodel_tage(sfh=1)
     pl.show()
 
     

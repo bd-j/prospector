@@ -265,6 +265,9 @@ class CompositeSFH(SSPBasis):
         else:
             power = 1.
         mass_tau = tau * gammainc(power, Tmax/tau)
+
+        if 'simha' not in self.sfh_type:
+            return np.array([mass_tau])
         # SFR at Tmax
         sfr_q = (Tmax/tau)**(power-1) * np.exp(-Tmax/tau)
 
