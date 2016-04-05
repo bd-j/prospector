@@ -2,19 +2,19 @@ import sys, os, time
 import numpy as np
 import matplotlib.pyplot as pl
 import fsps
-from bsfh.source_basis import CompositeSFH
+from prospect.source_basis import CompositeSFH
 from sedpy import observate
 
 sfhtype = {1:'tau', 4: 'delaytau', 5: 'simha'}
 
-# build FSPS and BSFH sps objects
+# build FSPS and Prospector sps objects
 zcontinuous = 1
 sps = fsps.StellarPopulation(zcontinuous=zcontinuous)
 mysps = CompositeSFH(sfh_type='tau', interp_type='logarithmic', mint_log=5.45,
                      flux_interp='linear', zcontinuous=zcontinuous)
 mysps.configure()
 
-# Save the bsfh SSP time axis
+# Save the Prospector SSP time axis
 sspages = np.insert(mysps.logage, 0, mysps.mint_log)
 
 # Set up some parameters that cause trouble in FSPS
@@ -53,7 +53,7 @@ for i, tage in enumerate(ages):
     sps.params['sf_trunc'] = sf_trunc
     w, s = sps.get_spectrum(tage=tage, peraa=True)
     spec[i, :] = s
-    # Set up BSFH parameters, with unit conversions, get spectrum, and store it.
+    # Set up Pro parameters, with unit conversions, get spectrum, and store it.
     sfh_params = {'tage': tage*1e9, 'tau': tau*1e9,
                   'sf_slope': sf_slope / 1e9, 'sf_trunc': sf_trunc*1e9}
     mw, mys = mysps.get_galaxy_spectrum(**sfh_params)
@@ -71,7 +71,7 @@ mymags = observate.getSED(sps.wavelengths, myspec, filterlist=filters)
 iband = 0
 fig, ax = pl.subplots()
 ax.plot(ages, mags[:, iband], '-o', label='FSPS')
-ax.plot(ages, mymags[:, iband], '-o', label='BSFH')
+ax.plot(ages, mymags[:, iband], '-o', label='Pro')
 ax.set_xlabel('tage (Gyr)')
 ax.set_ylabel(r'$M_{{AB}}$ ({})'.format(filters[iband].name))
 ax.text(0.1, 0.85, r'$\tau_{{SF}}={:4.2f}, \, \Delta t_{{trunc}}={:4.2f}$'.format(tau, delt_trunc),

@@ -9,7 +9,7 @@ The next thing you need to do is make a temporary work directory, <workdir>
 .. code-block:: shell
 		
 		cd <workdir>
-		cp <codedir>/scripts/prospector.py .
+		cp <codedir>/scripts/prospect.py .
 		cp <codedir>/demo/demo_* .
 
 We now have a prospector executable, a *parameter file*  or two, and some data.
@@ -77,13 +77,13 @@ To run this fit on object 0, we would do the following at the command line
 
 .. code-block:: shell
 		
-		python prospector.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0
+		python prospect.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0
 
 If we wanted to change something about the MCMC parameters, we could also do that at the command line
 
 .. code-block:: shell
 		
-		python prospector.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0 \
+		python prospect.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0 \
 		--nwalkers=32 --niter=1024
 
 Finally, it is sometimes useful to run the script from the interpreter to do some checks.
@@ -92,7 +92,7 @@ This is best done with the IPython enhanced interactive python.
 .. code-block:: shell
 		
 		ipython
-		In [1]: %run prospector.py --param_file=demo_params.py --objid=0 --debug=True
+		In [1]: %run prospect.py --param_file=demo_params.py --objid=0 --debug=True
 
 The ``--debug=True`` flag will halt execution just before the fitting starts.
 You can then inspect the ``obsdat`` dictionary, the ``model`` object,
@@ -104,4 +104,4 @@ After the fit is completed we should have a number of files with names like
 ``demo_obj0_<timestamp>_*``.
 We will read these in with python and make some plots using utilities in |Codename|
 
-.. |Codename| replace:: BSFH
+.. |Codename| replace:: Prospector

@@ -20,7 +20,7 @@ def run_command(cmd):
 
 
 def githash(nofork=False, **extras):
-    """Pull out the git hash history for bsfh here.
+    """Pull out the git hash history for Prospector here.
 
     :param nofork: (optional, default: False)
         If ``True``, do *not* get the githash, since this involves creating a
@@ -76,7 +76,7 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
     results['sampling_duration'] = tsample
     results['optimizer_duration'] = toptimize
 
-    results['bsfh_version'] = bgh
+    results['prospector_version'] = bgh
     results['paramfile_text'] = paramfile_string(**run_params)
     
     if outroot is None:
@@ -93,7 +93,7 @@ def write_model_pickle(outname, model, bgh=None, powell=None, **kwargs):
     model_store = {}
     model_store['powell'] = powell
     model_store['model'] = model
-    model_store['bsfh_version'] = bgh
+    model_store['prospector_version'] = bgh
     for k, v in kwargs.items():
         try:
             model_store[k] = v
@@ -191,7 +191,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
     bgh = githash(**run_params)
-    hf.attrs['bsfh_version'] = json.dumps(bgh)
+    hf.attrs['prospector_version'] = json.dumps(bgh)
     hf.close()
 
     #if mfile is None:

@@ -67,9 +67,9 @@ First, the results and model pickles can be read using
 
 .. code-block:: python
 
-		import bsfh.read_results as bread
+		import prospect.io.read_results as bread
 		filename = "<outfilestring>_<timestamp>_mcmc"
-		results, model, powell_results = bread.read_from(filename)
+		results, model, powell_results = bread.results_from(filename)
 
 It is often desirable to plot the parameter traces for the MCMC chains.
 That is, one wants to see the evolution of the parameter values as a function of MCMC iteration.
@@ -103,7 +103,7 @@ Taking the MAP as an example, this would be accomplished by
 		theta_max = results["chain"][walker, iteration, :]
 
 		# We need the SPS object to generate a model
-		from bsfh.models import model_setup
+		from prospect.models import model_setup
 		sps = model_setup.load_sps(**results["run_params"])
 		# now generate the SED for the max. a post. parameters
 		spec, phot, x = model.mean_model(theta_max, obs=obs, sps=sps)
@@ -114,4 +114,4 @@ Taking the MAP as an example, this would be accomplished by
 		pl.plot(obs['wavelength'], spec, label="MAP model")
 
 
-.. |Codename| replace:: BSFH
+.. |Codename| replace:: Prospector

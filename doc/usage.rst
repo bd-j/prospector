@@ -1,7 +1,7 @@
 User Interaction
 ================
 
-The primary user interaction is through the prospector.py script and a **parameter file**,
+The primary user interaction is through the ``prospector.py`` script and a **parameter file**,
 a python file in which several variables and functions must be defined.
 Command line syntax calls the ``prospector.py`` script as an executable and is as follows for single thread execution:
 
@@ -126,7 +126,7 @@ For example
 
 .. code-block:: shell
 		
-		python prospectr.py –param_file=demo_params.py –nwalkers=128``
+		python prospector.py –param_file=demo_params.py –nwalkers=128``
 
 will cause the code to use 128 walkers regardless of the value given directly in the ``run_params`` dictionary.
 Such overriden parameters must be present as keys in the ``run_params`` dictionary,

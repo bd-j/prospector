@@ -1,6 +1,6 @@
 import numpy as np
-from bsfh.models import priors, sedmodel
-from bsfh.source_basis import CSPBasis
+from prospect.models import priors, sedmodel
+from prospect.source_basis import CSPBasis
 tophat = priors.tophat
 from sedpy.observate import load_filters
 

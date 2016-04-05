@@ -4,7 +4,8 @@ import time, os, subprocess, re, sys
 import numpy as np
 #import matplotlib.pyplot as pl
 import fsps
-from bsfh import sps_basis, sedmodel
+from prospect import source_basis as sps_basis
+from prospect.models import sedmodel
 
 
 def run_command(cmd):
