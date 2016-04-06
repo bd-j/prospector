@@ -1,7 +1,7 @@
 Prospector
 =====
 Conduct principled inference of stellar population properties from photometric
-and/or spectroscopic data.  BSFH allows you to:
+and/or spectroscopic data.  Prospector allows you to:
 
 * Combine photometric and spectroscopic data rigorously using a flexible
   spectroscopic calibration model.
@@ -25,15 +25,13 @@ Installation
 ```
 cd <install_dir>
 git clone https://github.com/bd-j/prospector
+cd prospector
+python setup.py install
 ```
 
-Then in C-Shell:
-```
-setenv $PYTHONPATH:+<install_dir>/prospector
-```
-or in bash:
-```
-export $PYTHONPATH=$PYTHONPATH:<install_dir>/prospector
+Then in Python
+```python
+import prospect
 ```
 
 Prospector is pure python.
