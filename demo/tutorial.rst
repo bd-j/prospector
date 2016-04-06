@@ -27,8 +27,8 @@ It is passed to each of the other main setup functions in ``param_file.py``
 
 About those imports.
 Since we are fitting galaxies with a composite stellar population,
-we made sure to import the ``source_basis.CSPBasis`` class.
-If you were fitting stars or non-parameteric SFHs you would use a different object from ``source_basis``.
+we made sure to import the ``sources.CSPBasis`` class.
+If you were fitting stars or non-parameteric SFHs you would use a different object from ``sources``.
 We also made a little alias for a particular prior function, the tophat.
 
 The next thing to look at is the ``load_obs()`` function.

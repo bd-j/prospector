@@ -22,7 +22,7 @@ setup(
               "prospect.models",
               "prospect.likelihood",
               "prospect.fitting",
-              "prospect.source_basis",
+              "prospect.sources",
               "prospect.io",
               "prospect.utils"],
 

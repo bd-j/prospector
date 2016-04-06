@@ -2,7 +2,7 @@ import sys, os, time
 import numpy as np
 import matplotlib.pyplot as pl
 import fsps
-from prospect.source_basis import CompositeSFH
+from prospect.sources import CompositeSFH
 from sedpy import observate
 
 sfhtype = {1:'tau', 4: 'delaytau', 5: 'simha'}
