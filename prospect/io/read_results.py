@@ -35,7 +35,7 @@ def results_from(filename, model_file=None, **kwargs):
         A list of the optimizer results for each of the starting conditions.
 
     :returns model:
-        The bsfh.sedmodel object.
+        The models.sedmodel() object.
     """
     # Read the basic chain, parameter, and run_params info
     if filename.split('.')[-1] == 'h5':

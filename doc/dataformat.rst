@@ -61,4 +61,4 @@ Feel free to add keys that store other metadata, these will be stored on output.
 However, for ease of storage these keys should either be numpy arrays or basic python datatypes that are JSON serializable
 (e.g. strings, ints, and floats and lists, dicts, and tuples thereof.)
 
-.. |Codename| replace:: BSFH
+.. |Codename| replace:: Prospector

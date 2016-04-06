@@ -37,13 +37,13 @@ Problem: The pre-packaged models suck! You can do better.
 Or, you have stars instead of stellar populations. Or spectra of the IGM or planets or AGN or something.
 What to do?
 
-Solution:  Make a new ``source_basis`` object. Thats it.
+Solution:  Make a new ``sources`` object. Thats it.
 Your new subclass should have a ``get_spectrum(outwave=[], filters=[], **params)`` method that
 converts a dictionary of parameters, a list of filters, and a wavelength grid into a model SED and spectrum,
 and returns the spectrum, the photometry, and any ancillary info.
 You will have to write that.
-See any of the ``source_basis`` objects for the appropriate ``get_spectrum`` API.
-Note that ``source_basis.StarBasis`` and ``source_basis.BigStarBasis`` are fairly general objects for grid storage and interpolation, feel free to subclass them if you are using grids of SEDs that can be stored in HDF5 files.
+See any of the ``sources`` objects for the appropriate ``get_spectrum`` API.
+Note that ``sources.StarBasis`` and ``sources.BigStarBasis`` are fairly general objects for grid storage and interpolation, feel free to subclass them if you are using grids of SEDs that can be stored in HDF5 files.
 
 Multiple Spectra
 ---------------

@@ -1,6 +1,6 @@
 import matplotlib.pyplot as pl
 import numpy as np
-from bsfh.source_basis import ssp_basis
+from bsfh.sources import ssp_basis
 
 sps = ssp_basis.StepSFHBasis(interp_type='logarithmic')
 
