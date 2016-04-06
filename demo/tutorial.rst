@@ -4,12 +4,12 @@ Tutorial
 Here is a quick demo of how to get up and running with |Codename|.
 
 We assume you have installed |Codename| and all its dependencies as laid out in the docs.
-The next thing you need to do is make a temporary work directory, <workdir>
+The next thing you need to do is make a temporary work directory, ``<workdir>``
 
 .. code-block:: shell
 		
 		cd <workdir>
-		cp <codedir>/scripts/prospect.py .
+		cp <codedir>/scripts/prospector.py .
 		cp <codedir>/demo/demo_* .
 
 We now have a prospector executable, a *parameter file*  or two, and some data.
@@ -27,8 +27,8 @@ It is passed to each of the other main setup functions in ``param_file.py``
 
 About those imports.
 Since we are fitting galaxies with a composite stellar population,
-we made sure to import the source_basis.CSPBasis class.
-If you were fitting stars or non-parameteric SFHs you would use a different object from source_basis.
+we made sure to import the ``source_basis.CSPBasis`` class.
+If you were fitting stars or non-parameteric SFHs you would use a different object from ``source_basis``.
 We also made a little alias for a particular prior function, the tophat.
 
 The next thing to look at is the ``load_obs()`` function.
@@ -53,12 +53,12 @@ Ok, now we go to the ``load_sps`` function.
 This one is pretty straightforward, it simply instantiates our CSPBasis object.
 After that is ``load_gp``, ignore that for now.
 
-Now on the fun part.
+Now on to the fun part.
 The ``model_params`` list is where the model that we will fit is specified.
 Each entry in the list is a dictionary that describes a single parameter.
 You'll note that for 5 of these parameters we have set ``"isfree": True``.
 These are the parameters that will be varied during the fit.
-We have set a prior on these parameters.
+We have set a prior on these parameters, including prior arguments.
 Other parameters have their value set (by the ``"init"`` key) but do not vary during the fit.
 They can be made to vary by setting ``"isfree": True`` and specifying a prior.
 Parameters not listed here will be set to their default values.
@@ -77,13 +77,13 @@ To run this fit on object 0, we would do the following at the command line
 
 .. code-block:: shell
 		
-		python prospect.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0
+		python prospector.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0
 
 If we wanted to change something about the MCMC parameters, we could also do that at the command line
 
 .. code-block:: shell
 		
-		python prospect.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0 \
+		python prospector.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0 \
 		--nwalkers=32 --niter=1024
 
 Finally, it is sometimes useful to run the script from the interpreter to do some checks.
@@ -92,7 +92,7 @@ This is best done with the IPython enhanced interactive python.
 .. code-block:: shell
 		
 		ipython
-		In [1]: %run prospect.py --param_file=demo_params.py --objid=0 --debug=True
+		In [1]: %run prospector.py --param_file=demo_params.py --objid=0 --debug=True
 
 The ``--debug=True`` flag will halt execution just before the fitting starts.
 You can then inspect the ``obsdat`` dictionary, the ``model`` object,
