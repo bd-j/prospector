@@ -4,6 +4,7 @@
 import os
 import sys
 import re
+import glob
 
 try:
     from setuptools import setup
@@ -29,8 +30,8 @@ setup(
     license="LICENSE",
     description="Stellar Population Inference",
     long_description=open("README.md").read(),
-    package_data={"": "README.md", "LICENSE"},
-    scripts=glob.glob("scripts/*.py")
+    package_data={"": ["README.md", "LICENSE"]},
+    scripts=glob.glob("scripts/*.py"),
     include_package_data=True,
     install_requires=["numpy"],
 )
