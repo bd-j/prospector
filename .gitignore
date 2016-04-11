@@ -12,3 +12,5 @@ junk*
 detritus/
 src/todo/
 */*/*.p
+build/
+dist/

@@ -20,15 +20,45 @@ mysps.configure()
 sspages = np.insert(mysps.logage, 0, 0)
 
 
+wlo = 1e3
+whi = 1.2e4
 
 def main():
     tage = 1.4
+    # vary sf_trunc
     sf_trunc = tage * np.linspace(0.90, 1.02, 9)
-    #figlist, speclist = test_taumodel_sft(values=sf_trunc, tau=4.2,
-    #                                      sf_slope=10.0, tage=tage, sfh=5)
-    #figlist = test_taumodel_sfslope()
+    figlist = test_taumodel_sft(values=sf_trunc, tau=1.0,
+                                sf_slope=10.0, tage=tage, sfh=4)
+    figlist[1].axes[0].set_xlim(5, 9)
+    figlist[0].savefig('figures/test_sft_spec.pdf')
+    figlist[1].savefig('figures/test_sft_wght.pdf')
+
+    # vary sf_trunc, simha SFH
+    sf_trunc = tage * np.linspace(0.90, 1.02, 9)
+    figlist = test_taumodel_sft(values=sf_trunc, tau=4.2,
+                                sf_slope=10.0, tage=tage, sfh=5)
+    figlist[1].axes[0].set_xlim(5, 10.5)
+    figlist[0].savefig('figures/test_sft_simha_spec.pdf')
+    figlist[1].savefig('figures/test_sft_simha_wght.pdf')
+
+    #sys.exit()
+
+    
+    # vary sf_slope
+    figlist = test_taumodel_sfslope()
+    figlist[1].axes[0].set_xlim(5, 10.5)
+    figlist[0].savefig('figures/test_sfslope_spec.pdf')
+    figlist[1].savefig('figures/test_sfslope_wght.pdf')
+    # vary tage
     figlist = test_taumodel_tage(sfh=1)
-    pl.show()
+    figlist[0].savefig('figures/test_tage_spec.pdf')
+    figlist[1].savefig('figures/test_tage_wght.pdf')
+    # vary tau
+    figlist = test_taumodel_tau(sfh=1)
+    figlist[0].savefig('figures/test_tau_spec.pdf')
+    figlist[1].savefig('figures/test_tau_wght.pdf')
+    
+    #pl.show()
 
     
 def test_mint_convergence():
@@ -57,19 +87,6 @@ def test_mint_convergence():
     pl.plot(np.log10(mint), 1 - w[:,1]/w[0,1], '-o')
     pl.show()
 
-def test_normalization():
-    sfh_params = {'tage': 1e9, 'tau':14e9}
-    mtot = None
-    w = mysps.all_ssp_weights
-
-
-def test_simha(values=np.linspace(0.0, 4.0, 9), tage=3.0):
-    pname = r'sf_trunc'
-    sps.params['sfh'] = 5
-    mysps.sfh_type = sfhtype[sfh]
-    mysps.configure()
-    sfig, saxes = pl.subplots(2, 1, figsize=(11, 8.5))
-    #for sf_trunc in 
 
 def test_taumodel_dust(values=np.linspace(0.0, 4.0, 9),
                        tage=3.0, tau=1.0, sfh=1):
@@ -95,9 +112,9 @@ def test_taumodel_dust(values=np.linspace(0.0, 4.0, 9),
     dax.set_xlim(1e3, 1e7)
     dax.set_ylabel('FSPS - pro')
     [ax.set_xscale('log') for ax in [rax, dax]]
-    [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax]]
-    [ax.text(0.1, 0.85, r'$\tau_{{SF}}={}, tage={}$'.format(tau, tage), transform=ax.transAxes)
+    [ax.text(0.1, 0.8, r'$\tau_{{SF}}={}, tage={}$'.format(tau, tage), transform=ax.transAxes)
      for ax in [rax, dax]]
+    [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax]]
     #wax.set_yscale('log')
     #wax.set_xlabel('log t$_{lookback}$')
     #wax.set_ylabel('weight')
@@ -110,7 +127,7 @@ def test_taumodel_tau(values=10**np.linspace(-1, 1, 9),
                       tage=10.0, sfh=1):
     """Test (delayed-) tau models
     """
-    pname = '$\tau$'
+    pname = r'$\tau$'
     sps.params['sfh'] = sfh
     mysps.sfh_type = sfhtype[sfh]
     mysps.configure()
@@ -126,9 +143,9 @@ def test_taumodel_tau(values=10**np.linspace(-1, 1, 9),
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, tau))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, tau))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tau))
-    rax.set_xlim(1e3, 2e4)
+    rax.set_xlim(wlo, whi)
     rax.set_ylabel('pro / FSPS')
-    dax.set_xlim(1e3, 2e4)
+    dax.set_xlim(wlo, whi)
     dax.set_ylabel('FSPS - pro')
     [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax, wax]]
     wax.set_yscale('log')
@@ -159,9 +176,9 @@ def test_taumodel_tage(values=10**np.linspace(np.log10(0.11), 1, 9),
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, tage))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, tage))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tage))
-    rax.set_xlim(1e3, 2e4)
+    rax.set_xlim(wlo, whi)
     rax.set_ylabel('pro / FSPS')
-    dax.set_xlim(1e3, 2e4)
+    dax.set_xlim(wlo, whi)
     dax.set_ylabel('FSPS - pro')
     [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax, wax]]
     wax.set_yscale('log')
@@ -173,7 +190,7 @@ def test_taumodel_tage(values=10**np.linspace(np.log10(0.11), 1, 9),
 
 def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
                       tau=1.0, sf_slope=0, tage=11.0, sfh=1):
-    """Test (delayed-) tau models
+    """Test (delayed-) tau models with a truncation
     """
     pname = 'sf_trunc'
     sps.params['sfh'] = sfh
@@ -194,14 +211,16 @@ def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_trunc))
-        wax.axvline(np.log10((tage - sf_trunc) * 1e9), linestyle=':', color='k')
-    rax.set_xlim(1e3, 2e4)
+        print(mysps.all_ssp_weights.sum())
+        if tage > sf_trunc:
+            wax.axvline(np.log10((tage - sf_trunc) * 1e9), linestyle=':', color='k')
+    rax.set_xlim(wlo, whi)
     rax.set_ylabel('pro / FSPS')
-    dax.set_xlim(1e3, 2e4)
+    dax.set_xlim(wlo, whi)
     dax.set_ylabel('FSPS - pro')
-    [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax, wax]]
-    [ax.text(0.1, 0.85, r'$\tau_{{SF}}={}, tage={}$'.format(tau, tage), transform=ax.transAxes)
+    [ax.text(0.1, 0.8, '$tau_{{SF}}={}, tage={}$\n sf_slope={:3.1f}'.format(tau, tage, sf_slope), transform=ax.transAxes)
      for ax in [rax, dax, wax]]
+    [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax, wax]]
     wax.set_yscale('log')
     wax.set_xlabel('log t$_{lookback}$')
     wax.set_ylabel('weight')
@@ -210,6 +229,7 @@ def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
     [ax.set_title('SFH={} ({} model)'.format(sfh, sfhtype[sfh]))
      for ax in [rax, wax]]
     return [sfig, wfig]
+
 
 def test_taumodel_sfslope(values=np.linspace(-10, 10, 9),
                           tau=10.0, sf_trunc=10.0, tage=11.0, sfh=5):
@@ -235,12 +255,13 @@ def test_taumodel_sfslope(values=np.linspace(-10, 10, 9),
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, sf_slope))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_slope))
         wax.axvline(np.log10((tage - sf_trunc) * 1e9), linestyle=':', color='k')
-    rax.set_xlim(1e3, 2e4)
+        print(mysps.all_ssp_weights.sum())
+    rax.set_xlim(wlo, whi)
     rax.set_ylabel('pro / FSPS')
-    dax.set_xlim(1e3, 2e4)
+    dax.set_xlim(wlo, whi)
     dax.set_ylabel('FSPS - pro')
     [ax.legend(loc=0, prop={'size': 10}) for ax in [rax, dax, wax]]
-    [ax.text(0.1, 0.85, r'$\tau_{{SF}}={}, tage={}$'.format(tau, tage), transform=ax.transAxes)
+    [ax.text(0.1, 0.8, '$tau_{{SF}}={}, tage={}$\n sf_trunc={}'.format(tau, tage, sf_trunc), transform=ax.transAxes)
      for ax in [rax, dax, wax]]
     wax.set_yscale('log')
     wax.set_xlabel('log t$_{lookback}$')

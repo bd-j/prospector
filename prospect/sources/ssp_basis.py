@@ -228,7 +228,12 @@ class CompositeSFH(SSPBasis):
             ww[i, :] = self.ssp_weights(func, limit, self.params)
 
         # renormalize each component to 1 Msun
-        ww /= ww.sum(axis=1)[:, None]
+        assert np.all(ww >= 0)
+        wsum = ww.sum(axis=1)
+        # unless truly no SF in the component
+        if 0 in wsum:
+            wsum[wsum == 0] = 1.0
+        ww /= wsum[:, None]
         # apply relative normalizations
         ww *= self.normalizations(**self.params)[:, None]
         # And finally add all components together and renormalize again to
@@ -272,7 +277,10 @@ class CompositeSFH(SSPBasis):
         sfr_q = (Tmax/tau)**(power-1) * np.exp(-Tmax/tau)
 
         # linear.  integral of (1 - m * (T - Tmax)) from Tmax to Tzero
-        Tz = Tmax + 1/np.float64(sf_slope)
+        if sf_slope == 0.:
+            Tz = tage
+        else:
+            Tz = Tmax + 1/np.float64(sf_slope)
         if (Tz < Tmax) or (Tz > tage) or (not np.isfinite(Tz)):
             Tz = tage
         m = sf_slope
@@ -296,8 +304,8 @@ def regular_limits(ages, tage=0., sf_trunc=0., mint_log=-3,
         else:
             tq = tage - sf_trunc
         if interp_type == 'logarithmic':
-            tq = np.max([np.log10(tq), mint_log])
-            tage = np.max([np.log10(tage), mint_log])
+            tq = np.log10(np.max([tq, 10**mint_log]))
+            tage = np.log10(np.max([tage, 10**mint_log]))
         return np.clip(ages, tq, tage)
 
 
@@ -312,8 +320,8 @@ def simha_limits(ages, tage=0., sf_trunc=0, sf_slope=0., mint_log=-3,
         if (t0 > tq) or (t0 <= 0) or (not np.isfinite(t0)):
             t0 = 0.
         if interp_type == 'logarithmic':
-            tq = np.max([np.log10(tq), mint_log])
-            t0 = np.max([np.log10(t0), mint_log])
+            tq = np.log10(np.max([tq, 10**mint_log]))
+            t0 = np.log10(np.max([t0, 10**mint_log]))
         return np.clip(ages, t0, tq)
 
 
