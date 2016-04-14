@@ -322,7 +322,7 @@ class CSPBasis(object):
 
         # This is a StellarPopulation object from fsps
         self.csp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
-                                          zcontinuous=zcontinuous, **kwargs)
+                                          zcontinuous=zcontinuous)
         self.params = {}
 
     def get_spectrum(self, outwave=None, filters=None, **params):

@@ -19,6 +19,7 @@ mysps = CompositeSFH(sfh_type='tau', interp_type='logarithmic', flux_interp='lin
 mysps.configure()
 sspages = np.insert(mysps.logage, 0, 0)
 
+mysps.mint_log=-3
 
 wlo = 1e3
 whi = 1.2e4
@@ -211,7 +212,7 @@ def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_trunc))
-        print(mysps.all_ssp_weights.sum())
+        #print(mysps.all_ssp_weights.sum())
         if tage > sf_trunc:
             wax.axvline(np.log10((tage - sf_trunc) * 1e9), linestyle=':', color='k')
     rax.set_xlim(wlo, whi)
@@ -255,7 +256,7 @@ def test_taumodel_sfslope(values=np.linspace(-10, 10, 9),
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, sf_slope))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_slope))
         wax.axvline(np.log10((tage - sf_trunc) * 1e9), linestyle=':', color='k')
-        print(mysps.all_ssp_weights.sum())
+        #print(mysps.all_ssp_weights.sum())
     rax.set_xlim(wlo, whi)
     rax.set_ylabel('pro / FSPS')
     dax.set_xlim(wlo, whi)
