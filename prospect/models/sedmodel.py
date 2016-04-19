@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.polynomial.chebyshev import chebval
 from scipy.interpolate import interp1d
 from .parameters import ProspectorParams
 try:
@@ -101,31 +102,29 @@ class SedModel(ProspectorParams):
         return 0.
         
     def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """
-        Implements a polynomial calibration model.  This only happens
-        if `pivot_wave` is a key of the obs dictionary, since the
-        polynomial is defined in terms of r'$x \equiv
-        \lambda/\lambda_{{pivot}} - 1$'.
+        """Implements a Chebyshev polynomial calibration model. If
+        ``"pivot_wave"`` is not present in ``obs`` then 1.0 is returned.
 
         :returns cal:
-           a polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M
-           'poly_coeffs'[m-1] x**m)
+           If ``params["cal_type"]`` is ``"poly"``, a polynomial given by
+           'spec_norm' * (1 + \Sum_{m=1}^M 'poly_coeffs'[m-1] T_n(x)).
+           Otherwise, the exponential of a Chebyshev polynomial.
         """
         if theta is not None:
             self.set_parameters(theta)
-        
-        # Should find a way to make this more generic,
-        # using chebyshev polynomials
+
         if 'pivot_wave' in obs:
-            x = obs['wavelength']/obs['pivot_wave'] - 1.0
-            poly = np.zeros_like(x)
-            powers = np.arange( len(self.params['poly_coeffs']) ) + 1
-            poly = (x[None,:] ** powers[:,None] *
-                    self.params['poly_coeffs'][:,None]).sum(axis = 0)
+            # map wavelengths to the interval -1, 1
+            x = obs['wavelength'] - obs['wavelength'].min()
+            x = 2.0 * (x / x.max()) - 1.0
+            # get coefficients.  Here we are setting the first term to 0 so we
+            # can deal with it separately for the exponential and regular
+            # multiplicative cases
+            c = np.insert(self.params['poly_coeffs'], 0, 0)
+            poly = chebval(x, c)
             #switch to have spec_norm be multiplicative or additive
             #depending on whether the calibration model is
-            #multiplicative in exp^poly or just poly, Should move this
-            #to mean_model()?
+            #multiplicative in exp^poly or just poly
             if self.params.get('cal_type', 'exp_poly') is 'poly':
                 return (1.0 + poly) * self.params['spec_norm']
             else:
