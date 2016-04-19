@@ -415,9 +415,8 @@ class CSPBasis(object):
             if k == 'mass':
                 mass = v
         # Now get the magnitudes and spectrum
-        a = 1 + self.csp.params['zred']
         w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
-        mags = getSED(w * a, lightspeed/w**2 * spec * to_cgs * a, filterlist)
+        mags = getSED(w , lightspeed/w**2 * spec * to_cgs, filterlist)
         #mags = self.csp.get_mags(tage=self.csp.params['tage'], bands=filterlist)
         # Normalize by (current) stellar mass and get correct units
         cmass = self.csp.stellar_mass
