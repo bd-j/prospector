@@ -13,7 +13,7 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["SSPBasis", "StepSFHBasis", "CompositeSFH"]
+__all__ = ["SSPBasis", "MultiSSPBasis", "StepSFHBasis", "CompositeSFH"]
 
 
 # Useful constants
@@ -27,16 +27,50 @@ to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 # change base
 loge = np.log10(np.e)
 
-# minimum time for logarithmic sfhs
-mint_log = 0  # log(yr)
-
 
 class SSPBasis(object):
 
-    def __init__(self, compute_vega_mags=False, zcontinuous=1,
-                 interp_type='logarithmic', sfh_type='ssp',
-                 flux_interp='linear', mint_log=-3, **kwargs):
+    """This is a class that wraps the fsps.StellarPopulation object, which is
+    used only for producing SSPs.  The StellarPopulation object is accessed as
+    `SSPBasis().ssp`.
 
+    This class allows for the custom calculation of relative SSP weights (by
+    overriding ``all_ssp_weights``) to produce spectra from arbitrary composite
+    SFHs.  The base implementation here produces an SSP interpolated to the age
+    given by `tage`, with initial mass given by ``mass``
+
+    Furthermore, smoothing and filter projections are handled outside of fsps,
+    allowing for fast and more flexible algorithms
+    """
+
+    def __init__(self, compute_vega_mags=False, zcontinuous=1,
+                 interp_type='logarithmic', flux_interp='linear', sfh_type='ssp',
+                 mint_log=-3, reserved_params=['sfh', 'tage', 'zred', 'sigma_smooth'],
+                 **kwargs):
+        """
+        :param interp_type: (default: "logarithmic")
+            Specify whether to linearly interpolate the SSPs in log(t) or t.
+            For the latter, set this to "linear".
+
+        :param flux_interp': (default: "linear")
+            Whether to compute the final spectrum as \sum_i w_i f_i or
+            e^{\sum_i w_i ln(f_i)}.  Basically you should always do the former,
+            which is the default.
+
+        :param mint_log: (default: -3)
+            The log of the age (in years) of the youngest SSP.  Note that the
+            SSP at this age is assumed to have the same spectrum as the minimum
+            age SSP avalibale from fsps.  Typically anything less than 4 or so
+            is fine for this parameter, since the integral converges as log(t)
+            -> -inf
+
+        :param reserved_params:
+            These are parameters which have names like the FSPS parameters but
+            will not be passed to the StellarPopulation object because we are
+            overriding their functionality using (hopefully more efficient)
+            custom algorithms.
+        """
+        
         self.interp_type = interp_type
         self.sfh_type = sfh_type
         self.mint_log = mint_log
@@ -44,16 +78,21 @@ class SSPBasis(object):
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
                                           zcontinuous=zcontinuous)
         self.ssp.params['sfh'] = 0
-        self.reserved_params = ['sfh']
+        self.reserved_params = reserved_params
         self.params = {}
         self.update(**kwargs)
 
     def update(self, **params):
+        """Update the parameters, passing through *unreserved* FSPS parameters to
+        the fsps.StellarPopulation object.
+        """
         for k, v in params.items():
             self.params[k] = v
+            # Parameters named like FSPS params but that we reserve for use
+            # here.  Do not pass them to FSPS.
             if k in self.reserved_params:
                 continue
-            # If a parameter exists in the FSPS parameter set, pass it in.
+            # Otherwise if a parameter exists in the FSPS parameter set, pass it in.
             if k in self.ssp.params.all_params:
                 self.ssp.params[k] = v
 
@@ -61,8 +100,11 @@ class SSPBasis(object):
         assert self.ssp.params['sfh'] == 0
 
     def get_galaxy_spectrum(self, **params):
+        """Multiply SSP weights by SSP spectra and stellar masses, and sum.
+        """
         self.update(**params)
         wave, ssp_spectra = self.ssp.get_spectrum(tage=0, peraa=True)
+        ssp_stellar_masses = np.insert(self.ssp.stellar_mass, 0, 1.0)
         if self.flux_interp == 'logarithmic':
             ssp_spectra = np.log(ssp_spectra)
         masses = self.all_ssp_weights
@@ -71,7 +113,8 @@ class SSPBasis(object):
         spectrum += masses[0] * ssp_spectra[0, :]
         if self.flux_interp == 'logarithmic':
             spectrum = np.exp(spectrum)
-        return wave, spectrum
+        stellar_mass = (ssp_stellar_masses * masses).sum()
+        return wave, spectrum, stellar_mass
 
     def get_spectrum(self, outwave=None, filters=None, **params):
         """
@@ -85,7 +128,7 @@ class SSPBasis(object):
             A generic blob. can be used to return e.g. present day masses,
             total masses, etc.
         """
-        wave, spectrum = self.get_galaxy_spectrum(**params)
+        wave, spectrum, mass = self.get_galaxy_spectrum(**params)
         # redshifting
         a = 1 + self.params.get('zred', 0)
         wa, sa = vac2air(wave) * a, spectrum / a
@@ -112,8 +155,27 @@ class SSPBasis(object):
         conv = lsun / (4 * np.pi * (dist10*pc*10)**2)
 
         # distance dimming
-        return smspec * conv, phot * conv, None
+        return smspec * conv, phot * conv, mass
 
+    @property
+    def all_ssp_weights(self):
+        """Weights for a single age population.
+        """
+        if self.interp_type == 'linear':
+            sspages = np.insert(10**self.logage, 0, 0)
+            tb = self.params['tage'] * 1e9
+            
+        elif self.interp_type == 'logarithmic':
+            sspages = np.insert(self.logage, 0, self.mint_log)
+            tb = np.log10(self.params['tage']) + 9
+            
+        ind = np.searchsorted(sspages, tb) # index of the higher bracketing lookback time
+        dt = (sspages[ind] - sspages[ind - 1])
+        ww = np.zeros(len(sspages))
+        ww[ind - 1] = (sspages[ind] - tb) / dt
+        ww[ind] = (tb - sspages[ind-1]) / dt
+        return ww
+        
     def smoothspec(self, wave, spec, sigma, outwave=None, **kwargs):
         outspec = smoothspec(wave, spec, sigma, outwave=outwave, **kwargs)
         return outspec
@@ -127,20 +189,35 @@ class SSPBasis(object):
         return self.ssp.wavelengths
 
 
+class MultiSSPBasis(SSPBasis):
+
+    def get_galaxy_spectrum(self):
+        pass
+
+
 class StepSFHBasis(SSPBasis):
+
+    """Subclass of SSPBasis that computes SSP weights for piecewise constant
+    SFHs (i.e. a binned SFH).  The parameters for this SFH are:
+      * `agebins` - array of shape (nbin, 2) giving the younger and older (in
+        lookback time) edges of each bin.  If `interp_type` is `"linear"', these
+        are assumed to be in years.  Otherwise they are in log10(years)
+      * `mass` - array of shape (nbin,) giving the total stellar mass formed
+        (in solar masses) in each bin
+    """
 
     @property
     def all_ssp_weights(self):
+        """Weights for piecewise linear.
+        """
         ages = self.params['agebins']
         masses = self.params['mass']
-        w = np.zeros(len(self.logage))
+        w = np.zeros(len(self.logage) + 1)
         # Loop over age bins
         # Should cache the bin weights when agebins not changing.  But this is
         # not very time consuming for few enough bins.
         for (t1, t2), mass in zip(ages, masses):
-            params = {'tage': t2, 'sf_trunc': t2 - t1}
-            #w += mass * self.ssp_weights(self.func, regular_limits, params)
-            w += mass * self.bin_weights(t1, t2)[1:]
+            w += mass * self.bin_weights(t1, t2)
         return w
 
     def bin_weights(self, amin, amax):
@@ -158,7 +235,7 @@ class StepSFHBasis(SSPBasis):
             func = constant_linear
             mass = amax - amin
         elif self.interp_type == 'logarithmic':
-            sspages = np.insert(self.logage, 0, 0)
+            sspages = np.insert(self.logage, 0, self.mint_log)
             func = constant_logarithmic
             mass = 10**amax - 10**amin
 
@@ -369,10 +446,9 @@ def delaytau_logarithmic(logages, logt, tau=None, tage=None, **extras):
     """
     t = 10**logt
     tprime = t / tau
-    bracket = t * (logt - logages) + tage*logages + tau * (logages - loge)
-    term = bracket * np.exp(tprime)
-    h = tau * (logt * np.exp(tprime) - loge * expi(tprime))
-    return term - (tage / tau + 1) * h
+    a = (t - tage - tau) * (logt - logages) - tau * loge
+    b = (tage + tau) * loge
+    return a * np.exp(tprime) + b * expi(tprime)
 
 
 def linear_linear(ages, t, tage=None, sf_trunc=0, sf_slope=0., **extras):
@@ -394,15 +470,14 @@ def linear_logarithmic(logages, logt, tage=None, sf_trunc=0, sf_slope=0., **extr
     return term1 + term2
 
 
-def burst_linear(ages, t, t_burst=None):
+def burst_linear(ages, t, tburst=None, **extras):
     """Burst.  SFR = \delta(t-t_burst)
     """
-    # return ages - t_burst
-    raise(NotImplementedError)
+    return ages - tburst
 
 
-def burst_logarithmic(logages, logt, t_burst=None):
+def burst_logarithmic(logages, logt, tburst=None, **extras):
     """Burst.  SFR = \delta(t-t_burst)
     """
-    # return logages - np.log10(t_burst)
-    raise(NotImplementedError)
+    return logages - np.log10(tburst)
+    

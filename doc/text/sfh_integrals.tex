@@ -30,6 +30,8 @@
 %\end{center}
 
 \section{Introduction}
+Throughout this document we use lowercase $t$ to refer to lookback times (or SSP ages), and capital $T$ to refer to time since the start of star formation.
+
 We wish to find the proper weighting of discrete SSPs to reproduce the spectrum $F$ from SFR occurring within some bin of  lookback times $(\amin, \amax)$.
 We approximate the spectrum $f(t)$ at any lookback time $t$ as a linear interpolation of the (total stellar mass normalized) spectra $f_i$ at the discrete SSP lookback times $t_i$, for $i=1,...,N$ 
 \begin{eqnarray}
@@ -147,11 +149,11 @@ The FSPS \texttt{sf\_start} is basically redundant with \texttt{tage} and confus
 In this case we have, for the logarithmic time interpolation,
 \begin{eqnarray}
 s_i  & = & \tintegral \, K \, e^{(t-\tage) /\tau}\, \frac{\log t_{i+1} - \log t}{\dlt} \nonumber \\
-      & = & \frac{K \, e^{-\tage/\tau}}{\dlt} \left[ \left. \tau \, \log t_{i+1} \, e^{t/\tau} \tinterval -  H_i\right] \nonumber \\
+%      & = & \frac{K \, e^{-\tage/\tau}}{\dlt} \left[ \left. \tau \, \log t_{i+1} \, e^{t/\tau} \tinterval -  H_i\right] \nonumber \\
 \tmin[,i] & = & \clip[t_q]{t_i}{t_{i+1}} \nonumber \\
 \tmax[,i] & = & \clip[\tage]{t_i}{t_{i+1}} \quad . \nonumber
 \end{eqnarray}
-Substituting for $H_i$ we have, finally, 
+This yields, 
 \begin{eqnarray}
 s_i & = & \left. \frac{K \, \tau \, e^{-\tage/\tau}}{\dlt} \left [(\log t_{i+1} - \log t)\, e^{t/\tau} + 
           \log(e) \, \mathrm{Ei}(t/\tau)\right]  \tinterval
@@ -179,18 +181,19 @@ t_q & = & \tage - \sftrunc\nonumber
 So now we have
 \begin{eqnarray}
 s_i  & = & \tintegral \, K \, (\tage-t) \, e^{(t-\tage) /\tau}\, \frac{\log t_{i+1} - \log t}{\dlt}  \nonumber \\
-      & = & \frac{K \, e^{-\tage/\tau}}{\dlt} \tintegral \, \left(\tage \, \log t_{i+1} \, e^{t/\tau}  - \tage \, \log t \, e^{t/\tau} - t \, \log t_{i+1} \, e^{t/\tau} + t \, \log t \, e^{t/\tau}\right) \quad .\nonumber
-\end{eqnarray}
-The first and third terms are fairly straightforward.  The second term is basically the integral we did for the $\tau$-model.  The last term can be solved by integrating by parts (with $u=t\,\log t$, $dv=e^{t/\tau}dt$ and hence $du=(\log e + \log t)\, dt$, $v=\tau e^{t/\tau}$.  Substituting and collecting terms gives, finally, 
-\begin{eqnarray}
-s_i  & = & \frac{K \, \tau \,  e^{-\tage/\tau}}{\dlt} \left[\left.\left(t\,\log \frac{t}{t_{i+1}} + \tage\,\log t_{i+1}  + \tau\,\log \frac{t_{i+1}}{e}\right) e^{t/\tau}\tinterval - (\tage/\tau+1)\, H_i\right] \quad .
+%      & = & \frac{K \, e^{-\tage/\tau}}{\dlt} \tintegral \, \left(\tage \, \log t_{i+1} \, e^{t/\tau}  - \tage \, \log t \, e^{t/\tau} - t \, \log t_{i+1} \, e^{t/\tau} + t \, \log t \, e^{t/\tau}\right) \quad .\nonumber
+%\end{eqnarray}
+%The first and third terms are fairly straightforward.  The second term is basically the integral we did for the $\tau$-model.  The last term can be solved by integrating by parts (with $u=t\,\log t$, $dv=e^{t/\tau}dt$ and hence $du=(\log e + \log t)\, dt$, $v=\tau e^{t/\tau}$.  Substituting and collecting terms gives, finally, 
+%\begin{eqnarray}
+%s_i  & = & \frac{K \, \tau \,  e^{-\tage/\tau}}{\dlt} \left[\left.\left(t\,\log \frac{t}{t_{i+1}} + \tage\,\log t_{i+1}  + \tau\,\log \frac{t_{i+1}}{e}\right) e^{t/\tau}\tinterval - (\tage/\tau+1)\, H_i\right] \\
+ & = & \frac{K \, \tau \,  e^{-\tage/\tau}}{\dlt} \left. \left[\left((t - \tage - \tau) \, \log \frac{t}{t_{i+1}} - \tau \, \log (e) \right) \, e^{t/\tau}    + (\tage + \tau) \, \log (e) \, \mathrm{Ei}(t/\tau) \right]\tinterval %\quad .
 \end{eqnarray}
 The limits $\tmin$ and $\tmax$ are as for the $\tau$-model above.
 
 For interpolation in linear time, we have
 \begin{eqnarray}
 g_i  & = & \tintegral \, K \, (\tage-t) \, e^{(t-\tage) /\tau}\, \frac{t_{i+1} - t}{\dt}  \nonumber \\
-      & = & \frac{K \, e^{-\tage/\tau}}{\dt} \tintegral \, \left(\tage \, t_{i+1} \, e^{t/\tau}  - \tage \, t \, e^{t/\tau} - t \,  t_{i+1} \, e^{t/\tau} + t^2 \, e^{t/\tau}\right) \nonumber \\
+%      & = & \frac{K \, e^{-\tage/\tau}}{\dt} \tintegral \, \left(\tage \, t_{i+1} \, e^{t/\tau}  - \tage \, t \, e^{t/\tau} - t \,  t_{i+1} \, e^{t/\tau} + t^2 \, e^{t/\tau}\right) \nonumber \\
      & = & \frac{K \, \tau \, e^{-\tage/\tau}}{\dt} \left. e^{t/\tau} \, \left[ \tage \, t_{i+1} - (\tage + t_{i+1})\, (t-\tau) + t^2 - 2\, t\, \tau + 2\, \tau^2\right] \tinterval \quad .
 \end{eqnarray}
 
@@ -247,11 +250,33 @@ Here we have
 T & = & \tage - t \nonumber \\
 T_{burst} & = & \tage - t_b
 \end{eqnarray}
+and the integrals are easy as pie
+\[ 
+s_i = 
+\begin{cases}
+\frac{\log t_{i+1} - \log t_b}{\dlt}&  \text{if } t_i < t_b \leq t_{i+1} \\
+0 & \text{otherwise}
+\end{cases}
+\]
+and
+\[ 
+g_i = 
+\begin{cases}
+\frac{t_{i+1} - t_b}{\dt}&  \text{if } t_i < t_b \leq t_{i+1} \\
+0 & \text{otherwise}
+\end{cases}
+\]
 
+
+
+\section{Old FSPS Integrals}
+
+Previously, FSPS was doing the something like following integral (ignoring \texttt{dust\_tesc}, \texttt{sf\_start} and \texttt{sf\_trunc})
 \begin{eqnarray}
-T & = & \tage - t \nonumber \\
-T_{burst} & = & \tage - t_b
+f & = & f_{i_{max}+1} \, \int _{t_{i_{max}}}^{\tage} dt\, SFR(t) + \sum_{i=1}^{i_{max}} \frac{f_i + f_{i+1}}{2}\int _{t_{i}-t_1}^{t_{i+1}-t_1} dt\, SFR(t) \\
+%i_{max} & = &
 \end{eqnarray}
-
+This is basically trapezoidal integration, a numerical approximation to the fully analytic integrals we are doing.  
+It works great as long as the SFH in the bin is approximately linear across the entire bin.
 
 \end{document}

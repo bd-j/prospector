@@ -1,5 +1,5 @@
 import numpy as np
-from sedpy import getSED
+from sedpy.observate import getSED
 
 __all__ = ["BlackBodyDustBasis"]
 
