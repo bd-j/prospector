@@ -104,7 +104,7 @@ def test_taumodel_dust(values=np.linspace(0.0, 4.0, 9),
         sps.params['dust2'] = dust2
         sfh_params = {'tage': tage*1e9, 'tau': tau*1e9, 'dust2': dust2}
         w, spec = sps.get_spectrum(tage=tage, peraa=True)
-        mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
+        mw, myspec, mstar = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, dust2))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, dust2))
         #wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, dust2))
@@ -140,7 +140,7 @@ def test_taumodel_tau(values=10**np.linspace(-1, 1, 9),
         sps.params['tage'] = tage
         sfh_params = {'tage': tage*1e9, 'tau': tau*1e9}
         w, spec = sps.get_spectrum(tage=tage, peraa=True)
-        mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
+        mw, myspec, mstar = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, tau))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, tau))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tau))
@@ -173,7 +173,7 @@ def test_taumodel_tage(values=10**np.linspace(np.log10(0.11), 1, 9),
         #sps.params['sf_slope'] = sf_slope
         sfh_params = {'tage': tage*1e9, 'tau': tau*1e9}
         w, spec = sps.get_spectrum(tage=tage, peraa=True)
-        mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
+        mw, myspec, mstar = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, tage))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, tage))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tage))
@@ -208,7 +208,7 @@ def test_taumodel_sft(values=11 - 10**np.linspace(np.log10(0.11), 1, 9),
         sfh_params = {'tage': tage*1e9, 'tau': tau*1e9, 'sf_trunc': sf_trunc*1e9,
                       'sf_slope': sf_slope / 1e9}
         w, spec = sps.get_spectrum(tage=tage, peraa=True)
-        mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
+        mw, myspec, mstar = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, sf_trunc))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_trunc))
@@ -251,7 +251,7 @@ def test_taumodel_sfslope(values=np.linspace(-10, 10, 9),
         sfh_params = {'tage': tage*1e9, 'tau': tau*1e9, 'sf_trunc': sf_trunc*1e9,
                       'sf_slope': sf_slope / 1e9}
         w, spec = sps.get_spectrum(tage=tage, peraa=True)
-        mw, myspec = mysps.get_galaxy_spectrum(**sfh_params)
+        mw, myspec, mstar = mysps.get_galaxy_spectrum(**sfh_params)
         rax.plot(mw, myspec / spec, label=r'{}={:4.2f}'.format(pname, sf_slope))
         dax.plot(mw, spec - myspec, label=r'{}={:4.2f}'.format(pname, sf_slope))
         wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, sf_slope))
