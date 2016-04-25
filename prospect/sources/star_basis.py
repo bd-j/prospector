@@ -30,7 +30,7 @@ class StarBasis(object):
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
                  n_neighbors=0, log_interp=True, logify_Z=True,
-                 use_params=None, **kwargs):
+                 use_params=None, rescale=False, in_memory=True, **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
         normalized, smoothed stellar spectra.  The interpolations are performed
@@ -58,27 +58,46 @@ class StarBasis(object):
             (which must be present in the `_libparams` structure) to build the
             grid and construct spectra.  Otherwise all fields of `_libparams`
             will be used.
+
+        :param in_memory: (default: True)
+            Switch to keep the spectral library in memory or access it through
+            the h5py File object.  Note if the latter, then zeroed spectra are
+            *not* filtered out.
+
+        :param rescale: (default: False)
+            If True, rescale the parameters to the unit cube before generating
+            the triangulation.  Note that the `param_vector` method will also
+            rescale the input parameters in this case.
         """
+        # Cache initialization variables
         self.verbose = verbose
         self.logarithmic = log_interp
         self.logify_Z = logify_Z
+        self._in_memory = in_memory
         self._libname = libname
+        self.n_neighbors = n_neighbors
+        self._rescale = rescale
+        
+        # Load the library
         self.load_lib(libname)
+
         # Do some important bookkeeping
         if use_params is None:
             self.stellar_pars = self._libparams.dtype.names
         else:
             self.stellar_pars = tuple(use_params)
         self.ndim = len(self.stellar_pars)
+
+        # Build the triangulation and kdtree
         self.triangulate()
         try:
             self.build_kdtree()
         except NameError:
             pass
-        self.n_neighbors = n_neighbors
+        
         self.params = {}
 
-    def load_lib(self, libname=''):
+    def load_lib(self, libname='', driver=None):
         """Read a CKC library which has been pre-convolved to be close to your
         resolution.  This library should be stored as an HDF5 file, with the
         datasets ``wavelengths``, ``parameters`` and ``spectra``.  These are
@@ -87,15 +106,21 @@ class StarBasis(object):
         with no fluxes > 1e-32 are removed from the library
         """
         import h5py
-        with h5py.File(libname, "r") as f:
-            self._wave = np.array(f['wavelengths'])
-            self._libparams = np.array(f['parameters'])
+        f = h5py.File(libname, "r", driver=driver)
+        self._wave = np.array(f['wavelengths'])
+        self._libparams = np.array(f['parameters'])
+        
+        if self._in_memory:
             self._spectra = np.array(f['spectra'])
-        # Filter library so that only existing spectra are included
-        maxf = np.max(self._spectra, axis=1)
-        good = maxf > 1e-32
-        self._libparams = self._libparams[good]
-        self._spectra = self._spectra[good, :]
+            f.close()
+            # Filter library so that only existing spectra are included
+            maxf = np.max(self._spectra, axis=1)
+            good = maxf > 1e-32
+            self._libparams = self._libparams[good]
+            self._spectra = self._spectra[good, :]
+        else:
+            self._spectra = f['spectra']
+
         if self.logify_Z:
             from numpy.lib import recfunctions as rfn
             self._libparams['Z'] = np.log10(self._libparams['Z'])
@@ -177,8 +202,8 @@ class StarBasis(object):
         parameters.
 
         :param **kwargs:
-            Keyword arguments must include values for the ``stellar_pars``
-            parameters that are stored in ``_libparams``.
+            Keyword arguments must include values for the parameters listed in
+            ``stellar_pars``.
 
         :returns wave:
             The wavelengths at which the spectrum is defined.
@@ -258,9 +283,20 @@ class StarBasis(object):
         """Build the Delauynay Triangulation of the model library.
         """
         # slow.  should use a view based method
-        model_points = np.array([list(self._libparams[d]) for d in self.stellar_pars])
-        self._dtri = Delaunay(model_points.T)
+        model_points = np.array([list(self._libparams[d]) for d in self.stellar_pars]).T
+        if self._rescale:
+            self.parameter_range = np.array([model_points.min(axis=0), model_points.max(axis=0)])
+            model_points = self.rescale_params(model_points)
+        self._dtri = Delaunay(model_points)
 
+    def rescale_params(self, points):
+        if self._rescale:
+            x = np.atleast_2d(points)
+            x = (x - self.parameter_range[0,:]) / np.diff(self.parameter_range, axis=0)
+            return np.squeeze(x)
+        else:
+            return points
+        
     def build_kdtree(self):
         """Build the kdtree of the model points.
         """
@@ -304,7 +340,7 @@ class StarBasis(object):
         required stellar parameters.
         """
         pvec = [kwargs[n] for n in self.stellar_pars]
-        return np.array(pvec)
+        return self.rescale_params(np.array(pvec))
 
     @property
     def wavelengths(self):
