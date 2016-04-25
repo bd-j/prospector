@@ -30,7 +30,7 @@ class StarBasis(object):
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
                  n_neighbors=0, log_interp=True, logify_Z=True,
-                 use_params=None, rescale=False, in_memory=True, **kwargs):
+                 use_params=None, rescale_libparams=False, in_memory=True, **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
         normalized, smoothed stellar spectra.  The interpolations are performed
@@ -76,7 +76,7 @@ class StarBasis(object):
         self._in_memory = in_memory
         self._libname = libname
         self.n_neighbors = n_neighbors
-        self._rescale = rescale
+        self._rescale = rescale_libparams
         
         # Load the library
         self.load_lib(libname)
