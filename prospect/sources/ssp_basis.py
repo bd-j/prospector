@@ -87,7 +87,14 @@ class SSPBasis(object):
         the fsps.StellarPopulation object.
         """
         for k, v in params.items():
-            self.params[k] = v
+            # try to make parameters scalar
+            try:
+                if (len(v) == 1) and callable(v[0]):
+                    self.params[k] = v[0]
+                else:
+                    self.params[k] = np.squeeze(v)
+            except:
+                self.params[k] = v
             # Parameters named like FSPS params but that we reserve for use
             # here.  Do not pass them to FSPS.
             if k in self.reserved_params:
