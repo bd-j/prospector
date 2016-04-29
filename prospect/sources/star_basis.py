@@ -16,7 +16,8 @@ __all__ = ["StarBasis", "BigStarBasis"]
 lsun = 3.846e33
 pc = 3.085677581467192e18  # in cm
 lightspeed = 2.998e18  # AA/s
-# value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
+jansky_mks = 1e-26
+# value to go from L_sun to erg/s/cm^2 at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 # for converting Kurucz spectral units
 log_rsun_cgs = np.log10(6.955) + 10
@@ -52,7 +53,7 @@ class StarBasis(object):
 
         :param log_interp: (default:True)
             Switch to interpolate in log(flux) instead of linear flux.
-            
+
         :param use_params:
             Sequence of strings. If given, only use the listed parameters
             (which must be present in the `_libparams` structure) to build the
@@ -77,7 +78,7 @@ class StarBasis(object):
         self._libname = libname
         self.n_neighbors = n_neighbors
         self._rescale = rescale_libparams
-        
+
         # Load the library
         self.load_lib(libname)
 
@@ -94,7 +95,7 @@ class StarBasis(object):
             self.build_kdtree()
         except NameError:
             pass
-        
+
         self.params = {}
 
     def load_lib(self, libname='', driver=None):
@@ -103,13 +104,14 @@ class StarBasis(object):
         datasets ``wavelengths``, ``parameters`` and ``spectra``.  These are
         ndarrays of shape (nwave,), (nmodels,), and (nmodels, nwave)
         respecitvely.  The ``parameters`` array is a structured array.  Spectra
-        with no fluxes > 1e-32 are removed from the library
+        with no fluxes > 1e-32 are removed from the library if the librarty is
+        kept in memory.
         """
         import h5py
         f = h5py.File(libname, "r", driver=driver)
         self._wave = np.array(f['wavelengths'])
         self._libparams = np.array(f['parameters'])
-        
+
         if self._in_memory:
             self._spectra = np.array(f['spectra'])
             f.close()
@@ -141,12 +143,10 @@ class StarBasis(object):
 
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):
         """Return an attenuated, smoothed, distance dimmed stellar spectrum and SED.
-        
+
         :returns spec:
-            The spectrum on the outwave grid (assumed in air), in erg/s/Hz.  If
-            peraa is True then the spectrum is /AA instead of /Hz. If
-            ``lumdist`` is a member of the params dictionary, then the units
-            are /cm**2 as well
+            The spectrum on the outwave grid (assumed in air), in AB maggies.
+            If peraa is True then the spectrum is erg/s/cm^2/AA.
 
         :returns phot:
             Observed frame photometry in units of AB maggies.  If ``lumdist``
@@ -158,22 +158,14 @@ class StarBasis(object):
         """
         self.update(**kwargs)
 
-        # star spectrum
+        # star spectrum (in Lsun/Hz)
         wave, spec, unc = self.get_star_spectrum(**self.params)
-        spec *= self.normalize()
+        spec *= self.normalize() / lsun
 
         # dust
         if 'dust_curve' in self.params:
             att = self.params['dust_curve'](self._wave, **self.params)
             spec *= np.exp(-att)
-
-        # distance dimming
-        if 'lumdist' in self.params:
-            dist10 = self.params['lumdist']/1e-5  # d in units of 10pc
-            spec /= 4 * np.pi * (dist10*pc*10)**2
-            conv = 1
-        else:
-            conv = 4 * np.pi * (pc*10)**2
 
         # Broadening, redshifting, and interpolation onto observed
         # wavelengths.  The redshift treatment needs to be checked
@@ -187,15 +179,20 @@ class StarBasis(object):
         else:
             smspec = np.interp(outwave, wa, sa, left=0, right=0)
 
-        # Photometry (observed frame)
-        mags = getSED(wa, sa * lightspeed / wa**2 / conv, filters)
+        # Photometry (observed frame absolute maggies)
+        mags = getSED(wa, sa * lightspeed / wa**2 * to_cgs, filters)
         phot = np.atleast_1d(10**(-0.4 * mags))
 
-        # conversion from /Hz to /AA
+        # Distance dimming.  Default to 10pc distance (i.e. absolute)
+        dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
         if peraa:
-            smspec *= lightspeed / outwave**2
+            # spectrum will be in erg/s/cm^2/AA
+            smspec *= to_cgs / dfactor * lightspeed / outwave**2
+        else:
+            # Spectrum will be in maggies
+            smspec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
 
-        return smspec / conv, phot, None
+        return smspec, phot / dfactor, None
 
     def get_star_spectrum(self, **kwargs):
         """Given stellar parameters, obtain an interpolated spectrum at those
@@ -209,12 +206,13 @@ class StarBasis(object):
             The wavelengths at which the spectrum is defined.
 
         :returns spec:
-            The spectrum interpolated to the requested parameters
+            The spectrum interpolated to the requested parameters.  This has
+            the same units as the supplied library spectra.
 
         :returns unc:
             The uncertainty spectrum, where the uncertainty is due to
             interpolation error.  Curently unimplemented (i.e. it is a None
-            type object)
+            type object).
         """
         inds, wghts = self.weights(**kwargs)
         if self.logarithmic:
@@ -229,12 +227,14 @@ class StarBasis(object):
         return outspec
 
     def normalize(self):
-        """Use either logr or logl to normalize the spectrum.  Both should be
-        in solar units.  logr is checked first.
+        """Use either `logr` or `logl` to normalize the spectrum.  Both should
+        be in solar units.  `logr` is checked first.  If neither is present no
+        normalization is applied.
 
         :returns norm:
             Factor by which the CKC spectrum should be multiplied to get units
-            of erg/s/Hz
+            of erg/s/Hz.  This assumes the input spectrum is in units of
+            erg/s/cm^2/Hz/sr.
         """
         if 'logr' in self.params:
             logr = self.params['logr']
@@ -296,7 +296,7 @@ class StarBasis(object):
             return np.squeeze(x)
         else:
             return points
-        
+
     def build_kdtree(self):
         """Build the kdtree of the model points.
         """

@@ -169,7 +169,7 @@ class StellarPopBasis(object):
             cspec = np.interp(self.params['outwave'], vac2air(inwave), cspec/a)
             cphot = 10**(-0.4 * getSED(inwave, cspec/a, filters))
             return cspec, cphot
-            
+
         # Dust attenuation
         tage = self.params['tage'][i]
         tesc = self.params.get('dust_tesc', 0.01)
@@ -209,7 +209,7 @@ class StellarPopBasis(object):
         """
         if 'emission_rest_wavelengths' not in params:
             return 0.
-        
+
         mu = vac2air(params['emission_rest_wavelengths'])
         # try to get a nebular redshift, otherwise use stellar redshift,
         # otherwise use no redshift
@@ -325,7 +325,7 @@ class CSPBasis(object):
                                           zcontinuous=zcontinuous)
         self.params = {}
 
-    def get_spectrum(self, outwave=None, filters=None, **params):
+    def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
         """Given a theta vector, generate spectroscopy, photometry and any
         extras (e.g. stellar mass).
 
@@ -340,11 +340,12 @@ class CSPBasis(object):
             The restframe spectrum in units of maggies.
 
         :returns phot:
-            The apparent (redshifted) observed frame maggies in each of the filters.
+            The apparent (redshifted) observed frame maggies in each of the
+            filters.
 
         :returns extras:
-            A list of None type objects, only included for consistency with the
-            SedModel class.
+            A list of the ratio of existing stellar mass to total mass formed
+            for each component, length ncomp.
         """
         self.params.update(**params)
         # Pass the model parameters through to the sps object
@@ -357,24 +358,27 @@ class CSPBasis(object):
                 extra += [x]
             except(NameError):
                 spec, maggies, extra = s, p, [x]
+        # `spec` is now in Lsun/Hz
 
         if outwave is not None:
             w = self.csp.wavelengths
             spec = np.interp(outwave, w, spec)
-        # Modern FSPS does the distance modulus for us in get_mags,
-        # !but python-FSPS does not!
+        # Distance dimming and unit conversion
         if self.params['zred'] == 0:
             # Use 10pc for the luminosity distance (or a number
-            # provided in the dist key in units of Mpc)
-            dfactor = (self.params.get('dist', 1e-5) * 1e5)**2
-            # spectrum stays in L_sun/Hz
-            dfactor_spec = 1.0
+            # provided in the lumdist key in units of Mpc)
+            dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
         else:
-            dfactor = ((cosmo.luminosity_distance(self.csp.params['zred']).value *
-                        1e5)**2 / (1 + self.params['zred']))
-            # convert to maggies
-            dfactor_spec = to_cgs / 1e3 / dfactor / (3631*jansky_mks)
-        return (spec * dfactor_spec, maggies / dfactor, extra)
+            lumdist = cosmo.luminosity_distance(self.params['zred']).value
+            dfactor = (lumdist * 1e5)**2 / (1 + self.params['zred'])
+        if peraa:
+            # spectrum will be in erg/s/cm^2/AA
+            spec *= to_cgs / dfactor * lightspeed / outwave**2
+        else:
+            # Spectrum will be in maggies
+            spec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
+
+        return (spec, maggies / dfactor, extra)
 
     def one_sed(self, component_index=0, filterlist=[]):
         """Get the SED of one component for a multicomponent composite SFH.
@@ -388,7 +392,7 @@ class CSPBasis(object):
             the spectrum will be projected.
 
         :returns spec:
-            The restframe spectrum in units of maggies.
+            The restframe spectrum in units of Lsun/Hz.
 
         :returns maggies:
             Broadband fluxes through the filters named in ``filterlist``,
@@ -416,11 +420,15 @@ class CSPBasis(object):
                 mass = v
         # Now get the magnitudes and spectrum
         w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
-        mags = getSED(w , lightspeed/w**2 * spec * to_cgs, filterlist)
+        mags = getSED(w, lightspeed/w**2 * spec * to_cgs, filterlist)
         #mags = self.csp.get_mags(tage=self.csp.params['tage'], bands=filterlist)
-        # Normalize by (current) stellar mass and get correct units
         cmass = self.csp.stellar_mass
-        mass_norm = mass / cmass
+        if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
+            # Normalize by (current) stellar mass
+            mass_norm = mass / cmass
+        else:
+            mass_norm = 1.0
+        # Output correct units
         return mass_norm * spec, mass_norm * 10**(-0.4*(mags)), cmass
 
 
