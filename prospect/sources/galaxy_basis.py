@@ -378,7 +378,7 @@ class CSPBasis(object):
             # Spectrum will be in maggies
             spec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
 
-        return (spec, maggies / dfactor, extra)
+        return spec, maggies / dfactor, extra
 
     def one_sed(self, component_index=0, filterlist=[]):
         """Get the SED of one component for a multicomponent composite SFH.
@@ -418,18 +418,16 @@ class CSPBasis(object):
                 self.csp.params[k] = vv
             if k == 'mass':
                 mass = v
-        # Now get the magnitudes and spectrum
+        # Now get the magnitudes and spectrum.  The spectrum is in units of
+        # Lsun/Hz/per solar mass *formed*
         w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
         mags = getSED(w, lightspeed/w**2 * spec * to_cgs, filterlist)
-        #mags = self.csp.get_mags(tage=self.csp.params['tage'], bands=filterlist)
-        cmass = self.csp.stellar_mass
+        mfrac = self.csp.stellar_mass
         if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
-            # Normalize by (current) stellar mass
-            mass_norm = mass / cmass
-        else:
-            mass_norm = 1.0
+            # Convert normalization units from per stellar masss to per mass formed
+            mass /= mfrac
         # Output correct units
-        return mass_norm * spec, mass_norm * 10**(-0.4*(mags)), cmass
+        return mass * spec, mass * 10**(-0.4*(mags)), mfrac
 
 
 def gauss(x, mu, A, sigma):

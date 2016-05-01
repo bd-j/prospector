@@ -13,7 +13,7 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["SSPBasis", "MultiSSPBasis", "StepSFHBasis", "CompositeSFH"]
+__all__ = ["SSPBasis", "FastSSPBasis", "MultiSSPBasis", "StepSFHBasis", "CompositeSFH"]
 
 
 # Useful constants
@@ -113,9 +113,11 @@ class SSPBasis(object):
             Fraction of the formed stellar mass that still exists.
         """
         self.update(**params)
-        # Get the SSP spectra and masses, adding an extra mass for t=0
+
+        # Get the SSP spectra and masses (caching the latter), adding an extra
+        # mass for t=0.
         wave, ssp_spectra = self.ssp.get_spectrum(tage=0, peraa=False)
-        ssp_stellar_masses = np.insert(self.ssp.stellar_mass, 0, 1.0)
+        self.ssp_stellar_masses = np.insert(self.ssp.stellar_mass, 0, 1.0)
         if self.flux_interp == 'logarithmic':
             ssp_spectra = np.log(ssp_spectra)
 
@@ -127,7 +129,7 @@ class SSPBasis(object):
             spectrum = np.exp(spectrum)
 
         # Get the weighted stellar_mass/mformed ratio
-        mass_frac = (ssp_stellar_masses * weights).sum() / weights.sum()
+        mass_frac = (self.ssp_stellar_masses * weights).sum() / weights.sum()
         return wave, spectrum, mass_frac
 
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
@@ -153,7 +155,8 @@ class SSPBasis(object):
         """
         # Spectrum in Lsun/Hz per solar mass formed
         wave, spectrum, mfrac = self.get_galaxy_spectrum(**params)
-        # Redshifting
+
+        # Redshifting + Photometry
         if 'zred' in self.reserved_params:
             # We do it ourselves.
             a = 1 + self.params.get('zred', 0)
@@ -167,7 +170,7 @@ class SSPBasis(object):
         else:
             phot = 0.0
 
-        # Smoothing
+        # Spectral smoothing.
         do_smooth = (('sigma_smooth' in self.params) and
                      ('sigma_smooth' in self.reserved_params))
         if do_smooth:
@@ -199,26 +202,24 @@ class SSPBasis(object):
         # Mass normalization
         mass = np.sum(self.params.get('mass', 1.0))
         if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
-            # Normalize by (current) stellar mass
-            mass_norm = mass / mfrac
-        else:
-            mass_norm = 1.0
+            # Convert from current stellar mass to mass formed
+            mass /= mfrac
 
-        return smspec * mass_norm, phot / dfactor * mass_norm, mfrac
+        return smspec * mass, phot / dfactor * mass, mfrac
 
     @property
     def all_ssp_weights(self):
-        """Weights for a single age population.
+        """Weights for a single age population.  This is a slow way to do this!
         """
         if self.interp_type == 'linear':
             sspages = np.insert(10**self.logage, 0, 0)
             tb = self.params['tage'] * 1e9
-            
+
         elif self.interp_type == 'logarithmic':
             sspages = np.insert(self.logage, 0, self.mint_log)
             tb = np.log10(self.params['tage']) + 9
-            
-        ind = np.searchsorted(sspages, tb) # index of the higher bracketing lookback time
+
+        ind = np.searchsorted(sspages, tb)  # index of the higher bracketing lookback time
         dt = (sspages[ind] - sspages[ind - 1])
         ww = np.zeros(len(sspages))
         ww[ind - 1] = (sspages[ind] - tb) / dt
@@ -248,7 +249,9 @@ class FastSSPBasis(SSPBasis):
 
 
 class MultiSSPBasis(SSPBasis):
-
+    """An array of SSPs with different ages, metallicities, and possibly dust
+    attenuations.
+    """
     def get_galaxy_spectrum(self):
         raise(NotImplementedError)
 
@@ -257,26 +260,57 @@ class StepSFHBasis(SSPBasis):
 
     """Subclass of SSPBasis that computes SSP weights for piecewise constant
     SFHs (i.e. a binned SFH).  The parameters for this SFH are:
+
       * `agebins` - array of shape (nbin, 2) giving the younger and older (in
-        lookback time) edges of each bin.  If `interp_type` is `"linear"', these
-        are assumed to be in years.  Otherwise they are in log10(years)
-      * `mass` - array of shape (nbin,) giving the total stellar mass formed
-        (in solar masses) in each bin
+        lookback time) edges of each bin.  If `interp_type` is `"linear"',
+        these are assumed to be in years.  Otherwise they are in log10(years)
+
+      * `mass` - array of shape (nbin,) giving the total surviving stellar mass
+        (in solar masses) in each bin, unless the `mass_units` parameter is set
+        to something different `"mstar"`, in which case the units are assumed
+        to be total stellar mass *formed* in each bin.
+
+    The `agebins` parameter *must not be changed* without also setting
+    `self._ages=None`.
     """
 
     @property
     def all_ssp_weights(self):
-        """Weights for piecewise linear.
-        """
-        ages = self.params['agebins']
-        masses = self.params['mass']
-        w = np.zeros(len(self.logage) + 1)
-        # Loop over age bins
-        # Should cache the bin weights when agebins not changing.  But this is
-        # not very time consuming for few enough bins.
-        for (t1, t2), mass in zip(ages, masses):
-            w += mass * self.bin_weights(t1, t2)
+        # Cache age bins and relative weights.  This means params['agebins']
+        # *must not* change without also setting _ages = None
+        if self._ages is None:
+            self._ages = self.params['agebins']
+            nbin, nssp = len(self._ages), len(self.logage) + 1
+            self._bin_weights = np.zeros([nbin, nssp])
+            for i, (t1, t2) in enumerate(self._ages):
+                # These *should* sum to one (or zero) for each bin
+                self._bin_weights[i,:] = self.bin_weights(t1, t2)
+
+        # Now normalize the weights in each bin by the mass parameter, and sum
+        # over bins.
+        bin_masses = self.params['mass']
+        if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
+            # Convert from mstar to mformed for each bin.  We have to do this
+            # here as well as in get_spectrum because the *relative*
+            # normalization in each bin depends on the units, as well as the
+            # overall normalization.
+            bin_masses /= self.bin_mass_fraction
+        w = (bin_masses[:, None] * self._bin_weights).sum(axis=0)
+
         return w
+
+    @property
+    def bin_mass_fraction(self):
+        """Return the ratio m_star(surviving) / m_formed for each bin.
+        """
+        try:
+            mstar = self.ssp_stellar_masses
+            w = self._bin_weights
+            bin_mfrac = (mstar[None, :] * w).sum(axis=-1) / w.sum(axis=-1)
+            return bin_mfrac
+        except:
+            print('agebin info or ssp masses not chached?')
+            return 1.0
 
     def bin_weights(self, amin, amax):
         """Compute normalizations required to get a piecewise constant SFH
