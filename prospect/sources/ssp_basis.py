@@ -277,8 +277,8 @@ class StepSFHBasis(SSPBasis):
     @property
     def all_ssp_weights(self):
         # Cache age bins and relative weights.  This means params['agebins']
-        # *must not* change without also setting _ages = None
-        if self._ages is None:
+        # *must not change* without also setting _ages = None
+        if getattr(self, '_ages', None) is None::
             self._ages = self.params['agebins']
             nbin, nssp = len(self._ages), len(self.logage) + 1
             self._bin_weights = np.zeros([nbin, nssp])
