@@ -2,7 +2,17 @@ import time, sys, os
 import numpy as np
 from scipy.linalg import LinAlgError
 
-__all__ = ["LikelihoodFunction"]
+__all__ = ["LikelihoodFunction", "write_log"]
+
+
+def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
+    """Write all sorts of documentary info for debugging.
+    """
+    print(theta)
+    print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
+    fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
+    values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
+    print(fstring.format(*values))
 
 
 class LikelihoodFunction(object):

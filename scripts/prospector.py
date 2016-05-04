@@ -8,7 +8,7 @@ import pickle
 from prospect.models import model_setup
 from prospect.io import write_results
 from prospect import fitting
-from prospect.likelihood import LikelihoodFunction
+from prospect.likelihood import LikelihoodFunction, write_log
 
 # --------------
 # Read command line arguments
@@ -80,13 +80,13 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
             s, a, l = model.spec_gp_params()
             gp_spec.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
         except(AttributeError):
-            # There was no spec_gp_params method
+            # There was no spec_gp_params method or gp_spec
             pass
         try:
             s, a, l = model.phot_gp_params(obs=obs)
             gp_phot.kernel = np.array( list(a) + list(l) + [s])
         except(AttributeError):
-            # There was no phot_gp_params method
+            # There was no phot_gp_params method or gp_phot
             pass
         d1 = time.time() - t1
 
@@ -108,15 +108,6 @@ def chisqfn(theta, model, obs):
     minimize.
     """
     return -lnprobfn(theta, model=model, obs=obs)
-
-def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
-    """Write all sorts of documentary info for debugging.
-    """
-    print(theta)
-    print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
-    fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
-    values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
-    print(fstring.format(*values))
 
 # -----------------
 # MPI pool.  This must be done *after* lnprob and

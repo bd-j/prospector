@@ -205,16 +205,21 @@ class NumpyEncoder(json.JSONEncoder):
         holding dtype, shape and the data, base64 encoded.
         """
         if isinstance(obj, np.ndarray):
-            if obj.flags['C_CONTIGUOUS']:
-                obj_data = obj.data
-            else:
-                cont_obj = np.ascontiguousarray(obj)
-                assert(cont_obj.flags['C_CONTIGUOUS'])
-                obj_data = cont_obj.data
+            cont_obj = np.ascontiguousarray(obj)
+            assert(cont_obj.flags['C_CONTIGUOUS'])
+            obj_data = cont_obj.data
             data_b64 = base64.b64encode(obj_data)
             return dict(__ndarray__=data_b64,
                         dtype=str(obj.dtype),
                         shape=obj.shape)
+        #if isinstance(obj, np.ndarray):
+        #    output = io.BytesIO()
+        #    np.savez_compressed(output, obj=obj)
+        #    return {'b64npz' : base64.b64encode(output.getvalue())}
+
+        elif isinstance(obj, np.generic):
+            return obj.item()
+
         # Let the base class default method raise the TypeError
         return json.JSONEncoder(self, obj)
 
@@ -228,4 +233,11 @@ class NumpyEncoder(json.JSONEncoder):
 #    if isinstance(dct, dict) and '__ndarray__' in dct:
 #        data = base64.b64decode(dct['__ndarray__'])
 #        return np.frombuffer(data, dct['dtype']).reshape(dct['shape'])
+#    return dct
+
+#def ndarray_decoder(dct):
+#    if isinstance(dct, dict) and 'b64npz' in dct:
+#        output = io.BytesIO(base64.b64decode(dct['b64npz']))
+#        output.seek(0)
+#        return np.load(output)['obj']
 #    return dct
