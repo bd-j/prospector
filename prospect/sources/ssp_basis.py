@@ -194,7 +194,7 @@ class SSPBasis(object):
             dfactor = (lumdist * 1e5)**2 / (1 + self.params['zred'])
         if peraa:
             # spectrum will be in erg/s/cm^2/AA
-            smspec *= to_cgs / dfactor * lightspeed / outwave**2
+            smspec *= to_cgs / dfactor * lightspeed / wa**2
         else:
             # Spectrum will be in maggies
             smspec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
