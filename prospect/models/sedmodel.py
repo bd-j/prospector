@@ -51,10 +51,11 @@ class SedModel(ProspectorParams):
             Any extra aspects of the model that are returned.
         """
         s, p, x = self.sed(theta, obs, sps=sps, **extras)
+        self._speccal = self.spec_calibration(obs=obs, **extras)
         if obs.get('logify_spectrum', True):
-            s = np.log(s) + np.log(self.spec_calibration(obs=obs, **extras))
+            s = np.log(s) + np.log(self._cal)
         else:
-            s *= self.spec_calibration(obs=obs, **extras)
+            s *= self._speccal
         return s, p, x
     
     def sed(self, theta, obs, sps=None, **kwargs):
@@ -95,6 +96,7 @@ class SedModel(ProspectorParams):
         except:
             pass
         spec = (spec + self.sky())
+        self._sed = spec
         return spec, phot, extras
 
     def sky(self):
