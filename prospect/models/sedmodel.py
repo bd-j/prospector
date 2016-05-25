@@ -96,7 +96,7 @@ class SedModel(ProspectorParams):
         except:
             pass
         spec = (spec + self.sky())
-        self._sed = spec
+        self._spec = spec.copy()
         return spec, phot, extras
 
     def sky(self):

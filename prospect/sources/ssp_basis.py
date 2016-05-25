@@ -170,6 +170,10 @@ class SSPBasis(object):
             wa, sa = wave * a, spectrum * a
         else:
             wa, sa = wave, spectrum
+
+        if outwave is None:
+            outwave = wa
+
         # Observed frame photometry, as absolute maggies
         if filters is not None:
             mags = getSED(wave, lightspeed/wave**2 * sa * to_cgs, filters)
@@ -182,13 +186,13 @@ class SSPBasis(object):
                      ('sigma_smooth' in self.reserved_params))
         if do_smooth:
             # We do it ourselves.
-            if outwave is None:
-                outwave = wa
             smspec = self.smoothspec(wa, sa, self.params['sigma_smooth'],
                                      outwave=outwave, **self.params)
-        elif outwave is not None:
+        elif outwave is not wa:
+            # Just interpolate
             smspec = np.interp(outwave, wa, sa, left=0, right=0)
         else:
+            # no interpolation necessary
             smspec = sa
 
         # Distance dimming and unit conversion
@@ -251,7 +255,7 @@ class FastSSPBasis(SSPBasis):
     """
     def get_galaxy_spectrum(self, **params):
         self.update(**params)
-        wave, spec = self.ssp.get_spectrum(tage=self.params['tage'], peraa=False)
+        wave, spec = self.ssp.get_spectrum(tage=float(self.params['tage']), peraa=False)
         return wave, spec, self.ssp.stellar_mass
 
 

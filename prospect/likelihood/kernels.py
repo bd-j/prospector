@@ -58,9 +58,9 @@ class Uncorrelated(Kernel):
         s = metric.shape[0]
         jitter = self.params['amplitude']**2 * np.ones(s)
         if metric.ndim == 2:
-            return np.diag(jitter**2)
+            return np.diag(jitter)
         elif metric.ndim == 1:
-            return jitter**2
+            return jitter
         else:
             raise(NotImplementedError)
 

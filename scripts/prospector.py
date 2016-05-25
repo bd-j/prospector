@@ -82,7 +82,7 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         if phot_noise is not None:
             phot_noise.update(**model.params)
         vectors = {'spec': mu, 'unc': obs['unc'],
-                   'sed': model._sed, 'cal': model._speccal,
+                   'sed': model._spec, 'cal': model._speccal,
                    'phot': phot, 'maggies_unc': obs['maggies_unc']}
 
         # Calculate likelihoods
