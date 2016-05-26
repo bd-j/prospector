@@ -164,7 +164,7 @@ class SSPBasis(object):
         # Spectrum in Lsun/Hz per solar mass formed
         wave, spectrum, mfrac = self.get_galaxy_spectrum(**params)
 
-        # Redshifting + Photometry
+        # Redshifting + Wavelength solution
         if 'zred' in self.reserved_params:
             # We do it ourselves.
             a = 1 + self.params.get('zred', 0)
@@ -178,7 +178,6 @@ class SSPBasis(object):
             c = np.insert(self.params['wavecal_coeffs'], 0, 0)
             # assume coeeficients give shifts in km/s
             b = chebval(x, c) / (lightspeed*1e-13)
-
             
         wa, sa = wave * (a + b), spectrum * a
         if outwave is None:
