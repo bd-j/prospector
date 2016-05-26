@@ -1,5 +1,6 @@
 from itertools import chain
 import numpy as np
+from numpy.polynomial.chebyshev import chebval
 from scipy.special import expi, gammainc
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
@@ -167,10 +168,19 @@ class SSPBasis(object):
         if 'zred' in self.reserved_params:
             # We do it ourselves.
             a = 1 + self.params.get('zred', 0)
-            wa, sa = wave * a, spectrum * a
+            b = 0.0
         else:
-            wa, sa = wave, spectrum
+            a, b = 1.0, 0.0
 
+        if 'wavecal_coeffs' in self.params:
+            x = wave - wave.min()
+            x = 2.0 * (x / x.max()) - 1.0
+            c = np.insert(self.params['wavecal_coeffs'], 0, 0)
+            # assume coeeficients give shifts in km/s
+            b = chebval(x, c) / (lightspeed*1e-13)
+
+            
+        wa, sa = wave * (a + b), spectrum * a
         if outwave is None:
             outwave = wa
 
