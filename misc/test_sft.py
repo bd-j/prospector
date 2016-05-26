@@ -10,6 +10,7 @@ sfhtype = {1:'tau', 4: 'delaytau', 5: 'simha'}
 # build FSPS and Prospector sps objects
 zcontinuous = 1
 sps = fsps.StellarPopulation(zcontinuous=zcontinuous)
+tres = np.round(len(sps.ssp_ages) / 94.)
 mysps = CompositeSFH(sfh_type='tau', interp_type='logarithmic', mint_log=5.45,
                      flux_interp='linear', zcontinuous=zcontinuous)
 mysps.configure()
@@ -55,8 +56,8 @@ for i, tage in enumerate(ages):
     spec[i, :] = s
     # Set up Pro parameters, with unit conversions, get spectrum, and store it.
     sfh_params = {'tage': tage*1e9, 'tau': tau*1e9,
-                  'sf_slope': sf_slope / 1e9, 'sf_trunc': sf_trunc*1e9}
-    mw, mys = mysps.get_galaxy_spectrum(**sfh_params)
+                  'sf_slope': -sf_slope / 1e9, 'sf_trunc': sf_trunc*1e9}
+    mw, mys, mstar = mysps.get_galaxy_spectrum(**sfh_params)
     myspec[i, :] = mys
     # Do some plotting for each age
     wax.plot(sspages, mysps.all_ssp_weights, '-o', label=r'{}={:4.2f}'.format(pname, tage))
@@ -70,14 +71,14 @@ mymags = observate.getSED(sps.wavelengths, myspec, filterlist=filters)
 # Plot mags vs age
 iband = 0
 fig, ax = pl.subplots()
-ax.plot(ages, mags[:, iband], '-o', label='FSPS')
+ax.plot(ages, mags[:, iband], '-o', label='FSPS, tres={}'.format(int(tres)))
 ax.plot(ages, mymags[:, iband], '-o', label='Pro')
 ax.set_xlabel('tage (Gyr)')
 ax.set_ylabel(r'$M_{{AB}}$ ({})'.format(filters[iband].name))
 ax.text(0.1, 0.85, r'$\tau_{{SF}}={:4.2f}, \, \Delta t_{{trunc}}={:4.2f}$'.format(tau, delt_trunc),
         transform=ax.transAxes)
 ax.legend(loc=0)
-
+fig.savefig('figures/sft_compare.pdf')
 # Prettify axes
 rax.set_xlim(1e3, 2e4)
 rax.set_ylabel('pro / FSPS')

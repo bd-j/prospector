@@ -111,6 +111,10 @@ def rectify_obs(obs):
         obs['phot_mask'] = (m * np.isfinite(obs['maggies']) *
                             np.isfinite(obs['maggies_unc']) *
                             (obs['maggies_unc'] > 0))
+        try:
+            obs['filternames'] = [f.name for f in obs['filters']]
+        except:
+            pass
 
     if 'logify_spectrum' not in k:
         obs['logify_spectrum'] = False

@@ -1,4 +1,5 @@
 from .likelihood import *
-from .gp import GaussianProcess, ExpSquared
+from .noise_model import *
 
-__all__ = ["LikelihoodFunction", "GaussianProcess", "ExpSquared"]
+__all__ = ["lnlike_spec", "lnlike_phot", "NoiseModel"]
+

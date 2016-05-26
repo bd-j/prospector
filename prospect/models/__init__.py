@@ -1,4 +1,4 @@
-from .sedmodel import ProspectorParams, SedModel, CSPModel
+from .sedmodel import ProspectorParams, SedModel
 #from .parameters import ProspectorParams
 
-__all__ = ["SedModel", "CSPModel", "ProspectorParams"]
+__all__ = ["SedModel", "ProspectorParams"]

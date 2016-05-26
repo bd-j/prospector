@@ -3,18 +3,18 @@
 import time, sys, os
 import numpy as np
 np.errstate(invalid='ignore')
-import pickle
 
 from prospect.models import model_setup
 from prospect.io import write_results
 from prospect import fitting
-from prospect.likelihood import LikelihoodFunction
+from prospect.likelihood import lnlike_spec, lnlike_phot, write_log
+
 
 # --------------
 # Read command line arguments
 # --------------
 sargv = sys.argv
-argdict = {'param_file':''}
+argdict = {'param_file': ''}
 clargs = model_setup.parse_args(sargv, argdict=argdict)
 run_params = model_setup.get_run_params(argv=sargv, **clargs)
 
@@ -23,8 +23,8 @@ run_params = model_setup.get_run_params(argv=sargv, **clargs)
 # --------------
 # SPS Model instance as global
 sps = model_setup.load_sps(**run_params)
-# GP instance as global
-gp_spec, gp_phot = model_setup.load_gp(**run_params)
+# GP instances as global
+spec_noise, phot_noise = model_setup.load_gp(**run_params)
 # Model as global
 global_model = model_setup.load_model(**run_params)
 # Obs as global
@@ -33,9 +33,7 @@ global_obs = model_setup.load_obs(**run_params)
 # -----------------
 # LnP function as global
 # ------------------
-likefn = LikelihoodFunction()
 
-# the more explicit way
 def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     """Given a parameter vector and optionally a dictionary of observational
     ata and a model object, return the ln of the posterior. This requires that
@@ -59,7 +57,7 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
           *``maggies_unc``
           *``filters``
           * and optional spectroscopic ``mask`` and ``phot_mask``.
-        
+
     :returns lnp:
         Ln posterior probability.
     """
@@ -67,33 +65,30 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         model = global_model
     if obs is None:
         obs = global_obs
-        
+
     lnp_prior = model.prior_product(theta)
     if np.isfinite(lnp_prior):
-        # Generate mean model and GP kernel(s)
+        # Generate mean model
         t1 = time.time()
         try:
             mu, phot, x = model.mean_model(theta, obs, sps=sps)
         except(ValueError):
             return -np.infty
-        try:
-            s, a, l = model.spec_gp_params()
-            gp_spec.kernel[:] = np.log(np.array([s[0],a[0]**2,l[0]**2]))
-        except(AttributeError):
-            # There was no spec_gp_params method
-            pass
-        try:
-            s, a, l = model.phot_gp_params(obs=obs)
-            gp_phot.kernel = np.array( list(a) + list(l) + [s])
-        except(AttributeError):
-            # There was no phot_gp_params method
-            pass
         d1 = time.time() - t1
+
+        # Noise modeling
+        if spec_noise is not None:
+            spec_noise.update(**model.params)
+        if phot_noise is not None:
+            phot_noise.update(**model.params)
+        vectors = {'spec': mu, 'unc': obs['unc'],
+                   'sed': model._spec, 'cal': model._speccal,
+                   'phot': phot, 'maggies_unc': obs['maggies_unc']}
 
         # Calculate likelihoods
         t2 = time.time()
-        lnp_spec = likefn.lnlike_spec(mu, obs=obs, gp=gp_spec)
-        lnp_phot = likefn.lnlike_phot(phot, obs=obs, gp=gp_phot)
+        lnp_spec = lnlike_spec(mu, obs=obs, spec_noise=spec_noise, **vectors)
+        lnp_phot = lnlike_phot(phot, obs=obs, phot_noise=phot_noise, **vectors)
         d2 = time.time() - t2
         if verbose:
             write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
@@ -101,22 +96,14 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         return lnp_prior + lnp_phot + lnp_spec
     else:
         return -np.infty
-    
+
+
 def chisqfn(theta, model, obs):
     """Negative of lnprobfn for minimization, and also handles passing in
     keyword arguments which can only be postional arguments when using scipy
     minimize.
     """
     return -lnprobfn(theta, model=model, obs=obs)
-
-def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
-    """Write all sorts of documentary info for debugging.
-    """
-    print(theta)
-    print('model calc = {0}s, lnlike calc = {1}'.format(d1,d2))
-    fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
-    values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
-    print(fstring.format(*values))
 
 # -----------------
 # MPI pool.  This must be done *after* lnprob and
@@ -125,7 +112,7 @@ def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
 # ------------------
 try:
     from emcee.utils import MPIPool
-    pool = MPIPool(debug = False, loadbalance = True)
+    pool = MPIPool(debug=False, loadbalance=True)
     if not pool.is_master():
         # Wait for instructions from the master process.
         pool.wait()
@@ -133,6 +120,7 @@ try:
 except(ValueError):
     pool = None
     print('Not using MPI')
+
 
 def halt():
     """Exit, closing pool safely.
@@ -144,11 +132,10 @@ def halt():
         pass
     sys.exit(0)
 
-
 # --------------
 # Master branch
 # --------------
-    
+
 if __name__ == "__main__":
 
     # --------------
@@ -174,16 +161,15 @@ if __name__ == "__main__":
         if rp['verbose']:
             print('minimizing chi-square...')
         ts = time.time()
-        powell_opt = {'ftol': rp['ftol'], 'xtol':1e-6, 'maxfev':rp['maxfev']}
+        powell_opt = {'ftol': rp['ftol'], 'xtol': 1e-6, 'maxfev': rp['maxfev']}
         powell_guesses, pinit = fitting.pminimize(chisqfn, initial_theta,
                                                   args=chi2args, model=model,
                                                   method='powell', opts=powell_opt,
-                                                  pool=pool, nthreads=rp.get('nthreads',1))
+                                                  pool=pool, nthreads=rp.get('nthreads', 1))
         best = np.argmin([p.fun for p in powell_guesses])
         initial_center = fitting.reinitialize(powell_guesses[best].x, model,
-                                              edge_trunc=rp.get('edge_trunc',0.1))
+                                              edge_trunc=rp.get('edge_trunc', 0.1))
         initial_prob = -1 * powell_guesses[best]['fun']
-        
         pdur = time.time() - ts
         if rp['verbose']:
             print('done Powell in {0}s'.format(pdur))
