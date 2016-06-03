@@ -95,15 +95,14 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, **vectors):
         return 0.0
 
     mask = obs.get('phot_mask', slice(None))
-
     delta = (obs['maggies'] - phot_mu)[mask]
 
     if phot_noise is not None:
         filternames = [f.name for f in obs['filters']]
         vectors['mask'] = mask
-        vectors['filternames'] = filternames
+        vectors['filternames'] = np.array(filternames)
         try:
-            phot_noise.compute(phot_noise, **vectors)
+            phot_noise.compute(**vectors)
             return phot_noise.lnlikelihood(delta)
         except(LinAlgError):
             return np.nan_to_num(-np.inf)
