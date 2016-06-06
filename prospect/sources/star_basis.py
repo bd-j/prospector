@@ -1,5 +1,6 @@
 from itertools import chain
 import numpy as np
+from numpy.polynomial.chebyshev import chebval
 from scipy.spatial import Delaunay
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
@@ -167,21 +168,36 @@ class StarBasis(object):
             att = self.params['dust_curve'](self._wave, **self.params)
             spec *= np.exp(-att)
 
-        # Broadening, redshifting, and interpolation onto observed
-        # wavelengths.  The redshift treatment needs to be checked
-        a = (1 + self.params.get('zred', 0.0))
-        wa, sa = vac2air(wave) * a, spec * a
+        # Redshifting + Wavelength solution.  We also convert to in-air.
+        a = 1 + self.params.get('zred', 0)
+        b = 0.0
+
+        if 'wavecal_coeffs' in self.params:
+            x = wave - wave.min()
+            x = 2.0 * (x / x.max()) - 1.0
+            c = np.insert(self.params['wavecal_coeffs'], 0, 0)
+            # assume coeeficients give shifts in km/s
+            b = chebval(x, c) / (lightspeed*1e-13)
+            
+        wa, sa = vac2air(wave) * (a + b), spectrum * a
         if outwave is None:
             outwave = wa
+
+        # Broadening, interpolation onto output wavelength grid
         if 'sigma_smooth' in self.params:
             smspec = self.smoothspec(wa, sa, self.params['sigma_smooth'],
                                      outwave=outwave, **self.params)
-        else:
+        elif outwave is not wa:
             smspec = np.interp(outwave, wa, sa, left=0, right=0)
-
+        else:
+            smspec = sa
+            
         # Photometry (observed frame absolute maggies)
-        mags = getSED(wa, sa * lightspeed / wa**2 * to_cgs, filters)
-        phot = np.atleast_1d(10**(-0.4 * mags))
+        if filters is not None:
+            mags = getSED(wa, sa * lightspeed / wa**2 * to_cgs, filters)
+            phot = np.atleast_1d(10**(-0.4 * mags))
+        else:
+            phot = 0.0
 
         # Distance dimming.  Default to 10pc distance (i.e. absolute)
         dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
