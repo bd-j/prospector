@@ -123,16 +123,16 @@ class SSPBasis(object):
         self.update(**params)
 
         # Get the SSP spectra and masses (caching the latter), adding an extra
-        # mass for t=0.
+        # mass and spectrum for t=0, using the first SSP spectrum.
         wave, ssp_spectra = self.ssp.get_spectrum(tage=0, peraa=False)
+        ssp_spectra = np.vstack([ssp_spectra[0,:], ssp_spectra])
         self.ssp_stellar_masses = np.insert(self.ssp.stellar_mass, 0, 1.0)
         if self.flux_interp == 'logarithmic':
             ssp_spectra = np.log(ssp_spectra)
 
         # Get weighted sum of spectra, adding the t=0 spectrum using the first SSP.
         weights = self.all_ssp_weights
-        spectrum = (weights[1:, None] * ssp_spectra).sum(axis=0) / weights.sum()
-        spectrum += weights[0] * ssp_spectra[0, :]
+        spectrum = np.dot(weights, ssp_spectra) / weights.sum()
         if self.flux_interp == 'logarithmic':
             spectrum = np.exp(spectrum)
 
@@ -351,7 +351,7 @@ class StepSFHBasis(SSPBasis):
             func = constant_logarithmic
             mass = 10**amax - 10**amin
 
-        assert amin >= sspages[1]
+        assert amin >= sspages[0]
         assert amax <= sspages.max()
 
         # below could be done by using two separate dt vectors instead of two
