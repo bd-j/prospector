@@ -101,7 +101,46 @@ and the ``run_params`` dictionary to make sure everything is working fine.
 Working with the output
 --------------------------------
 After the fit is completed we should have a number of files with names like
-``demo_obj0_<timestamp>_*``.
+``demo_obj0_<timestamp>_*``.  The ``_mcmc`` file is a pickle of a dictionary
+containing sampling results and various configuration data, as well as the observational data that was fit.
+The  ``_mcmc.h5`` is and HDF5 file with the same
+data but in a more portable format.  The ``_model`` file is a pickle of the
+``SedModel`` object used to generate models, saved for convenience.
 We will read these in with python and make some plots using utilities in |Codename|
+
+To read the data back in from the output files that we've generated, use
+methods in ``prospect.io.read_results``.  There are also some methods in this
+module for basic (and ugly) diagnostic plots. The ``subtriangle`` method requires that you have the `corner
+<http://corner.readthedocs.io/en/latest/>`_ package installed.
+
+.. code-block:: python
+		
+		import prospect.io.read_results as bread
+		res, pr, mod = bread.results_from("demo_obj_<timestamp>_mcmc")
+		tracefig = bread.param_evol(res)
+		cornerfig = bread.subtriangle(res, start=0, thin=5)
+
+There are also numerous more or less poorly documented convenience methods in
+the ``prospect.utils.plotting``.  If necessary, one can regenerate models at any walker
+position in the following way:
+
+.. code-block:: python
+		
+		import prospect.io.read_results as bread
+		res, pr, mod = bread.results_from("demo_obj_<timestamp>_mcmc")
+		# We need the correct sps object to generate models
+		from prospect.sources import CSPModel
+		sps = CSPModel(**res['run_params'])
+		# Choose the walker and iteration number
+		walker, iteration = 0, -1
+		# Get the modeled spectra and photometry.
+		# These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
+		spec, phot, mfrac = mod.mean_model(res['chain'][walker, iteration, :], obs=res['obs'], sps=sps)
+		# Plot the model SED
+		import matplotlib.pyplot as pl
+		wave = [f.wave_effective for f in res['obs']['filters']]
+		pl.plot(wave, res['obs']['maggies'], '-o', label='Observations')
+		pl.plot(wave, phot, '-o', label='Model at {},{}'.format(walker, iteration))
+		pl.ylabel("Maggies")
 
 .. |Codename| replace:: Prospector

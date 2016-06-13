@@ -203,9 +203,30 @@ def model_comp(theta, model, obs, sps, photflag=0, gp=None):
     return sed, cal, delta, mask, wave
 
 
-def param_evol(sample_results, outname=None, showpars=None, start=0, **plot_kwargs):
+def param_evol(sample_results, showpars=None, start=0, **plot_kwargs):
     """Plot the evolution of each parameter value with iteration #, for each
-    chain.
+    walker in the chain.
+
+    :param sample_results:
+        A Prospector results dictionary, usually the output of
+        ``results_from('resultfile')``.
+
+    :param showpars: (optional)
+        A list of strings of the parameters to show.  Defaults to all
+        parameters in the ``"theta_labels"`` key of the ``sample_results``
+        dictionary.
+
+    :param start: (optional, default: 0)
+        Integer giving the iteration number from which to start plotting.
+
+    :param **plot_kwargs:
+        Extra keywords are passed to the
+        ``matplotlib.axes._subplots.AxesSubplot.plot()`` method.
+
+    :returns tracefig:
+        A multipaneled Figure object that shows the evolution of walker
+        positions in the parameters given by ``showpars``, as well as
+        ln(posterior probability)
     """
     import matplotlib.pyplot as pl
 
@@ -252,11 +273,7 @@ def param_evol(sample_results, outname=None, showpars=None, start=0, **plot_kwar
     for j in range(nwalk):
         ax.plot(lnprob[j, :])
     ax.set_title('lnP')
-    if outname is not None:
-        fig.savefig('{0}.x_vs_step.png'.format(outname))
-        pl.close()
-    else:
-        return fig
+    return fig
 
 
 def subtriangle(sample_results, outname=None, showpars=None,
@@ -276,7 +293,7 @@ def subtriangle(sample_results, outname=None, showpars=None,
         List of string names of parameters to include in the corner plot.
 
     :param truths:
-        List of truth values
+        List of truth values for the chosen parameters
     """
     try:
         import triangle

@@ -5,12 +5,13 @@ __all__ = ["get_best", "get_truths", "get_percentiles", "get_stats",
            "posterior_samples", "hist_samples", "joint_pdf", "compute_sigma_level",
            "get_prior", "trim_walkers", "fill_between", "figgrid"]
 
+
 def get_best(res, **kwargs):
     """Get the maximum a posteriori parameters.
     """
     imax = np.argmax(res['lnprobability'])
     i, j = np.unravel_index(imax, res['lnprobability'].shape)
-    theta_best = res['chain'][i,j,:].copy()
+    theta_best = res['chain'][i, j, :].copy()
     theta_names = res.get('theta_labels', res['model'].theta_labels())
     return theta_names, theta_best
 
@@ -36,20 +37,46 @@ def get_prior(res, pname):
     return mp[ind]['prior_function'], mp[ind]['prior_args']
 
 
-def get_percentiles(res, ptile=[16, 50, 84], start=0.75, thin=10, **extras):
+def get_percentiles(res, ptile=[16, 50, 84], start=0.5, thin=10, **extras):
     """Get get percentiles of the marginalized posterior for each parameter.
+
+    :param res:
+        A results dictionary, containing a "chain" and "theta_labels" keys.
+
+    :param ptile: (optional, default: [16, 50, 84])
+       A list of percentiles (integers 0 to 100) to return for each parameter.
+
+    :param start: (optional, default: 0.5)
+       How much of the beginning of chains to throw away before calculating
+       percentiles, expressed as a fraction of the total number of iterations.
+
+    :param thin: (optional, default: 10.0)
+       Only use every ``thin`` iteration when calculating percentiles.
+
+    :returns pcts:
+       Dictionary with keys giving the parameter names and values giving the
+       requested percentiles for that parameter.
     """
     nw, niter = res['chain'].shape[:-1]
     parnames = np.array(res.get('theta_labels', res['model'].theta_labels()))
     start_index = np.floor(start * (niter-1)).astype(int)
-    flatchain = res['chain'][:,start_index::thin,:]
+    flatchain = res['chain'][:, start_index::thin, :]
     dims = flatchain.shape
     flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
     pct = np.percentile(flatchain, ptile, axis=0)
     return dict(zip(parnames, pct.T))
 
-    
+
 def get_stats(res, pnames, **kwargs):
+    """For selected parameters, get the truth (if known), the MAP value from
+    the chain, and the percentiles.
+
+    :param res:
+        A results dictionary, containing a "chain" and "theta_labels" keys.
+
+    :param pnames:
+        List of strings giving the names of the desired parameters.
+    """
     truth = get_truths(res)
     best = dict(zip(*get_best(res)))
     pct = get_percentiles(res, **kwargs)
@@ -61,17 +88,17 @@ def get_stats(res, pnames, **kwargs):
     pcts = np.array([pct[k] for i,k in enumerate(pnames)])
     bests = np.array([best[k] for i,k in enumerate(pnames)])
 
-    return pnames, truths, bests, pcts 
+    return pnames, truths, bests, pcts
 
 
 def trim_walkers(res, threshold=-1e4):
     """Remove walkers with probability below some threshold.  Useful for
     removing stuck walkers
     """
-    good = res['lnprobability'][:,-1] > threshold
+    good = res['lnprobability'][:, -1] > threshold
     trimmed = {}
-    trimmed['chain'] = res['chain'][good,:,:]
-    trimmed['lnprobability'] = res['lnprobability'][good,:]
+    trimmed['chain'] = res['chain'][good, :, :]
+    trimmed['lnprobability'] = res['lnprobability'][good, :]
     trimmed['model'] = res['model']
     return trimmed
 
@@ -111,27 +138,48 @@ def joint_pdf(res, p1, p2, pmap={}, **kwargs):
 def posterior_samples(res, samples=[1.0], **kwargs):
     """Pull samples of theta from the MCMC chain
 
-    :param start:
-        Fraction of the chain at which to start, number between 0 and 1.
+    :param res:
+        A results dictionary, containing a "chain" and "theta_labels" keys.
 
-    : param thin:
-        Only take every ``thin`` step for each walker
+    :param samples:
+        Iterable of random numbers between 0 and 1.
+
+    :param **kwargs:
+        Extra keywords are passed to ``hist_samples``.
+
+    :returns thetas:
+        A list of parameter vectors pulled at random from the chain, of same
+        length as ``samples``.
     """
     flatchain, pnames = hist_samples(res, **kwargs)
     ns = flatchain.shape[0]
-    thetas = [flatchain[s,:] for s in np.floor(np.array(samples) * (ns-1)).astype(int)]
+    thetas = [flatchain[s, :]
+              for s in np.floor(np.array(samples) * (ns-1)).astype(int)]
     return thetas
 
 
 def hist_samples(res, showpars=None, start=0, thin=1,
-                 return_lnprob=False, samples=None, **extras):
+                 return_lnprob=False, **extras):
     """Get posterior samples for the parameters listed in ``showpars``.  This
     can be done for different ending fractions of the (thinned) chain.
+
+    :param res:
+        A results dictionary, containing a "chain" and "theta_labels" keys.
+
+    :param showpars:
+        A list of strings giving the desired parameters.
+
+    :param start: (optional, default: 0.5)
+       How much of the beginning of chains to throw away before calculating
+       percentiles, expressed as a fraction of the total number of iterations.
+
+    :param thin: (optional, default: 10.0)
+       Only use every ``thin`` iteration when calculating percentiles.
     """
     nw, niter = res['chain'].shape[:-1]
     parnames = np.array(res.get('theta_labels', res['model'].theta_labels()))
     start_index = np.floor(start * (niter-1)).astype(int)
-    flatchain = res['chain'][:,start_index::thin,:]
+    flatchain = res['chain'][:, start_index::thin, :]
     dims = flatchain.shape
     flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
     if showpars is None:
@@ -142,7 +190,7 @@ def hist_samples(res, showpars=None, start=0, thin=1,
     if return_lnprob:
         flatlnprob = res['lnprobability'][:, start_index::thin].reshape(dims[0]*dims[1])
         return flatchain, parnames[ind_show], flatlnprob
-    
+
     return flatchain, parnames[ind_show]
 
 
@@ -164,7 +212,7 @@ def compute_sigma_level(trace1, trace2, nbins=30, **extras):
 
     L_cumsum = L[i_sort].cumsum()
     L_cumsum /= L_cumsum[-1]
-    
+
     xbins = 0.5 * (xbins[1:] + xbins[:-1])
     ybins = 0.5 * (ybins[1:] + ybins[:-1])
 
@@ -178,7 +226,7 @@ def figgrid(ny, nx, figsize=None, left=0.1, right=0.85,
     """
     from matplotlib import gridspec
     if figsize is None:
-        figsize=(nx*4.5, ny*3)
+        figsize = (nx*4.5, ny*3)
     fig = pl.figure(figsize=figsize)
     axarray = np.zeros([ny, nx], dtype=np.dtype('O'))
     gs1 = gridspec.GridSpec(ny, nx)
@@ -186,7 +234,7 @@ def figgrid(ny, nx, figsize=None, left=0.1, right=0.85,
                wspace=wspace, hspace=hspace)
     for i in range(ny):
         for j in range(nx):
-            axarray[i,j] = fig.add_subplot(gs1[i,j])
+            axarray[i, j] = fig.add_subplot(gs1[i, j])
     return fig, axarray
 
 

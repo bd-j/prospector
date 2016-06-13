@@ -53,7 +53,7 @@ class SedModel(ProspectorParams):
         s, p, x = self.sed(theta, obs, sps=sps, **extras)
         self._speccal = self.spec_calibration(obs=obs, **extras)
         if obs.get('logify_spectrum', True):
-            s = np.log(s) + np.log(self._cal)
+            s = np.log(s) + np.log(self._speccal)
         else:
             s *= self._speccal
         return s, p, x
