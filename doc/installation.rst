@@ -16,7 +16,7 @@ For modeling galaxies you will need:
 -  `FSPS <https://github.com/cconroy20/fsps>`_ and
    `python-FSPS <https://github.com/dfm/python-FSPS>`_
 
--  `sedpy <https:github.com/bd-j/sedpy>`_ (for nonparametric SFHs and SSPs)
+-  `sedpy <https://github.com/bd-j/sedpy>`_ (for nonparametric SFHs and SSPs)
 
 For parallel processing you will need:
 
