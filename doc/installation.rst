@@ -9,7 +9,7 @@ You will also need:
 
 -  `emcee <http://dan.iel.fm/emcee/current/>`_ (Please cite this package in any publications)
 
--  `sedpy <https://github.com/bd-j/sedpy>`_ (for nonparametric SFHs and SSPs)
+-  `sedpy <https://github.com/bd-j/sedpy>`_ (for filter projections)
 
 For more portable output files, or for modeling stars, you will need:
 
@@ -33,7 +33,19 @@ For parallel processing you will need:
 Installation
 ==========
 
-Then just git clone the repo and make sure it is somewhere in your
-python path. |Codename| is pure python.
+|Codename| is pure python.
+
+.. code-block:: shell
+
+		cd <install_dir>
+		git clone https://github.com/bd-j/prospector
+		cd prospector
+		python setup.py install
+
+Then in Python
+
+.. code-block:: python
+
+		import prospect
 
 .. |Codename| replace:: Prospector
