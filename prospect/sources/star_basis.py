@@ -179,7 +179,7 @@ class StarBasis(object):
             # assume coeeficients give shifts in km/s
             b = chebval(x, c) / (lightspeed*1e-13)
             
-        wa, sa = vac2air(wave) * (a + b), spectrum * a
+        wa, sa = vac2air(wave) * (a + b), spec * a
         if outwave is None:
             outwave = wa
 
