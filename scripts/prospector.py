@@ -117,15 +117,15 @@ try:
         # Wait for instructions from the master process.
         pool.wait()
         sys.exit(0)
-except(ValueError):
+except(ImportError, ValueError):
     pool = None
     print('Not using MPI')
 
 
-def halt():
+def halt(message):
     """Exit, closing pool safely.
     """
-    print('stopping for debug')
+    print(message)
     try:
         pool.close()
     except:
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     # make zeros into tiny numbers
     initial_theta = model.rectify_theta(model.initial_theta)
     if rp.get('debug', False):
-        halt()
+        halt('stopping for debug')
 
     # -----------------------------------------
     # Initial guesses using powell minimization
@@ -210,7 +210,4 @@ if __name__ == "__main__":
                              sampling_initial_center=initial_center,
                              post_burnin_center=burn_p0,
                              post_burnin_prob=burn_prob0)
-    try:
-        pool.close()
-    except:
-        pass
+    halt('Finished')
