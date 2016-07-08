@@ -115,7 +115,7 @@ class SedModel(ProspectorParams):
         if theta is not None:
             self.set_parameters(theta)
 
-        if 'pivot_wave' in obs:
+        if ('pivot_wave' in obs) and ('poly_coeffs' in self.params):
             # map wavelengths to the interval -1, 1
             x = obs['wavelength'] - obs['wavelength'].min()
             x = 2.0 * (x / x.max()) - 1.0
