@@ -205,7 +205,7 @@ class SSPBasis(object):
             smspec = sa
 
         # Distance dimming and unit conversion
-        if self.params['zred'] == 0:
+        if (self.params['zred'] == 0) or ('lumdist' in self.params):
             # Use 10pc for the luminosity distance (or a number
             # provided in the dist key in units of Mpc)
             dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
