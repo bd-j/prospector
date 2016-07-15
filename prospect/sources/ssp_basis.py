@@ -168,9 +168,11 @@ class SSPBasis(object):
         if 'zred' in self.reserved_params:
             # We do it ourselves.
             a = 1 + self.params.get('zred', 0)
+            af = a
             b = 0.0
         else:
             a, b = 1.0, 0.0
+            af = 1 + self.params.get('zred', 0)
 
         if 'wavecal_coeffs' in self.params:
             x = wave - wave.min()
@@ -179,13 +181,13 @@ class SSPBasis(object):
             # assume coeeficients give shifts in km/s
             b = chebval(x, c) / (lightspeed*1e-13)
             
-        wa, sa = wave * (a + b), spectrum * a
+        wa, sa = wave * (a + b), spectrum * af
         if outwave is None:
             outwave = wa
 
         # Observed frame photometry, as absolute maggies
         if filters is not None:
-            mags = getSED(wave, lightspeed/wave**2 * sa * to_cgs, filters)
+            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, filters)
             phot = np.atleast_1d(10**(-0.4 * mags))
         else:
             phot = 0.0
@@ -211,7 +213,7 @@ class SSPBasis(object):
             dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
         else:
             lumdist = cosmo.luminosity_distance(self.params['zred']).value
-            dfactor = (lumdist * 1e5)**2 / (1 + self.params['zred'])
+            dfactor = (lumdist * 1e5)**2 #/ (1 + self.params['zred'])
         if peraa:
             # spectrum will be in erg/s/cm^2/AA
             smspec *= to_cgs / dfactor * lightspeed / outwave**2
