@@ -146,7 +146,7 @@ def emcee_burn(sampler, initial_center, nburn, model=None, prob0=None,
         else:
             initial = reinitialize_ball_covar(epos, eprob, center=initial_center,
                                               limits=limits, disp_floor=disp_floor,
-                                              **kwargs)
+                                              prior_check=model, **kwargs)
         sampler.reset()
         if verbose:
             print('done burn #{}'.format(k))
