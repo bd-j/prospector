@@ -178,7 +178,7 @@ class StarBasis(object):
             c = np.insert(self.params['wavecal_coeffs'], 0, 0)
             # assume coeeficients give shifts in km/s
             b = chebval(x, c) / (lightspeed*1e-13)
-            
+
         wa, sa = vac2air(wave) * (a + b), spec * a
         if outwave is None:
             outwave = wa
@@ -191,7 +191,7 @@ class StarBasis(object):
             smspec = np.interp(outwave, wa, sa, left=0, right=0)
         else:
             smspec = sa
-            
+
         # Photometry (observed frame absolute maggies)
         if filters is not None:
             mags = getSED(wa, sa * lightspeed / wa**2 * to_cgs, filters)
@@ -208,7 +208,10 @@ class StarBasis(object):
             # Spectrum will be in maggies
             smspec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
 
-        return smspec, phot / dfactor, None
+        # Convert from absolute maggies to apparent maggies
+        phot /= dfactor
+
+        return smspec, phot, None
 
     def get_star_spectrum(self, **kwargs):
         """Given stellar parameters, obtain an interpolated spectrum at those

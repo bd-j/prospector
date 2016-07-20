@@ -358,27 +358,37 @@ class CSPBasis(object):
                 extra += [x]
             except(NameError):
                 spec, maggies, extra = s, p, [x]
-        # `spec` is now in Lsun/Hz
+        # `spec` is now in Lsun/Hz, with the wavelength array being the
+        # observed frame wavelengths.  Flux array (and maggies) have not been
+        # increased by (1+z) due to cosmological redshift
 
         if outwave is not None:
             w = self.csp.wavelengths
             spec = np.interp(outwave, w, spec)
         # Distance dimming and unit conversion
-        if self.params['zred'] == 0:
-            # Use 10pc for the luminosity distance (or a number
-            # provided in the lumdist key in units of Mpc)
+        if (self.params['zred'] == 0) or ('lumdist' in self.params):
+            # Use 10pc for the luminosity distance (or a number provided in the
+            # lumdist key in units of Mpc).  Do not apply cosmological (1+z)
+            # factor to the flux.
             dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
+            a = 1.0
         else:
+            # Use the comsological luminosity distance implied by this
+            # redshift.  Incorporate cosmological (1+z) factor on the flux.
             lumdist = cosmo.luminosity_distance(self.params['zred']).value
-            dfactor = (lumdist * 1e5)**2 / (1 + self.params['zred'])
+            dfactor = (lumdist * 1e5)**2
+            a = (1 + self.params['zred'])
         if peraa:
             # spectrum will be in erg/s/cm^2/AA
-            spec *= to_cgs / dfactor * lightspeed / outwave**2
+            spec *= to_cgs * a / dfactor * lightspeed / outwave**2
         else:
             # Spectrum will be in maggies
-            spec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
+            spec *= to_cgs * a / dfactor / 1e3 / (3631*jansky_mks)
 
-        return spec, maggies / dfactor, extra
+        # Convert from absolute maggies to apparent maggies
+        maggies *= a / dfactor
+            
+        return spec, maggies, extra
 
     def one_sed(self, component_index=0, filterlist=[]):
         """Get the SED of one component for a multicomponent composite SFH.

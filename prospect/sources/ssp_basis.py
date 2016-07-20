@@ -161,7 +161,7 @@ class SSPBasis(object):
         :returns mass_frac:
             The ratio of the surviving stellar mass to the total mass formed.
         """
-        # Spectrum in Lsun/Hz per solar mass formed
+        # Spectrum in Lsun/Hz per solar mass formed, restframe
         wave, spectrum, mfrac = self.get_galaxy_spectrum(**params)
 
         # Redshifting + Wavelength solution
@@ -172,6 +172,8 @@ class SSPBasis(object):
             b = 0.0
         else:
             a, b = 1.0, 0.0
+            # FSPS shifts the wavelength vector but we need to decrease the
+            # flux by (1+z) here.
             af = 1 + self.params.get('zred', 0)
 
         if 'wavecal_coeffs' in self.params:
@@ -180,8 +182,8 @@ class SSPBasis(object):
             c = np.insert(self.params['wavecal_coeffs'], 0, 0)
             # assume coeeficients give shifts in km/s
             b = chebval(x, c) / (lightspeed*1e-13)
-            
-        wa, sa = wave * (a + b), spectrum * af
+
+        wa, sa = wave * (a + b), spectrum * af  # Observed Frame
         if outwave is None:
             outwave = wa
 
@@ -213,7 +215,7 @@ class SSPBasis(object):
             dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
         else:
             lumdist = cosmo.luminosity_distance(self.params['zred']).value
-            dfactor = (lumdist * 1e5)**2 #/ (1 + self.params['zred'])
+            dfactor = (lumdist * 1e5)**2
         if peraa:
             # spectrum will be in erg/s/cm^2/AA
             smspec *= to_cgs / dfactor * lightspeed / outwave**2
@@ -221,13 +223,16 @@ class SSPBasis(object):
             # Spectrum will be in maggies
             smspec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
 
+        # Convert from absolute maggies to apparent maggies
+        phot /= dfactor
+
         # Mass normalization
         mass = np.sum(self.params.get('mass', 1.0))
         if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
             # Convert from current stellar mass to mass formed
             mass /= mfrac
 
-        return smspec * mass, phot / dfactor * mass, mfrac
+        return smspec * mass, phot * mass, mfrac
 
     @property
     def all_ssp_weights(self):
