@@ -1,4 +1,5 @@
 from itertools import chain
+from copy import deepcopy
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from scipy.special import expi, gammainc
@@ -100,9 +101,10 @@ class SSPBasis(object):
             # here.  Do not pass them to FSPS.
             if k in self.reserved_params:
                 continue
-            # Otherwise if a parameter exists in the FSPS parameter set, pass it in.
+            # Otherwise if a parameter exists in the FSPS parameter set, pass a
+            # copy of it in.
             if k in self.ssp.params.all_params:
-                self.ssp.params[k] = v
+                self.ssp.params[k] = deepcopy(v)
 
         # We use FSPS for SSPs !!ONLY!!
         assert self.ssp.params['sfh'] == 0
@@ -125,7 +127,7 @@ class SSPBasis(object):
         # Get the SSP spectra and masses (caching the latter), adding an extra
         # mass and spectrum for t=0, using the first SSP spectrum.
         wave, ssp_spectra = self.ssp.get_spectrum(tage=0, peraa=False)
-        ssp_spectra = np.vstack([ssp_spectra[0,:], ssp_spectra])
+        ssp_spectra = np.vstack([ssp_spectra[0, :], ssp_spectra])
         self.ssp_stellar_masses = np.insert(self.ssp.stellar_mass, 0, 1.0)
         if self.flux_interp == 'logarithmic':
             ssp_spectra = np.log(ssp_spectra)
@@ -311,7 +313,7 @@ class StepSFHBasis(SSPBasis):
             self._bin_weights = np.zeros([nbin, nssp])
             for i, (t1, t2) in enumerate(self._ages):
                 # These *should* sum to one (or zero) for each bin
-                self._bin_weights[i,:] = self.bin_weights(t1, t2)
+                self._bin_weights[i, :] = self.bin_weights(t1, t2)
 
         # Now normalize the weights in each bin by the mass parameter, and sum
         # over bins.
