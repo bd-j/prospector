@@ -129,8 +129,8 @@ position in the following way:
 		import prospect.io.read_results as bread
 		res, pr, mod = bread.results_from("demo_obj_<timestamp>_mcmc")
 		# We need the correct sps object to generate models
-		from prospect.sources import CSPModel
-		sps = CSPModel(**res['run_params'])
+		from prospect.sources import CSPBasis
+		sps = CSPBasis(**res['run_params'])
 		# Choose the walker and iteration number
 		walker, iteration = 0, -1
 		# Get the modeled spectra and photometry.
