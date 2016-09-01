@@ -141,7 +141,7 @@ class StarBasis(object):
                     self.params[k] = v[0]
                 else:
                     self.params[k] = np.squeeze(v)
-            except:
+            except(KeyError):
                 pass
 
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **kwargs):

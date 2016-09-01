@@ -352,7 +352,7 @@ class StepSFHBasis(SSPBasis):
             w = self._bin_weights
             bin_mfrac = (mstar[None, :] * w).sum(axis=-1) / w.sum(axis=-1)
             return bin_mfrac
-        except:
+        except(AttributeError):
             print('agebin info or ssp masses not chached?')
             return 1.0
 
