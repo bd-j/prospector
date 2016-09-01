@@ -52,7 +52,7 @@ class SedModel(ProspectorParams):
         """
         s, p, x = self.sed(theta, obs, sps=sps, **extras)
         self._speccal = self.spec_calibration(obs=obs, **extras)
-        if obs.get('logify_spectrum', True):
+        if obs.get('logify_spectrum', False):
             s = np.log(s) + np.log(self._speccal)
         else:
             s *= self._speccal
@@ -115,10 +115,12 @@ class SedModel(ProspectorParams):
         if theta is not None:
             self.set_parameters(theta)
 
-        if ('pivot_wave' in obs) and ('poly_coeffs' in self.params):
-            # map wavelengths to the interval -1, 1
-            x = obs['wavelength'] - obs['wavelength'].min()
-            x = 2.0 * (x / x.max()) - 1.0
+        if ('poly_coeffs' in self.params):
+            mask = obs.get('mask', slice(None))
+            # map unmasked wavelengths to the interval -1, 1
+            # masked wavelengths may have x>1, x<-1
+            x = obs['wavelength'] - (obs['wavelength'][mask]).min()
+            x = 2.0 * (x / (x[mask]).max()) - 1.0
             # get coefficients.  Here we are setting the first term to 0 so we
             # can deal with it separately for the exponential and regular
             # multiplicative cases

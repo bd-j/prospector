@@ -15,7 +15,8 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["SSPBasis", "FastSSPBasis", "MultiSSPBasis", "LinearSFHBasis", "StepSFHBasis", "CompositeSFH"]
+__all__ = ["SSPBasis", "FastSSPBasis", "MultiSSPBasis",
+           "LinearSFHBasis", "StepSFHBasis", "CompositeSFH"]
 
 
 # Useful constants
@@ -286,25 +287,21 @@ class MultiSSPBasis(SSPBasis):
 
 
 class LinearSFHBasis(SSPBasis):
-   """Subclass of SSPBasis that computes SSP weights for piecewise linear
-    SFHs (i.e. a linearly interpolated tabular SFH).  The parameters for this SFH are:
-
-      * `ages` - array of shape (ntab,) giving the 
-        lookback time of each tabulated SFR.  If `interp_type` is `"linear"',
-        these are assumed to be in years.  Otherwise they are in log10(years)
-
+    """Subclass of SSPBasis that computes SSP weights for piecewise linear SFHs
+    (i.e. a linearly interpolated tabular SFH).  The parameters for this SFH
+    are:
+      * `ages` - array of shape (ntab,) giving the lookback time of each
+        tabulated SFR.  If `interp_type` is `"linear"', these are assumed to be
+        in years.  Otherwise they are in log10(years)
       * `sfr` - array of shape (ntab,) giving the SFR (in Msun/yr)
-
       * `logzsol`
-
       * `dust2`
     """
     def get_galaxy_spectrum(self):
         raise(NotImplementedError)
 
-    
-class StepSFHBasis(SSPBasis):
 
+class StepSFHBasis(SSPBasis):
     """Subclass of SSPBasis that computes SSP weights for piecewise constant
     SFHs (i.e. a binned SFH).  The parameters for this SFH are:
 
@@ -407,7 +404,7 @@ class CompositeSFH(SSPBasis):
 
       * `tage`, `sf_trunc`,  `sf_slope`, `const`, `fburst`, `tau`
 
-      * `mass` - 
+      * `mass` -
 
     """
 

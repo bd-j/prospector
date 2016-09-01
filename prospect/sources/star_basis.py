@@ -261,7 +261,7 @@ class StarBasis(object):
             twologr = 2.* (self.params['logr'] + log_rsun_cgs)
         elif 'logl' in self.params:
             twologr = ((self.params['logl'] + log_lsun_cgs) -
-                       4 * self._libparams['logt'] - log_SB_cgs - log4pi)
+                       4 * self.params['logt'] - log_SB_cgs - log4pi)
         else:
             return 1.0
 
