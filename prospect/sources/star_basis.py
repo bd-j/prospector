@@ -21,9 +21,11 @@ jansky_mks = 1e-26
 # value to go from L_sun to erg/s/cm^2 at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 # for converting Kurucz spectral units
+log4pi = np.log10(4 * np.pi)
 log_rsun_cgs = np.log10(6.955) + 10
-log_lsun_cgs = np.log10(3.839) + 33
-log_SB_solar = np.log10(5.6704e-5) + 2 * log_rsun_cgs - log_lsun_cgs
+log_lsun_cgs = np.log10(lsun)
+log_SB_cgs = np.log10(5.6704e-5)
+log_SB_solar = log_SB_cgs + 2 * log_rsun_cgs - log_lsun_cgs
 
 
 class StarBasis(object):
@@ -161,7 +163,7 @@ class StarBasis(object):
 
         # star spectrum (in Lsun/Hz)
         wave, spec, unc = self.get_star_spectrum(**self.params)
-        spec *= self.normalize() / lsun
+        spec *= self.normalize()
 
         # dust
         if 'dust_curve' in self.params:
@@ -247,24 +249,24 @@ class StarBasis(object):
 
     def normalize(self):
         """Use either `logr` or `logl` to normalize the spectrum.  Both should
-        be in solar units.  `logr` is checked first.  If neither is present no
-        normalization is applied.
+        be in solar units.  `logr` is checked first.  If neither is present
+        then 1.0 is returned.
 
         :returns norm:
             Factor by which the CKC spectrum should be multiplied to get units
-            of erg/s/Hz.  This assumes the input spectrum is in units of
-            erg/s/cm^2/Hz/sr.
+            of L_sun/Hz.  This assumes the native library spectrum is in units
+            of erg/s/cm^2/Hz/sr.
         """
         if 'logr' in self.params:
-            logr = self.params['logr']
+            twologr = 2.* (self.params['logr'] + log_rsun_cgs)
         elif 'logl' in self.params:
-            logr = (self.params['logl']/2.0 - 2*self.params['logt'] -
-                    log_SB_solar / 2 - np.log10(4 * np.pi) / 2)
+            twologr = ((self.params['logl'] + log_lsun_cgs) -
+                       4 * self._libparams['logt'] - log_SB_cgs - log4pi)
         else:
-            logr = -log_rsun_cgs - np.log10(4 * np.pi)
-        logr += log_rsun_cgs
-        norm = 4 * np.pi * 10**(2 * logr)
-        return norm * 4 * np.pi
+            return 1.0
+
+        norm = 10**(twologr + 2 * log4pi - log_lsun_cgs)
+        return norm
 
     def weights(self, **kwargs):
         """Delauynay weighting.  Return indices of the models forming the
