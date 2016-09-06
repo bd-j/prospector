@@ -51,7 +51,7 @@ def results_from(filename, model_file=None, **kwargs):
         mname = mf_default
     else:
         mname = model_file
-    param_file = (res['run_params']['param_file'],
+    param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
     model, powell_results = read_model(mname, param_file=param_file, **kwargs)
     res['model'] = model
