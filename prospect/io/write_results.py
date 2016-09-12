@@ -32,16 +32,21 @@ def githash(nofork=False, **extras):
         fork, which can cause a problem on some MPI implementations (in a way
         that cannot be caught niceley)
     """
+    try:
+        from .._version import __version__
+        bgh = __version__
+    except(ImportError):
+        bgh = "Can't get version number."
+
+    if nofork:
+        return bgh
+
     cmd = 'cd {0}; git log --format="format:%h"'
-    if not nofork:
-        try:
-            bsfh_dir = os.path.dirname(__file__)
-            bgh = run_command(cmd.format(bsfh_dir))[1]
-        except:
-            print("Couldn't get Prospector git hash")
-            bgh = "Can't get hash for some reason"
-    else:
-        bgh = "Can't check hash (nofork=True)."
+    try:
+        bsfh_dir = os.path.dirname(__file__)
+        bgh = run_command(cmd.format(bsfh_dir))[1]
+    except:
+        print("Couldn't get Prospector history")
 
     return bgh
 
