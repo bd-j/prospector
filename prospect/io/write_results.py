@@ -7,7 +7,12 @@ try:
 except:
     pass
 
+
 __all__ = ["run_command", "githash", "write_pickles", "write_hdf5"]
+
+
+unserial = json.dumps('Unserializable')
+
 
 def run_command(cmd):
     """Open a child process, and return its exit status and stdout.
@@ -115,7 +120,7 @@ def paramfile_string(param_file=None, **extras):
         
 def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
                tsample=0.0, toptimize=0.0, sampling_initial_center=None,
-               mfile=None, **extras):
+               **extras):
     """Write output and information to an HDF5 file object (or
     group).  
     """
@@ -127,26 +132,6 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     except(NameError):
         print("HDF5 file could not be opened, as h5py could not be imported.")
         return
-        
-    unserial = json.dumps('Unserializable')
-    # ----------------------
-    # High level parameter and version info
-    serialize = {'run_params': run_params,
-                 'model_params': [functions_to_names(p.copy()) for p in model.config_list],
-                 'paramfile_text': paramfile_string(**run_params)}
-    for k, v in list(serialize.items()):
-        try:
-            hf.attrs[k] = json.dumps(v) #, cls=NumpyEncoder)
-        except(TypeError):
-            # Should this fall back to pickle.dumps?
-            hf.attrs[k] = pickle.dumps(v)
-            print("Could not JSON serialize {}, pickled instead".format(k))
-        except:
-            hf.attrs[k] = unserial
-            print("Could not serialize {}".format(k))
-
-    hf.attrs['optimizer_duration'] = json.dumps(toptimize)
-    hf.flush()
 
     # ----------------------
     # Sampling info
@@ -166,8 +151,53 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     hf.flush()
 
     # ----------------------
+    # High level parameter and version info
+    write_h5_header(hf, run_params, model)
+    hf.attrs['optimizer_duration'] = json.dumps(toptimize)
+    hf.flush()
+
+    # ----------------------
     # Observational data
-    odat = hf.create_group('obs')
+    write_obs_to_h5(hf, obs)
+    
+    # Store the githash last after flushing since getting it might cause an
+    # uncatchable crash
+    bgh = githash(**run_params)
+    hf.attrs['prospector_version'] = json.dumps(bgh)
+    hf.close()
+
+    #if mfile is None:
+    #    mfile = hf.name.replace('.h5', '_model')
+    #write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
+
+
+def write_h5_header(hf, run_params, model):
+    """Write header information about the run.
+    """
+    serialize = {'run_params': run_params,
+                 'model_params': [functions_to_names(p.copy()) for p in model.config_list],
+                 'paramfile_text': paramfile_string(**run_params)}
+    for k, v in list(serialize.items()):
+        try:
+            hf.attrs[k] = json.dumps(v) #, cls=NumpyEncoder)
+        except(TypeError):
+            # Should this fall back to pickle.dumps?
+            hf.attrs[k] = pickle.dumps(v)
+            print("Could not JSON serialize {}, pickled instead".format(k))
+        except:
+            hf.attrs[k] = unserial
+            print("Could not serialize {}".format(k))
+    hf.flush()
+
+
+def write_obs_to_h5(hf, obs):
+    """Write observational data to the hdf5 file
+    """
+    try:
+        odat = hf.create_group('obs')
+    except(ValueError):
+        # We already have an 'obs' group
+        return
     for k, v in list(obs.items()):
         if k == 'filters':
             try:
@@ -188,16 +218,8 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
                 print("Could not serialize {}".format(k))
 
     hf.flush()
-    # Store the githash last after flushing since getting it might cause an
-    # uncatchable crash
-    bgh = githash(**run_params)
-    hf.attrs['prospector_version'] = json.dumps(bgh)
-    hf.close()
 
-    #if mfile is None:
-    #    mfile = hf.name.replace('.h5', '_model')
-    #write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
-
+    
 class NumpyEncoder(json.JSONEncoder):
 
     def default(self, obj):

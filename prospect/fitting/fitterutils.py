@@ -74,9 +74,10 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
     # Production run
     esampler.reset()
     if hdf5 is not None:
-        # Set up output
-        chain = hdf5.create_dataset("chain", (nwalkers, niter, ndim))
-        lnpout = hdf5.create_dataset("lnprobability", (nwalkers, niter))
+        # Set up hdf5 backend
+        sdat = hdf5.create_group('sampling')
+        chain = sdat.create_dataset("chain", (nwalkers, niter, ndim))
+        lnpout = sdat.create_dataset("lnprobability", (nwalkers, niter))
         # blob = hdf5.create_dataset("blob")
         storechain = False
     else:
@@ -90,10 +91,11 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         if hdf5 is not None:
             chain[:, i, :] = result[0]
             lnpout[:, i] = result[1]
-            if np.mod(i+1, int(interval*niter)) == 0:
+            if (np.mod(i+1, int(interval*niter)) == 0) or (i+1 == niter):
                 # do stuff every once in awhile
                 # this would be the place to put some callback functions
                 # e.g. [do(result, i, esampler) for do in things_to_do]
+                # like, should probably store the random state too.
                 hdf5.flush()
     if verbose:
         print('done production')
