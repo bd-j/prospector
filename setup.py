@@ -5,7 +5,7 @@ import os
 import sys
 import re
 import glob
-
+import subprocess
 try:
     from setuptools import setup
     setup
@@ -13,10 +13,14 @@ except ImportError:
     from distutils.core import setup
     setup
 
+vers = subprocess.check_output(["git", "log", "--format=%h"]).split('\n')[0]
+with open('prospect/_version.py', "w") as f:
+    f.write('__version__ = "{}"'.format(vers))
+    
 setup(
     name="prospect",
     url="https://github.com/bd-j/prospect",
-    version='0.1.0',
+    version=vers,
     author="Ben Johnson",
     author_email="benjamin.johnson@cfa.harvard.edu",
     packages=["prospect",

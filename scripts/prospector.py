@@ -154,6 +154,17 @@ if __name__ == "__main__":
     if rp.get('debug', False):
         halt('stopping for debug')
 
+    # Try to set up an HDF5 file and write basic info to it
+    outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
+    try:
+        hfilename = outroot + '_mcmc.h5'
+        hfile = h5py.File(hfilename, "a")
+        print("Writing to file {}".format(hfilename))
+        write_results.write_h5_header(hfile, run_params, model)
+        write_results.write_obs_to_h5(hfile, obs)
+    except:
+        hfile = None
+        
     # -----------------------------------------
     # Initial guesses using powell minimization
     # -----------------------------------------
@@ -188,7 +199,7 @@ if __name__ == "__main__":
     tstart = time.time()
     out = fitting.run_emcee_sampler(lnprobfn, initial_center, model,
                                     postkwargs=postkwargs, initial_prob=initial_prob,
-                                    pool=pool, **rp)
+                                    pool=pool, hdf5=hfile, **rp)
     esampler, burn_p0, burn_prob0 = out
     edur = time.time() - tstart
     if rp['verbose']:
@@ -197,16 +208,15 @@ if __name__ == "__main__":
     # -------------------------
     # Output pickles (and HDF5)
     # -------------------------
-    outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
     write_results.write_pickles(rp, model, obsdat, esampler, powell_guesses,
                                 outroot=outroot, toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center,
                                 post_burnin_center=burn_p0,
                                 post_burnin_prob=burn_prob0)
-
-    hfile, mfile = outroot + '_mcmc.h5', outroot + '_model'
+    if hfile is None:
+        hfile = hfilename
     write_results.write_hdf5(hfile, rp, model, obsdat, esampler, powell_guesses,
-                             mfile=mfile, toptimize=pdur, tsample=edur,
+                             toptimize=pdur, tsample=edur,
                              sampling_initial_center=initial_center,
                              post_burnin_center=burn_p0,
                              post_burnin_prob=burn_prob0)
