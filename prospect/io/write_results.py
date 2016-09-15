@@ -124,7 +124,7 @@ def paramfile_string(param_file=None, **extras):
 
         
 def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
-               tsample=0.0, toptimize=0.0, sampling_initial_center=None,
+               tsample=0.0, toptimize=0.0, sampling_initial_center=[],
                **extras):
     """Write output and information to an HDF5 file object (or
     group).  

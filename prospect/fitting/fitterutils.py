@@ -196,8 +196,8 @@ def reinitialize_ball_covar(pos, prob, threshold=50.0, center=None,
         center = pos[good, :].mean(axis=0)
     Sigma = np.cov(pos[good, :].T)
     Sigma[np.diag_indices_from(Sigma)] += disp_floor**2
-    pnew = resample_until_valid(multivariate_normal, center, Sigma, nwalkers,
-                                **extras)
+    pnew = resample_until_valid(multivariate_normal, center, Sigma,
+                                nwalkers, **extras)
     return pnew
 
 
@@ -217,7 +217,8 @@ def reinitialize_ball(pos, prob, center=None, ptiles=[25, 50, 75],
     scatter = np.abs((tmp[2] - tmp[0]) / 1.35)
     scatter = np.sqrt(scatter**2 + disp_floor**2)
 
-    pnew = resample_until_valid(sampler_ball, initial_center, scatter, nwalkers)
+    pnew = resample_until_valid(sampler_ball, initial_center, scatter,
+                                nwalkers, **extras)
     return pnew
 
 
