@@ -1,5 +1,7 @@
 from itertools import chain
 import numpy as np
+
+from .ssp_basis import SSPBasis
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
 
@@ -12,7 +14,7 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["StellarPopBasis", "CSPBasis", "to_cgs"]
+__all__ = ["CSPBasis", "CSPSpecBasis", "to_cgs"]
 
 # Useful constants
 lsun = 3.846e33
@@ -21,6 +23,70 @@ lightspeed = 2.998e18  # AA/s
 jansky_mks = 1e-26
 # value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
+
+
+class CSPSpecBasis(SSPBasis):
+    
+    def __init__(self, compute_vega_mags=False, zcontinuous=1,
+                 reserved_params=['zred', 'sigma_smooth'], **kwargs):
+
+        # This is a StellarPopulation object from fsps
+        self.csp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+                                          zcontinuous=zcontinuous)
+        self.reserved_params = reserved_params
+        self.params = {}
+
+    def update(self, **params):
+        """Update the parameters, passing through *unreserved* FSPS parameters to
+        the fsps.StellarPopulation object.
+        """
+        for k, v in params.items():
+            # try to make parameters scalar
+            try:
+                if (len(v) == 1) and callable(v[0]):
+                    self.params[k] = v[0]
+                else:
+                    self.params[k] = np.squeeze(v)
+            except:
+                self.params[k] = v
+                self.csp.params[k] = deepcopy(v)
+
+    def update_component(self, component_index):
+        for k, v in list(self.params.items()):
+            # Parameters named like FSPS params but that we reserve for use
+            # here.  Do not pass them to FSPS.
+            if k in self.reserved_params:
+                continue
+            # Otherwise if a parameter exists in the FSPS parameter set, pass a
+            # copy of it in.
+            if k in self.csp.params.all_params:
+                try:
+                    # Try to pull the relevant component.
+                    this_v = v[component_index]
+                except(IndexError, TypeError):
+                    # Nope, it was scalar - same for all components.
+                    this_v = v
+            self.csp.params[k] = deepcopy(v)
+
+    def get_galaxy_spectrum(self, **params):
+        self.update(**params)
+        spectra = []
+        mass = self.params['mass']
+        mfrac = np.zeros_like(mass)
+        # Loop over mass components
+        for i, m in enumerate(mass):
+            self.update_component(i)
+            wave, spec = self.csp.get_spectrum(tage=self.csp.params['tage'],
+                                               peraa=False)
+            spectra.append(spec)
+            mfrac[i] = (self.csp.stellar_mass)
+
+        # Convert normalization units from per stellar mass to per mass formed
+        if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
+            mass /= mfrac
+        spectrum = np.dot(np.array(spectra), mass)
+        mfrac_sum = np.dot(mass, mfrac) / mass.sum()
+        return wave, spectrum, mfrac_sum    
 
 
 class CSPBasis(object):
@@ -157,33 +223,3 @@ def gauss(x, mu, A, sigma):
     val = (A / (sigma * np.sqrt(np.pi * 2)) *
            np.exp(-(x[:, None] - mu)**2 / (2 * sigma**2)))
     return val.sum(axis=-1)
-
-
-def selftest():
-    from sedpy.observate import load_filters
-    sps = sps_basis.StellarPopBasis(debug=True)
-    params = {}
-    params['tage'] = np.array([1, 2, 3, 4.])
-    params['zmet'] = np.array([-0.5, 0.0])
-    ntot = len(params['tage']) * len(params['zmet'])
-    params['mass'] = np.random.uniform(0, 1, ntot)
-    params['sigma_smooth'] = 100.
-    outwave = sps.ssp.wavelengths
-    flist = ['sdss_u0', 'sdss_r0']
-    filters = load_filters(flist)
-
-    # get a spectrum
-    s, p, e = sps.get_spectrum(params, outwave, filters)
-    # change parameters that affect neither the basis nor the ssp, and
-    # get spectrum again
-    params['mass'] = np.random.uniform(0, 1, ntot)
-    s, p, e = sps.get_spectrum(params, outwave, filters)
-    # lets get the basis components while we're at it
-    bs, bp, be = sps.get_components(params, outwave, filters)
-    # change something that affects the basis
-    params['tage'] += 1.0
-    bs, bp, be = sps.get_components(params, outwave, filters)
-    # try a single age pop at arbitrary metallicity
-    params['tage'] = 1.0
-    params['zmet'] = -0.2
-    bs, bp, be = sps.get_components(params, outwave, filters)
