@@ -37,10 +37,9 @@ class CSPSpecBasis(SSPBasis):
         self.params = {}
 
     def update(self, **params):
-        """Update the parameters, passing through *unreserved* FSPS parameters to
-        the fsps.StellarPopulation object.
+        """Update the `params` attribute, making parameters scalar if possible.
         """
-        for k, v in params.items():
+        for k, v in list(params.items()):
             # try to make parameters scalar
             try:
                 if (len(v) == 1) and callable(v[0]):
@@ -49,9 +48,15 @@ class CSPSpecBasis(SSPBasis):
                     self.params[k] = np.squeeze(v)
             except:
                 self.params[k] = v
-                self.csp.params[k] = deepcopy(v)
 
     def update_component(self, component_index):
+        """Pass params that correspond to a single component through to the
+        fsps.StellarPopulation object.
+
+        :param component_index:
+            The index of the component for which to pull out individual
+            parameters that are passed to the fsps.StellarPopulation object.
+        """
         for k, v in list(self.params.items()):
             # Parameters named like FSPS params but that we reserve for use
             # here.  Do not pass them to FSPS.
@@ -63,12 +68,28 @@ class CSPSpecBasis(SSPBasis):
                 try:
                     # Try to pull the relevant component.
                     this_v = v[component_index]
-                except(IndexError, TypeError):
-                    # Nope, it was scalar - same for all components.
+                except(IndexError):
+                    # Not enogh elements, use the last element.
+                    this_v = v[-1]
+                except(TypeError):
+                    # It was scalar, use that value for all components
                     this_v = v
-            self.csp.params[k] = deepcopy(v)
+                    
+                self.csp.params[k] = deepcopy(this_v)
 
     def get_galaxy_spectrum(self, **params):
+        """Update parameters, then loop over each component getting a spectrum
+        for each and sum with appropriate weights.
+
+        :returns wave:
+            Wavelength in angstroms.
+
+        :returns spectrum:
+            Spectrum in units of Lsun/Hz/solar masses formed.
+
+        :returns mass_fraction:
+            Fraction of the formed stellar mass that still exists.
+        """
         self.update(**params)
         spectra = []
         mass = self.params['mass']
@@ -84,9 +105,10 @@ class CSPSpecBasis(SSPBasis):
         # Convert normalization units from per stellar mass to per mass formed
         if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
             mass /= mfrac
-        spectrum = np.dot(np.array(spectra), mass)
+        spectrum = np.dot(np.array(spectra), mass) / mass.sum()
         mfrac_sum = np.dot(mass, mfrac) / mass.sum()
-        return wave, spectrum, mfrac_sum    
+
+        return wave, spectrum, mfrac_sum
 
 
 class CSPBasis(object):
