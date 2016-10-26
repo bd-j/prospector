@@ -1,5 +1,6 @@
 from itertools import chain
 import numpy as np
+from copy import deepcopy
 
 from .ssp_basis import SSPBasis
 from ..utils.smoothing import smoothspec
@@ -92,7 +93,7 @@ class CSPSpecBasis(SSPBasis):
         """
         self.update(**params)
         spectra = []
-        mass = self.params['mass']
+        mass = np.atleast_1d(self.params['mass'])
         mfrac = np.zeros_like(mass)
         # Loop over mass components
         for i, m in enumerate(mass):
