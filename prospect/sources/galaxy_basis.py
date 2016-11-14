@@ -66,6 +66,7 @@ class CSPSpecBasis(SSPBasis):
             # Otherwise if a parameter exists in the FSPS parameter set, pass a
             # copy of it in.
             if k in self.csp.params.all_params:
+                v = np.atleast_1d(v)
                 try:
                     # Try to pull the relevant component.
                     this_v = v[component_index]
@@ -106,7 +107,7 @@ class CSPSpecBasis(SSPBasis):
         # Convert normalization units from per stellar mass to per mass formed
         if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
             mass /= mfrac
-        spectrum = np.dot(np.array(spectra), mass) / mass.sum()
+        spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
         mfrac_sum = np.dot(mass, mfrac) / mass.sum()
 
         return wave, spectrum, mfrac_sum

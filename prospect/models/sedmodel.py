@@ -130,9 +130,9 @@ class SedModel(ProspectorParams):
             #depending on whether the calibration model is
             #multiplicative in exp^poly or just poly
             if self.params.get('cal_type', 'exp_poly') is 'poly':
-                return (1.0 + poly) * self.params['spec_norm']
+                return (1.0 + poly) * self.params.get('spec_norm', 1.0)
             else:
-                return np.exp(self.params['spec_norm'] + poly)
+                return np.exp(self.params.get('spec_norm', 0) + poly)
         else:
             return 1.0
 

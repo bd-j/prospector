@@ -138,7 +138,7 @@ def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
     if ext == 'py':
         print('reading py script {}'.format(param_file))
         setup_module = import_module_from_file(param_file)
-        obs = setup_module.load_obs(**kwargs)
+        #obs = setup_module.load_obs(**kwargs)
         try:
             obs = setup_module.load_obs(**kwargs)
         except(AttributeError):
