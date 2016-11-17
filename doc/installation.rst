@@ -22,6 +22,10 @@ For modeling galaxies you will need:
 -  `FSPS <https://github.com/cconroy20/fsps>`_ and
    `python-FSPS <https://github.com/dfm/python-FSPS>`_
 
+- **Note.** Significant speed gains my be made by setting ``mag_compute=0`` in
+the FSPS source file ``sps_vars.f90`` before compiling and installing both FSPS
+and python-FSPS.
+
 You may also wish to have `AstroPy <https://astropy.readthedocs.org/en/stable/>`_
 for FITS file processing and cosmological calculations.
 

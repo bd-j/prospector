@@ -21,7 +21,7 @@ could be used to set the value of ``tau`` using the free parameter ``logtau``
 
 This dependency function must take optional extra keywords (``**extras``) because the entire parameter dictionary will be passed to it.
 Then add another parameter ``smart_parameter`` to ``model_list`` that can vary (and upon which ``dumb_parameter`` depends).
-In this eample that new free parameter would be ``logtau``.
+In this example that new free parameter would be ``logtau``.
 
 This pattern can also be used to tie arbitrary parameters together (e.g. gas-phase and stellar metallicity) while still allowing them to vary.
 A parameter may depend on multiple other (free or fixed) parameters, and multiple parameters may depend on a single other (free or fixed) parameter.
@@ -68,7 +68,7 @@ This code is slow! Get moar processors.
 Install some kind of MPI on your system (openMPI, mpich2, mvapich2),
 make sure mpi4py is also installed against this MPI installation,
 and use the syntax
-``mpirun -np <N> python prospectr.py –param_file=<param_file>``
+``mpirun -np <N> python prospector.py –param_file=<param_file>``
 
 This causes likelihood evaluations for different walkers to be made in parallel.
 For optimal results, the number of emcee walkers should be :math:`N*(np-1)`,

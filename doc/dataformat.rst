@@ -23,11 +23,18 @@ This dictionary should have (at least) the following keys and values:
 
 ``"wavelength"``
     The wavelength vector for the spectrum, ndarray.
+    Units are vacuum Angstroms.
+    The model spectrum will be computed for each element of this vector.
     Set to ``None`` if you have no spectrum.
+    If fitting observed frame photometry as well,
+    then these should be observed frame wavelengths.
 
 ``"spectrum"``
     The flux vector for the spectrum,
     ndarray of same length as the wavelength vector.
+    If absolute spectrophotometry is available,
+    the units of this spectrum should be Janskies divided by 3631 (i.e. maggies).
+    Also the ``rescale_spectrum`` run parameter should be False.
 
 ``"unc"``
     The uncertainty vector, in units of ``"spectrum"``,
@@ -45,8 +52,8 @@ This dictionary should have (at least) the following keys and values:
     An array of *maggies*, same length as ``"filters"``.
     Maggies are a linear flux density unit defined as :math:`maggie = 10^{-0.4m_{AB}}`
     where :math:`m_{AB}` is the AB apparent magnitude.
-    That is, 1 maggie is the flux density in Janskys divided by 3631. 
-    Set to ``None`` if you have nophotometric data.
+    That is, 1 maggie is the flux density in Janskys divided by 3631.
+    Set to ``None`` if you have no photometric data.
 
 ``"maggies_unc"``
     An array of photometric uncertainties, same length as ``"filters"``,

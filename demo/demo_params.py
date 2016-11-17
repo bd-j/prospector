@@ -101,7 +101,7 @@ def load_obs(objid=0, phottable='demo_photometry.dat', **kwargs):
     obs['maggies_unc'] = obs['maggies'] * 0.07
     # Here we mask out any NaNs or infs
     obs['phot_mask'] = np.isfinite(np.squeeze(mags))
-    # We have no spectrum
+    # We have no spectrum.
     obs['wavelength'] = None
 
     # Add unessential bonus info.  This will be sored in output
@@ -141,6 +141,10 @@ def load_gp(**extras):
 model_params = []
 
 # --- Distance ---
+# This is the redshift.  Because we are not separately supplying a ``lumdist``
+# parameter, the distance will be determined from the redshift using a WMAP9
+# cosmology, unless the redshift is 0, in which case the distance is assumed to
+# be 10pc (i.e. for absolute magnitudes)
 model_params.append({'name': 'zred', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
@@ -149,12 +153,16 @@ model_params.append({'name': 'zred', 'N': 1,
                         'prior_args': {'mini':0.0, 'maxi':4.0}})
 
 # --- SFH --------
+# FSPS parameter.  sfh=4 is a delayed-tau SFH
 model_params.append({'name': 'sfh', 'N': 1,
                         'isfree': False,
                         'init': 4,
                         'units': 'type'
                     })
 
+# Normalization of the SFH.  If the ``mass_units`` parameter is not supplied,
+# this will be in surviving stellar mass.  Otherwise it is in the total stellar
+# mass formed.
 model_params.append({'name': 'mass', 'N': 1,
                         'isfree': True,
                         'init': 1e7,
@@ -163,6 +171,8 @@ model_params.append({'name': 'mass', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':1e6, 'maxi':1e9}})
 
+# Since we have zcontinuous=1 above, the metallicity is controlled by the
+# ``logzsol`` parameter.
 model_params.append({'name': 'logzsol', 'N': 1,
                         'isfree': True,
                         'init': 0,
@@ -170,7 +180,8 @@ model_params.append({'name': 'logzsol', 'N': 1,
                         'units': r'$\log (Z/Z_\odot)$',
                         'prior_function': tophat,
                         'prior_args': {'mini':-1, 'maxi':0.19}})
-                        
+
+# FSPS parameter
 model_params.append({'name': 'tau', 'N': 1,
                         'isfree': True,
                         'init': 1.0,
@@ -178,6 +189,7 @@ model_params.append({'name': 'tau', 'N': 1,
                         'prior_function':priors.logarithmic,
                         'prior_args': {'mini':0.1, 'maxi':100}})
 
+# FSPS parameter
 model_params.append({'name': 'tage', 'N': 1,
                         'isfree': True,
                         'init': 5.0,
@@ -186,6 +198,7 @@ model_params.append({'name': 'tage', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':0.101, 'maxi':14.0}})
 
+# FSPS parameter
 model_params.append({'name': 'sfstart', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
@@ -193,6 +206,7 @@ model_params.append({'name': 'sfstart', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':0.1, 'maxi':14.0}})
 
+# FSPS parameter
 model_params.append({'name': 'tburst', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
@@ -200,6 +214,7 @@ model_params.append({'name': 'tburst', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':0.0, 'maxi':1.3}})
 
+# FSPS parameter
 model_params.append({'name': 'fburst', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
@@ -208,6 +223,7 @@ model_params.append({'name': 'fburst', 'N': 1,
                         'prior_args': {'mini':0.0, 'maxi':0.5}})
 
 # --- Dust ---------
+# FSPS parameter
 model_params.append({'name': 'dust1', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
@@ -215,6 +231,7 @@ model_params.append({'name': 'dust1', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':0.1, 'maxi':2.0}})
 
+# FSPS parameter
 model_params.append({'name': 'dust2', 'N': 1,
                         'isfree': True,
                         'init': 0.35,
@@ -224,6 +241,7 @@ model_params.append({'name': 'dust2', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':0.0, 'maxi':2.0}})
 
+# FSPS parameter
 model_params.append({'name': 'dust_index', 'N': 1,
                         'isfree': False,
                         'init': -0.7,
@@ -231,6 +249,7 @@ model_params.append({'name': 'dust_index', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':-1.5, 'maxi':-0.5}})
 
+# FSPS parameter
 model_params.append({'name': 'dust1_index', 'N': 1,
                         'isfree': False,
                         'init': -1.0,
@@ -238,6 +257,7 @@ model_params.append({'name': 'dust1_index', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':-1.5, 'maxi':-0.5}})
 
+# FSPS parameter
 model_params.append({'name': 'dust_tesc', 'N': 1,
                         'isfree': False,
                         'init': 7.0,
@@ -245,32 +265,38 @@ model_params.append({'name': 'dust_tesc', 'N': 1,
                         'prior_function_name': None,
                         'prior_args': None})
 
+# FSPS parameter
 model_params.append({'name': 'dust_type', 'N': 1,
                         'isfree': False,
                         'init': 0,
                         'units': 'index'})
 
+# FSPS parameter
 model_params.append({'name': 'add_dust_emission', 'N': 1,
                         'isfree': False,
                         'init': True,
                         'units': 'index'})
 
+# FSPS parameter
 model_params.append({'name': 'duste_umin', 'N': 1,
                         'isfree': False,
                         'init': 1.0,
                         'units': 'MMP83 local MW intensity'})
 
 # --- Stellar Pops ------------
+# FSPS parameter
 model_params.append({'name': 'tpagb_norm_type', 'N': 1,
                         'isfree': False,
                         'init': 2,
                         'units': 'index'})
 
+# FSPS parameter
 model_params.append({'name': 'add_agb_dust_model', 'N': 1,
                         'isfree': False,
                         'init': True,
                         'units': 'index'})
 
+# FSPS parameter
 model_params.append({'name': 'agb_dust', 'N': 1,
                         'isfree': False,
                         'init': 1,
@@ -291,6 +317,14 @@ model_params.append({'name': 'agb_dust', 'N': 1,
 def stellar_logzsol(logzsol=0.0, **extras):
     return logzsol
 
+
+# FSPS parameter
+model_params.append({'name': 'add_neb_emission', 'N': 1,
+                        'isfree': False,
+                        'init': True,
+                        'units': ''})
+
+# FSPS parameter
 model_params.append({'name': 'gas_logz', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
@@ -299,6 +333,7 @@ model_params.append({'name': 'gas_logz', 'N': 1,
                         'prior_function':tophat,
                         'prior_args': {'mini':-2.0, 'maxi':0.5}})
 
+# FSPS parameter
 model_params.append({'name': 'gas_logu', 'N': 1,
                         'isfree': False,
                         'init': -2.0,
