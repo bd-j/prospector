@@ -57,6 +57,8 @@ HDF5 output
 ---------------------
 The output HDF5 file contains datasets for the input observational data and the MCMC sampling chains
 A significant amount of metadata is stored as JSON in dataset attributes.
+Anything that could not be JSON serialized during writing will have been pickled instead,
+with the pickle stored as string data in place of the JSON.
 
 
 Basic diagnostic plots
@@ -81,7 +83,7 @@ It can be done easily (if ugly) by
 		efig = bread.param_evol(results)
 
 Another useful thing is to look at the "corner plot" of the parmeters.
-If one has the `corner.py (https://github.com/dfm/corner.py)`_ package, then 
+If one has the `corner.py (https://github.com/dfm/corner.py)`_ package, then
 
 .. code-block:: python
 

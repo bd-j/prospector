@@ -6,7 +6,7 @@ a python file in which several variables and functions must be defined.
 Command line syntax calls the ``prospector.py`` script as an executable and is as follows for single thread execution:
 
 .. code-block:: shell
-		
+
 		cd demo
 		python prospector.py –param_file=demo_params.py
 
@@ -15,22 +15,23 @@ You can copy the ``prospector.py`` script to wherever you intend to run the code
 The required variables and functions in ``demo_params.py`` are
 
 1. ``run_params``: A dictionary.
-   
+
    This dictionary specifies global options and parameters used for setting up and running the code.
+	 It is passed as keywords to all the functions listed below.
 
 2. ``model_params``: A list of dictionaries.
-   
+
    Each element is a dictionary discribing an individiual model parameter,
    to be varied or kept constant during the fitting
 
 3. ``load_obs``: A function.
-   
+
    This function will take the ``run_params`` dictionary as keyword arguments
    and returns on obs dictionary (see Data_)
 
 4. ``load_model``: A function
 
-   
+
 5. ``load_sps``: A function
 
 
@@ -41,7 +42,11 @@ The ``run_params`` dictionary
 ----------------------------
 
 The following parameters conrol key aspects of the operation of the code,
-and are stored in a special dictionary called ``run_params``:
+and are stored in a special dictionary called ``run_params``.
+The ``run_params`` dictionary is passed as keyword arguments to the
+``load_obs``, ``load_sps``, ``load_model``, and ``load_gp`` functions.
+This means you can add to it if you want additional parameters to control the output of these functions.
+
 
 General parameters:
 
@@ -78,6 +83,7 @@ Fitter parameters:
     Boolean.  If ``True``, do a round of Powell minimization before MCMC sampling.
     If MPI is enabled then ``np`` minimizations from different initial conditions will be run,
     and the highest likelihood result chosen as the center for the sampler ball.
+		This can perform poorly if there are many very degenerate parameters.
 
 ``"ftol"``
     Float.  For the Powell minimization.
@@ -86,15 +92,17 @@ Fitter parameters:
     Integer.  For the Powell minimization.
 
 Data manipulation parameters:
-   
+
 ``"logify_data"``
     optional Boolean.  Switch to do the fitting in log flux space.
     Not recommended, as it distorts your errors.
 
-``"rescale"``
+``"rescale_spectrum"``
     Boolean.  If ``True``, rescale the spectrum to have an average of 1 before doing anything.
-    Highly recommended.
     The scaling parameter is stored in the ``obs`` dict as ``obs["rescale"]``
+		This parameter should be ``False`` unless you are simultaneously fitting photometry
+		(see ``normalize_spectrum`` below),
+		or you are fitting for the spectral calibration as well.
 
 ``"normalize_spectrum"``
     optional Boolean.
@@ -115,17 +123,12 @@ Source Basis Parameters:
 ``"libname"``
    String.  If fitting stellar spectra, this is the name of the HDF5 file containing the stellar spectral grid.
 
-    
-    
-The run params dictionary is passed as keyword arguments to the
-``load_obs``, ``load_sps``, ``load_model``, and ``load_gp`` functions.
-This means you can add to it if you want additional parameters to control the output of these functions.
 
 There is limited support for command line overrides of the ``run_params`` dictionary values.
 For example
 
 .. code-block:: shell
-		
+
 		python prospector.py –param_file=demo_params.py –nwalkers=128``
 
 will cause the code to use 128 walkers regardless of the value given directly in the ``run_params`` dictionary.
