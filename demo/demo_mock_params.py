@@ -252,6 +252,10 @@ model_params.append({'name': 'agb_dust', 'N': 1,
 
 # --- Nebular Emission ------
 
+model_params.append({'name': 'add_neb_emission', 'N': 1,
+                        'isfree': False,
+                        'init': False})
+
 # Here is a really simple function that takes a **dict argument, picks out the
 # `logzsol` key, and returns the value.  This way, we can have gas_logz find
 # the value of logzsol and use it, if we uncomment the 'depends_on' line in the
@@ -261,6 +265,8 @@ model_params.append({'name': 'agb_dust', 'N': 1,
 # them linear instead of log, or divide everything by 10, or whatever.) You can
 # have one parameter depend on several others (or vice versa).  Just remember
 # that a parameter with `depends_on` must always be fixed.
+
+
 
 def stellar_logzsol(logzsol=0.0, **extras):
     return logzsol

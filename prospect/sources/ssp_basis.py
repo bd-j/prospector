@@ -272,10 +272,56 @@ class SSPBasis(object):
 class FastSSPBasis(SSPBasis):
     """Let FSPS do the work for a single age.
     """
+
     def get_galaxy_spectrum(self, **params):
         self.update(**params)
         wave, spec = self.ssp.get_spectrum(tage=float(self.params['tage']), peraa=False)
         return wave, spec, self.ssp.stellar_mass
+
+
+class FastStepBasis(SSPBasis):
+    """Let FSPS do the work for a step function SFH.
+    """
+
+    def get_galaxy_spectrum(self, **params):
+        self.update(**params)
+        time, sfr = self.convert_sfh(self.params['agebins'], self.params['mass'])
+        self.ssp.set_tabular_sfh(time, sfr)
+        wave, spec = self.ssp.get_spectrum(tage=tmax, peraa=False)
+        return wave, spec, self.ssp.stellar_mass
+
+    def convert_sfh(self, agebins, mass, epsilon=0.0001, maxage=None):
+        """Given AGEBIN of shape (N, 2), MFORMED of shape (n,)  the time vector
+        should be on EITHER SIDE of each bin edge with a "closeness" defined by
+        a parameter epsilon.
+
+        :param epsilon: (default, 0.0001)
+            A small number used to define the fraction time separation of
+            adjacent points at the bin edges.
+
+        :returns time:
+            The output time array for use with sfh=3, in Gyr.  ndarray of shape (2*N)
+
+        :returns sfr:
+            The output sfr array for use with sfh=3, in M_sun/yr.  ndarray of shape (2*N)
+        """
+        #### create time vector
+        agebins_yrs = 10**agebins
+        dt = agebins_yrs[1, :] - agebins_yrs[0, :]
+        bin_edges = np.unique(agebins_yrs)
+        if maxage is not None:
+            maxage = agebins_yrs.max()  # can replace maxage with something else, e.g. tuniv
+        t = np.concatenate((bin_edges*(1.-epsilon), bin_edges*(1+epsilon))).sort()
+        t = t[1:-1] # remove older than oldest bin, younger than youngest bin
+        fsps_time = maxage - t
+
+        #### calculate SFR at each t
+        sfr = mformed / dt
+        sfrout = np.zeros_like(t)
+        sfrout[::2] = sfr
+        sfrout[1::2] = sfr
+
+        return fsps_time / 1e9, sfrout
 
 
 class MultiSSPBasis(SSPBasis):
