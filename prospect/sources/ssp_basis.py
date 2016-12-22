@@ -15,8 +15,9 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["SSPBasis", "FastSSPBasis", "MultiSSPBasis",
-           "LinearSFHBasis", "StepSFHBasis", "CompositeSFH"]
+__all__ = ["SSPBasis", "FastSSPBasis", "FastStepBasis",
+           "MultiSSPBasis", "LinearSFHBasis",
+           "StepSFHBasis", "CompositeSFH"]
 
 
 # Useful constants
@@ -48,7 +49,7 @@ class SSPBasis(object):
 
     def __init__(self, compute_vega_mags=False, zcontinuous=1,
                  interp_type='logarithmic', flux_interp='linear', sfh_type='ssp',
-                 mint_log=-3, reserved_params=['sfh', 'tage', 'zred', 'sigma_smooth'],
+                 mint_log=-3, reserved_params=['tage', 'zred', 'sigma_smooth'],
                  **kwargs):
         """
         :param interp_type: (default: "logarithmic")
@@ -108,7 +109,8 @@ class SSPBasis(object):
                 self.ssp.params[k] = deepcopy(v)
 
         # We use FSPS for SSPs !!ONLY!!
-        assert self.ssp.params['sfh'] == 0
+        # except for FastStepBasis
+        #assert self.ssp.params['sfh'] == 0
 
     def get_galaxy_spectrum(self, **params):
         """Update parameters, then multiply SSP weights by SSP spectra and
@@ -272,10 +274,74 @@ class SSPBasis(object):
 class FastSSPBasis(SSPBasis):
     """Let FSPS do the work for a single age.
     """
+
     def get_galaxy_spectrum(self, **params):
         self.update(**params)
         wave, spec = self.ssp.get_spectrum(tage=float(self.params['tage']), peraa=False)
         return wave, spec, self.ssp.stellar_mass
+
+
+class FastStepBasis(SSPBasis):
+    """Let FSPS do the work for a step function SFH.
+    """
+
+    def get_galaxy_spectrum(self, **params):
+        self.update(**params)
+        mtot = self.params['mass'].sum()
+        time, sfr, tmax = self.convert_sfh(self.params['agebins'], self.params['mass'])
+        self.ssp.params["sfh"] = 3 #Hack to avoid rewriting the superclass
+        self.ssp.set_tabular_sfh(time, sfr)
+        wave, spec = self.ssp.get_spectrum(tage=tmax, peraa=False)
+        return wave, spec / mtot, self.ssp.stellar_mass / mtot
+
+    def convert_sfh(self, agebins, mformed, epsilon=1e-4, maxage=None):
+        """Given AGEBIN of shape (N, 2), MFORMED of shape (n,)  the time vector
+        should be on EITHER SIDE of each bin edge with a "closeness" defined by
+        a parameter epsilon.
+
+        :param agebins:
+            An array of bin edges, log(yrs).  This method assumes that the upper edge of
+            one bin is the same as the lower edge of another bin.  ndarray of shape (N, 2)
+
+        :param mformed:
+            The stellar mass formed in each bin.  ndarray of shape (N,)
+
+        :param epsilon: (optional, default 1e-4)
+            A small number used to define the fraction time separation of
+            adjacent points at the bin edges.
+
+        :param maxage: (optional, default None)
+            A maximum age of stars in the population, in yrs.  If None then the maximum
+            value of agebins is used.  Note that an error will occur if maxage
+            < the maximum age in agebins.
+
+        :returns time:
+            The output time array for use with sfh=3, in Gyr.  ndarray of shape (2*N)
+
+        :returns sfr:
+            The output sfr array for use with sfh=3, in M_sun/yr.  ndarray of shape (2*N)
+
+        :returns maxage:
+            The maximum valid age in the returned isochrone.
+        """
+        #### create time vector
+        agebins_yrs = 10**agebins.T
+        dt = agebins_yrs[1, :] - agebins_yrs[0, :]
+        bin_edges = np.unique(agebins_yrs)
+        if maxage is None:
+            maxage = agebins_yrs.max()  # can replace maxage with something else, e.g. tuniv
+        t = np.concatenate((bin_edges*(1.-epsilon), bin_edges*(1+epsilon)))
+        t.sort()
+        t = t[1:-1] # remove older than oldest bin, younger than youngest bin
+        fsps_time = maxage - t
+
+        #### calculate SFR at each t
+        sfr = mformed / dt
+        sfrout = np.zeros_like(t)
+        sfrout[::2] = sfr
+        sfrout[1::2] = sfr #* (1+epsilon)
+
+        return (fsps_time / 1e9)[::-1], sfrout[::-1], maxage / 1e9
 
 
 class MultiSSPBasis(SSPBasis):

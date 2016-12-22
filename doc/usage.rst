@@ -99,7 +99,7 @@ Data manipulation parameters:
 
 ``"rescale_spectrum"``
     Boolean.  If ``True``, rescale the spectrum to have an average of 1 before doing anything.
-    The scaling parameter is stored in the ``obs`` dict as ``obs["rescale"]``
+    The scaling parameter is stored in the ``obs`` dict as ``obs["rescale"]``.
 		This parameter should be ``False`` unless you are simultaneously fitting photometry
 		(see ``normalize_spectrum`` below),
 		or you are fitting for the spectral calibration as well.

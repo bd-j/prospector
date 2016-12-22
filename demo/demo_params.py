@@ -304,6 +304,11 @@ model_params.append({'name': 'agb_dust', 'N': 1,
 
 # --- Nebular Emission ------
 
+# FSPS parameter
+model_params.append({'name': 'add_neb_emission', 'N': 1,
+                     'isfree': False,
+                     'init': True})
+
 # Here is a really simple function that takes a **dict argument, picks out the
 # `logzsol` key, and returns the value.  This way, we can have gas_logz find
 # the value of logzsol and use it, if we uncomment the 'depends_on' line in the
@@ -317,12 +322,6 @@ model_params.append({'name': 'agb_dust', 'N': 1,
 def stellar_logzsol(logzsol=0.0, **extras):
     return logzsol
 
-
-# FSPS parameter
-model_params.append({'name': 'add_neb_emission', 'N': 1,
-                        'isfree': False,
-                        'init': True,
-                        'units': ''})
 
 # FSPS parameter
 model_params.append({'name': 'gas_logz', 'N': 1,
