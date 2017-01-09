@@ -15,7 +15,7 @@ sigma_to_fwhm = 2.355
 
 
 def smoothspec(wave, spec, resolution, outwave=None,
-               smoothtype='vel', fftsmooth=False,
+               smoothtype='vel', fftsmooth=True,
                min_wave_smooth=0, max_wave_smooth=np.inf, **kwargs):
     """
     :param wave:
