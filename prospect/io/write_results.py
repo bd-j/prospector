@@ -42,11 +42,12 @@ def githash(nofork=False, **extras):
         return bgh
 
     cmd = 'cd {0}; git log --format="format:%h"'
-    try:
-        bsfh_dir = os.path.dirname(__file__)
-        bgh = run_command(cmd.format(bsfh_dir))[1]
-    except:
-        print("Couldn't get Prospector history")
+    # This doesn't work if prospector is installed via setup.py
+    #try:
+    #    bsfh_dir = os.path.dirname(__file__)
+    #    bgh = run_command(cmd.format(bsfh_dir))[1]
+    #except:
+    #    print("Couldn't get Prospector history")
 
     return bgh
 

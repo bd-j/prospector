@@ -1,3 +1,4 @@
+from copy import deepcopy
 import numpy as np
 from prospect.models import priors, sedmodel
 from prospect.sources import CSPBasis
@@ -10,20 +11,22 @@ from sedpy.observate import load_filters
 
 run_params = {'verbose':True,
               'debug':False,
-              'outfile':'demo_galphot_mockdata',
+              'outfile':'output/demo_mock',
               # Fitter parameters
               'nwalkers':128,
-              'nburn':[10, 10, 10], 'niter':512,
-              'do_powell': False,
+              'nburn':[32, 32, 64], 'niter':512,
+              'do_powell': True,
               'ftol':0.5e-5, 'maxfev':5000,
               'initial_disp':0.1,
-              # Mock parameters
-              'snr':20.0,
+              # Mock data parameters
+              'snr': 20.0,
+              'add_noise': False,
+              # Mock model parameters
               'mass': 1e7,
               'logzsol': -0.5,
-              'tage': 4,
-              'tau': 3,
-              'dust2': 0.0,
+              'tage': 12.,
+              'tau': 3.,
+              'dust2': 0.3,
               # Data manipulation parameters
               'logify_spectrum':False,
               'normalize_spectrum':False,
@@ -45,7 +48,7 @@ spitzer = ['spitzer_irac_ch'+n for n in ['1','2','3','4']]
 sdss = ['sdss_{0}0'.format(b) for b in ['u','g','r','i','z']]
 
 
-def load_obs(snr=10.0, **kwargs):
+def load_obs(snr=10.0, add_noise=True, **kwargs):
     """Make a mock dataset.  Feel free to add more complicated kwargs, and put
     other things in the run_params dictionary to control how the mock is
     generated.
@@ -74,11 +77,14 @@ def load_obs(snr=10.0, **kwargs):
     # Now store some output
     mock['true_spectrum'] = spec.copy()
     mock['true_maggies'] = phot.copy()
-    mock['mock_params'] = mod.params
+    mock['mock_params'] = deepcopy(mod.params)
     # And add noise
     pnoise_sigma = phot / snr
     pnoise = np.random.normal(0, 1, len(phot)) * pnoise_sigma
-    mock['maggies'] = phot + pnoise
+    if add_noise:
+        mock['maggies'] = phot + pnoise
+    else:
+        mock['maggies'] = phot.copy()
     mock['maggies_unc'] = pnoise_sigma
     mock['mock_snr'] = snr
     mock['phot_mask'] = np.ones(len(phot), dtype=bool)
@@ -139,15 +145,21 @@ model_params.append({'name': 'mass', 'N': 1,
 
 model_params.append({'name': 'logzsol', 'N': 1,
                         'isfree': True,
-                        'init': 0,
-                        'init_disp': 0.1,
+                        'init': -0.3,
+                        'init_disp': 0.3,
                         'units': r'$\log (Z/Z_\odot)$',
                         'prior_function': tophat,
                         'prior_args': {'mini':-1, 'maxi':0.19}})
+
+# If zcontinuous > 1, use 3-pt smoothing
+model_params.append({'name': 'pmetals', 'N': 1,
+                        'isfree': False,
+                        'init': -99,})
                         
 model_params.append({'name': 'tau', 'N': 1,
                         'isfree': True,
                         'init': 1.0,
+                        'init_disp': 0.5,
                         'units': 'Gyr',
                         'prior_function':priors.logarithmic,
                         'prior_args': {'mini':0.1, 'maxi':100}})
@@ -252,6 +264,7 @@ model_params.append({'name': 'agb_dust', 'N': 1,
 
 # --- Nebular Emission ------
 
+# For speed we turn off nebular emission in the demo
 model_params.append({'name': 'add_neb_emission', 'N': 1,
                         'isfree': False,
                         'init': False})
@@ -265,8 +278,6 @@ model_params.append({'name': 'add_neb_emission', 'N': 1,
 # them linear instead of log, or divide everything by 10, or whatever.) You can
 # have one parameter depend on several others (or vice versa).  Just remember
 # that a parameter with `depends_on` must always be fixed.
-
-
 
 def stellar_logzsol(logzsol=0.0, **extras):
     return logzsol
