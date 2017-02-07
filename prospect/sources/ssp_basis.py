@@ -49,7 +49,7 @@ class SSPBasis(object):
 
     def __init__(self, compute_vega_mags=False, zcontinuous=1,
                  interp_type='logarithmic', flux_interp='linear', sfh_type='ssp',
-                 mint_log=-3, reserved_params=['tage', 'zred', 'sigma_smooth'],
+                 mint_log=-3, reserved_params=['tage', 'sigma_smooth'],
                  **kwargs):
         """
         :param interp_type: (default: "logarithmic")
@@ -170,16 +170,10 @@ class SSPBasis(object):
         wave, spectrum, mfrac = self.get_galaxy_spectrum(**params)
 
         # Redshifting + Wavelength solution
-        if 'zred' in self.reserved_params:
-            # We do it ourselves.
-            a = 1 + self.params.get('zred', 0)
-            af = a
-            b = 0.0
-        else:
-            a, b = 1.0, 0.0
-            # FSPS shifts the wavelength vector but we need to decrease the
-            # flux by (1+z) here.
-            af = 1 + self.params.get('zred', 0)
+        # We do it ourselves.
+        a = 1 + self.params.get('zred', 0)
+        af = a
+        b = 0.0
 
         if 'wavecal_coeffs' in self.params:
             x = wave - wave.min()
@@ -214,12 +208,13 @@ class SSPBasis(object):
             smspec = sa
 
         # Distance dimming and unit conversion
-        if (self.params['zred'] == 0) or ('lumdist' in self.params):
+        zred = self.params.get('zred', 0.0)
+        if (zred == 0) or ('lumdist' in self.params):
             # Use 10pc for the luminosity distance (or a number
             # provided in the dist key in units of Mpc)
             dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
         else:
-            lumdist = cosmo.luminosity_distance(self.params['zred']).value
+            lumdist = cosmo.luminosity_distance(zred).value
             dfactor = (lumdist * 1e5)**2
         if peraa:
             # spectrum will be in erg/s/cm^2/AA

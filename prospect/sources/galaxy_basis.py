@@ -166,7 +166,8 @@ class CSPBasis(object):
             w = self.csp.wavelengths
             spec = np.interp(outwave, w, spec)
         # Distance dimming and unit conversion
-        if (self.params['zred'] == 0) or ('lumdist' in self.params):
+        zred = self.params.get('zred', 0.0)
+        if (zred == 0) or ('lumdist' in self.params):
             # Use 10pc for the luminosity distance (or a number provided in the
             # lumdist key in units of Mpc).  Do not apply cosmological (1+z)
             # factor to the flux.
@@ -174,19 +175,18 @@ class CSPBasis(object):
             a = 1.0
         else:
             # Use the comsological luminosity distance implied by this
-            # redshift.  Incorporate cosmological (1+z) factor on the flux.
-            lumdist = cosmo.luminosity_distance(self.params['zred']).value
+            # redshift.  Cosmological (1+z) factor on the flux was already done in one_sed
+            lumdist = cosmo.luminosity_distance(zred).value
             dfactor = (lumdist * 1e5)**2
-            a = (1 + self.params['zred'])
         if peraa:
             # spectrum will be in erg/s/cm^2/AA
-            spec *= to_cgs * a / dfactor * lightspeed / outwave**2
+            spec *= to_cgs / dfactor * lightspeed / outwave**2
         else:
             # Spectrum will be in maggies
-            spec *= to_cgs * a / dfactor / 1e3 / (3631*jansky_mks)
+            spec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
 
         # Convert from absolute maggies to apparent maggies
-        maggies *= a / dfactor
+        maggies /= dfactor
             
         return spec, maggies, extra
 
@@ -221,23 +221,28 @@ class CSPBasis(object):
             except(IndexError, TypeError):
                 v = vs
             if k in self.csp.params.all_params:
-                if k == 'zmet':
-                    vv = np.abs(v - (np.arange(len(self.csp.zlegend)) + 1)).argmin() + 1
-                else:
-                    vv = v.copy()
-                self.csp.params[k] = vv
+                self.csp.params[k] = v.copy()
             if k == 'mass':
                 mass = v
-        # Now get the magnitudes and spectrum.  The spectrum is in units of
-        # Lsun/Hz/per solar mass *formed*
+        # Now get the spectrum.  The spectrum is in units of
+        # Lsun/Hz/per solar mass *formed*, and is restframe
         w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
-        mags = getSED(w, lightspeed/w**2 * spec * to_cgs, filterlist)
+        # redshift and get photometry.  Note we are boosting fnu by (1+z) *here*
+        a, b = (1 + self.csp.params['zred']), 0.0
+        wa, sa = w * (a + b), spec * a  # Observed Frame
+        if filterlist is not None:
+            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, filterlist)
+            phot = np.atleast_1d(10**(-0.4 * mags))
+        else:
+            phot = 0.0
+
+        # now some mass normalization magic
         mfrac = self.csp.stellar_mass
         if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
             # Convert normalization units from per stellar masss to per mass formed
             mass /= mfrac
         # Output correct units
-        return mass * spec, mass * 10**(-0.4*(mags)), mfrac
+        return mass * sa, mass * phot, mfrac
 
 
 def gauss(x, mu, A, sigma):
