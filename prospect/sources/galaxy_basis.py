@@ -174,19 +174,18 @@ class CSPBasis(object):
             a = 1.0
         else:
             # Use the comsological luminosity distance implied by this
-            # redshift.  Incorporate cosmological (1+z) factor on the flux.
+            # redshift.  Cosmological (1+z) factor on the flux was already done in one_sed
             lumdist = cosmo.luminosity_distance(self.params['zred']).value
             dfactor = (lumdist * 1e5)**2
-            a = (1 + self.params['zred'])
         if peraa:
             # spectrum will be in erg/s/cm^2/AA
-            spec *= to_cgs * a / dfactor * lightspeed / outwave**2
+            spec *= to_cgs / dfactor * lightspeed / outwave**2
         else:
             # Spectrum will be in maggies
-            spec *= to_cgs * a / dfactor / 1e3 / (3631*jansky_mks)
+            spec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
 
         # Convert from absolute maggies to apparent maggies
-        maggies *= a / dfactor
+        maggies /= dfactor
             
         return spec, maggies, extra
 
@@ -224,16 +223,25 @@ class CSPBasis(object):
                 self.csp.params[k] = v.copy()
             if k == 'mass':
                 mass = v
-        # Now get the magnitudes and spectrum.  The spectrum is in units of
-        # Lsun/Hz/per solar mass *formed*
+        # Now get the spectrum.  The spectrum is in units of
+        # Lsun/Hz/per solar mass *formed*, and is restframe
         w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
-        mags = getSED(w, lightspeed/w**2 * spec * to_cgs, filterlist)
+        # redshift and get photometry.  Note we are boosting fnu by (1+z) *here*
+        a, b = (1 + self.csp.params['zred']), 0.0
+        wa, sa = wave * (a + b), spectrum * a  # Observed Frame
+        if filterlist is not None:
+            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, filterlist)
+            phot = np.atleast_1d(10**(-0.4 * mags))
+        else:
+            phot = 0.0
+
+        # now some mass normalization magic
         mfrac = self.csp.stellar_mass
         if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
             # Convert normalization units from per stellar masss to per mass formed
             mass /= mfrac
         # Output correct units
-        return mass * spec, mass * 10**(-0.4*(mags)), mfrac
+        return mass * sa, mass * phot, mfrac
 
 
 def gauss(x, mu, A, sigma):
