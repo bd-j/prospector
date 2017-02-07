@@ -6,11 +6,13 @@ __all__ = ["NoiseModel"]
 
 class NoiseModel(object):
 
-    def __init__(self, metric_name='', kernels=[], weight_by=[]):
+    def __init__(self, metric_name='', mask_name='mask', kernels=[],
+                 weight_by=[]):
         assert len(kernels) == len(weight_by)
         self.kernels = kernels
         self.weight_names = weight_by
         self.metric_name = metric_name
+        self.mask_name = mask_name
 
     def update(self, **params):
         [k.update(**params) for k in self.kernels]
@@ -36,7 +38,7 @@ class NoiseModel(object):
         that correspond to each kernel, as stored in the `weight_names`
         attribute.  A None vector will result in None weights
         """
-        mask = vectors.get('mask', slice(None))
+        mask = vectors.get(self.mask_name, slice(None))
         wghts = []
         for w in self.weight_names:
             if vectors[w] is None:
@@ -45,7 +47,7 @@ class NoiseModel(object):
                 wghts.append(vectors[w][mask])
         return wghts
 
-    def compute(self, **vectors):
+    def compute(self, check_finite=False, **vectors):
         """Build and cache the covariance matrix, and if it is 2-d factorize it
         and cache that.  Also cache ``log_det``.
         """
