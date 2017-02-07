@@ -221,11 +221,7 @@ class CSPBasis(object):
             except(IndexError, TypeError):
                 v = vs
             if k in self.csp.params.all_params:
-                if k == 'zmet':
-                    vv = np.abs(v - (np.arange(len(self.csp.zlegend)) + 1)).argmin() + 1
-                else:
-                    vv = v.copy()
-                self.csp.params[k] = vv
+                self.csp.params[k] = v.copy()
             if k == 'mass':
                 mass = v
         # Now get the magnitudes and spectrum.  The spectrum is in units of
