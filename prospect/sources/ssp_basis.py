@@ -208,12 +208,13 @@ class SSPBasis(object):
             smspec = sa
 
         # Distance dimming and unit conversion
-        if (self.params['zred'] == 0) or ('lumdist' in self.params):
+        zred = self.params.get('zred', 0.0)
+        if (zred == 0) or ('lumdist' in self.params):
             # Use 10pc for the luminosity distance (or a number
             # provided in the dist key in units of Mpc)
             dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
         else:
-            lumdist = cosmo.luminosity_distance(self.params['zred']).value
+            lumdist = cosmo.luminosity_distance(zred).value
             dfactor = (lumdist * 1e5)**2
         if peraa:
             # spectrum will be in erg/s/cm^2/AA

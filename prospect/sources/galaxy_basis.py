@@ -166,7 +166,8 @@ class CSPBasis(object):
             w = self.csp.wavelengths
             spec = np.interp(outwave, w, spec)
         # Distance dimming and unit conversion
-        if (self.params['zred'] == 0) or ('lumdist' in self.params):
+        zred = self.params.get('zred', 0.0)
+        if (zred == 0) or ('lumdist' in self.params):
             # Use 10pc for the luminosity distance (or a number provided in the
             # lumdist key in units of Mpc).  Do not apply cosmological (1+z)
             # factor to the flux.
@@ -175,7 +176,7 @@ class CSPBasis(object):
         else:
             # Use the comsological luminosity distance implied by this
             # redshift.  Cosmological (1+z) factor on the flux was already done in one_sed
-            lumdist = cosmo.luminosity_distance(self.params['zred']).value
+            lumdist = cosmo.luminosity_distance(zred).value
             dfactor = (lumdist * 1e5)**2
         if peraa:
             # spectrum will be in erg/s/cm^2/AA
@@ -228,7 +229,7 @@ class CSPBasis(object):
         w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
         # redshift and get photometry.  Note we are boosting fnu by (1+z) *here*
         a, b = (1 + self.csp.params['zred']), 0.0
-        wa, sa = wave * (a + b), spectrum * a  # Observed Frame
+        wa, sa = w * (a + b), spec * a  # Observed Frame
         if filterlist is not None:
             mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, filterlist)
             phot = np.atleast_1d(10**(-0.4 * mags))
