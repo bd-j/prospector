@@ -221,7 +221,7 @@ class CSPBasis(object):
             except(IndexError, TypeError):
                 v = vs
             if k in self.csp.params.all_params:
-                self.csp.params[k] = v.copy()
+                self.csp.params[k] = deepcopy(v)
             if k == 'mass':
                 mass = v
         # Now get the spectrum.  The spectrum is in units of
