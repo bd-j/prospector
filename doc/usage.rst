@@ -8,7 +8,7 @@ Command line syntax calls the ``prospector.py`` script as an executable and is a
 .. code-block:: shell
 
 		cd demo
-		python prospector.py –param_file=demo_params.py
+		python prospector.py --param_file=demo_params.py
 
 Additional command line options can be given (see below).
 You can copy the ``prospector.py`` script to wherever you intend to run the code, or put it in your path.
@@ -129,7 +129,7 @@ For example
 
 .. code-block:: shell
 
-		python prospector.py –param_file=demo_params.py –nwalkers=128``
+		python prospector.py --param_file=demo_params.py --nwalkers=128
 
 will cause the code to use 128 walkers regardless of the value given directly in the ``run_params`` dictionary.
 Such overriden parameters must be present as keys in the ``run_params`` dictionary,

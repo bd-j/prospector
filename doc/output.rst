@@ -65,13 +65,13 @@ Basic diagnostic plots
 -----------------------------
 Several methods for visualization of the results are included in the |Codename|.read_results module.
 
-First, the results and model pickles can be read using
+First, the results and model pickles can be read into useful dictionaries and objects using
 
 .. code-block:: python
 
 		import prospect.io.read_results as bread
 		filename = "<outfilestring>_<timestamp>_mcmc"
-		results, model, powell_results = bread.results_from(filename)
+		results, powell_results, model = bread.results_from(filename)
 
 It is often desirable to plot the parameter traces for the MCMC chains.
 That is, one wants to see the evolution of the parameter values as a function of MCMC iteration.
