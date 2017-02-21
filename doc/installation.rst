@@ -23,8 +23,10 @@ For modeling galaxies you will need:
    `python-FSPS <https://github.com/dfm/python-FSPS>`_
 
 - **Note.** Significant speed gains my be made by setting ``mag_compute=0`` in
-the FSPS source file ``sps_vars.f90`` before compiling and installing both FSPS
-and python-FSPS.
+  the FSPS source file ``sps_vars.f90`` before compiling and installing both
+  FSPS and python-FSPS.  It is also probably a good idea to use the Padova
+  isochrones, again for speed reasons.  See the FSPS manual for instructions on
+  changing the isochrones.
 
 You may also wish to have `AstroPy <https://astropy.readthedocs.org/en/stable/>`_
 for FITS file processing and cosmological calculations.
