@@ -372,7 +372,7 @@ class BigStarBasis(StarBasis):
 
     def __init__(self, libname='', verbose=False, log_interp=True,
                  n_neighbors=0,  driver=None, in_memory=False,
-                 use_params=None, **kwargs):
+                 use_params=None, strictness=0.0, **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
         normalized, smoothed stellar spoectra.
@@ -409,12 +409,19 @@ class BigStarBasis(StarBasis):
             (which must be present in the `_libparams` structure) to build the
             grid and construct spectra.  Otherwise all fields of `_libparams`
             will be used.
+
+        :param strictness: (default: 0.0)
+            Float from 0.0 to 1.0 that gives the fraction of a unit hypercube
+            that is required for a parameter position to be accepted.  That is,
+            if the weights of the enclosing vertices sum to less than this
+            number, raise an error.
         """
         self.verbose = verbose
         self.logarithmic = log_interp
         self._libname = libname
         self.n_neighbors = n_neighbors
         self._in_memory = in_memory
+        self._strictness = strictness
 
         self.load_lib(libname, driver=driver)
         # Do some important bookkeeping
@@ -474,8 +481,8 @@ class BigStarBasis(StarBasis):
     def weights(self, **params):
         inds = self.knearest_inds(**params)
         wghts = self.linear_weights(inds, **params)
-        # if wghts.sum() < 1.0:
-        #     raise ValueError("Something is wrong with the weights")
+        if wghts.sum() <= self._strictness:
+             raise ValueError("Something is wrong with the weights")
         good = wghts > 0
         # if good.sum() < 2**self.ndim:
         #     raise ValueError("Did not find all vertices of the hypercube, "
