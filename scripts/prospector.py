@@ -156,6 +156,9 @@ if __name__ == "__main__":
 
     # Try to set up an HDF5 file and write basic info to it
     outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
+    odir = os.path.dirname(os.path.abspath(outroot))
+    if (not os.path.exists(odir)):
+        halt('Target output directory {} does not exist, please make it.'.format(odir))
     try:
         hfilename = outroot + '_mcmc.h5'
         hfile = h5py.File(hfilename, "a")

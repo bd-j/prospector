@@ -244,6 +244,10 @@ class CSPBasis(object):
         # Output correct units
         return mass * sa, mass * phot, mfrac
 
+    @property
+    def wavelengths(self):
+        return self.csp.wavelengths
+
 
 def gauss(x, mu, A, sigma):
     """Lay down mutiple gaussians on the x-axis.
