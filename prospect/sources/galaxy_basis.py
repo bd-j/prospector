@@ -15,7 +15,7 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["CSPBasis", "CSPSpecBasis", "to_cgs"]
+__all__ = ["CSPSpecBasis", "CSPBasis", "to_cgs"]
 
 # Useful constants
 lsun = 3.846e33
@@ -28,15 +28,21 @@ to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 
 class CSPSpecBasis(SSPBasis):
 
+    """A class for combinations of N composite stellar populations (including
+    single-age populations). The number of composite stellar populations is
+    given by the length of the `mass` parameter.
+    """
+
     def __init__(self, compute_vega_mags=False, zcontinuous=1, vactoair_flag=False,
                  reserved_params=['zred', 'sigma_smooth'], **kwargs):
 
         # This is a StellarPopulation object from fsps
-        self.csp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+        self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
                                           zcontinuous=zcontinuous,
                                           vactoair_flag=vactoair_flag)
         self.reserved_params = reserved_params
         self.params = {}
+        self.update(**kwargs)
 
     def update(self, **params):
         """Update the `params` attribute, making parameters scalar if possible.
@@ -66,7 +72,7 @@ class CSPSpecBasis(SSPBasis):
                 continue
             # Otherwise if a parameter exists in the FSPS parameter set, pass a
             # copy of it in.
-            if k in self.csp.params.all_params:
+            if k in self.ssp.params.all_params:
                 v = np.atleast_1d(v)
                 try:
                     # Try to pull the relevant component.
@@ -78,7 +84,7 @@ class CSPSpecBasis(SSPBasis):
                     # It was scalar, use that value for all components
                     this_v = v
 
-                self.csp.params[k] = deepcopy(this_v)
+                self.ssp.params[k] = deepcopy(this_v)
 
     def get_galaxy_spectrum(self, **params):
         """Update parameters, then loop over each component getting a spectrum
@@ -105,13 +111,13 @@ class CSPSpecBasis(SSPBasis):
         # Loop over mass components
         for i, m in enumerate(mass):
             self.update_component(i)
-            wave, spec = self.csp.get_spectrum(tage=self.csp.params['tage'],
+            wave, spec = self.ssp.get_spectrum(tage=self.csp.params['tage'],
                                                peraa=False)
             spectra.append(spec)
-            mfrac[i] = (self.csp.stellar_mass)
+            mfrac[i] = (self.ssp.stellar_mass)
 
         # Convert normalization units from per stellar mass to per mass formed
-        if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
+        if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
             mass /= mfrac
         spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
         mfrac_sum = np.dot(mass, mfrac) / mass.sum()
@@ -122,7 +128,7 @@ class CSPSpecBasis(SSPBasis):
 class CSPBasis(object):
     """
     A class for composite stellar populations, which can be composed from
-    multiple versions of parameterized SFHs.  Should replace CSPModel.
+    multiple versions of parameterized SFHs.  Deprecated, Use CSPSpecBasis instead.
     """
     def __init__(self, compute_vega_mags=False, zcontinuous=1, vactoair_flag=False, **kwargs):
 
@@ -169,7 +175,7 @@ class CSPBasis(object):
         # observed frame wavelengths.  Flux array (and maggies) have not been
         # increased by (1+z) due to cosmological redshift
 
-        w = self.csp.wavelengths
+        w = self.ssp.wavelengths
         if outwave is not None:
             spec = np.interp(outwave, w, spec)
         else:
@@ -248,14 +254,10 @@ class CSPBasis(object):
         # now some mass normalization magic
         mfrac = self.csp.stellar_mass
         if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
-            # Convert normalization units from per stellar masss to per mass formed
+            # Convert input normalization units from per stellar masss to per mass formed
             mass /= mfrac
         # Output correct units
         return mass * sa, mass * phot, mfrac
-
-    @property
-    def wavelengths(self):
-        return self.csp.wavelengths
 
 
 def gauss(x, mu, A, sigma):
