@@ -32,7 +32,7 @@ def smoothspec(wave, spec, resolution, outwave=None,
         The output wavelength vector.  If None then the input wavelength vector
         will be assumed, though if min_wave_smooth or max_wave_smooth are also
         specified, then the output spectrum may have different length than spec
-        or wave, or the convulution may be strange outside of min_wave_smooth
+        or wave, or the convolution may be strange outside of min_wave_smooth
         and max_wave_smooth.  Basically, always set outwave to be safe.
 
     :param smoothtype:
@@ -131,16 +131,18 @@ def smoothspec(wave, spec, resolution, outwave=None,
     # Actually do the smoothing
     if linear:
         if smoothtype == 'lsf':
-            return smooth_lsf(w, s, outwave, **kwargs)
+            smooth_method = smooth_lsf
         elif fftsmooth:
-            return smooth_wave_fft(w, s, outwave, sigma, **kwargs)
+            smooth_method = smooth_wave_fft
         else:
-            return smooth_wave(w, s, outwave, sigma, **kwargs)
+            smooth_method = smooth_wave
     else:
         if fftsmooth:
-            return smooth_vel_fft(w, s, outwave, sigma, **kwargs)
+            smooth_method = smooth_vel_fft
         else:
-            return smooth_vel(w, s, outwave, sigma, **kwargs)
+            smooth_method = smooth_vel
+
+    return smooth_method(w, s, outwave, sigma, **kwargs)
 
 
 def smooth_vel(wave, spec, outwave, sigma, nsigma=10, inres=0, **extras):
