@@ -194,7 +194,7 @@ def smooth_vel(wave, spec, outwave, sigma, nsigma=10, inres=0, **extras):
 
 def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out, inres=0.0,
                    **extras):
-    """Smooth a spectrum in wavelength space, using FFTs. This is fast, but makes
+    """Smooth a spectrum in velocity space, using FFTs. This is fast, but makes
     some assumptions about the form of the input spectrum and can have some
     issues at the ends of the spectrum depending on how it is padded.
 
@@ -209,7 +209,7 @@ def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out, inres=0.0,
         Desired output wavelength vector.
 
     :param sigma_out:
-        Desired velocity resolution (km/s), *not* FWHM.
+        Desired velocity resolution (km/s), *not* FWHM.  Scalar or length 1 array.
 
     :param inres:
         The velocity resolution of the input spectrum (km/s), dispersion *not*
@@ -389,6 +389,122 @@ def smooth_lsf(wave, spec, outwave, lsf=None, return_kernel=False,
     if return_kernel:
         return newspec, kernel
     return newspec
+
+
+def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
+                   eps=0.25, preserve_all_input_frequencies=False, **kwargs):
+    """Smooth a spectrum according to a wavelength dependent line-spread
+    function, using FFTs.
+
+    :param wave:
+        Wavelength vector of the input spectrum.
+
+    :param spectrum:
+        Flux vector of the input spectrum.
+
+    :param outwave:
+        Desired output wavelength vector.
+
+    :param sigma: (optional)
+        Dispersion (in same units as ``wave``) as a function `wave`.  ndarray
+        of same length as ``wave``.  If not given, sigma will be computed from
+        the function provided by the ``lsf`` keyword.
+
+    :param lsf: (optional)
+        Function used to calculate the dispersion as a function of wavelength.
+        Must be able to take as an argument the ``wave`` vector and any extra
+        keyword arguments and return the dispersion (in the same units as the
+        input wavelength vector) at every value of ``wave``.  If not provided
+        then ``sigma`` must be specified.
+
+    :param pix_per_sigma: (optional, default: 2)
+        Number of pixels per sigma of the out spectrum to use in intermediate
+        interpolation and FFT steps. Increasing this number will increase the
+        accuracy of the output (to a point) and the run-time by preserving
+        high-frequency information in the input spectrum.
+
+    :param preserve_all_input_frequencies: (default: False)
+        This is a switch to use a very dense sampling of the input spectrum
+        that preserves all input frequencies.  It can significantly increase
+        the call time for often modest gains...
+
+    :param eps: (optional)
+        Deprecated.
+       
+    :param **kwargs:
+        All additional keywords are passed to the function supplied to the
+        ``lsf`` keyword, if present.
+
+    :returns flux:
+        The input spectrum smoothed by the wavelength dependent line-spread
+        function.  Same length as ``outwave``.
+    """
+    
+    # This is sigma vs lambda
+    if sigma is None:
+        sigma = lsf(wave, **kwargs)
+    #plot(wave, sigma)
+
+    # Now we need the CDF of 1/sigma, which provides the relationship between x and lambda
+    # does dw go in numerator or denominator?
+    # I think numerator but should be tested
+    dw = np.gradient(wave)
+    cdf = np.cumsum(dw / sigma)
+    cdf /= cdf.max()
+
+    # Now we create an evenly sampled grid in the x coordinate,
+    # and convert that to lambda using the cdf.
+    # This should result in some power of two x points, for FFT efficiency
+
+    # Furthermore, this should be high enough that the resolution is critically sampled.
+    # And we want to know what the resolution in this new coordinate.
+    # There are two possible ways to do this
+
+    # 1) Choose a point ~halfway in the spectrum
+    # half = len(wave) / 2
+    # Now get the x coordinates of a point eps*sigma redder and bluer
+    # wave_eps = eps * np.array([-1, 1]) * sigma[halpha]
+    # x_h_eps = np.interp(wave[half] + wave_eps, wave, cdf)
+    # Take the differences to get dx and dsigma and ratio to get x per sigma
+    # x_per_sigma = np.diff(x_h_eps) / (2.0 * eps) #x_h_epsilon - x_h
+
+    # 2) Get for all points (slower?):
+    sigma_per_pixel = (dw / sigma)
+    x_per_pixel = np.gradient(cdf) 
+    x_per_sigma = np.nanmedian(x_per_pixel / sigma_per_pixel)
+    N = pix_per_sigma / x_per_sigma
+    
+    # Alternatively, just use the smallest dx of the input, divided by two for safety
+    # Assumes the input spectrum is critically sampled.
+    # And does not actually give x_per_sigma, so that has to be determined anyway
+    if preserve_all_input_frequencies:
+        # preserve all information in the input spectrum, even when way higher
+        # frequency than the resolution of the output.  Leads to slightly more
+        # accurate output, but with a substantial time hit
+        N = max(N, 1.0 / np.nanmin(x_per_pixel))
+
+    # Now find the smallest power of two that divides the interval (0, 1) into
+    # segments that are smaller than dx
+    nx = int(2**np.ceil(np.log2(N)))
+
+    # now evenly sample in the x coordinate
+    x = np.linspace(0, 1, nx)
+    dx = 1.0 / nx
+
+    # And now we get the spectrum at the lambda coordinates of the even grid in x
+    lam = np.interp(x, cdf, wave)
+    newspec = np.interp(lam, wave, spec)
+
+    # And now we convolve.
+    # If we did not know sigma in terms of x we could estimate it here
+    # from the resulting sigma(lamda(x)) / dlambda(x):
+    # dlam = np.gradient(lam)
+    # sigma_x = np.median(lsf(lam, **kwargs) / dlam)
+    # But this method uses the fact that we know x_per_sigma.
+    spec_conv = smooth_fft(dx, newspec, x_per_sigma)
+
+    # and interpolate back to the output wavelength grid.
+    return np.interp(outwave, lam, spec_conv)
 
 
 def smooth_fft(dx, spec, sigma):
