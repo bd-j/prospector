@@ -14,8 +14,8 @@ ckms = 2.998e5
 sigma_to_fwhm = 2.355
 
 
-def smoothspec(wave, spec, resolution, outwave=None,
-               smoothtype='vel', fftsmooth=True,
+def smoothspec(wave, spec, resolution=None, outwave=None,
+               smoothtype="vel", fftsmooth=True,
                min_wave_smooth=0, max_wave_smooth=np.inf, **kwargs):
     """
     :param wave:
@@ -26,7 +26,7 @@ def smoothspec(wave, spec, resolution, outwave=None,
         The flux vector of the input spectrum, ndarray
 
     :param resolution:
-        The smoothing parameter.  Units depend on ``smoothtype``
+        The smoothing parameter.  Units depend on ``smoothtype``.
 
     :param outwave:
         The output wavelength vector.  If None then the input wavelength vector
@@ -35,25 +35,32 @@ def smoothspec(wave, spec, resolution, outwave=None,
         or wave, or the convolution may be strange outside of min_wave_smooth
         and max_wave_smooth.  Basically, always set outwave to be safe.
 
-    :param smoothtype:
+    :param smoothtype: (optional default: "vel")
         The type of smoothing to do.  One of:
 
-        * `vel` - velocity smoothing, ``sigma`` units are in km/s
+        * "vel" - velocity smoothing, ``resolution`` units are in km/s
           (dispersion not FWHM)
-        * `R` - resolution smoothing, ``sigma`` is in units of \lambda/
+        * "R" - resolution smoothing, ``resolution`` is in units of \lambda/
           \sigma(\lambda) (where \sigma(\lambda) is dispersion, not FWHM)
-        * `lambda` - wavelength smoothing.  ``sigma`` is in units of \AA
-        * `lsf` - line-spread function.  Use an aribitrary line spread
-          function, which must be present as the ``lsf`` keyword.  In
-          this case ``sigma`` is ignored, but all additional keywords
-          will be passed to the `lsf` function.
+        * "lambda" - wavelength smoothing.  ``resolution`` is in units of \AA
+        * "lsf" - line-spread function.  Use an aribitrary line spread
+          function, which can be given as a vector the same length as ``wave``
+          that gives the dispersion (in AA) at each wavelength.  Alternatively,
+          if ``resolution`` is ``None`` then a line-spread function must be
+          present as an additional ``lsf`` keyword.  In this case all
+          additional keywords as well as the ``wave`` vector will be passed to
+          this ``lsf`` function.
 
-    :param min_wave_smooth:
+    :param fftsmooth: (optional, default: True)
+        Switch to use FFTs to do the smoothing, usually resulting in massive
+        speedups of all algorithms.
+
+    :param min_wave_smooth: (optional default: 0)
         The minimum wavelength of the input vector to consider when smoothing
         the spectrum.  If None then it is determined from the output wavelength
         vector and padded by some multiple of the desired resolution.
 
-    :param max_wave_smooth:
+    :param max_wave_smooth: (optional default: Inf)
         The maximum wavelength of the input vector to consider when smoothing
         the spectrum.  If None then it is determined from the output wavelength
         vector and padded by some multiple of the desired resolution.
@@ -119,6 +126,7 @@ def smoothspec(wave, spec, resolution, outwave=None,
     elif smoothtype == 'lsf':
         linear = True
         width = 100
+        sigma = resolution
 
     # Mask the input spectrum depending on outwave or the wave_smooth kwargs
     mask = mask_wave(wave, width=width, outwave=outwave, linear=linear,
@@ -224,7 +232,7 @@ def smooth_vel_fft(wavelength, spectrum, outwave, sigma_out, inres=0.0,
     wave, spec = resample_wave(wavelength, spectrum)
 
     # get grid resolution (*not* the resolution of the input spectrum) and make
-    # sure it's nearly constant.  Should be by design (see resample_wave)
+    # sure it's nearly constant.  It should be, by design (see resample_wave)
     invRgrid = np.diff(np.log(wave))
     assert invRgrid.max() / invRgrid.min() < 1.05
     dv = ckms * np.median(invRgrid)
@@ -350,7 +358,7 @@ def smooth_wave_fft(wavelength, spectrum, outwave, sigma_out=1.0,
     return spec_conv
 
 
-def smooth_lsf(wave, spec, outwave, lsf=None, return_kernel=False,
+def smooth_lsf(wave, spec, outwave, sigma=None, lsf=None, return_kernel=False,
                **kwargs):
     """Broaden a spectrum using a wavelength dependent line spread function.
     This function is only approximate because it doesn't actually do the
@@ -360,12 +368,17 @@ def smooth_lsf(wave, spec, outwave, lsf=None, return_kernel=False,
     :param wave:
         Input wavelengths.
 
-    :param lsf:
-        A function that returns the gaussian dispersion at each wavelength.
-        This is assumed to be in sigma, not FWHM.
+    :param spec:
+        Input spectrum
 
     :param outwave:
         Output wavelengths
+
+
+    :param sigma:
+    :param lsf:
+        A function that returns the gaussian dispersion at each wavelength.
+        This is assumed to be in sigma, not FWHM.
 
     :param kwargs:
         Passed to lsf()
@@ -373,10 +386,11 @@ def smooth_lsf(wave, spec, outwave, lsf=None, return_kernel=False,
     :returns newspec:
         The broadened spectrum
     """
-    if lsf is None:
+    if (lsf is None) and (sigma is None):
         return np.interp(outwave, wave, spec)
     dw = np.gradient(wave)
-    sigma = lsf(outwave, **kwargs)
+    if sigma is None:
+        sigma = lsf(outwave, **kwargs)
     kernel = outwave[:, None] - wave[None, :]
     kernel = (1 / (sigma * np.sqrt(np.pi * 2))[:, None] *
               np.exp(-kernel**2 / (2 * sigma[:, None]**2)) *
