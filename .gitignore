@@ -1,3 +1,4 @@
+manual*
 *log
 *aux
 *dvi
@@ -7,10 +8,12 @@ apj*
 *bib
 *~
 *.pyc
-*/*.pyc
 junk*
 detritus/
-src/todo/
-*/*/*.p
 build/
+_build/
 dist/
+demo/output/
+demo/results/
+demo/test/
+misc/

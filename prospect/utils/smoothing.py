@@ -137,10 +137,13 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         outwave = wave
 
     # Actually do the smoothing
-    if linear:
-        if smoothtype == 'lsf':
-            smooth_method = smooth_lsf
-        elif fftsmooth:
+    if smoothtype == 'lsf':
+        if fftsmooth:
+            smooth_method = smooth_lsf_fft
+        else:
+            smooth_method = smoooth_lsf
+    elif linear:
+        if fftsmooth:
             smooth_method = smooth_wave_fft
         else:
             smooth_method = smooth_wave
