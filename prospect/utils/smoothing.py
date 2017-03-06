@@ -7,8 +7,8 @@ import numpy as np
 from numpy.fft import fft, ifft, fftfreq, rfftfreq
 
 __all__ = ["smoothspec", "smooth_wave", "smooth_vel", "smooth_lsf",
-           "smooth_wave_fft", "smooth_vel_fft", "smooth_fft", "mask_wave",
-           "resample_wave"]
+           "smooth_wave_fft", "smooth_vel_fft", "smooth_fft", "smooth_lsf_fft",
+           "mask_wave", "resample_wave"]
 
 ckms = 2.998e5
 sigma_to_fwhm = 2.355
@@ -269,19 +269,19 @@ def smooth_wave(wave, spec, outwave, sigma, nsigma=10, inres=0, in_vel=False,
         vector of same length as ``wave``, in which case a wavelength dependent
         broadening is calculated
 
-    :param inres:
-        Resolution of the input, in either wavelength units or
-        lambda/dlambda (c/v).
-
-    :param in_vel:
-        If True, the input spectrum has been smoothed in velocity
-        space, and ``inres`` is in lambda/dlambda.
-
-    :param nsigma: (default=10)
+    :param nsigma: (optional, default=10)
         Number of sigma away from the output wavelength to consider in the
         integral.  If less than zero, all wavelengths are used.  Setting this
         to some positive number decreses the scaling constant in the O(N_out *
         N_in) algorithm used here.
+
+    :param inres: (optional, default: 0.0)
+        Resolution of the input, in either wavelength units or
+        lambda/dlambda (c/v).  Ignored if <= 0.
+
+    :param in_vel: (optional, default: False)
+        If True, the input spectrum has been smoothed in velocity
+        space, and ``inres`` is assumed to be in lambda/dlambda.
 
     :returns flux:
         The output smoothed flux vector, same length as ``outwave``.
@@ -366,28 +366,36 @@ def smooth_lsf(wave, spec, outwave, sigma=None, lsf=None, return_kernel=False,
     """Broaden a spectrum using a wavelength dependent line spread function.
     This function is only approximate because it doesn't actually do the
     integration over pixels, so for sparsely sampled points you'll have
-    problems.
+    problems.  This function needs to be checked and possibly rewritten.
 
     :param wave:
-        Input wavelengths.
+        Input wavelengths.  ndarray of shape (nin,)
 
     :param spec:
-        Input spectrum
+        Input spectrum.  ndarray of same shape as ``wave``.
 
     :param outwave:
-        Output wavelengths
+        Output wavelengths, ndarray of shape (nout,)
 
+    :param sigma: (optional, default: None)
+        The dispersion (not FWHM) as a function of wavelength that you want to
+        apply to the input spectrum.  ``None`` or ndarray of same length as
+        ``outwave``.  If ``None`` then the wavelength dependent dispersion will be
+        calculated from the function supplied with the ``lsf`` keyward.
 
-    :param sigma:
     :param lsf:
         A function that returns the gaussian dispersion at each wavelength.
         This is assumed to be in sigma, not FWHM.
 
     :param kwargs:
-        Passed to lsf()
+        Passed to the function supplied in the ``lsf`` keyword.
+
+    :param return_kernel: (optional, default: False)
+        If True, return the kernel used to broaden the spectrum as ndarray of
+        shape (nout, nin).
 
     :returns newspec:
-        The broadened spectrum
+        The broadened spectrum, same length as ``outwave``.
     """
     if (lsf is None) and (sigma is None):
         return np.interp(outwave, wave, spec)
@@ -410,8 +418,8 @@ def smooth_lsf(wave, spec, outwave, sigma=None, lsf=None, return_kernel=False,
 
 def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
                    eps=0.25, preserve_all_input_frequencies=False, **kwargs):
-    """Smooth a spectrum according to a wavelength dependent line-spread
-    function, using FFTs.
+    """Smooth a spectrum by a wavelength dependent line-spread function, using
+    FFTs.
 
     :param wave:
         Wavelength vector of the input spectrum.
@@ -435,10 +443,10 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
         then ``sigma`` must be specified.
 
     :param pix_per_sigma: (optional, default: 2)
-        Number of pixels per sigma of the out spectrum to use in intermediate
-        interpolation and FFT steps. Increasing this number will increase the
-        accuracy of the output (to a point) and the run-time by preserving
-        high-frequency information in the input spectrum.
+        Number of pixels per sigma of the smoothed spectrum to use in
+        intermediate interpolation and FFT steps. Increasing this number will
+        increase the accuracy of the output (to a point), and the run-time, by
+        preserving all high-frequency information in the input spectrum.
 
     :param preserve_all_input_frequencies: (default: False)
         This is a switch to use a very dense sampling of the input spectrum
@@ -447,7 +455,7 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
 
     :param eps: (optional)
         Deprecated.
-       
+
     :param **kwargs:
         All additional keywords are passed to the function supplied to the
         ``lsf`` keyword, if present.
@@ -456,11 +464,9 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
         The input spectrum smoothed by the wavelength dependent line-spread
         function.  Same length as ``outwave``.
     """
-    
     # This is sigma vs lambda
     if sigma is None:
         sigma = lsf(wave, **kwargs)
-    #plot(wave, sigma)
 
     # Now we need the CDF of 1/sigma, which provides the relationship between x and lambda
     # does dw go in numerator or denominator?
@@ -469,12 +475,13 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
     cdf = np.cumsum(dw / sigma)
     cdf /= cdf.max()
 
-    # Now we create an evenly sampled grid in the x coordinate,
+    # Now we create an evenly sampled grid in the x coordinate on the interval [0,1]
     # and convert that to lambda using the cdf.
     # This should result in some power of two x points, for FFT efficiency
 
-    # Furthermore, this should be high enough that the resolution is critically sampled.
-    # And we want to know what the resolution in this new coordinate.
+    # Furthermore, the number of points should be high enough that the
+    # resolution is critically sampled.  And we want to know what the
+    # resolution is in this new coordinate.
     # There are two possible ways to do this
 
     # 1) Choose a point ~halfway in the spectrum
@@ -487,15 +494,15 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
 
     # 2) Get for all points (slower?):
     sigma_per_pixel = (dw / sigma)
-    x_per_pixel = np.gradient(cdf) 
+    x_per_pixel = np.gradient(cdf)
     x_per_sigma = np.nanmedian(x_per_pixel / sigma_per_pixel)
     N = pix_per_sigma / x_per_sigma
-    
+
     # Alternatively, just use the smallest dx of the input, divided by two for safety
     # Assumes the input spectrum is critically sampled.
     # And does not actually give x_per_sigma, so that has to be determined anyway
     if preserve_all_input_frequencies:
-        # preserve all information in the input spectrum, even when way higher
+        # preserve more information in the input spectrum, even when way higher
         # frequency than the resolution of the output.  Leads to slightly more
         # accurate output, but with a substantial time hit
         N = max(N, 1.0 / np.nanmin(x_per_pixel))
@@ -517,7 +524,7 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
     # from the resulting sigma(lamda(x)) / dlambda(x):
     # dlam = np.gradient(lam)
     # sigma_x = np.median(lsf(lam, **kwargs) / dlam)
-    # But this method uses the fact that we know x_per_sigma.
+    # But the following just uses the fact that we know x_per_sigma (duh).
     spec_conv = smooth_fft(dx, newspec, x_per_sigma)
 
     # and interpolate back to the output wavelength grid.
@@ -589,27 +596,3 @@ def resample_wave(wavelength, spectrum, linear=False):
     #assert Rgrid.max() / Rgrid.min() < 1.05
     s = np.interp(w, wavelength, spectrum)
     return w, s
-
-
-def downsample_onespec(wave, spec, outwave, outres,
-                       smoothtype='r', **kwargs):
-    """
-    """
-    outspec = []
-    # loop over the output segments
-    for owave, ores in zip(outwave, outres):
-        wmin, wmax = owave.min(), owave.max()
-        if smoothtype == 'r':
-            sigma = 2.998e5 / ores  # in km/s
-            smin = wmin - 5 * wmin/ores
-            smax = wmax + 5 * wmax/ores
-        elif smoothype == 'lambda':
-            sigma = ores  # in AA
-            smin = wmin - 5 * sigma
-            smax = wmax + 5 * sigma
-        imin = np.argmin(np.abs(smin - wave))
-        imax = np.argmin(np.abs(smax - wave))
-        ospec = smoothspec(wave[imin:imax], spec[imin:imax], sigma,
-                           smoothtype=smoothtype, outwave=owave, **kwargs)
-        outspec += [ospec]
-    return outspec
