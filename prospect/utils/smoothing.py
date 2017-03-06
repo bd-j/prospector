@@ -596,3 +596,52 @@ def resample_wave(wavelength, spectrum, linear=False):
     #assert Rgrid.max() / Rgrid.min() < 1.05
     s = np.interp(w, wavelength, spectrum)
     return w, s
+
+
+def subtract_input_resolution(res_in, res_target, smoothtype_in, smoothtype_target, wave=None):
+    """Subtract the input resolution (in quadrature) from a target output
+    resolution to get the width of the kernel that will convolve the input to
+    the output.  Assumes all convolutions are with gaussians.
+    """
+    if smoothtype_in == "R":
+        width_in = 1.0 / res_in
+    else:
+        width_in = res_in
+    if smoothtype_target == "R":
+        width_target = 1.0 / res_target
+    else:
+        width_target = res_target
+
+    if smoothtype_in == smoothtype_target:
+        dwidth_sq = width_target**2 - width_in**2
+
+    elif (smoothtype_in == "vel") & (smoothype_target == "lambda"):
+        dwidth_sq = width_target**2 - (wave * width_in / ckms)**2
+
+    elif (smoothtype_in == "R") & (smoothype_target == "lambda"):
+        dwidth_sq = width_target**2 - (wave * width_in)**2
+
+    elif (smoothtype_in == "lambda") & (smoothtype_target =="vel"):
+        dwidth_sq = width_target**2 - (ckms * width_in / wave)**2
+        
+    elif (smoothtype_in == "lambda") & (smoothtype_target =="R"):
+        dwidth_sq = width_target**2 - (width_in / wave)**2
+
+
+    elif (smoothtype_in == "R") & (smoothtype_target == "vel"):
+        print("srsly?")
+        return None
+    elif (smoothtype_in == "vel") & (smoothtype_target == "R"):
+        print("srsly?")
+        return None
+
+    if np.any(dwidth_sq <= 0):
+        print("Warning:  Desired resolution is better than input resolution")
+        dwidth_sq = np.clip(dwidth_sq, 0, np.inf)
+
+    if smoothtype_target == "R":
+        return 1.0 / np.sqrt(dwidth_sq)
+    else:
+        return np.sqrt(dwidth_sq)
+        
+    return delta_width
