@@ -75,7 +75,11 @@ For optimal results, the number of emcee walkers should be :math:`N*(np-1)`,
 where N is an even integer and :math:`np` is the number of available processors.
 
 Note that specific MPI implementations may have different mpirun commands, or
-may require that python-mpi be called instead of just python.
+may require that python-mpi be called instead of just python.  We have included
+a small script (``demo/mpi_hello_world.py``) to test your MPI installation
+using same general pattern as in Prospector.  Run this with
+``mpirun -np <N> python mpi_hello_world.py``.
+
 
 Noise Modeling
 --------------
