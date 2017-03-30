@@ -296,7 +296,7 @@ class StarBasis(object):
         Tinv = transform[:self.ndim, :]
         x_r = inparams - transform[self.ndim, :]
         bary = np.dot(Tinv, x_r)
-        last = 1.0 - bary.sum()
+        last = np.clip(1.0 - bary.sum(), 0.0, 1.0)
         wghts = np.append(bary, last)
         oo = inds.argsort()
         return inds[oo], wghts[oo]
