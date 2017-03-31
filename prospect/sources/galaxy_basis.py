@@ -165,6 +165,8 @@ class CSPBasis(object):
         if outwave is not None:
             w = self.csp.wavelengths
             spec = np.interp(outwave, w, spec)
+        else:
+            outwave = w
         # Distance dimming and unit conversion
         zred = self.params.get('zred', 0.0)
         if (zred == 0) or ('lumdist' in self.params):
