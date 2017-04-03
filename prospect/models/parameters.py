@@ -75,7 +75,7 @@ class ProspectorParams(object):
         self.theta_index = {}
         count = 0
         for par in self.free_params:
-            self.theta_index[par] = (count, count+self._config_dict[par]['N'])
+            self.theta_index[par] = slice(count, count+self._config_dict[par]['N'])
             count += self._config_dict[par]['N']
         self.ndim = count
 
@@ -87,9 +87,8 @@ class ProspectorParams(object):
             ndarray of shape (ndim,)
         """
         assert len(theta) == self.ndim
-        for k, v in list(self.theta_index.items()):
-            start, end = v
-            self.params[k] = np.atleast_1d(theta[start:end])
+        for k, inds in list(self.theta_index.items()):
+            self.params[k] = np.atleast_1d(theta[inds])
         self.propagate_parameter_dependencies()
 
     def prior_product(self, theta):
@@ -110,10 +109,9 @@ class ProspectorParams(object):
             parameter values.
         """
         lnp_prior = 0
-        for k, v in list(self.theta_index.items()):
-            start, end = v
+        for k, inds in list(self.theta_index.items()):
             this_prior = np.sum(self._config_dict[k]['prior_function']
-                                (theta[start:end], **self._config_dict[k]['prior_args']))
+                                (theta[inds], **self._config_dict[k]['prior_args']))
 
             if (not np.isfinite(this_prior)):
                 print('WARNING: ' + k + ' is out of bounds')
@@ -144,9 +142,8 @@ class ProspectorParams(object):
         state dictionary.
         """
         theta = np.zeros(self.ndim)
-        for k, v in list(self.theta_index.items()):
-            start, end = v
-            theta[start:end] = self.params[k]
+        for k, inds in list(self.theta_index.items()):
+            theta[inds] = self.params[k]
         return theta
 
     @property
@@ -178,19 +175,19 @@ class ProspectorParams(object):
             vector.
         """
         label, index = [], []
-        for p, v in list(self.theta_index.items()):
-            nt = v[1]-v[0]
+        for p, inds in list(self.theta_index.items()):
+            nt = inds.stop - inds.start
             try:
                 name = name_map[p]
             except(KeyError):
                 name = p
             if nt is 1:
                 label.append(name)
-                index.append(v[0])
+                index.append(inds.start)
             else:
                 for i in xrange(nt):
                     label.append(name+'_{0}'.format(i+1))
-                    index.append(v[0]+i)
+                    index.append(inds.start+i)
         return [l for (i, l) in sorted(zip(index, label))]
 
     def info(self, par):
@@ -210,17 +207,17 @@ class ProspectorParams(object):
             bounds.
         """
         bounds = self.ndim * [(0., 0.)]
-        for p, v in list(self.theta_index.items()):
-            sz = v[1] - v[0]
+        for p, inds in list(self.theta_index.items()):
+            sz = inds.stop - inds.start
             pb = priors.plotting_range(self._config_dict[p]['prior_args'])
             if sz == 1:
-                bounds[v[0]] = pb
+                bounds[inds] = pb
             else:
                 for k in range(sz):
                     try:
-                        bounds[v[0] + k] = (pb[0][k], pb[1][k])
+                        bounds[inds.start + k] = (pb[0][k], pb[1][k])
                     except(TypeError, IndexError):
-                        bounds[v[0] + k] = (pb[0], pb[1])
+                        bounds[inds.start + k] = (pb[0], pb[1])
         # Force types
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a, b in bounds]
         return bounds
@@ -240,7 +237,7 @@ class ProspectorParams(object):
         disp = np.zeros(self.ndim) + default_disp
         for par, inds in list(self.theta_index.items()):
             d = self._config_dict[par].get('init_disp', default_disp)
-            disp[inds[0]: inds[1]] = d
+            disp[inds] = d
         if fractional_disp:
             disp = self.theta * disp
         return disp
@@ -252,7 +249,7 @@ class ProspectorParams(object):
         dfloor = np.zeros(self.ndim)
         for par, inds in list(self.theta_index.items()):
             d = self._config_dict[par].get('disp_floor', 0.0)
-            dfloor[inds[0]: inds[1]] = d
+            dfloor[inds] = d
         return dfloor
 
     def clip_to_bounds(self, thetas):
@@ -285,10 +282,9 @@ class ProspectorParamsHMC(ProspectorParams):
             parameters.  ndarray of shape (ndim,)
         """
         lnp_prior_grad = np.zeros_like(theta)
-        for k, v in list(self.theta_index.items()):
-            start, stop = v
-            lnp_prior_grad[start:stop] = (self._config_dict[k]['prior_gradient_function']
-                                          (theta[start:stop], **self._config_dict[k]['prior_args']))
+        for k, inds in list(self.theta_index.items()):
+            lnp_prior_grad[inds] = (self._config_dict[k]['prior_gradient_function']
+                                          (theta[inds], **self._config_dict[k]['prior_args']))
         return lnp_prior_grad
 
     def check_constrained(self, theta):
@@ -307,19 +303,18 @@ class ProspectorParamsHMC(ProspectorParams):
             print('theta in={0}'.format(theta))
         while oob:
             oob = False
-            for k, v in list(self.theta_index.items()):
-                start, end = v
+            for k, inds in list(self.theta_index.items()):
                 par = self._config_dict[k]
                 if 'upper' in par.keys():
-                    above = theta[start:end] > par['upper']
+                    above = theta[inds] > par['upper']
                     oob = oob or np.any(above)
-                    theta[start:end][above] = 2 * par['upper'] - theta[start:end][above]
-                    sign[start:end][above] *= -1
+                    theta[inds][above] = 2 * par['upper'] - theta[inds][above]
+                    sign[inds][above] *= -1
                 if 'lower' in par.keys():
-                    below = theta[start:end] < par['lower']
+                    below = theta[inds] < par['lower']
                     oob = oob or np.any(below)
-                    theta[start:end][below] = 2 * par['lower'] - theta[start:end][below]
-                    sign[start:end][below] *= -1
+                    theta[inds][below] = 2 * par['lower'] - theta[inds][below]
+                    sign[inds][below] *= -1
         if self.verbose:
             print('theta out={0}'.format(theta))
         return theta, sign, oob
