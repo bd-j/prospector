@@ -120,14 +120,6 @@ class ProspectorParams(object):
             lnp_prior += this_prior
         return lnp_prior
 
-    def rescale_parameter(self, par, func):
-        """Superceded by the ``depends_on`` pattern.
-        """
-        ind = [p['name'] for p in self.config_list].index(par)
-        self.config_list[ind]['init'] = func(self.config_list[ind]['init'])
-        for k, v in list(self.config_list[ind]['prior_args'].items()):
-            self.config_list[ind]['prior_args'][k] = func(v)
-
     def propagate_parameter_dependencies(self):
         """Propogate any parameter dependecies. That is, for parameters whose
         value depends on another parameter, calculate those values and store

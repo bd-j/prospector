@@ -82,38 +82,117 @@ def plotting_range(prior_args):
 
 
 class Prior(object):
-    """
-    Encapsulate the priors in an object.  On initialization each prior
-    should have a function name and optional parameters specifiyfy
-    scale and location passed (e.g. min/max or mean/sigma).  When
-    called, the argument should be a variable and it should return the
-    prior probability of that value.  One should be able to sample
-    from the prior, and to get the gradient of the prior at any
-    variable value.  Methods should also be avilable to give a useful
-    plotting range and, if there are bounds, to return them.
+    """Encapsulate the priors in an object.  Each prior should have a
+    distrinution name and optional parameters specifying scale and location
+    (e.g. min/max or mean/sigma).  These can be aliased. When called, the
+    argument should be a variable and it should return the ln-prior-probability
+    of that value.
+
+    Should be able to sample from the prior, and to get the gradient of the
+    prior at any variable value.  Methods should also be avilable to give a
+    useful plotting range and, if there are bounds, to return them.
     """
 
-    def __init__(self, kind, *args, **kwargs):
-        self._function = function[kind]
-        self.args = args
-        self.kwargs = kwargs
-        self._gradient = gradient[kind]
+    def __init__(self, parnames=[], name='', **kwargs):
+        """
+        :param parnames:
+            A list of names of the parameters params, used to alias the intrinsic
+            parameter names.  This way different instances of the same Prior
+            can (must) have different parameter names.
+        """
+        if len(parnames) == 0:
+            parnames = self.prior_params
+        assert len(parnames) == len(self.prior_params)
+        self.alias = dict(zip(self.prior_params, parnames))
+        self.params = {}
+
+        self.name = name
+        self.update(**kwargs)
+
+    def update(self, **kwargs):
+        """
+        """
+        for k in self.prior_params:
+            try:
+                self.params[k] = kwargs[self.alias[k]]
+            except(KeyError):
+                pass
+
+    def __call__(self, x, **kwargs):
+        """Compute the value of the probability desnity function at x and
+        return the ln of that.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        p = self.distribution.pdf(x, loc=self.loc, scale=self.scale)
+        return np.log(p)
         
-    def __call__(self, theta):
-        return self._function(theta, *self.args, **self.kwargs)
-    
-    def sample(self, nsample):
-        return self._sampler(nsample)
-    
+    def sample(self, nsample, **kwargs):
+        """Draw nsample values from the prior distribution.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.distribution.rvs(size=nsample, loc=self.loc, scale=self.scale)
+
+    def unit_transform(self, x, **kwargs):
+        """Go from a value of the CDF (between 0 and 1) to the corresponding
+        parameter value.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.distribution.ppf(x, loc=self.loc, scale=self.scale)
+
+    def inverse_unit_transform(self, x, **kwargs):
+        """Go from the parameter value to the unit coordinate using the cdf.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.distribution.cdf(x, loc=self.loc, scale=self.scale)
+        
+        
     def gradient(self, theta):
-        return self._gradient(theta, *self.args, **self.kwargs)
-    
+        raise(NotImplementedError)
+
+    @property
     def range(self):
-        pass
-    
+        raise(NotImplementedError)
+
     @property
     def bounds(self):
-        pass
+        raise(NotImplementedError)
 
     def serialize(self):
-        pass
+        raise(NotImplementedError)
+
+
+class TopHat(Prior):
+
+    prior_params = ['mini', 'maxi']
+    distribution = scipy.stats.uniform
+
+    @property
+    def scale(self):
+        return self.params['maxi'] - self.params['mini']
+
+    @property
+    def loc(self):
+        return self.params['mini']
+
+    @property
+    def range(self):
+        return(self.params['mini'], self.params['maxi'])
+
+    @property
+    def bounds(self):
+        return self.range
+
+
+def prior_trans(self, unit_coords):
+    """Go from unit cube to parameter space.  Demo function.
+    """	
+    theta = np.zeros(len(unit_coords))
+    for k, sel in list(self.theta_index.items()):
+        func = self._config_dict[k]['prior'].unit_transform
+        # kwargs = self._config_dict[k]['prior_args']
+        theta[sel] = func(unit_coords[sel]) #, **kwargs)
+    return theta
