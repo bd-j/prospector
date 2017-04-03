@@ -180,19 +180,43 @@ class TopHat(Prior):
 
     @property
     def range(self):
-        return(self.params['mini'], self.params['maxi'])
+        return (self.params['mini'], self.params['maxi'])
 
     @property
     def bounds(self):
         return self.range
 
 
+class Normal(Prior):
+
+    prior_params = ['mean', 'sigma']
+    distribution = scipy.stats.norm
+
+    @property
+    def scale(self):
+        return self.params['sigma']
+
+    @property
+    def loc(self):
+        return self.params['mean']
+
+    @property
+    def range(self):
+        nsig = 4
+        return (self.params['mean'] - nsig * self.params['sigma'],
+                self.params['mean'] + self.params['sigma'])
+
+    @property
+    def bounds(self):
+        return None
+
+
 def prior_trans(self, unit_coords):
     """Go from unit cube to parameter space.  Demo function.
     """	
     theta = np.zeros(len(unit_coords))
-    for k, sel in list(self.theta_index.items()):
+    for k, inds in list(self.theta_index.items()):
         func = self._config_dict[k]['prior'].unit_transform
         # kwargs = self._config_dict[k]['prior_args']
-        theta[sel] = func(unit_coords[sel]) #, **kwargs)
+        theta[inds] = func(unit_coords[inds]) #, **kwargs)
     return theta
