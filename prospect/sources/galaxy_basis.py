@@ -162,8 +162,8 @@ class CSPBasis(object):
         # observed frame wavelengths.  Flux array (and maggies) have not been
         # increased by (1+z) due to cosmological redshift
 
+        w = self.csp.wavelengths
         if outwave is not None:
-            w = self.csp.wavelengths
             spec = np.interp(outwave, w, spec)
         else:
             outwave = w
