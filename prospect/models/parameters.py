@@ -8,7 +8,7 @@ __all__ = ["ProspectorParams", "ProspectorParamsHMC"]
 
 param_template = {'name': '', 'N': 1, 'isfree': False,
                   'init': 0.0, 'units': '',
-                  'prior_function_name': None, 'prior_args': None}
+                  'prior_function': None, 'prior_args': None}
 
 
 class ProspectorParams(object):
@@ -62,7 +62,10 @@ class ProspectorParams(object):
         # Check for 'depends_on'
         for par, info in list(self._config_dict.items()):
             self.params[par] = np.atleast_1d(info['init'])
-            self._config_dict[par]['prior'] = self._config_dict[par]['prior_function']
+            try:
+                self._config_dict[par]['prior'] = info['prior_function']
+            except(KeyError):
+                pass
             if info.get('depends_on', None) is not None:
                 self._has_parameter_dependencies = True
         # propogate user supplied values, overriding the configure
@@ -116,7 +119,7 @@ class ProspectorParams(object):
         lnp_prior = 0
         for k, inds in list(self.theta_index.items()):
             func = self._config_dict[k]['prior']
-            kwargs = self._config_dict[k]['prior_args']
+            kwargs = self._config_dict[k].get('prior_args', {})
             this_prior = np.sum(func(theta_inds[inds], **kwargs))
 
             if (not np.isfinite(this_prior)):
@@ -130,7 +133,7 @@ class ProspectorParams(object):
         theta = np.zeros(len(unit_coords))
         for k, inds in list(self.theta_index.items()):
             func = self._config_dict[k]['prior'].unit_transform
-            kwargs = self._config_dict[k]['prior_args']
+            kwargs = self._config_dict[k].get('prior_args', {})
             theta[inds] = func(unit_coords[inds], **kwargs)
         return theta
 
@@ -218,12 +221,12 @@ class ProspectorParams(object):
         """
         bounds = np.zeros([self.ndim, 2])
         for p, inds in list(self.theta_index.items()):
-            kwargs = self._config_dict[p]['prior_args']
+            kwargs = self._config_dict[p].get('prior_args', {})
             try:
                 pb = self._config_dict[p]['prior'].bounds(**kwargs)
             except(AttributeError):
                 # old style
-                priors.plotting_range(self._config_dict[p]['prior_args'])
+                priors.plotting_range(self._config_dict[p].get('prior_args', {}))
             bounds[inds, :] = np.array(pb).T
         # Force types ?
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a, b in bounds]
@@ -291,7 +294,7 @@ class ProspectorParamsHMC(ProspectorParams):
         lnp_prior_grad = np.zeros_like(theta)
         for k, inds in list(self.theta_index.items()):
             grad = self._config_dict[k]['prior'].gradient
-            kwargs = self._config_dict[k]['prior_args']
+            kwargs = self._config_dict[k].get('prior_args', {})
             lnp_prior_grad[inds] = grad(theta[inds], **kwargs)
         return lnp_prior_grad
 

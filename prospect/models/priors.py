@@ -1,5 +1,6 @@
 # Module containg various functions to be used as priors
 import numpy as np
+import scipy.stats
 
 __all__ = ["normal", "tophat", "normal_clipped", "positive",
            "lognormal", "logarithmic",
