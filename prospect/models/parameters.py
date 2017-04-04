@@ -57,9 +57,12 @@ class ProspectorParams(object):
             self.params = {}
         self._config_dict = plist_to_pdict(self.config_list)
         self.map_theta()
-        # propogate initial parameter values from the configure dictionary
+        # Propogate initial parameter values from the configure dictionary
+        # Populate the 'prior' key of the configure dictionary
+        # Check for 'depends_on'
         for par, info in list(self._config_dict.items()):
             self.params[par] = np.atleast_1d(info['init'])
+            self._config_dict[par]['prior'] = self._config_dict[par]['prior_function']
             if info.get('depends_on', None) is not None:
                 self._has_parameter_dependencies = True
         # propogate user supplied values, overriding the configure
@@ -91,12 +94,14 @@ class ProspectorParams(object):
             self.params[k] = np.atleast_1d(theta[inds])
         self.propagate_parameter_dependencies()
 
-    def prior_product(self, theta):
+    def prior_product(self, theta, nested=False, **extras):
         """Public version of _prior_product to be overridden by subclasses
         """
+        if nested:
+            return 0.0
         return self._prior_product(theta)
 
-    def _prior_product(self, theta):
+    def _prior_product(self, theta, verbose=False, **extras):
         """Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the prior
         functions are defined in the theta descriptor.
@@ -110,13 +115,24 @@ class ProspectorParams(object):
         """
         lnp_prior = 0
         for k, inds in list(self.theta_index.items()):
-            this_prior = np.sum(self._config_dict[k]['prior_function']
-                                (theta[inds], **self._config_dict[k]['prior_args']))
+            func = self._config_dict[k]['prior']
+            kwargs = self._config_dict[k]['prior_args']
+            this_prior = np.sum(func(theta_inds[inds], **kwargs))
 
             if (not np.isfinite(this_prior)):
                 print('WARNING: ' + k + ' is out of bounds')
             lnp_prior += this_prior
         return lnp_prior
+
+    def prior_transform(self, unit_coords):
+        """Go from unit cube to parameter space, for nested sampling.
+        """
+        theta = np.zeros(len(unit_coords))
+        for k, inds in list(self.theta_index.items()):
+            func = self._config_dict[k]['prior'].unit_transform
+            kwargs = self._config_dict[k]['prior_args']
+            theta[inds] = func(unit_coords[inds], **kwargs)
+        return theta
 
     def propagate_parameter_dependencies(self):
         """Propogate any parameter dependecies. That is, for parameters whose
@@ -190,12 +206,6 @@ class ProspectorParams(object):
                     index.append(inds.start+i)
         return [l for (i, l) in sorted(zip(index, label))]
 
-    def info(self, par):
-        pass
-
-    def reconfigure(self, par, config):
-        pass
-
     def write_json(self, filename):
         pass
 
@@ -206,19 +216,16 @@ class ProspectorParams(object):
             A list of length self.ndim of tuples (lo, hi) giving the parameter
             bounds.
         """
-        bounds = self.ndim * [(0., 0.)]
+        bounds = np.zeros([self.ndim, 2])
         for p, inds in list(self.theta_index.items()):
-            sz = inds.stop - inds.start
-            pb = priors.plotting_range(self._config_dict[p]['prior_args'])
-            if sz == 1:
-                bounds[inds] = pb
-            else:
-                for k in range(sz):
-                    try:
-                        bounds[inds.start + k] = (pb[0][k], pb[1][k])
-                    except(TypeError, IndexError):
-                        bounds[inds.start + k] = (pb[0], pb[1])
-        # Force types
+            kwargs = self._config_dict[p]['prior_args']
+            try:
+                pb = self._config_dict[p]['prior'].bounds(**kwargs)
+            except(AttributeError):
+                # old style
+                priors.plotting_range(self._config_dict[p]['prior_args'])
+            bounds[inds, :] = np.array(pb).T
+        # Force types ?
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a, b in bounds]
         return bounds
 
@@ -283,8 +290,9 @@ class ProspectorParamsHMC(ProspectorParams):
         """
         lnp_prior_grad = np.zeros_like(theta)
         for k, inds in list(self.theta_index.items()):
-            lnp_prior_grad[inds] = (self._config_dict[k]['prior_gradient_function']
-                                          (theta[inds], **self._config_dict[k]['prior_args']))
+            grad = self._config_dict[k]['prior'].gradient
+            kwargs = self._config_dict[k]['prior_args']
+            lnp_prior_grad[inds] = grad(theta[inds], **kwargs)
         return lnp_prior_grad
 
     def check_constrained(self, theta):

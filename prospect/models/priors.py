@@ -83,7 +83,7 @@ def plotting_range(prior_args):
 
 class Prior(object):
     """Encapsulate the priors in an object.  Each prior should have a
-    distrinution name and optional parameters specifying scale and location
+    distribution name and optional parameters specifying scale and location
     (e.g. min/max or mean/sigma).  These can be aliased. When called, the
     argument should be a variable and it should return the ln-prior-probability
     of that value.
@@ -182,8 +182,9 @@ class TopHat(Prior):
     def range(self):
         return (self.params['mini'], self.params['maxi'])
 
-    @property
-    def bounds(self):
+    def bounds(self, **kwargs):
+        if len(kwargs) > 0:
+            self.update(**kwargs)
         return self.range
 
 
@@ -206,17 +207,7 @@ class Normal(Prior):
         return (self.params['mean'] - nsig * self.params['sigma'],
                 self.params['mean'] + self.params['sigma'])
 
-    @property
-    def bounds(self):
-        return None
-
-
-def prior_trans(self, unit_coords):
-    """Go from unit cube to parameter space.  Demo function.
-    """	
-    theta = np.zeros(len(unit_coords))
-    for k, inds in list(self.theta_index.items()):
-        func = self._config_dict[k]['prior'].unit_transform
-        # kwargs = self._config_dict[k]['prior_args']
-        theta[inds] = func(unit_coords[inds]) #, **kwargs)
-    return theta
+    def bounds(self, **kwargs):
+        #if len(kwargs) > 0:
+        #    self.update(**kwargs)
+        return (-np.inf, np.inf)
