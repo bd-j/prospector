@@ -1,29 +1,19 @@
-# Module containg various functions to be used as priors
+# Module containg various functions (or objects) to be used as priors.
+# These return the ln-prior-probability
 import numpy as np
 import scipy.stats
 
-__all__ = ["normal", "tophat", "normal_clipped", "positive",
-           "lognormal", "logarithmic",
-           "plotting_range"]
+__all__ = ["normal", "tophat", "normal_clipped", "lognormal", "logarithmic",
+           "plotting_range",
+           "Prior", "TopHat", "Normal"]
 
 
 def zeros(theta, **extras):
     return np.zeros_like(theta)
 
 
-def positive(theta, **extras):
-    """
-    Require that a parameter be positive.
-    """
-    p = 1.0 * np.zeros_like(theta)
-    n = theta < 0
-    p[n] = -np.infty
-    return p
-
-
 def tophat(theta, mini=0.0, maxi=1.0, **extras):
-    """
-    A simple tophat function.  Input can be scalar or matched vectors
+    """A simple tophat function.  Input can be scalar or matched vectors
     """
     lnp = 1.0 * np.zeros_like(theta)
     n = (theta < mini) | (theta > maxi)
@@ -32,15 +22,13 @@ def tophat(theta, mini=0.0, maxi=1.0, **extras):
 
 
 def normal(theta, mean=0.0, sigma=1.0, **extras):
-    """
-    A simple gaussian.  should make sure it can be vectorized.
+    """A simple gaussian.  should make sure it can be vectorized.
     """
     return np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)
 
 
 def normal_clipped(theta, mean=0.0, sigma=1.0, mini=0.0, maxi=1.0, **extras):
-    """
-    A clipped gaussian.
+    """A clipped gaussian.
     """
     lnp = np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)
     n = (theta < mini) | (theta > maxi)
@@ -50,8 +38,7 @@ def normal_clipped(theta, mean=0.0, sigma=1.0, mini=0.0, maxi=1.0, **extras):
 
 
 def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
-    """
-    A lognormal  gaussian.  should make sure it can be vectorized.
+    """A lognormal  gaussian.  should make sure it can be vectorized.
     """
     if np.all(theta > 0):
         return ( np.log((2*np.pi)**(-0.5)/(theta*sigma)) -
@@ -95,11 +82,12 @@ class Prior(object):
     """
 
     def __init__(self, parnames=[], name='', **kwargs):
-        """
+        """Constructor.
+
         :param parnames:
-            A list of names of the parameters params, used to alias the intrinsic
+            A list of names of the parameters, used to alias the intrinsic
             parameter names.  This way different instances of the same Prior
-            can (must) have different parameter names.
+            can have different parameter names, in case they are being fit for....
         """
         if len(parnames) == 0:
             parnames = self.prior_params
@@ -111,7 +99,7 @@ class Prior(object):
         self.update(**kwargs)
 
     def update(self, **kwargs):
-        """
+        """Update `params` values using alias.
         """
         for k in self.prior_params:
             try:

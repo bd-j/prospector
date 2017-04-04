@@ -2,7 +2,10 @@ import sys
 import numpy as np
 from numpy.random import normal, multivariate_normal
 
-import emcee
+try:
+    import emcee
+except(ImportError):
+    pass
 
 from ..models.priors import plotting_range
 
