@@ -1,28 +1,19 @@
-# Module containg various functions to be used as priors
+# Module containg various functions (or objects) to be used as priors.
+# These return the ln-prior-probability
 import numpy as np
+import scipy.stats
 
-__all__ = ["normal", "tophat", "normal_clipped", "positive",
-           "lognormal", "logarithmic",
-           "plotting_range"]
+__all__ = ["normal", "tophat", "normal_clipped", "lognormal", "logarithmic",
+           "plotting_range",
+           "Prior", "TopHat", "Normal"]
 
 
 def zeros(theta, **extras):
     return np.zeros_like(theta)
 
 
-def positive(theta, **extras):
-    """
-    Require that a parameter be positive.
-    """
-    p = 1.0 * np.zeros_like(theta)
-    n = theta < 0
-    p[n] = -np.infty
-    return p
-
-
 def tophat(theta, mini=0.0, maxi=1.0, **extras):
-    """
-    A simple tophat function.  Input can be scalar or matched vectors
+    """A simple tophat function.  Input can be scalar or matched vectors
     """
     lnp = 1.0 * np.zeros_like(theta)
     n = (theta < mini) | (theta > maxi)
@@ -31,15 +22,13 @@ def tophat(theta, mini=0.0, maxi=1.0, **extras):
 
 
 def normal(theta, mean=0.0, sigma=1.0, **extras):
-    """
-    A simple gaussian.  should make sure it can be vectorized.
+    """A simple gaussian.  should make sure it can be vectorized.
     """
     return np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)
 
 
 def normal_clipped(theta, mean=0.0, sigma=1.0, mini=0.0, maxi=1.0, **extras):
-    """
-    A clipped gaussian.
+    """A clipped gaussian.
     """
     lnp = np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)
     n = (theta < mini) | (theta > maxi)
@@ -49,8 +38,7 @@ def normal_clipped(theta, mean=0.0, sigma=1.0, mini=0.0, maxi=1.0, **extras):
 
 
 def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
-    """
-    A lognormal  gaussian.  should make sure it can be vectorized.
+    """A lognormal  gaussian.  should make sure it can be vectorized.
     """
     if np.all(theta > 0):
         return ( np.log((2*np.pi)**(-0.5)/(theta*sigma)) -
@@ -82,38 +70,133 @@ def plotting_range(prior_args):
 
 
 class Prior(object):
-    """
-    Encapsulate the priors in an object.  On initialization each prior
-    should have a function name and optional parameters specifiyfy
-    scale and location passed (e.g. min/max or mean/sigma).  When
-    called, the argument should be a variable and it should return the
-    prior probability of that value.  One should be able to sample
-    from the prior, and to get the gradient of the prior at any
-    variable value.  Methods should also be avilable to give a useful
-    plotting range and, if there are bounds, to return them.
+    """Encapsulate the priors in an object.  Each prior should have a
+    distribution name and optional parameters specifying scale and location
+    (e.g. min/max or mean/sigma).  These can be aliased. When called, the
+    argument should be a variable and it should return the ln-prior-probability
+    of that value.
+
+    Should be able to sample from the prior, and to get the gradient of the
+    prior at any variable value.  Methods should also be avilable to give a
+    useful plotting range and, if there are bounds, to return them.
     """
 
-    def __init__(self, kind, *args, **kwargs):
-        self._function = function[kind]
-        self.args = args
-        self.kwargs = kwargs
-        self._gradient = gradient[kind]
+    def __init__(self, parnames=[], name='', **kwargs):
+        """Constructor.
+
+        :param parnames:
+            A list of names of the parameters, used to alias the intrinsic
+            parameter names.  This way different instances of the same Prior
+            can have different parameter names, in case they are being fit for....
+        """
+        if len(parnames) == 0:
+            parnames = self.prior_params
+        assert len(parnames) == len(self.prior_params)
+        self.alias = dict(zip(self.prior_params, parnames))
+        self.params = {}
+
+        self.name = name
+        self.update(**kwargs)
+
+    def update(self, **kwargs):
+        """Update `params` values using alias.
+        """
+        for k in self.prior_params:
+            try:
+                self.params[k] = kwargs[self.alias[k]]
+            except(KeyError):
+                pass
+
+    def __call__(self, x, **kwargs):
+        """Compute the value of the probability desnity function at x and
+        return the ln of that.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        p = self.distribution.pdf(x, loc=self.loc, scale=self.scale)
+        return np.log(p)
         
-    def __call__(self, theta):
-        return self._function(theta, *self.args, **self.kwargs)
-    
-    def sample(self, nsample):
-        return self._sampler(nsample)
-    
+    def sample(self, nsample, **kwargs):
+        """Draw nsample values from the prior distribution.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.distribution.rvs(size=nsample, loc=self.loc, scale=self.scale)
+
+    def unit_transform(self, x, **kwargs):
+        """Go from a value of the CDF (between 0 and 1) to the corresponding
+        parameter value.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.distribution.ppf(x, loc=self.loc, scale=self.scale)
+
+    def inverse_unit_transform(self, x, **kwargs):
+        """Go from the parameter value to the unit coordinate using the cdf.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.distribution.cdf(x, loc=self.loc, scale=self.scale)
+        
+        
     def gradient(self, theta):
-        return self._gradient(theta, *self.args, **self.kwargs)
-    
+        raise(NotImplementedError)
+
+    @property
     def range(self):
-        pass
-    
+        raise(NotImplementedError)
+
     @property
     def bounds(self):
-        pass
+        raise(NotImplementedError)
 
     def serialize(self):
-        pass
+        raise(NotImplementedError)
+
+
+class TopHat(Prior):
+
+    prior_params = ['mini', 'maxi']
+    distribution = scipy.stats.uniform
+
+    @property
+    def scale(self):
+        return self.params['maxi'] - self.params['mini']
+
+    @property
+    def loc(self):
+        return self.params['mini']
+
+    @property
+    def range(self):
+        return (self.params['mini'], self.params['maxi'])
+
+    def bounds(self, **kwargs):
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.range
+
+
+class Normal(Prior):
+
+    prior_params = ['mean', 'sigma']
+    distribution = scipy.stats.norm
+
+    @property
+    def scale(self):
+        return self.params['sigma']
+
+    @property
+    def loc(self):
+        return self.params['mean']
+
+    @property
+    def range(self):
+        nsig = 4
+        return (self.params['mean'] - nsig * self.params['sigma'],
+                self.params['mean'] + self.params['sigma'])
+
+    def bounds(self, **kwargs):
+        #if len(kwargs) > 0:
+        #    self.update(**kwargs)
+        return (-np.inf, np.inf)

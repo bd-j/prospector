@@ -1,9 +1,17 @@
 import numpy as np
+from numpy.random import normal, multivariate_normal
 from scipy.optimize import minimize
+
+from ..models.priors import plotting_range
+
 try:
     import multiprocessing
 except ImportError:
     pass
+
+
+__all__ = ["Pminimize", "pminimize", "minimizer_ball", "reinitialize"]
+
 
 class Pminimize(object):
     """
@@ -110,3 +118,83 @@ class _minimize_wrapper(object):
             print("  exception:")
             traceback.print_exc()
             raise
+
+
+def pminimize(chi2fn, initial, args=None, model=None,
+              method='powell', opts=None,
+              pool=None, nthreads=1):
+    """Do as many minimizations as you have threads, in parallel.  Always use
+    initial_center for one of the minimization streams, the rest will be
+    sampled from the prior for each parameter.  Returns each of the
+    minimization result dictionaries, as well as the starting positions.
+    """
+    # Instantiate the minimizer
+    mini = Pminimize(chi2fn, args, opts,
+                     method=method, pool=pool, nthreads=1)
+    size = mini.size
+    pinitial = minimizer_ball(initial, size, model)
+    powell_guesses = mini.run(pinitial)
+
+    return [powell_guesses, pinitial]
+
+
+def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
+                 **extras):
+    """Check if the Powell minimization found a minimum close to the edge of
+    the prior for any parameter. If so, reinitialize to the center of the
+    prior.
+
+    This is only done for parameters where ``'reinit':True`` in the model
+    configuration dictionary, or for parameters in the supplied
+    ``reinit_params`` list.
+
+    :param buest_guess:
+        The result of some sort of optimization step, iterable of length
+        model.ndim.
+
+    :param model:
+        A ..models.parameters.ProspectorParams() object.
+
+    :param edge_trunc: (optional, default 0.1)
+        The fractional distance from the edge of the priors that triggers
+        reinitialization.
+
+    :param reinit_params: optional
+        A list of model parameter names to reinitialize, overrides the value or
+        presence of the ``reinit`` key in the model configuration dictionary.
+
+    :returns output:
+        The best_guess with parameters near the edge reset to be at the center
+        of the prior.  ndarray of shape (ndim,)
+    """
+    edge = edge_trunc
+    bounds = model.theta_bounds()
+    output = np.array(best_guess)
+    reinit = np.zeros(model.ndim, dtype=bool)
+    for p, inds in list(model.theta_index.items()):
+        reinit[inds] = (model._config_dict[p].get('reinit', False) or
+                        (p in reinit_params))
+
+    for k, (guess, bound) in enumerate(zip(best_guess, bounds)):
+        # Normalize the guess and the bounds
+        prange = bound[1] - bound[0]
+        g, b = guess/prange, bound/prange
+        if ((g - b[0] < edge) or (b[1] - g < edge)) and (reinit[k]):
+            output[k] = b[0] + prange/2
+    return output
+
+
+def minimizer_ball(center, nminimizers, model):
+    """Setup a 'grid' of parameter values uniformly distributed between min and
+    max More generally, this should sample from the prior for each parameter.
+    """
+    size = nminimizers
+    pinitial = [center]
+    if size > 1:
+        ginitial = np.zeros([size - 1, model.ndim])
+        for p, inds in list(model.theta_index.items()):
+            lo, hi = plotting_range(model._config_dict[p]['prior_args'])
+            ginitial[:, inds] = np.array([np.random.uniform(l, h, size - 1)
+                                          for l, h in zip(lo, hi)]).T
+        pinitial += ginitial.tolist()
+    return pinitial
