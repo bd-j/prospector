@@ -64,7 +64,7 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     if obs is None:
         obs = global_obs
 
-    lnp_prior = model.prior_product(theta)
+    lnp_prior = model.prior_product(theta, nested=True)
     if np.isfinite(lnp_prior):
         # Generate mean model
         t1 = time.time()

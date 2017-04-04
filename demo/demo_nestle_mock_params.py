@@ -15,10 +15,11 @@ run_params = {'verbose':True,
               'debug':False,
               'outfile':'output/demo_nestle_mock',
               # Fitter parameters
+              'nestle_method': 'single',
               'nestle_npoints': 200,
+              'nestle_maxcall': int(1e6),
               'do_powell': True,
               'ftol':0.5e-5, 'maxfev':5000,
-              'initial_disp':0.1,
               # Mock data parameters
               'snr': 20.0,
               'add_noise': False,
