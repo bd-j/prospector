@@ -9,11 +9,12 @@ except(ImportError):
 
 __all__ = ["run_nestle_sampler"]
 
-def run_nestle_sampler(lnprobf, model, verbose=True, callback=None,
+def run_nestle_sampler(lnprobfn, model, verbose=True, callback=None,
                        nestle_method='single', nestle_npoints=200,
                        **kwargs):
 
 
-    result = nestle.sample(lnpostfn, model.prior_transform, model.ndim,
-                           method=nestle_method, npoints=nestle_npoints)
+    result = nestle.sample(lnprobfn, model.prior_transform, model.ndim,
+                           method=nestle_method, npoints=nestle_npoints,
+                           callback=nestle.print_progress, maxcall=int(1e6))
     return result

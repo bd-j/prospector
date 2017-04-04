@@ -172,8 +172,8 @@ def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
     output = np.array(best_guess)
     reinit = np.zeros(model.ndim, dtype=bool)
     for p, inds in list(model.theta_index.items()):
-        reinit[inds[0]:inds[1]] = (model._config_dict[p].get('reinit', False) or
-                                   (p in reinit_params))
+        reinit[inds] = (model._config_dict[p].get('reinit', False) or
+                        (p in reinit_params))
 
     for k, (guess, bound) in enumerate(zip(best_guess, bounds)):
         # Normalize the guess and the bounds

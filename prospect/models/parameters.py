@@ -120,7 +120,7 @@ class ProspectorParams(object):
         for k, inds in list(self.theta_index.items()):
             func = self._config_dict[k]['prior']
             kwargs = self._config_dict[k].get('prior_args', {})
-            this_prior = np.sum(func(theta_inds[inds], **kwargs))
+            this_prior = np.sum(func(theta[inds], **kwargs))
 
             if (not np.isfinite(this_prior)):
                 print('WARNING: ' + k + ' is out of bounds')
@@ -226,7 +226,7 @@ class ProspectorParams(object):
                 pb = self._config_dict[p]['prior'].bounds(**kwargs)
             except(AttributeError):
                 # old style
-                priors.plotting_range(self._config_dict[p].get('prior_args', {}))
+                pb = priors.plotting_range(self._config_dict[p]['prior_args'])
             bounds[inds, :] = np.array(pb).T
         # Force types ?
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a, b in bounds]
