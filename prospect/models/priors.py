@@ -113,7 +113,7 @@ class Prior(object):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        p = self.distribution.pdf(x, loc=self.loc, scale=self.scale)
+        p = self.distribution.pdf(x, *self.args, loc=self.loc, scale=self.scale)
         return np.log(p)
         
     def sample(self, nsample, **kwargs):
@@ -121,7 +121,7 @@ class Prior(object):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        return self.distribution.rvs(size=nsample, loc=self.loc, scale=self.scale)
+        return self.distribution.rvs(*self.args, size=nsample, loc=self.loc, scale=self.scale)
 
     def unit_transform(self, x, **kwargs):
         """Go from a value of the CDF (between 0 and 1) to the corresponding
@@ -129,19 +129,35 @@ class Prior(object):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        return self.distribution.ppf(x, loc=self.loc, scale=self.scale)
+        return self.distribution.ppf(x, *self.args, loc=self.loc, scale=self.scale)
 
     def inverse_unit_transform(self, x, **kwargs):
         """Go from the parameter value to the unit coordinate using the cdf.
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        return self.distribution.cdf(x, loc=self.loc, scale=self.scale)
+        return self.distribution.cdf(x, *self.args, loc=self.loc, scale=self.scale)
         
         
     def gradient(self, theta):
         raise(NotImplementedError)
 
+    @property
+    def loc(self):
+        """This should be overridden.
+        """
+        return 0
+
+    @property
+    def scale(self):
+        """This should be overridden.
+        """
+        return 1
+
+    @property
+    def args(self):
+        return []
+    
     @property
     def range(self):
         raise(NotImplementedError)
@@ -200,3 +216,32 @@ class Normal(Prior):
         #if len(kwargs) > 0:
         #    self.update(**kwargs)
         return (-np.inf, np.inf)
+
+
+class ClippedNormal(Prior):
+
+    prior_params = ['mean', 'sigma', 'mini', 'maxi']
+    distribution = scipy.stats.truncnorm
+
+    @property
+    def scale(self):
+        return self.params['sigma']
+
+    @property
+    def loc(self):
+        return self.params['mean']
+
+    @property
+    def range(self):
+        return (self.params['mini'], self.params['maxi'])
+
+    @property
+    def args(self):
+        a = (self.params['mini'] - self.params['mean']) / self.params['sigma']
+        b = (self.params['maxi'] - self.params['mean']) / self.params['sigma']
+        return [a, b]
+    
+    def bounds(self, **kwargs):
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.range

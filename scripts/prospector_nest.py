@@ -95,6 +95,7 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     else:
         return -np.infty
 
+
 if __name__ == "__main__":
 
     rp = run_params
@@ -112,4 +113,11 @@ if __name__ == "__main__":
     out = fitting.run_nestle_sampler(lnprobfn, model, **rp)
     dur = time.time() - tstart
     if rp['verbose']:
-        print('done emcee in {0}s'.format(dur))
+        print('done nestle in {0}s'.format(dur))
+
+    # -------
+    # Write out
+    # --------
+    import pickle
+    with open(rp['outfile'] + '_mc.pkl', 'w') as f:
+        pickle.dump(out, f)

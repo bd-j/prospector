@@ -101,6 +101,10 @@ def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
                 mod = pickle.load(mf)
 
         model = mod['model']
+
+        for k, v in list(model.theta_index.items()):
+            if type(v) is tuple:
+                model.theta_index[k] = slice(*v)
         powell_results = mod['powell']
 
     return model, powell_results
