@@ -160,12 +160,13 @@ if __name__ == "__main__":
     if (not os.path.exists(odir)):
         halt('Target output directory {} does not exist, please make it.'.format(odir))
     try:
+        import h5py
         hfilename = outroot + '_mcmc.h5'
         hfile = h5py.File(hfilename, "a")
         print("Writing to file {}".format(hfilename))
         write_results.write_h5_header(hfile, run_params, model)
-        write_results.write_obs_to_h5(hfile, obs)
-    except:
+        write_results.write_obs_to_h5(hfile, obsdat)
+    except(ImportError):
         hfile = None
         
     # -----------------------------------------
