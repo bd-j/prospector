@@ -113,7 +113,8 @@ class Prior(object):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        p = self.distribution.pdf(x, *self.args, loc=self.loc, scale=self.scale)
+        p = self.distribution.pdf(x, *self.args,
+                                  loc=self.loc, scale=self.scale)
         return np.log(p)
         
     def sample(self, nsample, **kwargs):
@@ -121,7 +122,8 @@ class Prior(object):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        return self.distribution.rvs(*self.args, size=nsample, loc=self.loc, scale=self.scale)
+        return self.distribution.rvs(*self.args, size=nsample,
+                                     loc=self.loc, scale=self.scale)
 
     def unit_transform(self, x, **kwargs):
         """Go from a value of the CDF (between 0 and 1) to the corresponding
@@ -129,16 +131,17 @@ class Prior(object):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        return self.distribution.ppf(x, *self.args, loc=self.loc, scale=self.scale)
+        return self.distribution.ppf(x, *self.args,
+                                     loc=self.loc, scale=self.scale)
 
     def inverse_unit_transform(self, x, **kwargs):
         """Go from the parameter value to the unit coordinate using the cdf.
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        return self.distribution.cdf(x, *self.args, loc=self.loc, scale=self.scale)
-        
-        
+        return self.distribution.cdf(x, *self.args,
+                                     loc=self.loc, scale=self.scale)
+
     def gradient(self, theta):
         raise(NotImplementedError)
 
@@ -245,3 +248,37 @@ class ClippedNormal(Prior):
         if len(kwargs) > 0:
             self.update(**kwargs)
         return self.range
+
+
+class LogUniform(Prior):
+
+    """Like log-normal, but the distribution of ln of the variable is
+    distributed uniformly instead of normally.
+    """
+    prior_params = ['mini', 'maxi']
+    distribution = scipy.stats.reciprocal
+
+    
+    @property
+    def args(self):
+        a = self.params['mini']
+        b = self.params['maxi']
+        return [a, b]
+
+
+class LogNormal(Prior):
+
+    prior_params = ['mode', 'sigma']
+    distribution = scipy.stats.lognorm
+
+    @property
+    def args(self):
+        pass
+
+    @property
+    def scale(self):
+        pass
+
+    @property
+    def loc(self):
+        pass
