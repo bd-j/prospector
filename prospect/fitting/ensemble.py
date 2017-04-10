@@ -7,8 +7,6 @@ try:
 except(ImportError):
     pass
 
-from ..models.priors import plotting_range
-
 
 __all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball",
            "emcee_burn"]

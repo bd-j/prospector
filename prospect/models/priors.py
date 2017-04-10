@@ -107,9 +107,27 @@ class Prior(object):
             except(KeyError):
                 pass
 
+    def __len__(self):
+        """The length is set by the maximum sizeof any of the prior_params.
+        Note that the prior params must therefore be scalar of same length as
+        the maximum size of any of the parameters.  This is not checked.
+        """
+        return max([np.size(self.params[k]) for k in self.prior_params])
+
     def __call__(self, x, **kwargs):
         """Compute the value of the probability desnity function at x and
         return the ln of that.
+
+        :param x:
+            Value of the parameter, scalar or iterable of same length as the
+            Prior object.
+
+        :param kwargs: optional
+            All extra keyword arguments are sued to update the `prior_params`.
+
+        :returns lnp:
+            The natural log of the prior probability at x, scalar or ndarray of
+            same length as the prior object.
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
@@ -117,17 +135,28 @@ class Prior(object):
                                   loc=self.loc, scale=self.scale)
         return np.log(p)
         
-    def sample(self, nsample, **kwargs):
-        """Draw nsample values from the prior distribution.
+    def sample(self, nsample=None, **kwargs):
+        """Draw a sample from the prior distribution.
+
+        :param nsample: (optional)
+            Unused
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        return self.distribution.rvs(*self.args, size=nsample,
+        return self.distribution.rvs(*self.args, size=len(self),
                                      loc=self.loc, scale=self.scale)
 
     def unit_transform(self, x, **kwargs):
         """Go from a value of the CDF (between 0 and 1) to the corresponding
         parameter value.
+
+        :param x:
+            A scalar or vector of same length as the Prior with values between
+            zero and one corresponding to the value of the CDF.
+
+        :returns theta:
+            The parameter value corresponding to the value of the CDF given by
+            `x`.
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
