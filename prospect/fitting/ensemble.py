@@ -7,6 +7,8 @@ try:
 except(ImportError):
     pass
 
+from ..models.priors import plotting_range
+from .convergence import convergence_check
 
 __all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball",
            "emcee_burn"]
@@ -17,6 +19,8 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                       nwalkers=None, nburn=[16], niter=32,
                       walker_factor=4,
                       nthreads=1, pool=None, hdf5=None, interval=1,
+                      convergence_check_interval=None, convergence_chunks=325,
+                      convergence_stable_points_criteria=3,
                       **kwargs):
     """Run an emcee sampler, including iterations of burn-in and re -
     initialization.  Returns the production sampler.
@@ -59,6 +63,18 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
     :param interval:
         Fraction of the full run at which to flush to disk, if using hdf5 for
         output.
+
+    :param convergence_check_interval:
+        How often to assess convergence, in number of iterations. If this is set,
+        then the KL convergence test is run.
+
+    :param convergence_chunks:
+        The number of iterations to combine when creating the marginalized
+        parameter probability functions.
+
+    :param convergence_stable_points_criteria:
+        The number of stable convergence checks that the chain must pass before being
+        declared stable.
     """
     # Get dimensions
     ndim = model.ndim
@@ -76,11 +92,23 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                                            prob0=prob0, verbose=verbose, **kwargs)
     # Production run
     esampler.reset()
+
     if hdf5 is not None:
         # Set up hdf5 backend
         sdat = hdf5.create_group('sampling')
-        chain = sdat.create_dataset("chain", (nwalkers, niter, ndim))
-        lnpout = sdat.create_dataset("lnprobability", (nwalkers, niter))
+        nfirstcheck = 2*convergence_chunks + convergence_check_interval*(convergence_stable_points_criteria-1)
+        if convergence_check_interval is None: # static variables
+            chain = sdat.create_dataset("chain", (nwalkers, niter, ndim))
+            lnpout = sdat.create_dataset("lnprobability", (nwalkers, niter))
+        else: # dynamic variables
+            chain = sdat.create_dataset('chain', (nwalkers, nfirstcheck, ndim),
+                                        maxshape=(nwalkers, None, ndim))
+            lnpout = sdat.create_dataset('lnprobability', (nwalkers, nfirstcheck),
+                                        maxshape=(nwalkers, None))
+            kl = sdat.create_dataset('kl_divergence', (convergence_stable_points_criteria, ndim),
+                                      maxshape=(None, ndim))
+            kl_iter = sdat.create_dataset('kl_iteration', (convergence_stable_points_criteria,), maxshape=(None,))
+
         # blob = hdf5.create_dataset("blob")
         storechain = False
     else:
@@ -94,6 +122,35 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         if hdf5 is not None:
             chain[:, i, :] = result[0]
             lnpout[:, i] = result[1]
+
+            if (convergence_check_interval != None) and \
+               (i+1 >= nfirstcheck) and \
+               ((i+1 - nfirstcheck) % convergence_check_interval == 0):
+
+                if verbose:
+                    print('checking convergence on iteration {0}').format(i+1) 
+                converge_flag, info = convergence_check(chain, convergence_check_interval=convergence_check_interval,
+                                                        convergence_stable_points_criteria=convergence_stable_points_criteria,
+                                                        convergence_chunks=convergence_chunks, **kwargs)
+                kl[:, :] = info['kl_test'] 
+                kl_iter[:] = info['iteration']
+                hdf5.flush()
+
+                if converge_flag:
+                    if verbose:
+                        print('converged, ending emcee.')
+                    break
+                else:
+                    if verbose:
+                        print('not converged, continuing.')
+                        print info['kl_test']
+                        print np.all(info['kl_test'] < kwargs['convergence_kl_threshold'],axis=1)
+
+                    chain.resize(chain.shape[1]+convergence_check_interval,axis=1)
+                    lnpout.resize(lnpout.shape[1]+convergence_check_interval,axis=1)
+                    kl.resize(kl.shape[0]+1,axis=0)
+                    kl_iter.resize(kl_iter.shape[0]+1,axis=0)
+
             if (np.mod(i+1, int(interval*niter)) == 0) or (i+1 == niter):
                 # do stuff every once in awhile
                 # this would be the place to put some callback functions
