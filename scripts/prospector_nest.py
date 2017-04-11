@@ -98,26 +98,56 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
 
 if __name__ == "__main__":
 
+    # --------------
+    # Setup
+    # --------------
     rp = run_params
     rp['sys.argv'] = sys.argv
     # Use the globals
     model = global_model
     obsdat = global_obs
 
+    # Try to set up an HDF5 file and write basic info to it
+    outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
+    odir = os.path.dirname(os.path.abspath(outroot))
+    if (not os.path.exists(odir)):
+        halt('Target output directory {} does not exist, please make it.'.format(odir))
+    try:
+        import h5py
+        hfilename = outroot + '_mcmc.h5'
+        hfile = h5py.File(hfilename, "a")
+        print("Writing to file {}".format(hfilename))
+        write_results.write_h5_header(hfile, run_params, model)
+        write_results.write_obs_to_h5(hfile, obsdat)
+    except(ImportError):
+        hfile = None
+    
     # -------
     # Sample
     # -------
     if rp['verbose']:
         print('nestle sampling...')
     tstart = time.time()
-    out = fitting.run_nestle_sampler(lnprobfn, model, **rp)
+    nestleout = fitting.run_nestle_sampler(lnprobfn, model, **rp)
     dur = time.time() - tstart
     if rp['verbose']:
         print('done nestle in {0}s'.format(dur))
 
-    # -------
-    # Write out
-    # --------
+    # -------------------------
+    # Output pickles (and HDF5)
+    # -------------------------
+ 
+    # Write the nestle Result object as a pickle  
     import pickle
-    with open(rp['outfile'] + '_mc.pkl', 'w') as f:
-        pickle.dump(out, f)
+    with open(outroot + '_nmc.pkl', 'w') as f:
+        pickle.dump(nestleout, f)
+    partext = write_results.paramfile_string(**rp)
+    # Write the model as a pickle
+    write_results.write_model_pickle(outroot + '_model', model, powell=None,
+                                     paramfile_text=partext)
+    # Write HDF5
+    if hfile is None:
+        hfile = hfilename
+    write_results.write_hdf5(hfile, rp, model, obsdat, nestleout,
+                             None, tsample=dur)
+    halt('Finished')
