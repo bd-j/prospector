@@ -1,6 +1,6 @@
 from copy import deepcopy
 import numpy as np
-import json
+import json, pickle
 from . import priors
 from ..utils.obsutils import logify_data, norm_spectrum
 
@@ -209,8 +209,8 @@ class ProspectorParams(object):
                     index.append(inds.start+i)
         return [l for (i, l) in sorted(zip(index, label))]
 
-    def write_json(self, filename):
-        pass
+    #def write_json(self, filename):
+    #    pass
 
     def theta_bounds(self):
         """Get the bounds on each parameter from the prior.
@@ -359,8 +359,8 @@ def pdict_to_plist(pdict):
 
 
 def names_to_functions(p):
-    """Replace names of functions in a parameter description with the actual
-    functions.
+    """Replace names of functions (or pickles of objects) in a parameter
+    description with the actual functions (or pickles).
     """
     from importlib import import_module
     for k, v in list(p.items()):
@@ -368,48 +368,24 @@ def names_to_functions(p):
             m = import_module(v[1])
             f = m.__dict__[v[0]]
         except:
-            pass
-        else:
-            p[k] = f
+            try:
+                f = pickle.loads(v)
+            except:
+                f = v
+
+        p[k] = f
+
     return p
 
 
 def functions_to_names(p):
-    """Replace prior and dust functions with the names of those functions.
+    """Replace prior and dust functions (or objects) with the names of those
+    functions (or pickles).
     """
     for k, v in list(p.items()):
         if callable(v):
-            p[k] = [v.__name__, v.__module__]
+            try:
+                p[k] = [v.__name__, v.__module__]
+            except(AttributeError):
+                p[k] = pickle.dumps(v)
     return p
-
-
-def write_plist(plist, runpars, filename=None):
-    """Write the list of parameter dictionaries to a JSON file, taking care to
-    replace functions with their names.
-    """
-    for p in plist:
-        p = functions_to_names(p)
-
-    if filename is not None:
-        runpars['param_file'] = filename
-        f = open(filename + '.bpars.json', 'w')
-        json.dump([runpars, plist], f)
-        f.close()
-    else:
-        return json.dumps([runpars, plist])
-
-
-def read_plist(filename, raw_json=False):
-    """Read a JSON file into a run_param dictionary and a list of model
-    parameter dictionaries, taking care to add actual functions when given
-    their names.
-    """
-    with open(filename, 'r') as f:
-        runpars, modelpars = json.load(f)
-    runpars['param_file'] = filename
-    if raw_json:
-        return runpars, modelpars
-    for p in modelpars:
-        p = names_to_functions(p)
-
-    return runpars, modelpars

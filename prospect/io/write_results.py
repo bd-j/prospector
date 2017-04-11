@@ -142,19 +142,12 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     # ----------------------
     # Sampling info
     try:
-        sdat = hf['sampling']
-    except(KeyError):
-        sdat = hf.create_group('sampling')
-        sdat.create_dataset('chain', data=sampler.chain)
-        sdat.create_dataset('lnprobability', data=sampler.lnprobability)
-    sdat.create_dataset('acceptance', data=sampler.acceptance_fraction)
-    sdat.create_dataset('sampling_initial_center', data=sampling_initial_center)
-    sdat.create_dataset('initial_theta', data=model.initial_theta.copy())
-    # JSON Attrs    
-    sdat.attrs['rstate'] = pickle.dumps(sampler.random_state)
-    sdat.attrs['sampling_duration'] = json.dumps(tsample)
-    sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
-    hf.flush()
+        # emcee
+        a = sampler.acceptance
+        write_emcee_h5(hf, sampler, model, sampling_initial_center)
+    except(AttributeError):
+        # nestle
+        write_nestle_h5(hf, sampler, model)
 
     # ----------------------
     # High level parameter and version info
@@ -175,6 +168,51 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     #if mfile is None:
     #    mfile = hf.name.replace('.h5', '_model')
     #write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
+
+
+def write_emcee_h5(hf, sampler, model, sampling_initial_center):
+    """Write emcee information to the provided HDF5 file in the `sampling`
+    group.
+    """
+    try:
+        sdat = hf['sampling']
+    except(KeyError):
+        sdat = hf.create_group('sampling')
+    if 'chain' not in sdat:
+        sdat.create_dataset('chain', data=sampler.chain)
+        sdat.create_dataset('lnprobability', data=sampler.lnprobability)
+    sdat.create_dataset('acceptance', data=sampler.acceptance_fraction)
+    sdat.create_dataset('sampling_initial_center', data=sampling_initial_center)
+    sdat.create_dataset('initial_theta', data=model.initial_theta.copy())
+    # JSON Attrs    
+    sdat.attrs['rstate'] = pickle.dumps(sampler.random_state)
+    sdat.attrs['sampling_duration'] = json.dumps(tsample)
+    sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
+
+    hf.flush()
+
+
+def write_nestle_h5(hf, nestle_out, model):
+    """Write nestle results to the provided HDF5 file in the `sampling` group.
+    """
+    try:
+        sdat = hf['sampling']
+    except(KeyError):
+        sdat = hf.create_group('sampling')
+    sdat.create_dataset('chain', data=nestle_out['samples'])
+    sdat.create_dataset('weights', data=nestle_out['weights'])
+    sdat.create_dataset('lnprobabilty', data=nestle_out['logl'])
+    sdat.create_dataset('logvol', data=nestle_out['logvol'])
+    sdat.create_dataset('logz', data=np.atleast_1d(nestle_out['logz']))
+    sdat.create_dataset('logzerr', data=np.atleast_1d(nestle_out['logzerr']))
+    sdat.create_dataset('h_information', data=np.atleast_1d(nestle_out['h']))
+
+    # JSON Attrs    
+    for p in ['niter', 'ncall']:
+        sdat.attrs[p] = json.dumps(nestle_out[p])
+    sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
+
+    hf.flush()
 
 
 def write_h5_header(hf, run_params, model):

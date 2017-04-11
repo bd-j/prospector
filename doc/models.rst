@@ -33,9 +33,11 @@ For parameters with ``"isfree": True`` the following additional keys of the dict
 
 ``"init_disp"``
     The dispersion in this parameter to use when generating an emcee sampler ball.  This is not technically required, as defaults 
-Prior functions can be found in the ``priors`` module.
 
-You should also have
+Prior functions can be found in the ``priors`` module.
+If you're using object priors it is also possible to replace the ``"prior_function"``  and ``"prior_args"`` keys with a single ``"prior"`` key with a value of, e.g. ``TopHat(mini=0, maxi=100)``.
+
+
 It's also a good idea to have a ``"units"`` key, a string describing the units of the the parameter.
 
 
@@ -77,5 +79,5 @@ and sent to other processors.
 The ``load_gp()`` function
 -------------------------------------
 
-This function should return a GaussianProcess object for the spectroscopy or photometry.
+This function should return a NoiseModel object for the spectroscopy or photometry.
 Either or both can be ``None`` in which case the likelihood will not include covariant noise.

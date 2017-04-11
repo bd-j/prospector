@@ -2,8 +2,6 @@ import numpy as np
 from numpy.random import normal, multivariate_normal
 from scipy.optimize import minimize
 
-from ..models.priors import plotting_range
-
 try:
     import multiprocessing
 except ImportError:
@@ -192,9 +190,21 @@ def minimizer_ball(center, nminimizers, model):
     pinitial = [center]
     if size > 1:
         ginitial = np.zeros([size - 1, model.ndim])
+        for i, (lo, hi) in enumerate(model.theta_bounds()): # this is a dumb loop to have
+            ginitial[:, i] = np.random.uniform(lo, hi, size - 1)
+        pinitial += ginitial.tolist()
+    return pinitial
+
+
+def minimizer_ball_fromprior(center, nminimizers, model):
+    """Draw initial values from the (1d, separable, independent) priors for
+    each parameter.  Requires that priors have the `sample` method available.
+    """
+    pinitial = [center]
+    if size > 1:
+        ginitial = np.zeros([size - 1, model.ndim])
         for p, inds in list(model.theta_index.items()):
-            lo, hi = plotting_range(model._config_dict[p]['prior_args'])
-            ginitial[:, inds] = np.array([np.random.uniform(l, h, size - 1)
-                                          for l, h in zip(lo, hi)]).T
+            for j in range(size-1):
+                ginitial[j, inds] = model._config_dict[p]['prior'].sample()
         pinitial += ginitial.tolist()
     return pinitial
