@@ -134,7 +134,7 @@ def emcee_burn(sampler, initial_center, nburn, model=None, prob0=None,
         # Find best walker position
         best = sampler.flatlnprobability.argmax()
         # Is new position better than old position?
-        if sampler.flatlnprobability[best] > prob0:
+        if prob0 is None or sampler.flatlnprobability[best] > prob0:
             prob0 = sampler.flatlnprobability[best]
             initial_center = sampler.flatchain[best, :]
         if k == len(nburn):
