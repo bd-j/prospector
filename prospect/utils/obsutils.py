@@ -36,7 +36,7 @@ def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
         if grid_filters:
             wlo, whi, dlo = [], [], []
             for f in obs['filters']:
-                dnlam = np.gradient(f.wavelength)/f.wavelength
+                dlnlam = np.gradient(f.wavelength)/f.wavelength
                 wlo.append(f.wavelength.min())
                 dlo.append(dlnlam.min())
                 whi.append(f.wavelength.max())
