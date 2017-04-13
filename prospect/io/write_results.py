@@ -143,8 +143,8 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     # Sampling info
     try:
         # emcee
-        a = sampler.acceptance
-        write_emcee_h5(hf, sampler, model, sampling_initial_center)
+        a = sampler.acceptance_fraction
+        write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample)
     except(AttributeError):
         # nestle
         write_nestle_h5(hf, sampler, model)
@@ -170,7 +170,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     #write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
 
 
-def write_emcee_h5(hf, sampler, model, sampling_initial_center):
+def write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample):
     """Write emcee information to the provided HDF5 file in the `sampling`
     group.
     """
@@ -201,7 +201,7 @@ def write_nestle_h5(hf, nestle_out, model):
         sdat = hf.create_group('sampling')
     sdat.create_dataset('chain', data=nestle_out['samples'])
     sdat.create_dataset('weights', data=nestle_out['weights'])
-    sdat.create_dataset('lnprobabilty', data=nestle_out['logl'])
+    sdat.create_dataset('lnprobability', data=nestle_out['logl'])
     sdat.create_dataset('logvol', data=nestle_out['logvol'])
     sdat.create_dataset('logz', data=np.atleast_1d(nestle_out['logz']))
     sdat.create_dataset('logzerr', data=np.atleast_1d(nestle_out['logzerr']))
