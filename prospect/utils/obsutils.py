@@ -6,7 +6,7 @@ __all__ = ["fix_obs", "rectify_obs", "norm_spectrum", "logify_data"]
 
 
 def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
-            logify_spectrum=False, grid_filters=True, **kwargs):
+            logify_spectrum=False, grid_filters=False, **kwargs):
     """Make all required changes to the obs dictionary.
     """
     obs = rectify_obs(obs)

@@ -11,21 +11,29 @@ __all__ = ["get_photometry", "smooth_galaxy", "smooth_instrument",
            "calculate_zobs", "distance_dimming"]
 
 
-class sbasis(object):
+class _specbasis(object):
+    """A demonstration object showing an example of how to implement various
+    methods in this module in a get_spectrum method
+    """
 
-
-    def get_spectrum_josh(self, outwave=None, filters=None, peraa=False, **params):
+    def get_spectrum_with_gradients(self, outwave=None, filters=None, peraa=False, **params):
         raise(NotImplementedError)
 
     @property
     def nebline_wavelengths(self):
-        return self.ssp.emline_wavelengths
+        try:
+            return self.ssp.emline_wavelengths
+        except(AttributeError):
+            return 0.
 
     @property
     def nebline_luminosity(self):
         """Emission line luminosities in units of Lsun per solar mass formed
         """
-        return self.ssp.emline_luminosity / self.params['mass'].sum()
+        try:
+            return self.ssp.emline_luminosity / self.ssp.mformed
+        except(AttributeError):
+            return 0.
 
     def get_spectrum(self, outwave=None, filters=None, **params):
 
@@ -132,11 +140,9 @@ class sbasis(object):
         # --- Unit conversion and output ---
         # (output is maggies for both spectra and photometry)
         # ----------------------------------
-        # Mass normalization
-        mass = np.sum(self.params.get('mass', 1.0))
-        if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
-            # Convert input normalization units from current stellar mass to mass formed
-            mass /= mfrac
+        # Convert input masses to a total mformed
+        mass = mformed(mfrac, mass=params.get('mass', 1.0),
+                       mass_units=params.get('mass_units', 'mformed'))
 
         return spec * (mass*ldim/jansky_cgs/3631), phot * (mass*ldim), mfrac
 
@@ -236,7 +242,7 @@ def calculate_zobs(vpec, zcosmo):
 
 def distance_dimming(zcosmo=0.0, lumdist=None, cosmology=WMAP9):
     """Factor to go from lsun/Hz to erg/s/cm^2/Hz at d_L (or at the d_L implied
-    by zcosmo and the provided cosmology).  Includes cosmological (1+z)
+    by zcosmo and the provided cosmology).  Includes cosmological (1+z).
     """
     if lumdist is not None:
         dfactor = (lumdist * 1e5)**2
@@ -249,6 +255,12 @@ def distance_dimming(zcosmo=0.0, lumdist=None, cosmology=WMAP9):
 
    return to_cgs_at_10pc / dfactor * (1 + zcosmo)
 
+def mformed(self, mfrac, mass=1.0, mass_units='mformed', **extras):
+    mass = np.sum(mass)
+    if np.all(mass_units == 'mstar'):
+        # Convert input normalization units from current stellar mass to mass formed
+        mass /= mfrac
+    return mass
 
 def get_photometry(wave, fnu, filters, zobs=0.0, lnwavegrid=None):
     """Return the photometry in linear units.  These will be maggies if the
@@ -268,9 +280,11 @@ def get_photometry(wave, fnu, filters, zobs=0.0, lnwavegrid=None):
 
     :param lnwavegrid: (optional)
         A logarithmic wavelength grid.  That is, an array of wavelengths (in
-    angstroms) that are evenly spaved in ln(wavelength).  This is assumed to
-    have the same ln(wave) spacing as the gridded filter transmission curves in
-    the `Filter` objects, and can be used to speed up the filter projections."""
+        angstroms) that are evenly spaved in ln(wavelength).  This is assumed
+        to have the same ln(wave) spacing as the gridded filter transmission
+        curves in the `Filter` objects, and can be used to speed up the filter
+        projections.
+    """
     wa = wave * (1 + zobs)
 
     if lnwavegrid is not None:
