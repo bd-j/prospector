@@ -58,7 +58,7 @@ class SedModel(ProspectorParams):
             s *= self._speccal
         return s, p, x
     
-    def sed(self, theta, obs, sps=None, **kwargs):
+    def sed(self, theta, obs, sps=None, peraa=False, **kwargs):
         """
         Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), ***not** including any instrument
@@ -86,6 +86,7 @@ class SedModel(ProspectorParams):
         self.set_parameters(theta)        
         spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
                                               filters=obs['filters'],
+                                              peraa=peraa,
                                               **self.params)
         
         spec *= obs.get('normalization_guess', 1.0)
