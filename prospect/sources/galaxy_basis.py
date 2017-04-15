@@ -111,7 +111,7 @@ class CSPSpecBasis(SSPBasis):
         # Loop over mass components
         for i, m in enumerate(mass):
             self.update_component(i)
-            wave, spec = self.ssp.get_spectrum(tage=self.csp.params['tage'],
+            wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
                                                peraa=False)
             spectra.append(spec)
             mfrac[i] = (self.ssp.stellar_mass)
