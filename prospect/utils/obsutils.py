@@ -6,7 +6,7 @@ __all__ = ["fix_obs", "rectify_obs", "norm_spectrum", "logify_data"]
 
 
 def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
-            logify_spectrum=False, **kwargs):
+            logify_spectrum=False, grid_filters=False, **kwargs):
     """Make all required changes to the obs dictionary.
     """
     obs = rectify_obs(obs)
@@ -33,6 +33,20 @@ def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
 
     if obs['maggies'] is not None:
         obs['ndof'] += obs['phot_mask'].sum()
+        if grid_filters:
+            wlo, whi, dlo = [], [], []
+            for f in obs['filters']:
+                dlnlam = np.gradient(f.wavelength)/f.wavelength
+                wlo.append(f.wavelength.min())
+                dlo.append(dlnlam.min())
+                whi.append(f.wavelength.max())
+            wmin = np.min(wlo)
+            wmax = np.max(whi)
+            dlnlam = np.min(dlo)
+            for f in obs['filters']:
+                f.gridify_transmission(dlnlam, wmin)
+                f.get_properties()
+            obs['lnwavegrid'] = np.exp(np.arange(np.log(wmin), np.log(wmax)+dlnlam, dlnlam))
     else:
         obs['maggies_unc'] = None
     return obs

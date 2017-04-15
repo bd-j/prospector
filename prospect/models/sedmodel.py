@@ -83,9 +83,10 @@ class SedModel(ProspectorParams):
             Any extra aspects of the model that are returned.
         """
         
-        self.set_parameters(theta)        
+        self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
                                               filters=obs['filters'],
+                                              lnwavegrid=obs.get('lnwavegrid', None),
                                               **self.params)
         
         spec *= obs.get('normalization_guess', 1.0)
