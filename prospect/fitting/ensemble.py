@@ -143,13 +143,16 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                 else:
                     if verbose:
                         print('not converged, continuing.')
-                        print info['kl_test']
-                        print np.all(info['kl_test'] < kwargs['convergence_kl_threshold'],axis=1)
 
-                    chain.resize(chain.shape[1]+convergence_check_interval,axis=1)
-                    lnpout.resize(lnpout.shape[1]+convergence_check_interval,axis=1)
-                    kl.resize(kl.shape[0]+1,axis=0)
-                    kl_iter.resize(kl_iter.shape[0]+1,axis=0)
+                    if (i+1 >= (niter-convergence_check_interval)): # if we're going to exit soon, do something fancy
+                        ngrow = niter - (i+1)
+                        chain.resize(chain.shape[1]+ngrow,axis=1)
+                        lnpout.resize(lnpout.shape[1]+ngrow,axis=1)
+                    else: # else extend by convergence_check_interval
+                        chain.resize(chain.shape[1]+convergence_check_interval,axis=1)
+                        lnpout.resize(lnpout.shape[1]+convergence_check_interval,axis=1)
+                        kl.resize(kl.shape[0]+1,axis=0)
+                        kl_iter.resize(kl_iter.shape[0]+1,axis=0)
 
             if (np.mod(i+1, int(interval*niter)) == 0) or (i+1 == niter):
                 # do stuff every once in awhile
