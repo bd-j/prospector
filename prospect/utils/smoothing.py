@@ -621,12 +621,11 @@ def subtract_input_resolution(res_in, res_target, smoothtype_in, smoothtype_targ
     elif (smoothtype_in == "R") & (smoothype_target == "lambda"):
         dwidth_sq = width_target**2 - (wave * width_in)**2
 
-    elif (smoothtype_in == "lambda") & (smoothtype_target =="vel"):
+    elif (smoothtype_in == "lambda") & (smoothtype_target == "vel"):
         dwidth_sq = width_target**2 - (ckms * width_in / wave)**2
-        
-    elif (smoothtype_in == "lambda") & (smoothtype_target =="R"):
-        dwidth_sq = width_target**2 - (width_in / wave)**2
 
+    elif (smoothtype_in == "lambda") & (smoothtype_target == "R"):
+        dwidth_sq = width_target**2 - (width_in / wave)**2
 
     elif (smoothtype_in == "R") & (smoothtype_target == "vel"):
         print("srsly?")
@@ -643,5 +642,5 @@ def subtract_input_resolution(res_in, res_target, smoothtype_in, smoothtype_targ
         return 1.0 / np.sqrt(dwidth_sq)
     else:
         return np.sqrt(dwidth_sq)
-        
+
     return delta_width

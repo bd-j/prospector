@@ -1,5 +1,5 @@
-wavelength ={
-             #Balmer Lines
+wavelength = {
+             # Balmer Lines
              'Ha': 6564.61,
              'Hb': 4862.69,
              'Hg': 4341.69,
@@ -9,7 +9,7 @@ wavelength ={
              'H9': 3836.48,
              'H10': 3798.98,
 
-             #Paschen lines
+             # Paschen lines
              'P9': 9231.547,
              'P10': 9017.385,
              'P11': 8865.217,
@@ -19,7 +19,7 @@ wavelength ={
              'P15': 8547.730,
              'P16': 8504.818,
 
-             #Carbon absorption
+             # Carbon absorption
              'CI_4621': 4622.3,
              'CI_8727': 8729.39,
              'CII_2326': 2326.7,
@@ -39,18 +39,18 @@ wavelength ={
              'OI_5577': 5578.89,
              'OI_6300': 6302.046,
              'OI_6363': 6365.54,
-             
+
              'NeIII_3343': 3343.90,
              'NeIII_3868': 3869.81,
              'NeIII_3967': 3968.53,
-             
+
              'SIII_6312': 6313.75,
              'SIII_9069': 9071.49,
              'SIII_9532': 9534.61,
 
              'SII_6718': 6718.3,
              'SII_6732': 6732.7,
-             
+
              'ArIII_7137': 7137.8,
              'ArIII_7753': 7753.2,
 
@@ -58,7 +58,7 @@ wavelength ={
              'CaII_H': 3969.588,
              'Ca_4227': 4227,  # Lick
              'Ca_4455': 4455,  # Lick
-             
+
              'CaII_8500': 8500.36,
              'CaII_8544': 8544.44,
              'CaII_8664': 8664.52,
@@ -87,7 +87,7 @@ wavelength ={
 
              'HgI_4358': 4359.2,
              'HgI_5461': 5462.5,
-               
+
              'HeI_3821': 3820.69,
              'HeI_4010': 4010.38,
              'HeI_4027': 4027.39,
@@ -107,7 +107,7 @@ wavelength ={
              'HeII_4686': 4686.9,
              'HeII_5413': 5413.5,
 
-             'units':'vacuum angstroms'}
+             'units': 'vacuum angstroms'}
 
 sky_lines = ['OI_5577', 'OI_6300', 'OI_6363', 'NaI_5891', 'NaI_5897']
 ism_lines = ['CaII_K', 'CaII_H', 'NaI_5891', 'NaI_5897']

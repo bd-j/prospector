@@ -12,10 +12,9 @@ __all__ = ["Pminimize", "pminimize", "minimizer_ball", "reinitialize"]
 
 
 class Pminimize(object):
-    """
-    A class for performing minimizations using scipy's minimize
-    function.  This class enables minimizations from different initial
-    positions to be parallelized.
+    """A class for performing minimizations using scipy's minimize function.
+    This class enables minimizations from different initial positions to be
+    parallelized.
 
     If a pool object is passed, that object's map function is used to
     parallelize the minimizations.  Otherwise, if nthreads > 1, we
@@ -23,7 +22,7 @@ class Pminimize(object):
 
     :param chi2fn:
         Function to be minimized.
-        
+
     :param opts:
         Dictionary of options for the minimization, as described in
         scipy's minimize docs.
@@ -31,7 +30,7 @@ class Pminimize(object):
     :param args:
         A sequence of objects that are passed as
         an arguments to your chi2 function
-        
+
     :param method:  (Default: 'powell')
         Minimization method.  This should probably be 'powell', since
         I haven't tried anything else and there's no way to pass
@@ -44,8 +43,8 @@ class Pminimize(object):
     :param nthreads: (Default: 1)
         If pool is None and nthreads > 1, create a mutiprocessing pool
         with nthreads threads.  Otherwise, this is ignored.
-         
     """
+
     def __init__(self, chi2fn, args, opts, method='powell', pool=None, nthreads=1):
         self.method = method
         self.opts = opts
@@ -54,16 +53,14 @@ class Pminimize(object):
 
         # Wrap scipy's minimize to make it pickleable
         self.minimize = _minimize_wrapper(chi2fn, args, method, opts)
-        
+
         self.pool = pool
         if nthreads > 1 and self.pool is None:
             self.pool = multiprocessing.Pool(nthreads)
             self._size = nthreads
-        
+
     def run(self, pinit):
-        """
-        Actually run the minimizations, in parallel if pool has been
-        set up.
+        """Actually run the minimizations, in parallel if pool has been set up.
 
         :param pinit:
            An iterable where each element is a parameter vector for a
@@ -78,7 +75,7 @@ class Pminimize(object):
         else:
             M = map
 
-        results = list( M(self.minimize,  [np.array(p) for p in pinit]) )
+        results = list(M(self.minimize,  [np.array(p) for p in pinit]))
         return results
 
     @property
@@ -90,12 +87,11 @@ class Pminimize(object):
             return self._size
         else:
             return self.pool.size
-    
+
 
 class _minimize_wrapper(object):
-    """
-    This is a hack to make the minimization function pickleable (for
-    MPI) even though it requires many arguments.  Ripped off from emcee.
+    """This is a hack to make the minimization function pickleable (for MPI)
+    even though it requires many arguments.  Ripped off from emcee.
     """
     def __init__(self, function, args, method, options):
         self.f = minimize
@@ -103,11 +99,11 @@ class _minimize_wrapper(object):
         self.args = tuple(args)
         self.meth = method
         self.opts = options
-        
+
     def __call__(self, x):
         try:
-            return self.f(self.func, x, args = self.args,
-                          method = self.meth, options = self.opts)
+            return self.f(self.func, x, args=self.args,
+                          method=self.meth, options=self.opts)
         except:
             import traceback
             print("minimizer: Exception while trying to minimize the function:")
@@ -190,7 +186,7 @@ def minimizer_ball(center, nminimizers, model):
     pinitial = [center]
     if size > 1:
         ginitial = np.zeros([size - 1, model.ndim])
-        for i, (lo, hi) in enumerate(model.theta_bounds()): # this is a dumb loop to have
+        for i, (lo, hi) in enumerate(model.theta_bounds()):  # this is a dumb loop to have
             ginitial[:, i] = np.random.uniform(lo, hi, size - 1)
         pinitial += ginitial.tolist()
     return pinitial

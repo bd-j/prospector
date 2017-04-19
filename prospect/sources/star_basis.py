@@ -258,7 +258,7 @@ class StarBasis(object):
             of erg/s/cm^2/Hz/sr.
         """
         if 'logr' in self.params:
-            twologr = 2.* (self.params['logr'] + log_rsun_cgs)
+            twologr = 2. * (self.params['logr'] + log_rsun_cgs)
         elif 'logl' in self.params:
             twologr = ((self.params['logl'] + log_lsun_cgs) -
                        4 * self.params['logt'] - log_SB_cgs - log4pi)
@@ -313,7 +313,7 @@ class StarBasis(object):
     def rescale_params(self, points):
         if self._rescale:
             x = np.atleast_2d(points)
-            x = (x - self.parameter_range[0,:]) / np.diff(self.parameter_range, axis=0)
+            x = (x - self.parameter_range[0, :]) / np.diff(self.parameter_range, axis=0)
             return np.squeeze(x)
         else:
             return points
@@ -322,7 +322,8 @@ class StarBasis(object):
         """Build the kdtree of the model points.
         """
         # slow.  should use a view based method
-        model_points = np.array([list(self._libparams[d]) for d in self.stellar_pars])
+        model_points = np.array([list(self._libparams[d])
+                                 for d in self.stellar_pars])
         self._kdt = KDTree(model_points.T)
 
     def weights_kNN(self, target_points, k=1):
@@ -482,7 +483,7 @@ class BigStarBasis(StarBasis):
         inds = self.knearest_inds(**params)
         wghts = self.linear_weights(inds, **params)
         if wghts.sum() <= self._strictness:
-             raise ValueError("Something is wrong with the weights")
+            raise ValueError("Something is wrong with the weights")
         good = wghts > 0
         # if good.sum() < 2**self.ndim:
         #     raise ValueError("Did not find all vertices of the hypercube, "

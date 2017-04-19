@@ -12,18 +12,17 @@ __all__ = ["SedModel"]
 lsun = 3.846e33  # ergs/s
 pc = 3.085677581467192e18  # cm
 jansky_mks = 1e-26
-#value to go from L_sun/Hz to erg/s/cm^2/Hz at 10pc
-to_cgs = lsun/(4.0 * np.pi * (pc*10)**2 )
+# value to go from L_sun/Hz to erg/s/cm^2/Hz at 10pc
+to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
+
 
 class SedModel(ProspectorParams):
-    """
-    For models composed of SSPs and sums of SSPs which use the
+    """For models composed of SSPs and sums of SSPs which use the
     sps_basis.StellarPopBasis as the sps object.
     """
 
     def mean_model(self, theta, obs, sps=None, **extras):
-        """
-        Given a theta vector, generate a spectrum, photometry, and any
+        """Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
 
         :param theta:
@@ -34,7 +33,7 @@ class SedModel(ProspectorParams):
             wavelength array, the photometric filter lists, and the
             key 'logify_spectrum' which is True if the comparison to
             the model is to be made in the log.
-            
+
         :param sps:
             A StellarPopBasis object to be used
             in the model generation.
@@ -42,11 +41,11 @@ class SedModel(ProspectorParams):
         :returns spec:
             The model spectrum for these parameters, at the wavelengths
             specified by obs['wavelength'], and optionally in the log.
-            
+
         :returns phot:
             The model photometry for these parameters, for the filters
             specified in obs['filters'].
-            
+
         :returns extras:
             Any extra aspects of the model that are returned.
         """
@@ -57,16 +56,15 @@ class SedModel(ProspectorParams):
         else:
             s *= self._speccal
         return s, p, x
-    
+
     def sed(self, theta, obs, sps=None, **kwargs):
-        """
-        Given a theta vector, generate a spectrum, photometry, and any
+        """Given a theta vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), ***not** including any instrument
         calibration effects.
 
         :param theta:
             ndarray of parameter values.
-            
+
         :param sps:
             A StellarPopBasis object to be used
             in the model generation.
@@ -74,25 +72,25 @@ class SedModel(ProspectorParams):
         :returns spec:
             The model spectrum for these parameters, at the wavelengths
             specified by obs['wavelength'], in linear units.
-            
+
         :returns phot:
             The model photometry for these parameters, for the filters
             specified in obs['filters'].
-            
+
         :returns extras:
             Any extra aspects of the model that are returned.
         """
-        
-        self.set_parameters(theta)        
+
+        self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
                                               filters=obs['filters'],
                                               **self.params)
-        
+
         spec *= obs.get('normalization_guess', 1.0)
-        #remove negative fluxes
+        # Remove negative fluxes.
         try:
             tiny = 1.0/len(spec) * spec[spec > 0].min()
-            spec[ spec < tiny ] = tiny
+            spec[spec < tiny] = tiny
         except:
             pass
         spec = (spec + self.sky())
@@ -102,7 +100,7 @@ class SedModel(ProspectorParams):
     def sky(self):
         """Model for the *additive* sky emission/absorption"""
         return 0.
-        
+
     def spec_calibration(self, theta=None, obs=None, **kwargs):
         """Implements a Chebyshev polynomial calibration model. If
         ``"pivot_wave"`` is not present in ``obs`` then 1.0 is returned.
@@ -126,9 +124,9 @@ class SedModel(ProspectorParams):
             # multiplicative cases
             c = np.insert(self.params['poly_coeffs'], 0, 0)
             poly = chebval(x, c)
-            #switch to have spec_norm be multiplicative or additive
-            #depending on whether the calibration model is
-            #multiplicative in exp^poly or just poly
+            # switch to have spec_norm be multiplicative or additive depending
+            # on whether the calibration model is multiplicative in exp^poly or
+            # just poly
             if self.params.get('cal_type', 'exp_poly') is 'poly':
                 return (1.0 + poly) * self.params.get('spec_norm', 1.0)
             else:
@@ -142,8 +140,8 @@ class SedModel(ProspectorParams):
         pars = ['gp_jitter', 'gp_amplitude', 'gp_length']
         defaults = [[0.0], [0.0], [1.0]]
         vals = [self.params.get(p, d) for p, d in zip(pars, defaults)]
-        return  tuple(vals)
-    
+        return tuple(vals)
+
     def phot_gp_params(self, theta=None, **extras):
         if theta is not None:
             self.set_parameters(theta)
@@ -160,7 +158,7 @@ def gauss(x, mu, A, sigma):
 
     :param mu:
         Center(s) of the gaussians.
-        
+
     :param A:
         Amplitude(s) of the gaussians, defined in terms of total area.
 
@@ -168,8 +166,8 @@ def gauss(x, mu, A, sigma):
         Dispersion(s) of the gaussians, un units of x.
 
     :returns val:
-        The values of the sum of gaussians at x 
-    """ 
+        The values of the sum of gaussians at x.
+    """
     mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
-    val = A/(sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:,None] - mu)**2/(2 * sigma**2))
-    return val.sum(axis = -1)
+    val = A / (sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:, None] - mu)**2 / (2 * sigma**2))
+    return val.sum(axis=-1)

@@ -42,8 +42,8 @@ def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
     """A lognormal  gaussian.  should make sure it can be vectorized.
     """
     if np.all(theta > 0):
-        return ( np.log((2*np.pi)**(-0.5)/(theta*sigma)) -
-                (np.log(theta) - log_mean)**2/(2*sigma**2) )
+        return (np.log((2*np.pi)**(-0.5)/(theta*sigma)) -
+                (np.log(theta) - log_mean)**2/(2*sigma**2))
     else:
         return np.zeros(np.size(theta))-np.infty
 
@@ -61,12 +61,16 @@ def plotting_range(prior_args):
     if 'mini' in prior_args:
         return prior_args['mini'], prior_args['maxi']
     if 'log_mean' in prior_args:
-        mini = np.atleast_1d(prior_args['log_mean']) - 10 * np.array(prior_args['sigma'])
-        maxi = np.atleast_1d(prior_args['log_mean']) + 10 * np.array(prior_args['sigma'])
+        mini = (np.atleast_1d(prior_args['log_mean']) -
+                10 * np.array(prior_args['sigma']))
+        maxi = (np.atleast_1d(prior_args['log_mean']) +
+                10 * np.array(prior_args['sigma']))
         return np.exp(mini).tolist(), np.exp(maxi).tolist()
     if 'mean' in prior_args:
-        mini = np.array(prior_args['mean']) - 10 * np.array(prior_args['sigma'])
-        maxi = np.array(prior_args['mean']) + 10 * np.array(prior_args['sigma'])
+        mini = (np.array(prior_args['mean']) -
+                10 * np.array(prior_args['sigma']))
+        maxi = (np.array(prior_args['mean']) +
+                10 * np.array(prior_args['sigma']))
         return mini.tolist(), maxi.tolist()
 
 
@@ -135,7 +139,7 @@ class Prior(object):
         p = self.distribution.pdf(x, *self.args,
                                   loc=self.loc, scale=self.scale)
         return np.log(p)
-        
+
     def sample(self, nsample=None, **kwargs):
         """Draw a sample from the prior distribution.
 
@@ -190,7 +194,7 @@ class Prior(object):
     @property
     def args(self):
         return []
-    
+
     @property
     def range(self):
         raise(NotImplementedError)
@@ -277,7 +281,7 @@ class ClippedNormal(Prior):
         a = (self.params['mini'] - self.params['mean']) / self.params['sigma']
         b = (self.params['maxi'] - self.params['mean']) / self.params['sigma']
         return [a, b]
-    
+
     def bounds(self, **kwargs):
         if len(kwargs) > 0:
             self.update(**kwargs)
@@ -291,7 +295,7 @@ class LogUniform(Prior):
 
     prior_params = ['mini', 'maxi']
     distribution = scipy.stats.reciprocal
-    
+
     @property
     def args(self):
         a = self.params['mini']
@@ -338,7 +342,7 @@ class Beta(Prior):
             self.update(**kwargs)
         return self.range
 
-    
+
 class LogNormal(Prior):
 
     prior_params = ['mode', 'sigma']

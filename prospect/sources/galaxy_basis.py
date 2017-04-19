@@ -27,7 +27,7 @@ to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 
 
 class CSPSpecBasis(SSPBasis):
-    
+
     def __init__(self, compute_vega_mags=False, zcontinuous=1,
                  reserved_params=['zred', 'sigma_smooth'], **kwargs):
 
@@ -76,7 +76,7 @@ class CSPSpecBasis(SSPBasis):
                 except(TypeError):
                     # It was scalar, use that value for all components
                     this_v = v
-                    
+
                 self.csp.params[k] = deepcopy(this_v)
 
     def get_galaxy_spectrum(self, **params):
@@ -189,7 +189,7 @@ class CSPBasis(object):
 
         # Convert from absolute maggies to apparent maggies
         maggies /= dfactor
-            
+
         return spec, maggies, extra
 
     def one_sed(self, component_index=0, filterlist=[]):
