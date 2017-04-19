@@ -5,7 +5,8 @@ import scipy.stats
 
 __all__ = ["normal", "tophat", "normal_clipped", "lognormal", "logarithmic",
            "plotting_range",
-           "Prior", "TopHat", "Normal"]
+           "Prior", "TopHat", "Normal", "ClippedNormal",
+           "LogNormal", "LogUniform", "Beta"]
 
 
 def zeros(theta, **extras):
@@ -108,11 +109,11 @@ class Prior(object):
                 pass
 
     def __len__(self):
-        """The length is set by the maximum sizeof any of the prior_params.
+        """The length is set by the maximum size of any of the prior_params.
         Note that the prior params must therefore be scalar of same length as
         the maximum size of any of the parameters.  This is not checked.
         """
-        return max([np.size(self.params[k]) for k in self.prior_params])
+        return max([np.size(self.params.get(k, 1)) for k in self.prior_params])
 
     def __call__(self, x, **kwargs):
         """Compute the value of the probability desnity function at x and
@@ -226,6 +227,8 @@ class TopHat(Prior):
 
 
 class Normal(Prior):
+    """A simple gaussian prior.
+    """
 
     prior_params = ['mean', 'sigma']
     distribution = scipy.stats.norm
@@ -251,6 +254,8 @@ class Normal(Prior):
 
 
 class ClippedNormal(Prior):
+    """A Gaussian prior clipped to some range.
+    """
 
     prior_params = ['mean', 'sigma', 'mini', 'maxi']
     distribution = scipy.stats.truncnorm
@@ -280,13 +285,12 @@ class ClippedNormal(Prior):
 
 
 class LogUniform(Prior):
-
     """Like log-normal, but the distribution of ln of the variable is
     distributed uniformly instead of normally.
     """
+
     prior_params = ['mini', 'maxi']
     distribution = scipy.stats.reciprocal
-
     
     @property
     def args(self):
@@ -294,7 +298,47 @@ class LogUniform(Prior):
         b = self.params['maxi']
         return [a, b]
 
+    @property
+    def range(self):
+        return (self.params['mini'], self.params['maxi'])
 
+    def bounds(self, **kwargs):
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.range
+
+
+class Beta(Prior):
+    """A Beta distribution.
+    """
+
+    prior_params = ['mini', 'maxi', 'alpha', 'beta']
+    distribution = scipy.stats.beta
+
+    @property
+    def scale(self):
+        return self.params.get('maxi', 1) - self.params.get('mini', 0)
+
+    @property
+    def loc(self):
+        return self.params.get('mini', 0)
+
+    @property
+    def args(self):
+        a = self.params['alpha']
+        b = self.params['beta']
+        return [a, b]
+
+    @property
+    def range(self):
+        return (self.params['mini'], self.params['maxi'])
+
+    def bounds(self, **kwargs):
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.range
+
+    
 class LogNormal(Prior):
 
     prior_params = ['mode', 'sigma']
