@@ -24,8 +24,8 @@ def kl_divergence(pdf1, pdf2):
     """Calculates Kullback-Leibler (KL) divergence for two discretized PDFs
     """
     idx = (pdf1 != 0)  # no contribution from bins where there is no density in the target PDF
-    pdf1 /= float(pdf1.sum())
-    pdf2 /= float(pdf2.sum())
+    pdf1 = pdf1 / float(pdf1.sum())
+    pdf2 = pdf2 / float(pdf2.sum())
     dl = pdf1[idx] * np.log(pdf1[idx] / pdf2[idx])
 
     return dl.sum()
