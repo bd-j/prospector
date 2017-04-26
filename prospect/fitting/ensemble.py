@@ -130,7 +130,7 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                ((i+1 - nfirstcheck) % convergence_check_interval == 0):
 
                 if verbose:
-                    print('checking convergence on iteration {0}').format(i+1)
+                    print('checking convergence after iteration {0}').format(i+1)
                 converge_flag, info = convergence_check(chain,
                                                         convergence_check_interval=convergence_check_interval,
                                                         convergence_stable_points_criteria=conv_crit,
@@ -147,8 +147,8 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                     if verbose:
                         print('not converged, continuing.')
                     # if we're going to exit soon, do something fancy
-                    if (i+1 >= (niter-convergence_check_interval)):
-                        ngrow = niter - (i+1)
+                    if (i+1 > (niter-convergence_check_interval)):
+                        ngrow = niter - (i + 1)
                         chain.resize(chain.shape[1]+ngrow, axis=1)
                         lnpout.resize(lnpout.shape[1]+ngrow, axis=1)
                     else:  # else extend by convergence_check_interval
