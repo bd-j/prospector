@@ -97,11 +97,11 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
     if hdf5 is not None:
         # Set up hdf5 backend
         sdat = hdf5.create_group('sampling')
-        nfirstcheck = (2 * convergence_chunks + convergence_check_interval * (conv_crit - 1))
         if convergence_check_interval is None:  # static dataset
             chain = sdat.create_dataset("chain", (nwalkers, niter, ndim))
             lnpout = sdat.create_dataset("lnprobability", (nwalkers, niter))
         else:  # dynamic dataset
+            nfirstcheck = (2 * convergence_chunks + convergence_check_interval * (conv_crit - 1))
             chain = sdat.create_dataset('chain', (nwalkers, nfirstcheck, ndim),
                                         maxshape=(nwalkers, None, ndim))
             lnpout = sdat.create_dataset('lnprobability', (nwalkers, nfirstcheck),
