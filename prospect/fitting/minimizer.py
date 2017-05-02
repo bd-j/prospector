@@ -197,10 +197,10 @@ def minimizer_ball_fromprior(center, nminimizers, model):
     each parameter.  Requires that priors have the `sample` method available.
     """
     pinitial = [center]
-    if size > 1:
-        ginitial = np.zeros([size - 1, model.ndim])
+    if nminimizers > 1:
+        ginitial = np.zeros([nminimizers - 1, model.ndim])
         for p, inds in list(model.theta_index.items()):
-            for j in range(size-1):
+            for j in range(nminimizers-1):
                 ginitial[j, inds] = model._config_dict[p]['prior'].sample()
         pinitial += ginitial.tolist()
     return pinitial
