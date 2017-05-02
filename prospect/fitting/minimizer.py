@@ -126,7 +126,7 @@ def pminimize(chi2fn, initial, args=None, model=None,
     mini = Pminimize(chi2fn, args, opts,
                      method=method, pool=pool, nthreads=1)
     size = mini.size
-    pinitial = minimizer_ball(initial, size, model)
+    pinitial = minimizer_ball_fromprior(initial, size, model)
     powell_guesses = mini.run(pinitial)
 
     return [powell_guesses, pinitial]
