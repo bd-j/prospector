@@ -191,7 +191,8 @@ def minimizer_ball(center, nminimizers, model):
                 for j in range(size-1):
                     ginitial[j, inds] = model._config_dict[p]['prior'].sample()
             except AttributeError:
-                bounds = model._config_dict[p]['prior_args']
-                ginitial[:, inds] = np.random.uniform(bounds['mini'], bounds['maxi'], size - 1)[:,None]
+                bounds = model.theta_bounds()
+                for ind in range(inds.start,inds.stop):
+                    ginitial[:, ind] = np.random.uniform(bounds[ind][0], bounds[ind][1], size - 1)
         pinitial += ginitial.tolist()
     return pinitial

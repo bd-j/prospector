@@ -119,14 +119,9 @@ class ProspectorParams(object):
         lnp_prior = 0
         for k, inds in list(self.theta_index.items()):
             
-            try:
-                func = self._config_dict[k]['prior']
-                kwargs = self._config_dict[k].get('prior_args', {})
-                this_prior = np.sum(func(theta[inds], **kwargs))
-            except:
-                # old style priors
-                this_prior = np.sum(self._config_dict[k]['prior_function']
-                        (theta[inds], **self._config_dict[k]['prior_args']))
+            func = self._config_dict[k]['prior']
+            kwargs = self._config_dict[k].get('prior_args', {})
+            this_prior = np.sum(func(theta[inds], **kwargs))
 
             if (not np.isfinite(this_prior)):
                 print('WARNING: ' + k + ' is out of bounds')
