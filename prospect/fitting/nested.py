@@ -11,7 +11,7 @@ __all__ = ["run_nestle_sampler"]
 
 
 def run_nestle_sampler(lnprobfn, model, verbose=True,
-                       callback=nestle.print_progress,
+                       callback=None,
                        nestle_method='single', nestle_npoints=200,
                        nestle_maxcall=int(1e6), nestle_update_interval=None,
                        **kwargs):
