@@ -126,7 +126,7 @@ def pminimize(chi2fn, initial, args=None, model=None,
     mini = Pminimize(chi2fn, args, opts,
                      method=method, pool=pool, nthreads=1)
     size = mini.size
-    pinitial = minimizer_ball_fromprior(initial, size, model)
+    pinitial = minimizer_ball(initial, size, model)
     powell_guesses = mini.run(pinitial)
 
     return [powell_guesses, pinitial]
@@ -177,30 +177,21 @@ def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
             output[k] = b[0] + prange/2
     return output
 
-
 def minimizer_ball(center, nminimizers, model):
-    """Setup a 'grid' of parameter values uniformly distributed between min and
-    max More generally, this should sample from the prior for each parameter.
+    """Draw initial values from the (1d, separable, independent) priors for
+    each parameter.  Requires that priors have the `sample` method available.
+    If priors are old-style, draw randomly between min and max.
     """
     size = nminimizers
     pinitial = [center]
     if size > 1:
         ginitial = np.zeros([size - 1, model.ndim])
-        for i, (lo, hi) in enumerate(model.theta_bounds()):  # this is a dumb loop to have
-            ginitial[:, i] = np.random.uniform(lo, hi, size - 1)
-        pinitial += ginitial.tolist()
-    return pinitial
-
-
-def minimizer_ball_fromprior(center, nminimizers, model):
-    """Draw initial values from the (1d, separable, independent) priors for
-    each parameter.  Requires that priors have the `sample` method available.
-    """
-    pinitial = [center]
-    if nminimizers > 1:
-        ginitial = np.zeros([nminimizers - 1, model.ndim])
         for p, inds in list(model.theta_index.items()):
-            for j in range(nminimizers-1):
-                ginitial[j, inds] = model._config_dict[p]['prior'].sample()
+            try:
+                for j in range(size-1):
+                    ginitial[j, inds] = model._config_dict[p]['prior'].sample()
+            except AttributeError:
+                bounds = model._config_dict[p]['prior_args']
+                ginitial[:, inds] = np.random.uniform(bounds['mini'], bounds['maxi'], size - 1)[:,None]
         pinitial += ginitial.tolist()
     return pinitial
