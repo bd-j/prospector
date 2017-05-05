@@ -118,6 +118,7 @@ class ProspectorParams(object):
         """
         lnp_prior = 0
         for k, inds in list(self.theta_index.items()):
+            
             func = self._config_dict[k]['prior']
             kwargs = self._config_dict[k].get('prior_args', {})
             this_prior = np.sum(func(theta[inds], **kwargs))

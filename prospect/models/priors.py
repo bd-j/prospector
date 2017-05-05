@@ -335,7 +335,7 @@ class Beta(Prior):
 
     @property
     def range(self):
-        return (self.params['mini'], self.params['maxi'])
+        return (self.params.get('mini',0), self.params.get('maxi',1))
 
     def bounds(self, **kwargs):
         if len(kwargs) > 0:
