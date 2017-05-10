@@ -300,9 +300,9 @@ def subtriangle(sample_results, outname=None, showpars=None,
         List of truth values for the chosen parameters
     """
     try:
-        import triangle
-    except(ImportError):
         import corner as triangle
+    except(ImportError):
+        import triangle
 
     # pull out the parameter names and flatten the thinned chains
     try:
