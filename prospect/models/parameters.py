@@ -396,5 +396,5 @@ def functions_to_names(p):
             try:
                 p[k] = [v.__name__, v.__module__]
             except(AttributeError):
-                p[k] = pickle.dumps(v)
+                p[k] = pickle.dumps(v, protocol=2)
     return p

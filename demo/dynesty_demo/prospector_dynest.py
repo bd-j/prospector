@@ -118,20 +118,24 @@ if __name__ == "__main__":
     model = global_model
     obsdat = global_obs
 
+    #from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+    #pool = ThreadPoolExecutor(max_workers=rp["nthreads"])
+    pool = None
+
     # Try to set up an HDF5 file and write basic info to it
-    outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
-    odir = os.path.dirname(os.path.abspath(outroot))
-    if (not os.path.exists(odir)):
-        halt('Target output directory {} does not exist, please make it.'.format(odir))
-    try:
-        import h5py
-        hfilename = outroot + '_mcmc.h5'
-        hfile = h5py.File(hfilename, "a")
-        print("Writing to file {}".format(hfilename))
-        write_results.write_h5_header(hfile, run_params, model)
-        write_results.write_obs_to_h5(hfile, obsdat)
-    except(ImportError):
-        hfile = None
+    #outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
+    #odir = os.path.dirname(os.path.abspath(outroot))
+    #if (not os.path.exists(odir)):
+    #    halt('Target output directory {} does not exist, please make it.'.format(odir))
+    #try:
+    #    import h5py
+    #    hfilename = outroot + '_mcmc.h5'
+    #    hfile = h5py.File(hfilename, "a")
+    #    print("Writing to file {}".format(hfilename))
+    #    write_results.write_h5_header(hfile, run_params, model)
+    #    write_results.write_obs_to_h5(hfile, obsdat)
+    #except(ImportError):
+    #    hfile = None
     
     # -------
     # Sample
@@ -139,7 +143,8 @@ if __name__ == "__main__":
     if rp['verbose']:
         print('nestle sampling...')
     tstart = time.time()
-    nestleout = fitting.run_nestle_sampler(lnprobfn, model, **rp)
+    nsampler = fitting.run_dynesty_sampler(lnprobfn, model, pool=pool, **rp)
+
     dur = time.time() - tstart
     if rp['verbose']:
         print('done nestle in {0}s'.format(dur))
@@ -147,20 +152,4 @@ if __name__ == "__main__":
     # -------------------------
     # Output pickles (and HDF5)
     # -------------------------
-
-    print("Writing to {}".format(outroot))
-
-    # Write the nestle Result object as a pickle  
-    import pickle
-    with open(outroot + '_nmc.pkl', 'w') as f:
-        pickle.dump(nestleout, f)
-    partext = write_results.paramfile_string(**rp)
-    # Write the model as a pickle
-    write_results.write_model_pickle(outroot + '_model', model, powell=None,
-                                     paramfile_text=partext)
-    # Write HDF5
-    if hfile is None:
-        hfile = hfilename
-    write_results.write_hdf5(hfile, rp, model, obsdat, nestleout,
-                             None, tsample=dur)
-    print('Finished')
+ 
