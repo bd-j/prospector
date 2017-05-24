@@ -15,13 +15,14 @@ run_params = {'verbose':True,
               'debug':False,
               'outfile':'output/demo_dynesty_mock',
               # Pool
-              'nthreads': 20,
+              #'nthreads': 20,
+              'queue_size': 6,
               # Fitter parameters
               'nested_method': 'single',
               'nested_sample': 'uniform',
               'nested_nlive': 200,
-              'nested_maxcall': int(1e4),
-              'nested_maxiter': int(1e3),
+              'nested_maxcall': int(1e6),
+              'nested_maxiter': int(1e6),
               # Mock data parameters
               'snr': 20.0,
               'add_noise': False,

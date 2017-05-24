@@ -35,13 +35,13 @@ def run_dynesty_sampler(lnprobfn, model, verbose=True,
                         nested_nlive=200, nested_live_points=None,
                         nested_update_interval=None,
                         nested_maxcall=int(1e6), nested_maxiter=int(1e6),
-                        pool=None, **kwargs):
+                        pool=None, queue_size=1, **kwargs):
 
-    if pool is not None:
-        queue_size = pool._max_workers
-    else:
-        queue_size = 1
-
+    #if pool is not None:
+    #    queue_size = pool._max_workers
+    #else:
+    #    queue_size = 1
+    
     nsampler = dynesty.NestedSampler(lnprobfn, model.prior_transform, model.ndim,
                                      nlive=nested_nlive, bound=nested_method,
                                      pool=pool, queue_size=queue_size)

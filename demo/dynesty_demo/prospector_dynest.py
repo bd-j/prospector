@@ -120,7 +120,9 @@ if __name__ == "__main__":
 
     #from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
     #pool = ThreadPoolExecutor(max_workers=rp["nthreads"])
-    pool = None
+    from mpi4py.futures import MPIPoolExecutor
+    pool = MPIPoolExecutor()
+    #pool = None
 
     # Try to set up an HDF5 file and write basic info to it
     #outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
