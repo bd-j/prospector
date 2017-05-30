@@ -96,6 +96,28 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         return -np.infty
 
 
+def prior_transform(u, model=None):
+    if model
+    return global_model.prior_transform(u)
+
+    
+# -----------------
+# MPI pool.  This must be done *after* lnprob and
+# chi2 are defined since slaves will only see up to
+# sys.exit()
+# ------------------
+try:
+    from emcee.utils import MPIPool
+    pool = MPIPool(debug=False, loadbalance=True)
+    if not pool.is_master():
+        # Wait for instructions from the master process.
+        pool.wait()
+        sys.exit(0)
+except(ImportError, ValueError):
+    pool = None
+    print('Not using MPI')
+
+
 def halt(message):
     """Exit, closing pool safely.
     """
@@ -120,8 +142,8 @@ if __name__ == "__main__":
 
     #from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
     #pool = ThreadPoolExecutor(max_workers=rp["nthreads"])
-    from mpi4py.futures import MPIPoolExecutor
-    pool = MPIPoolExecutor()
+    #from mpi4py.futures import MPIPoolExecutor
+    #pool = MPIPoolExecutor()
     #pool = None
 
     # Try to set up an HDF5 file and write basic info to it
@@ -138,6 +160,10 @@ if __name__ == "__main__":
     #    write_results.write_obs_to_h5(hfile, obsdat)
     #except(ImportError):
     #    hfile = None
+
+
+    if rp.get('debug', False):
+        halt('stopping for debug')
     
     # -------
     # Sample

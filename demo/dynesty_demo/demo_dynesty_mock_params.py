@@ -18,9 +18,9 @@ run_params = {'verbose':True,
               #'nthreads': 20,
               'queue_size': 6,
               # Fitter parameters
-              'nested_method': 'single',
-              'nested_sample': 'uniform',
-              'nested_nlive': 200,
+              'nested_method': 'none',
+              'nested_sample': 'unif',
+              'nested_nlive': 50,
               'nested_maxcall': int(1e6),
               'nested_maxiter': int(1e6),
               # Mock data parameters
@@ -143,7 +143,7 @@ model_params.append({'name': 'mass', 'N': 1,
                         'init': 1e7,
                         'init_disp': 1e6,
                         'units': r'M_\odot',
-                        'prior': priors.TopHat(mini=1e6, maxi=1e9)})
+                        'prior': priors.LogUniform(mini=1e6, maxi=1e9)})
 
 model_params.append({'name': 'logzsol', 'N': 1,
                         'isfree': True,
