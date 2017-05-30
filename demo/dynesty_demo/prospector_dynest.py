@@ -97,8 +97,10 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
 
 
 def prior_transform(u, model=None):
-    if model
-    return global_model.prior_transform(u)
+    if model is None:
+        model = global_model
+        
+    return model.prior_transform(u)
 
     
 # -----------------
