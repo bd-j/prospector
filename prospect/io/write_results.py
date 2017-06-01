@@ -14,6 +14,12 @@ __all__ = ["run_command", "githash", "write_pickles", "write_hdf5"]
 unserial = json.dumps('Unserializable')
 
 
+def pick(obj):
+    """create a serialized object that can go into hdf5 in py2 and py3, and can be read by both
+    """
+    return np.void(pickle.dumps(obj, 0))
+
+
 def run_command(cmd):
     """Open a child process, and return its exit status and stdout.
     """
@@ -185,7 +191,7 @@ def write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample):
     sdat.create_dataset('sampling_initial_center', data=sampling_initial_center)
     sdat.create_dataset('initial_theta', data=model.initial_theta.copy())
     # JSON Attrs
-    sdat.attrs['rstate'] = pickle.dumps(sampler.random_state)
+    sdat.attrs['rstate'] = pick(sampler.random_state)
     sdat.attrs['sampling_duration'] = json.dumps(tsample)
     sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
 
@@ -226,7 +232,7 @@ def write_h5_header(hf, run_params, model):
             hf.attrs[k] = json.dumps(v)  #, cls=NumpyEncoder)
         except(TypeError):
             # Should this fall back to pickle.dumps?
-            hf.attrs[k] = pickle.dumps(v)
+            hf.attrs[k] = pick(v)
             print("Could not JSON serialize {}, pickled instead".format(k))
         except:
             hf.attrs[k] = unserial
@@ -255,7 +261,7 @@ def write_obs_to_h5(hf, obs):
                 odat.attrs[k] = json.dumps(v)  #, cls=NumpyEncoder)
             except(TypeError):
                 # Should this fall back to pickle.dumps?
-                odat.attrs[k] = pickle.dumps(v)
+                odat.attrs[k] = pick(v)
                 print("Could not JSON serialize {}, pickled instead".format(k))
             except:
                 odat.attrs[k] = unserial

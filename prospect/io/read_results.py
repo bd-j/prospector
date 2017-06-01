@@ -19,7 +19,17 @@ run, including reconstruction of the model for making posterior samples
 __all__ = ["results_from", "read_hdf5", "read_pickles", "read_model",
            "subtriangle", "param_evol"]
 
+def unpick(pickled):
+    """create a serialized object that can go into hdf5 in py2 and py3, and can be read by both
+    """
+    try:
+        obj = pickle.loads(pickled, encoding='bytes')
+    except(TypeError):
+        obj = pickle.loads(pickled)
 
+    return obj
+
+    
 def results_from(filename, model_file=None, **kwargs):
     """Read a results file with stored model and MCMC chains.
 
@@ -138,13 +148,19 @@ def read_hdf5(filename, **extras):
                 try:
                     d[k] = json.loads(v)
                 except:
-                    d[k] = v
+                    try:
+                        d[k] = unpick(v)
+                    except:
+                        d[k] = v
         # do top-level attributes.
         for k, v in hf.attrs.items():
             try:
                 res[k] = json.loads(v)
             except:
-                res[k] = v
+                try:
+                    res[k] = unpick(v)
+                except:
+                    res[k] = v
         res.update(groups['sampling'])
         res['obs'] = groups['obs']
         try:
@@ -152,7 +168,7 @@ def read_hdf5(filename, **extras):
         except:
             pass
         try:
-            res['rstate'] = pickle.loads(res['rstate'])
+            res['rstate'] = unpick(res['rstate'])
         except:
             pass
         try:
