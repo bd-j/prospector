@@ -10,8 +10,13 @@ def get_best(res, **kwargs):
     """Get the maximum a posteriori parameters.
     """
     imax = np.argmax(res['lnprobability'])
-    i, j = np.unravel_index(imax, res['lnprobability'].shape)
-    theta_best = res['chain'][i, j, :].copy()
+    # there must be a more elegant way to deal with differnt shapes
+    try:
+        i, j = np.unravel_index(imax, res['lnprobability'].shape)
+        theta_best = res['chain'][i, j, :].copy()
+    except(ValueError):
+        theta_best = res['chain'][imax, :].copy()
+
     theta_names = res.get('theta_labels', res['model'].theta_labels())
     return theta_names, theta_best
 
@@ -194,12 +199,13 @@ def hist_samples(res, showpars=None, start=0, thin=1,
     return flatchain, parnames[ind_show]
 
 
-def compute_sigma_level(trace1, trace2, nbins=30, **extras):
+def compute_sigma_level(trace1, trace2, nbins=30, weights=None, extents=None, **extras):
     """From a set of traces in two parameters, make a 2-d histogram of number
     of standard deviations.  Following examples from J Vanderplas.
     """
-    L, xbins, ybins = np.histogram2d(trace1, trace2, nbins,
-                                     range=extras.get('range', None))
+    L, xbins, ybins = np.histogram2d(trace1, trace2, bins=nbins,
+                                     weights=weights,
+                                     range=extents)
     L[L == 0] = 1E-16
     logL = np.log(L)
 
