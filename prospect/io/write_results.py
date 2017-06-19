@@ -4,8 +4,9 @@ import numpy as np
 from ..models.parameters import functions_to_names, plist_to_pdict
 try:
     import h5py
-except:
-    pass
+    _has_h5py_ = True
+except(ImportError):
+    _has_h5py_ = False
 
 
 __all__ = ["run_command", "githash", "write_pickles", "write_hdf5"]
@@ -61,7 +62,7 @@ def githash(nofork=False, **extras):
 def write_pickles(run_params, model, obs, sampler, powell_results,
                   outroot=None, tsample=None, toptimize=None,
                   post_burnin_center=None, post_burnin_prob=None,
-                  sampling_initial_center=None, **extras):
+                  sampling_initial_center=None, simpleout=True, **extras):
     """Write results to two different pickle files.  One (``*_mcmc``) contains
     only lists, dictionaries, and numpy arrays and is therefore robust to
     changes in object definitions.  The other (``*_model``) contains the actual
@@ -69,8 +70,20 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
     fragile.
     """
 
+    if outroot is None:
+        tt = int(time.time())
+        outroot = '{1}_{0}'.format(tt, run_params['outfile'])
     bgh = githash(**run_params)
+    paramfile_text = paramfile_string(**run_params)
 
+    write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results,
+                       paramfile_text=paramfile_text])
+
+    if simpleout and _has_h5py_:
+        return
+
+    # write out a simple chain as a pickle.  This isn't really necessary since
+    # the hd5 usually works
     results = {}
 
     # Useful global info and parameters
@@ -94,14 +107,8 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
     results['optimizer_duration'] = toptimize
 
     results['prospector_version'] = bgh
-    results['paramfile_text'] = paramfile_string(**run_params)
+    results['paramfile_text'] = paramfile_text
 
-    if outroot is None:
-        tt = int(time.time())
-        outroot = '{1}_{0}'.format(tt, run_params['outfile'])
-
-    write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results,
-                       paramfile_text=results['paramfile_text'])
     with open(outroot + '_mcmc', "wb") as out:
         pickle.dump(results, out)
 

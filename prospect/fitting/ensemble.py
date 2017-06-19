@@ -17,7 +17,7 @@ __all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball",
 def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                       postargs=[], postkwargs={}, prob0=None,
                       nwalkers=None, nburn=[16], niter=32,
-                      walker_factor=4,
+                      walker_factor=4, storechain=True,
                       nthreads=1, pool=None, hdf5=None, interval=1,
                       convergence_check_interval=None, convergence_chunks=325,
                       convergence_stable_points_criteria=3,
@@ -50,6 +50,10 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
     :param nburn:
         List of the number of iterations to run in each round of brun-in (for
         removing stuck walkers)
+
+    :param storechain: (default: True)
+        If using HDF5 output, setting this to False will keep the chain from
+        being held in memory by the sampler object.
 
     :param pool: (optional)
         A ``Pool`` object, either from ``multiprocessing`` or from
@@ -110,9 +114,6 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
                                      maxshape=(None, ndim))
             kl_iter = sdat.create_dataset('kl_iteration', (conv_crit,),
                                           maxshape=(None,))
-
-        # blob = hdf5.create_dataset("blob")
-        storechain = False
     else:
         storechain = True
 
