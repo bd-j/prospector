@@ -1,7 +1,7 @@
 The Model
 =========
 
-Parameter specification
+Parameter specification and Priors
 -------------------------------
 
 All model parameters require a specification in the **parameter file**.
@@ -25,18 +25,26 @@ For a single parameter the specification is a dictionary that must at minimum in
 
 For parameters with ``"isfree": True`` the following additional keys of the dictionary are required:
 
-``"prior_function"``
-    The prior function (e.g. ``tophat``)
+``"prior"``
+    The prior object or function (e.g. ``priors.TopHat(mini=10, maxi=12)`` or ``priors.tophat``).
+    The use of functions is deprecated.
 
 ``"prior_args"``
-    A dictionary of arguments to the prior function (e.g. ``"mini":0, "maxi":100``)    
+    This is only required if using prior functions (``priors.tophat``) instead
+    of prior objects (``priors.TopHat``).
+    It is a dictionary of arguments to the prior function (e.g. ``"mini":0, "maxi":100``)    
 
 ``"init_disp"``
-    The dispersion in this parameter to use when generating an emcee sampler ball.  This is not technically required, as defaults 
+    The dispersion in this parameter to use when generating an emcee sampler ball.
+    This is not technically required, as it defaults to 10% of the initial value.
+    It is ignored if nested sampling is used.
 
-Prior functions can be found in the ``priors`` module.
-If you're using object priors it is also possible to replace the ``"prior_function"``  and ``"prior_args"`` keys with a single ``"prior"`` key with a value of, e.g. ``TopHat(mini=0, maxi=100)``.
-
+Prior functions and objects can be found in the ``priors`` module.
+It is recemmended to use the objects instead of the functions,
+as they have some useful attributes and are suitable for all types of sampling.
+The prior functions by constrast will not work for nested sampling.
+When specifiying a prior using an object, you can and should specify the parameters of that prior on initialization, e.g.
+``priors.ClippedNormal(mean=0.0, sigma=1.0, mini=0.0, maxi=3.0)``
 
 It's also a good idea to have a ``"units"`` key, a string describing the units of the the parameter.
 
