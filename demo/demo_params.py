@@ -1,7 +1,6 @@
 import numpy as np
 from prospect.models import priors, sedmodel
-from prospect.sources import CSPBasis
-tophat = priors.tophat
+from prospect.sources import CSPSpecBasis
 from sedpy.observate import load_filters
 
 # --------------
@@ -97,14 +96,14 @@ def load_obs(objid=0, phottable='demo_photometry.dat', **kwargs):
     # This is a list of maggies, converted from mags.  It should have the same
     # order as `filters` above.
     obs['maggies'] = np.squeeze(10**(-mags/2.5))
-    # Hack.  you should use real flux uncertainties
+    # HACK.  You should use real flux uncertainties
     obs['maggies_unc'] = obs['maggies'] * 0.07
     # Here we mask out any NaNs or infs
     obs['phot_mask'] = np.isfinite(np.squeeze(mags))
     # We have no spectrum.
     obs['wavelength'] = None
 
-    # Add unessential bonus info.  This will be sored in output
+    # Add unessential bonus info.  This will be stored in output
     #obs['dmod'] = catalog[ind]['dmod']
     obs['objid'] = objid
 
@@ -116,8 +115,8 @@ def load_obs(objid=0, phottable='demo_photometry.dat', **kwargs):
 # --------------
 
 def load_sps(zcontinuous=1, compute_vega_mags=False, **extras):
-    sps = CSPBasis(zcontinuous=zcontinuous,
-                   compute_vega_mags=compute_vega_mags)
+    sps = CSPSpecBasis(zcontinuous=zcontinuous,
+                       compute_vega_mags=compute_vega_mags)
     return sps
 
 # -----------------
@@ -133,10 +132,10 @@ def load_gp(**extras):
 
 # You'll note below that we have 5 free parameters:
 # mass, logzsol, tage, tau, dust2
-# Each has tophat priors. They are all scalars.
+# They are all scalars.
 #
 # The other parameters are all fixed, but we want to explicitly set their
-# values.
+# values, possibly from something differnt than the FSPS defaults
 
 model_params = []
 
@@ -149,8 +148,7 @@ model_params.append({'name': 'zred', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
                         'units': '',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':0.0, 'maxi':4.0}})
+                        'prior':priors.TopHat(mini=0.0, maxi=4.0)})
 
 # --- SFH --------
 # FSPS parameter.  sfh=4 is a delayed-tau SFH
@@ -168,8 +166,7 @@ model_params.append({'name': 'mass', 'N': 1,
                         'init': 1e7,
                         'init_disp': 1e6,
                         'units': r'M_\odot',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':1e6, 'maxi':1e9}})
+                        'prior':priors.TopHat(mini=1e6, maxi=1e9)})
 
 # Since we have zcontinuous=1 above, the metallicity is controlled by the
 # ``logzsol`` parameter.
@@ -178,16 +175,14 @@ model_params.append({'name': 'logzsol', 'N': 1,
                         'init': 0,
                         'init_disp': 0.1,
                         'units': r'$\log (Z/Z_\odot)$',
-                        'prior_function': tophat,
-                        'prior_args': {'mini':-1, 'maxi':0.19}})
+                        'prior': priors.TopHat(mini=-1, maxi=0.19)})
 
 # FSPS parameter
 model_params.append({'name': 'tau', 'N': 1,
                         'isfree': True,
                         'init': 1.0,
                         'units': 'Gyr',
-                        'prior_function':priors.logarithmic,
-                        'prior_args': {'mini':0.1, 'maxi':100}})
+                        'prior':priors.LogUniform(mini=0.1, maxi=100)})
 
 # FSPS parameter
 model_params.append({'name': 'tage', 'N': 1,
@@ -195,32 +190,22 @@ model_params.append({'name': 'tage', 'N': 1,
                         'init': 5.0,
                         'init_disp': 3.0,
                         'units': 'Gyr',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':0.101, 'maxi':14.0}})
+                        'prior':priors.TopHat(mini=0.101, maxi=14.0)})
 
-# FSPS parameter
-model_params.append({'name': 'sfstart', 'N': 1,
-                        'isfree': False,
-                        'init': 0.0,
-                        'units': 'Gyr',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':0.1, 'maxi':14.0}})
 
 # FSPS parameter
 model_params.append({'name': 'tburst', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
                         'units': '',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':0.0, 'maxi':1.3}})
+                        'prior':priors.TopHat(mini=0.0, maxi=1.3)})
 
 # FSPS parameter
 model_params.append({'name': 'fburst', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
                         'units': '',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':0.0, 'maxi':0.5}})
+                        'prior':priors.TopHat(mini=0.0, maxi=0.5)})
 
 # --- Dust ---------
 # FSPS parameter
@@ -228,8 +213,7 @@ model_params.append({'name': 'dust1', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
                         'units': '',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':0.1, 'maxi':2.0}})
+                        'prior':priors.TopHat(mini=0.1, maxi=2.0)})
 
 # FSPS parameter
 model_params.append({'name': 'dust2', 'N': 1,
@@ -238,32 +222,29 @@ model_params.append({'name': 'dust2', 'N': 1,
                         'reinit': True,
                         'init_disp': 0.3,
                         'units': '',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':0.0, 'maxi':2.0}})
+                        'prior':priors.TopHat(mini=0.0, maxi=2.0)})
 
 # FSPS parameter
 model_params.append({'name': 'dust_index', 'N': 1,
                         'isfree': False,
                         'init': -0.7,
                         'units': '',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':-1.5, 'maxi':-0.5}})
+                        'prior':priors.TopHat(mini=-1.5, maxi=-0.5)})
 
 # FSPS parameter
 model_params.append({'name': 'dust1_index', 'N': 1,
                         'isfree': False,
                         'init': -1.0,
                         'units': '',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':-1.5, 'maxi':-0.5}})
+                        'prior':priors.TopHat(mini=-1.5, maxi=-0.5)})
 
 # FSPS parameter
 model_params.append({'name': 'dust_tesc', 'N': 1,
                         'isfree': False,
                         'init': 7.0,
                         'units': 'log(Gyr)',
-                        'prior_function_name': None,
-                        'prior_args': None})
+                        'prior_name': None,
+                         None})
 
 # FSPS parameter
 model_params.append({'name': 'dust_type', 'N': 1,
@@ -317,7 +298,9 @@ model_params.append({'name': 'add_neb_emission', 'N': 1,
 # One can use this kind of thing to transform parameters as well (like making
 # them linear instead of log, or divide everything by 10, or whatever.) You can
 # have one parameter depend on several others (or vice versa).  Just remember
-# that a parameter with `depends_on` must always be fixed.
+# that a parameter with `depends_on` must always be fixed.  It's also not a
+# good idea to have one parameter depend on another parameter that *also*
+# depends on something, since dependency resolution order is arbitrary.
 
 def stellar_logzsol(logzsol=0.0, **extras):
     return logzsol
@@ -329,24 +312,21 @@ model_params.append({'name': 'gas_logz', 'N': 1,
                         'init': 0.0,
                         'units': r'log Z/Z_\odot',
 #                        'depends_on': stellar_logzsol,
-                        'prior_function':tophat,
-                        'prior_args': {'mini':-2.0, 'maxi':0.5}})
+                        'prior':priors.TopHat(mini=-2.0, maxi=0.5)})
 
 # FSPS parameter
 model_params.append({'name': 'gas_logu', 'N': 1,
                         'isfree': False,
                         'init': -2.0,
                         'units': '',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':-4, 'maxi':-1}})
+                        'prior':priors.TopHat(mini=-4, maxi=-1)})
 
 # --- Calibration ---------
 model_params.append({'name': 'phot_jitter', 'N': 1,
                         'isfree': False,
                         'init': 0.0,
                         'units': 'mags',
-                        'prior_function':tophat,
-                        'prior_args': {'mini':0.0, 'maxi':0.2}})
+                        'prior':priors.TopHat(mini=0.0, maxi=0.2)})
 
 def load_model(**extras):
     # In principle (and we've done it) you could have the model depend on
