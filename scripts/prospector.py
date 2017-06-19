@@ -7,7 +7,7 @@ np.errstate(invalid='ignore')
 from prospect.models import model_setup
 from prospect.io import write_results
 from prospect import fitting
-from prospect.likelihood import lnlike_spec, lnlike_phot, write_log
+from prospect.likelihood import lnlike_spec, lnlike_phot, write_log, chi_spec, chi_phot
 
 
 # --------------
@@ -34,7 +34,8 @@ global_obs = model_setup.load_obs(**run_params)
 # LnP function as global
 # ------------------
 
-def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
+def lnprobfn(theta, model=None, obs=None, residuals=False,
+             verbose=run_params['verbose']):
     """Given a parameter vector and optionally a dictionary of observational
     ata and a model object, return the ln of the posterior. This requires that
     an sps object (and if using spectra and gaussian processes, a GP object) be
@@ -66,36 +67,43 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     if obs is None:
         obs = global_obs
 
+    # Calculate prior probability and exit if not within prior
     lnp_prior = model.prior_product(theta)
-    if np.isfinite(lnp_prior):
-        # Generate mean model
-        t1 = time.time()
-        try:
-            mu, phot, x = model.mean_model(theta, obs, sps=sps)
-        except(ValueError):
-            return -np.infty
-        d1 = time.time() - t1
-
-        # Noise modeling
-        if spec_noise is not None:
-            spec_noise.update(**model.params)
-        if phot_noise is not None:
-            phot_noise.update(**model.params)
-        vectors = {'spec': mu, 'unc': obs['unc'],
-                   'sed': model._spec, 'cal': model._speccal,
-                   'phot': phot, 'maggies_unc': obs['maggies_unc']}
-
-        # Calculate likelihoods
-        t2 = time.time()
-        lnp_spec = lnlike_spec(mu, obs=obs, spec_noise=spec_noise, **vectors)
-        lnp_phot = lnlike_phot(phot, obs=obs, phot_noise=phot_noise, **vectors)
-        d2 = time.time() - t2
-        if verbose:
-            write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
-
-        return lnp_prior + lnp_phot + lnp_spec
-    else:
+    if not np.isfinite(lnp_prior):
         return -np.infty
+
+    # Generate mean model
+    t1 = time.time()
+    try:
+        spec, phot, x = model.mean_model(theta, obs, sps=sps)
+    except(ValueError):
+        return -np.infty
+    d1 = time.time() - t1
+
+    # Return chi vectors for least-squares optimization
+    if residuals:
+        chispec = chi_spec(spec, obs)
+        chiphot = chi_phot(phot, obs)
+        return np.concatenate([chispec, chiphot])
+    
+    # Noise modeling
+    if spec_noise is not None:
+        spec_noise.update(**model.params)
+    if phot_noise is not None:
+        phot_noise.update(**model.params)
+    vectors = {'spec': spec, 'unc': obs['unc'],
+               'sed': model._spec, 'cal': model._speccal,
+               'phot': phot, 'maggies_unc': obs['maggies_unc']}
+
+    # Calculate likelihoods
+    t2 = time.time()
+    lnp_spec = lnlike_spec(spec, obs=obs, spec_noise=spec_noise, **vectors)
+    lnp_phot = lnlike_phot(phot, obs=obs, phot_noise=phot_noise, **vectors)
+    d2 = time.time() - t2
+    if verbose:
+        write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
+
+    return lnp_prior + lnp_phot + lnp_spec
 
 
 def chisqfn(theta, model, obs):
@@ -104,6 +112,14 @@ def chisqfn(theta, model, obs):
     minimize.
     """
     return -lnprobfn(theta, model=model, obs=obs)
+
+
+def chivecfn(theta):
+    """Return the residuals instead of a posterior probability or negative
+    chisq, for use with least-squares optimization methods
+    """
+    return lnprobfn(theta, residuals=True)
+
 
 # -----------------
 # MPI pool.  This must be done *after* lnprob and
@@ -170,27 +186,52 @@ if __name__ == "__main__":
         hfile = None
         
     # -----------------------------------------
-    # Initial guesses using powell minimization
+    # Initial guesses using minimization
     # -----------------------------------------
+    if rp['verbose']:
+        print('Starting minimization...')
+
     if bool(rp.get('do_powell', True)):
-        if rp['verbose']:
-            print('minimizing chi-square...')
         ts = time.time()
         powell_opt = {'ftol': rp['ftol'], 'xtol': 1e-6, 'maxfev': rp['maxfev']}
-        powell_guesses, pinit = fitting.pminimize(chisqfn, initial_theta,
-                                                  args=chi2args, model=model,
-                                                  method='powell', opts=powell_opt,
-                                                  pool=pool, nthreads=rp.get('nthreads', 1))
-        best = np.argmin([p.fun for p in powell_guesses])
-        initial_center = fitting.reinitialize(powell_guesses[best].x, model,
+        guesses, pinit = fitting.pminimize(chisqfn, initial_theta,
+                                           args=chi2args, model=model,
+                                           method='powell', opts=powell_opt,
+                                           pool=pool, nthreads=rp.get('nthreads', 1))
+        best = np.argmin([p.fun for p in guesses])
+        initial_center = fitting.reinitialize(guesses[best].x, model,
                                               edge_trunc=rp.get('edge_trunc', 0.1))
-        initial_prob = -1 * powell_guesses[best]['fun']
+        initial_prob = -guesses[best]['fun']
         pdur = time.time() - ts
         if rp['verbose']:
             print('done Powell in {0}s'.format(pdur))
             print('best Powell guess:{0}'.format(initial_center))
+
+    elif bool(rp.get('do_levenburg', True)):
+        from scipy.optimize import least_squares
+        nmin = rp.get('nmin', 10)
+        ts = time.time()
+        pinitial = fitting.minimizer_ball(model.initial_theta.copy(), nmin, model)
+        guesses = []
+        for i, pinit in enumerate(pinitial):
+            res = least_squares(chivecfn, pinit, method='lm', x_scale='jac',
+                                xtol=1e-18, ftol=1e-18)
+            guesses.append(res)
+
+        chisq = [np.sum(r.fun**2) for r in guesses]
+        best = np.argmin(chisq)
+        initial_center = fitting.reinitialize(guesses[best].x, model,
+                                              edge_trunc=rp.get('edge_trunc', 0.1))
+        initial_prob = None
+        pdur = time.time() - ts
+        if rp['verbose']:
+            print('done L-M in {0}s'.format(pdur))
+            print('best L-M guess:{0}'.format(initial_center))
+
     else:
-        powell_guesses = None
+        if rp['verbose']:
+            print('No minimization requested.')
+        guesses = None
         pdur = 0.0
         initial_center = initial_theta.copy()
         initial_prob = None
@@ -212,14 +253,14 @@ if __name__ == "__main__":
     # -------------------------
     # Output pickles (and HDF5)
     # -------------------------
-    write_results.write_pickles(rp, model, obsdat, esampler, powell_guesses,
+    write_results.write_pickles(rp, model, obsdat, esampler, guesses,
                                 outroot=outroot, toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center,
                                 post_burnin_center=burn_p0,
                                 post_burnin_prob=burn_prob0)
     if hfile is None:
         hfile = hfilename
-    write_results.write_hdf5(hfile, rp, model, obsdat, esampler, powell_guesses,
+    write_results.write_hdf5(hfile, rp, model, obsdat, esampler, guesses,
                              toptimize=pdur, tsample=edur,
                              sampling_initial_center=initial_center,
                              post_burnin_center=burn_p0,

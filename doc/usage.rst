@@ -91,13 +91,23 @@ optimization parameters:
     Boolean.  If ``True``, do a round of Powell minimization before MCMC sampling.
     If MPI is enabled then ``np`` minimizations from different initial conditions will be run,
     and the highest likelihood result chosen as the center for the sampler ball.
-		This can perform poorly if there are many very degenerate parameters.
+    This can perform poorly if there are many very degenerate parameters, or if the parameter scales are very different.
 
 ``"ftol"``
     Float.  For the Powell minimization.
 
 ``"maxfev"``
     Integer.  For the Powell minimization.
+
+``"do_levenburg"``
+    Boolean.   If ``True``, do a round of Levenburg-Marquardt least-squares optimization before MCMC sampling.
+    Requires ``"do_powell": False``
+
+``"nmin"``
+    Number of starting conditions to sample from the prior for use in L-M optimization.
+    The initial value taken from the model_params dict is always included as one of the starting conditions.
+    The best final position is chosen from all optimizations.
+    This provides some robustness against local minima.
 
 Nested sampling parameters:
 

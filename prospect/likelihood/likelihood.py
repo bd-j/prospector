@@ -2,7 +2,7 @@ import time, sys, os
 import numpy as np
 from scipy.linalg import LinAlgError
 
-__all__ = ["lnlike_spec", "lnlike_phot", "write_log"]
+__all__ = ["lnlike_spec", "lnlike_phot", "chi_spec", "chi_phot", "write_log"]
 
 
 def lnlike_spec(spec_mu, obs=None, spec_noise=None, **vectors):
@@ -79,13 +79,15 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, **vectors):
        If not supplied then the obs dictionary given at initialization will
        be used.
 
-    :param gp: (optional)
-        A Gaussian process object with the methods ``compute()`` and
-        ``lnlikelihood()``.
+    :param phot_noise: (optional)
+        A ``prospect.likelihood.NoiseModel`` object with the methods
+        ``compute()`` and ``lnlikelihood()``.  If not supplied a simple chi^2
+        likelihood will be evaluated.
 
-    :param fractional:
-        Treat the GP amplitudes as additional *fractional* uncertainties,
-        i.e., multiplicative uncertainties.
+    :param vectors:
+        A dictionary of possibly relevant vectors of same length as maggies
+        that will be passed to the NoiseModel object for constructing weighted
+        covariance matrices.
 
     :returns lnlikelhood:
         The natural logarithm of the likelihood of the data given the mean
@@ -111,6 +113,58 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, **vectors):
         var = (obs['maggies_unc'][mask])**2
         lnp = -0.5*( (delta**2/var).sum() + np.log(2*np.pi*var).sum() )
         return lnp
+
+
+def chi_phot(phot_mu, obs, **extras):
+    """Return a vector of chi values, for use in non-linear least-squares
+    algorithms.
+
+    :param phot_mu:
+        Model photometry, same units as the photometry in `obs`.
+
+    :param obs:
+        An observational data dictionary, with the keys ``"maggies"`` and
+        ``"maggies_unc"``.  If ``"maggies"`` is None then an empty array is
+        returned.
+
+    :returns chi:
+        An array of noise weighted residuals, same length as the number of
+        unmasked phtometric points.
+    """
+    if obs['maggies'] is None:
+        return np.array([])
+
+    mask = obs.get('phot_mask', slice(None))
+    delta = (obs['maggies'] - phot_mu)[mask]
+    unc = obs['maggies_unc'][mask]
+    chi = delta / unc
+    return chi
+
+
+def chi_spec(spec_mu, obs, **extras):
+    """Return a vector of chi values, for use in non-linear least-squares
+    algorithms.
+
+    :param spec_mu:
+        Model spectroscopy, same units as the photometry in `obs`.
+
+    :param obs:
+        An observational data dictionary, with the keys ``"spectrum"`` and
+        ``"unc"``.  If ``"spectrum"`` is None then an empty array is returned.
+        Optinally a ``"mask"`` boolean vector may be supplied that will be used
+        to index the residual vector.
+
+    :returns chi:
+        An array of noise weighted residuals, same length as the number of
+        unmasked spectroscopic points.
+    """
+    if obs['spectrum'] is None:
+        return np.array([])
+    mask = obs.get('mask', slice(None))
+    delta = (obs['spectrum'] - phot_mu)[mask]
+    unc = obs['unc'][mask]
+    chi = delta / unc
+    return chi
 
 
 def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
