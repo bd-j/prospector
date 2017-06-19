@@ -77,7 +77,7 @@ def write_pickles(run_params, model, obs, sampler, powell_results,
     paramfile_text = paramfile_string(**run_params)
 
     write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results,
-                       paramfile_text=paramfile_text])
+                       paramfile_text=paramfile_text)
 
     if simpleout and _has_h5py_:
         return
