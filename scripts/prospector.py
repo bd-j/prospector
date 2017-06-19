@@ -209,12 +209,13 @@ if __name__ == "__main__":
 
     elif bool(rp.get('do_levenburg', True)):
         from scipy.optimize import least_squares
-        nmin = rp.get('nminimizers', 10)
+        nmin = rp.get('nmin', 10)
         ts = time.time()
         pinitial = fitting.minimizer_ball(model.initial_theta.copy(), nmin, model)
         guesses = []
         for i, pinit in enumerate(pinitial):
-            res = least_squares(chivecfn, pinit, method='lm', x_scale='jac', xtol=1e-18)
+            res = least_squares(chivecfn, pinit, method='lm', x_scale='jac',
+                                xtol=1e-18, ftol=1e-18)
             guesses.append(res)
 
         chisq = [np.sum(r.fun**2) for r in guesses]
