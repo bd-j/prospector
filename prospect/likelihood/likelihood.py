@@ -2,7 +2,7 @@ import time, sys, os
 import numpy as np
 from scipy.linalg import LinAlgError
 
-__all__ = ["lnlike_spec", "lnlike_phot", "write_log"]
+__all__ = ["lnlike_spec", "lnlike_phot", "chi_spec", "chi_phot", "write_log"]
 
 
 def lnlike_spec(spec_mu, obs=None, spec_noise=None, **vectors):

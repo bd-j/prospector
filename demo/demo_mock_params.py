@@ -13,15 +13,15 @@ tophat = None
 
 run_params = {'verbose':True,
               'debug':False,
-              'outfile':'output/demo_nestle_mock',
-              # emcee Fitter parameters
-              'nwalkers':128,
-              'nburn':[32, 32, 64], 'niter':512,
+              'outfile':'output/demo_mock',
               # Optimization parameters
               'do_powell': False,
               'ftol':0.5e-5, 'maxfev':5000,
               'initial_disp':0.1,
               'do_levenburg': True,
+              # emcee Fitter parameters
+              'nwalkers':128,
+              'nburn':[32, 32, 64], 'niter':512,
               # nestle Fitter parameters
               'nestle_method': 'single',
               'nestle_npoints': 200,

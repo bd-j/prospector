@@ -7,7 +7,7 @@ np.errstate(invalid='ignore')
 from prospect.models import model_setup
 from prospect.io import write_results
 from prospect import fitting
-from prospect.likelihood import lnlike_spec, lnlike_phot, write_log
+from prospect.likelihood import lnlike_spec, lnlike_phot, write_log, chi_spec, chi_phot
 
 
 # --------------
@@ -84,7 +84,7 @@ def lnprobfn(theta, model=None, obs=None, residuals=False,
     if residuals:
         chispec = chi_spec(spec, obs)
         chiphot = chi_phot(phot, obs)
-        return np.concantenate([chispec, chiphot])
+        return np.concatenate([chispec, chiphot])
     
     # Noise modeling
     if spec_noise is not None:
@@ -114,11 +114,11 @@ def chisqfn(theta, model, obs):
     return -lnprobfn(theta, model=model, obs=obs)
 
 
-def chivecfn(theta, model, obs):
+def chivecfn(theta):
     """Return the residuals instead of a posterior probability or negative
     chisq, for use with least-squares optimization methods
     """
-    return lnprobfn(theta, model=model, obs=obs, residuals=True)
+    return lnprobfn(theta, residuals=True)
 
 
 # -----------------
@@ -214,7 +214,7 @@ if __name__ == "__main__":
         pinitial = fitting.minimizer_ball(model.initial_theta.copy(), nmin, model)
         guesses = []
         for i, pinit in enumerate(pinitial):
-            res = least_squares(chivec, pinit, method='lm', xtol=1e-12)
+            res = least_squares(chivecfn, pinit, method='lm', x_scale='jac', xtol=1e-18)
             guesses.append(res)
 
         chisq = [np.sum(r.fun**2) for r in guesses]
@@ -259,7 +259,7 @@ if __name__ == "__main__":
                                 post_burnin_prob=burn_prob0)
     if hfile is None:
         hfile = hfilename
-    write_results.write_hdf5(hfile, rp, model, obsdat, esampler, powell_guesses,
+    write_results.write_hdf5(hfile, rp, model, obsdat, esampler, guesses,
                              toptimize=pdur, tsample=edur,
                              sampling_initial_center=initial_center,
                              post_burnin_center=burn_p0,
