@@ -123,8 +123,8 @@ class ProspectorParams(object):
             kwargs = self._config_dict[k].get('prior_args', {})
             this_prior = np.sum(func(theta[inds], **kwargs))
 
-            if (not np.isfinite(this_prior)):
-                print('WARNING: ' + k + ' is out of bounds')
+            #if (not np.isfinite(this_prior)):
+            #    print('WARNING: ' + k + ' is out of bounds')
             lnp_prior += this_prior
         return lnp_prior
 

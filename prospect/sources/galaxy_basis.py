@@ -83,6 +83,11 @@ class CSPSpecBasis(SSPBasis):
         """Update parameters, then loop over each component getting a spectrum
         for each and sum with appropriate weights.
 
+        :param params:
+            A parameter dictionary that gets passed to the ``self.update``
+            method and will generally include physical parameters that control
+            the stellar population and output spectrum or SED.
+
         :returns wave:
             Wavelength in angstroms.
 
@@ -94,7 +99,7 @@ class CSPSpecBasis(SSPBasis):
         """
         self.update(**params)
         spectra = []
-        mass = np.atleast_1d(self.params['mass'])
+        mass = np.atleast_1d(self.params['mass']).copy()
         mfrac = np.zeros_like(mass)
         # Loop over mass components
         for i, m in enumerate(mass):
