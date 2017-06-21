@@ -205,7 +205,7 @@ class ProspectorParams(object):
                 label.append(name)
                 index.append(inds.start)
             else:
-                for i in xrange(nt):
+                for i in range(nt):
                     label.append(name+'_{0}'.format(i+1))
                     index.append(inds.start+i)
         return [l for (i, l) in sorted(zip(index, label))]
@@ -270,7 +270,7 @@ class ProspectorParams(object):
             Clipped to theta priors.
         """
         bounds = self.theta_bounds()
-        for i in xrange(len(bounds)):
+        for i in range(len(bounds)):
             lower, upper = bounds[i]
             thetas[i] = np.clip(thetas[i], lower, upper)
 
