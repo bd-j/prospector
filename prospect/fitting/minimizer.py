@@ -192,7 +192,8 @@ def minimizer_ball(center, nminimizers, model, seed=None):
         for p, inds in list(model.theta_index.items()):
             try:
                 for j in range(size-1):
-                    ginitial[j, inds] = model._config_dict[p]['prior'].sample()
+                    kwargs = model._config_dict[p].get('prior_args', {})
+                    ginitial[j, inds] = model._config_dict[p]['prior'].sample(**kwargs)
             except AttributeError:
                 bounds = model.theta_bounds()
                 for ind in range(inds.start,inds.stop):
