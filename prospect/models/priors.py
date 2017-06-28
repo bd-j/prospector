@@ -2,7 +2,6 @@
 # These return the ln-prior-probability
 import numpy as np
 import scipy.stats
-import warnings
 
 __all__ = ["normal", "tophat", "normal_clipped", "lognormal", "logarithmic",
            "plotting_range",
