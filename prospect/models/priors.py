@@ -2,6 +2,7 @@
 # These return the ln-prior-probability
 import numpy as np
 import scipy.stats
+import warnings
 
 __all__ = ["normal", "tophat", "normal_clipped", "lognormal", "logarithmic",
            "plotting_range",
@@ -138,7 +139,9 @@ class Prior(object):
             self.update(**kwargs)
         p = self.distribution.pdf(x, *self.args,
                                   loc=self.loc, scale=self.scale)
-        return np.log(p)
+        with np.errstate(invalid='ignore'):
+            lnp = np.log(p)
+        return lnp
 
     def sample(self, nsample=None, **kwargs):
         """Draw a sample from the prior distribution.
