@@ -28,12 +28,13 @@ to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 
 class CSPSpecBasis(SSPBasis):
 
-    def __init__(self, compute_vega_mags=False, zcontinuous=1,
+    def __init__(self, compute_vega_mags=False, zcontinuous=1, vactoair_flag=False,
                  reserved_params=['zred', 'sigma_smooth'], **kwargs):
 
         # This is a StellarPopulation object from fsps
         self.csp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
-                                          zcontinuous=zcontinuous)
+                                          zcontinuous=zcontinuous,
+                                          vactoair_flag=vactoair_flag)
         self.reserved_params = reserved_params
         self.params = {}
 
@@ -123,11 +124,12 @@ class CSPBasis(object):
     A class for composite stellar populations, which can be composed from
     multiple versions of parameterized SFHs.  Should replace CSPModel.
     """
-    def __init__(self, compute_vega_mags=False, zcontinuous=1, **kwargs):
+    def __init__(self, compute_vega_mags=False, zcontinuous=1, vactoair_flag=False, **kwargs):
 
         # This is a StellarPopulation object from fsps
         self.csp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
-                                          zcontinuous=zcontinuous)
+                                          zcontinuous=zcontinuous,
+                                          vactoair_flag=vactoair_flag)
         self.params = {}
 
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
