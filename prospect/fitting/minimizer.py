@@ -177,11 +177,14 @@ def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
             output[k] = b[0] + prange/2
     return output
 
-def minimizer_ball(center, nminimizers, model):
+def minimizer_ball(center, nminimizers, model, seed=None):
     """Draw initial values from the (1d, separable, independent) priors for
     each parameter.  Requires that priors have the `sample` method available.
     If priors are old-style, draw randomly between min and max.
+
     """
+    rand = np.random.RandomState(seed)
+    
     size = nminimizers
     pinitial = [center]
     if size > 1:
@@ -193,6 +196,6 @@ def minimizer_ball(center, nminimizers, model):
             except AttributeError:
                 bounds = model.theta_bounds()
                 for ind in range(inds.start,inds.stop):
-                    ginitial[:, ind] = np.random.uniform(bounds[ind][0], bounds[ind][1], size - 1)
+                    ginitial[:, ind] = rand.uniform(bounds[ind][0], bounds[ind][1], size - 1)
         pinitial += ginitial.tolist()
     return pinitial

@@ -138,7 +138,9 @@ class Prior(object):
             self.update(**kwargs)
         p = self.distribution.pdf(x, *self.args,
                                   loc=self.loc, scale=self.scale)
-        return np.log(p)
+        with np.errstate(invalid='ignore'):
+            lnp = np.log(p)
+        return lnp
 
     def sample(self, nsample=None, **kwargs):
         """Draw a sample from the prior distribution.
