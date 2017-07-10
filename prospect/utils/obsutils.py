@@ -5,7 +5,7 @@ np.errstate(invalid='ignore')
 __all__ = ["fix_obs", "rectify_obs", "norm_spectrum", "logify_data"]
 
 
-def fix_obs(obs, rescale_spectrum=True, normalize_spectrum=True,
+def fix_obs(obs, rescale_spectrum=False, normalize_spectrum=False,
             logify_spectrum=False, **kwargs):
     """Make all required changes to the obs dictionary.
     """
