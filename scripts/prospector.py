@@ -191,6 +191,9 @@ if __name__ == "__main__":
     if rp['verbose']:
         print('Starting minimization...')
 
+    if not np.isfinite(model.prior_product(model.initial_theta.copy())):
+        halt("Halting: initial parameter position has zero prior probability.")
+
     if bool(rp.get('do_powell', True)):
         ts = time.time()
         powell_opt = {'ftol': rp['ftol'], 'xtol': 1e-6, 'maxfev': rp['maxfev']}
@@ -253,6 +256,7 @@ if __name__ == "__main__":
     # -------------------------
     # Output pickles (and HDF5)
     # -------------------------
+    print("Writing to {}".format(outroot))
     write_results.write_pickles(rp, model, obsdat, esampler, guesses,
                                 outroot=outroot, toptimize=pdur, tsample=edur,
                                 sampling_initial_center=initial_center,

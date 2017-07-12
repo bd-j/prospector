@@ -136,7 +136,9 @@ if __name__ == "__main__":
     # -------------------------
     # Output pickles (and HDF5)
     # -------------------------
- 
+
+    print("Writing to {}".format(outroot))
+
     # Write the nestle Result object as a pickle  
     import pickle
     with open(outroot + '_nmc.pkl', 'w') as f:
@@ -150,4 +152,4 @@ if __name__ == "__main__":
         hfile = hfilename
     write_results.write_hdf5(hfile, rp, model, obsdat, nestleout,
                              None, tsample=dur)
-    halt('Finished')
+    print('Finished')
