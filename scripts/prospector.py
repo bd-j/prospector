@@ -269,4 +269,8 @@ if __name__ == "__main__":
                              sampling_initial_center=initial_center,
                              post_burnin_center=burn_p0,
                              post_burnin_prob=burn_prob0)
+    try:
+        hfile.close()
+    except:
+        pass
     halt('Finished')
