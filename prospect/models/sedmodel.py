@@ -149,6 +149,54 @@ class SedModel(ProspectorParams):
         return s, [0.0], [0]
 
 
+# This is a subclass of SedModel that replaces the calibration vector with the
+# maximum likelihood chebyshev polynomial describing the difference between the
+# observed and the model spectrum
+class PolySedModel(sedmodel.SedModel):
+
+    def spec_calibration(self, theta=None, obs=None, **kwargs):
+        """Implements a Chebyshev polynomial calibration model. This uses
+        least-squres to find the *optimal* Chebyshev polynomial of a certain
+        order describing the ratio of the observed spectrum to the model
+        spectrum, conditional on all other parameters, using least squares.
+        The first coefficient is always set to 1, as the overall normalization
+        is controlled by ``spec_norm``.
+
+        :returns cal:
+           A polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M
+           'poly_coeffs'[m-1] T_n(x)).  Otherwise, the exponential of a
+           Chebyshev polynomial.
+        """
+        if theta is not None:
+            self.set_parameters(theta)
+
+        polyopt = ((self.params.get('polyorder', 0) > 0) &
+                   (obs.get('spectrum', None) is not None)) 
+        if polyopt:
+            order = self.params['polyorder']
+            mask = obs.get('mask', slice(None))
+            # map unmasked wavelengths to the interval -1, 1
+            # masked wavelengths may have x>1, x<-1
+            x = obs['wavelength'] - (obs['wavelength'][mask]).min()
+            x = 2.0 * (x / (x[mask]).max()) - 1.0
+            y = (obs['spectrum'] / self._spec)[mask] - 1.0
+            yerr = (obs['unc'] / self._spec)[mask]
+            yvar = yerr**2
+            A = chebvander(x[mask], order)[:, 1:]
+            ATA = np.dot(A.T, A / yvar[:, None])
+            reg = self.params.get('poly_regularization', 0.)
+            if np.any(reg > 0):
+                ATA += reg**2 * np.eye(order)
+            ATAinv = np.linalg.inv(ATA)
+            c = np.dot(ATAinv, np.dot(A.T, y / yvar))
+            Afull = chebvander(x, order)[:, 1:]
+            poly = np.dot(Afull, c)
+
+            return (1.0 + poly) * self.params.get('spec_norm', 1.0)
+        else:
+            return 1.0
+
+
 def gauss(x, mu, A, sigma):
     """
     Sample multiple gaussians at positions x.
