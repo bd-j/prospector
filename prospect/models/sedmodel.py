@@ -7,7 +7,7 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["SedModel"]
+__all__ = ["SedModel", "PolySedModel"]
 
 lsun = 3.846e33  # ergs/s
 pc = 3.085677581467192e18  # cm
@@ -152,7 +152,7 @@ class SedModel(ProspectorParams):
 # This is a subclass of SedModel that replaces the calibration vector with the
 # maximum likelihood chebyshev polynomial describing the difference between the
 # observed and the model spectrum
-class PolySedModel(sedmodel.SedModel):
+class PolySedModel(SedModel):
 
     def spec_calibration(self, theta=None, obs=None, **kwargs):
         """Implements a Chebyshev polynomial calibration model. This uses
