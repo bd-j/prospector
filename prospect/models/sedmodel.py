@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.polynomial.chebyshev import chebval
+from numpy.polynomial.chebyshev import chebval, chebvander
 from scipy.interpolate import interp1d
 from .parameters import ProspectorParams
 try:
