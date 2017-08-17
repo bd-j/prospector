@@ -1,4 +1,4 @@
-import sys
+import sys, time
 import numpy as np
 from numpy.random import normal, multivariate_normal
 
@@ -30,25 +30,48 @@ def run_nestle_sampler(lnprobfn, model, verbose=True,
     return result
 
 
-def run_dynesty_sampler(lnprobfn, model, verbose=True,
-                        nested_method='multi', nested_sample='unif',
-                        nested_nlive=200, nested_live_points=None,
-                        nested_update_interval=None,
-                        nested_maxcall=int(1e6), nested_maxiter=int(1e6),
-                        pool=None, queue_size=1, **kwargs):
+def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
+                        nested_bound='multi', nested_sample='rwalk',
+                        nested_nlive=100, nested_live_points=None,
+                        nested_nlive_init=100, nested_nlive_batch=100,
+                        nested_update_interval=0.6, nested_walks=25,
+                        nested_maxcall=None, nested_maxiter=None,
+                        pool=None, queue_size=1, nested_use_stop=True,
+                        nested_maxbatch=None, nested_weight_kwargs=None,
+                        nested_bootstrap=None, nested_dlogz_init=0.01,
+                        use_pool={}, **kwargs):
 
-    #if pool is not None:
-    #    queue_size = pool._max_workers
-    #else:
-    #    queue_size = 1
-    
-    nsampler = dynesty.NestedSampler(lnprobfn, model.prior_transform, model.ndim,
-                                     nlive=nested_nlive,
-                                     bound=nested_method, sample=nested_sample,
-                                     pool=pool, queue_size=queue_size)
+    dsampler = dynesty.DynamicNestedSampler(lnprobfn, prior_transform, ndim,
+                                            bound=nested_bound, sample=nested_sample,
+                                            update_interval=nested_update_interval,
+                                            pool=pool, queue_size=queue_size,
+                                            nlive=nested_nlive, walks=nested_walks,
+                                            bootstrap=nested_bootstrap,use_pool=use_pool)
                                      
-    for it, s in enumerate(nsampler.sample(maxiter=nested_maxiter, maxcall=nested_maxcall)):
-        pass
-    blob = nsampler.add_live_points()
+    # run dynesty
+    tstart = time.time()
+    try:
+        dsampler.run_nested(nlive_init=nested_nlive_init,
+                            dlogz_init=nested_dlogz_init,
+                            maxbatch=nested_maxbatch, 
+                            nlive_batch=nested_nlive_batch,
+                            use_stop=nested_use_stop, wt_kwargs=nested_weight_kwargs)
+    except:
+        import pickle
+        print 'crashed! dumping output in crash_dns.pkl'
+        with open('crash_dns.pkl', 'w') as f:
+            pickle.dump(dsampler.results, f)
+        sys.exit()
+
+    dresult = dsampler.results
+    ndur = time.time() - tstart
+
+    if verbose:
+        print('done dynesty in {0}s'.format(ndur))
+
+    #for it, s in enumerate(nsampler.sample(maxiter=nested_maxiter, maxcall=nested_maxcall)):
+    #    pass
+    #blob = nsampler.add_live_points()
     
-    return nsampler
+    return dresult
+
