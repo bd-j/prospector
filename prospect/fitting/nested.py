@@ -162,7 +162,7 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                                          eff, logl_bounds[0], loglstar,
                                          logl_bounds[1], lnz, lnzerr,
                                          stop_val))
-                    sys.stderr.flush()
+                sys.stderr.flush()
             dsampler.combine_runs()
         else:
             # We're done!
