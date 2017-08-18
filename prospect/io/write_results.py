@@ -236,7 +236,7 @@ def write_dynesty_h5(hf, dynesty_out, model):
         sdat = hf.create_group('sampling')
 
     sdat.create_dataset('chain', data=dynesty_out['samples'])
-    sdat.create_dataset('weights', data=np.exp(dynesty_out['logwt']))
+    sdat.create_dataset('weights', data=np.exp(dynesty_out['logwt'])-dynesty_out['logz'][-1])
     sdat.create_dataset('logvol', data=dynesty_out['logvol'])
     sdat.create_dataset('logz', data=np.atleast_1d(dynesty_out['logz']))
     sdat.create_dataset('logzerr', data=np.atleast_1d(dynesty_out['logzerr']))
