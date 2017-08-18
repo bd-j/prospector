@@ -110,10 +110,6 @@ def prior_transform(u, model=None):
 # ------------------
 try:
     from emcee.utils import MPIPool
-    from mpi4py import MPI
-    import dill
-    MPI._p_pickle.dumps = dill.dumps
-    MPI._p_pickle.loads = dill.loads
     pool = MPIPool(debug=False, loadbalance=True)
     nprocs = pool.size+1 # are we removing the master here?
     if not pool.is_master():

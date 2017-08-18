@@ -151,18 +151,17 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                  worst_it, propidx, propiter, eff) = results
                 ncall += nc
                 niter += 1
-                if print_progress:
-                    sys.stderr.write("\riter: {:d} | batch: {:d} | "
-                                     "nc: {:d} | ncall: {:d} | "
-                                     "eff(%): {:6.3f} | "
-                                     "loglstar: {:6.3f} < {:6.3f} "
-                                     "< {:6.3f} | "
-                                     "logz: {:6.3f} +/- {:6.3f} | "
-                                     "stop: {:6.3f}    "
-                                     .format(niter, n+1, nc, ncall,
-                                             eff, logl_bounds[0], loglstar,
-                                             logl_bounds[1], lnz, lnzerr,
-                                             stop_val))
+                sys.stderr.write("\riter: {:d} | batch: {:d} | "
+                                 "nc: {:d} | ncall: {:d} | "
+                                 "eff(%): {:6.3f} | "
+                                 "loglstar: {:6.3f} < {:6.3f} "
+                                 "< {:6.3f} | "
+                                 "logz: {:6.3f} +/- {:6.3f} | "
+                                 "stop: {:6.3f}    "
+                                 .format(niter, n+1, nc, ncall,
+                                         eff, logl_bounds[0], loglstar,
+                                         logl_bounds[1], lnz, lnzerr,
+                                         stop_val))
                     sys.stderr.flush()
             dsampler.combine_runs()
         else:
