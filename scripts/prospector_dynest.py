@@ -110,6 +110,10 @@ def prior_transform(u, model=None):
 # ------------------
 try:
     from emcee.utils import MPIPool
+    from mpi4py import MPI
+    import dill
+    MPI._p_pickle.dumps = dill.dumps
+    MPI._p_pickle.loads = dill.loads
     pool = MPIPool(debug=False, loadbalance=True)
     nprocs = pool.size+1 # are we removing the master here?
     if not pool.is_master():
@@ -146,10 +150,10 @@ if __name__ == "__main__":
 
     # Try to set up an HDF5 file and write basic info to it
     outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
-    '''
     odir = os.path.dirname(os.path.abspath(outroot))
     if (not os.path.exists(odir)):
         print('Target output directory {} does not exist, please make it.'.format(odir))
+        sys.exit(0)
     try:
         import h5py
         hfilename = outroot + '_mcmc.h5'
@@ -159,7 +163,7 @@ if __name__ == "__main__":
         write_results.write_obs_to_h5(hfile, obs)
     except(ImportError):
         hfile = None
-    '''
+
     # -------
     # Sample
     # -------
@@ -168,7 +172,6 @@ if __name__ == "__main__":
     tstart = time.time()  # time it
     dynestyout = fitting.run_dynesty_sampler(lnprobfn, prior_transform, model.ndim,
                                              pool=pool, queue_size=nprocs, 
-                                             update_interval=model.ndim*nprocs*1.,
                                              **rp)
     ndur = time.time() - tstart
     print('done dynesty in {0}s'.format(ndur))
@@ -176,20 +179,19 @@ if __name__ == "__main__":
     # -------------------------
     # Output pickles (and HDF5)
     # -------------------------
+    
     # Write the dynesty result object as a pickle  
     import pickle
     with open(outroot + '_dns.pkl', 'w') as f:
         pickle.dump(dynestyout, f)
     partext = write_results.paramfile_string(**rp)
+    
     # Write the model as a pickle
     write_results.write_model_pickle(outroot + '_model', model, powell=None,
                                      paramfile_text=partext)
     
-    '''
-    # someday this will work
     # Write HDF5
     if hfile is None:
         hfile = hfilename
     write_results.write_hdf5(hfile, rp, model, obs, dynestyout,
                              None, tsample=ndur)
-    '''
