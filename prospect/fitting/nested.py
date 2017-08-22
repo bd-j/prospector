@@ -40,7 +40,7 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                         nested_maxcall=None, nested_maxiter_init=None,
                         pool=None, queue_size=1, nested_use_stop=True,
                         nested_maxbatch=None, nested_weight_kwargs={'pfrac': 1.0},
-                        nested_bootstrap=None, nested_dlogz_init=0.01,
+                        nested_bootstrap=20, nested_dlogz_init=0.01,
                         use_pool={}, nested_first_update={},
                         nested_maxcall_init=None, nested_live_points=None,
                         nested_maxcall_batch=None, nested_maxiter=None,
@@ -122,7 +122,6 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
     tstart = time.time()
     for n in range(dsampler.batch, nested_maxbatch):
         # Update stopping criteria.
-        print 'grabbing results'
         res = dsampler.results
         mcall = min(nested_maxcall - ncall, nested_maxcall_batch)
         miter = min(nested_maxiter - niter, nested_maxiter_batch)
@@ -131,11 +130,9 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                 M = dsampler.M
             else:
                 M = map
-            print 'calling stop function'
             stop, stop_vals = stop_function(res, nested_stop_kwargs,
                                             rstate=dsampler.rstate, M=M,
                                             return_vals=True)
-            print 'finished calling stop function'
             stop_post, stop_evid, stop_val = stop_vals
         else:
             stop = False
@@ -146,11 +143,8 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
         if mcall > 0 and miter > 0 and not stop:
             # Compute our sampling bounds using the provided
             # weight function.
-            print 'calculating logl bounds'
             logl_bounds = wt_function(res, nested_weight_kwargs)
-            print 'finished calculating logl bounds'
             lnz, lnzerr = res.logz[-1], res.logzerr[-1]
-            print 'beginning loop'
             for results in dsampler.sample_batch(nlive_new=nested_nlive_batch,
                                                  logl_bounds=logl_bounds,
                                                  maxiter=miter,
@@ -158,7 +152,6 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                                                  save_proposals=nested_save_proposals):
                 (worst, ustar, vstar, loglstar, nc,
                  worst_it, propidx, propiter, eff) = results
-                print 'unpacked results'
                 ncall += nc
                 niter += 1
                 sys.stderr.write("\riter: {:d} | batch: {:d} | "
@@ -173,7 +166,6 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                                          logl_bounds[1], lnz, lnzerr,
                                          stop_val))
                 sys.stderr.flush()
-            print 'finished with loop, combining runs'
             dsampler.combine_runs()
         else:
             # We're done!

@@ -17,9 +17,11 @@ run_params = {'verbose':True,
               # Fitter parameters
               'nested_bound': 'multi', # bounding method
               'nested_sample': 'unif', # sampling method
-              'nested_nlive': 50,
+              'nested_nlive_init': 200,
+              'nested_nlive_batch': 200,
               'use_pool': {'propose_point': False},
-              'nested_dlogz_init': 1e4,
+              'nested_bootstrap': 0, 
+              'nested_dlogz_init': 0.01,
               # Mock data parameters
               'snr': 20.0,
               'add_noise': False,

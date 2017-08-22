@@ -159,8 +159,12 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
         a = sampler.acceptance_fraction
         write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample)
     except(AttributeError):
-        # nestle
-        write_nestle_h5(hf, sampler, model)
+
+        # dynesty or nestle
+        if sampler.has_key('eff'):
+            write_dynesty_h5(hf, sampler, model)
+        else:
+            write_nestle_h5(hf, sampler, model)
 
     # ----------------------
     # High level parameter and version info
@@ -236,21 +240,20 @@ def write_dynesty_h5(hf, dynesty_out, model):
         sdat = hf.create_group('sampling')
 
     sdat.create_dataset('chain', data=dynesty_out['samples'])
-    sdat.create_dataset('weights', data=np.exp(dynesty_out['logwt'])-dynesty_out['logz'][-1])
+    sdat.create_dataset('weights', data=np.exp(dynesty_out['logwt']-dynesty_out['logz'][-1]))
     sdat.create_dataset('logvol', data=dynesty_out['logvol'])
     sdat.create_dataset('logz', data=np.atleast_1d(dynesty_out['logz']))
     sdat.create_dataset('logzerr', data=np.atleast_1d(dynesty_out['logzerr']))
     sdat.create_dataset('h_information', data=np.atleast_1d(dynesty_out['h']))
     sdat.create_dataset('lnprobability', data=dynesty_out['logl'])
     sdat.create_dataset('efficiency', data=np.atleast_1d(dynesty_out['eff']))
+    sdat.create_dataset('niter', data=np.atleast_1d(dynesty_out['niter']))
 
     # JSON Attrs
-    for p in ['niter', 'ncall']:
-        sdat.attrs[p] = json.dumps(dynesty_out[p])
+    sdat.attrs['ncall'] = json.dumps(list(dynesty_out['ncall']))
     sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
 
     hf.flush()
-
 
 def write_h5_header(hf, run_params, model):
     """Write header information about the run.
