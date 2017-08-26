@@ -44,35 +44,19 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                         use_pool={}, nested_first_update={},
                         nested_maxcall_init=None, nested_live_points=None,
                         nested_maxcall_batch=None, nested_maxiter=None,
+                        stop_function=None, wt_function=None,
                         nested_maxiter_batch=None, nested_stop_kwargs={},
                         nested_save_proposals=True,**kwargs):
 
+    # instantiate sampler
     dsampler = dynesty.DynamicNestedSampler(lnprobfn, prior_transform, ndim,
                                             bound=nested_bound, sample=nested_sample,
                                             update_interval=nested_update_interval,
                                             pool=pool, queue_size=queue_size,
                                             walks=nested_walks, bootstrap=nested_bootstrap,
                                             use_pool=use_pool)
-    ''''
-    # run dynesty
-    tstart = time.time()
-    dsampler.run_nested(nlive_init=nested_nlive_init,
-                        dlogz_init=nested_dlogz_init,
-                        maxiter_init=nested_maxiter_init,
-                        maxbatch=nested_maxbatch, 
-                        maxcall=nested_maxcall_init,
-                        nlive_batch=nested_nlive_batch,
-                        use_stop=nested_use_stop, wt_kwargs=nested_weight_kwargs)
 
-    dresult = dsampler.results
-    ndur = time.time() - tstart
-
-    if verbose:
-        print('done dynesty in {0}s'.format(ndur))
-
-    '''
-
-    ### generator for initial nested sampling
+    # generator for initial nested sampling
     ncall = dsampler.ncall
     niter = dsampler.it - 1
     tstart = time.time()
@@ -102,7 +86,6 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
     if verbose:
         print('\ndone dynesty (initial) in {0}s'.format(ndur))
 
-    ### copied logic from dynesty
     if nested_maxcall is None:
         nested_maxcall = sys.maxsize
     if nested_maxbatch is None:
@@ -114,15 +97,12 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
     if nested_maxiter_batch is None:
         nested_maxiter_batch = sys.maxsize
 
-    ### no logic for passing stopping/weight functions in prospector (yet)
-    stop_function = dynesty.dynamicsampler.stopping_function
-    wt_function = dynesty.dynamicsampler.weight_function
-
-    ### generator for dynamic sampling
+    # generator for dynamic sampling
     tstart = time.time()
     for n in range(dsampler.batch, nested_maxbatch):
         # Update stopping criteria.
         res = dsampler.results
+        res['prop'] = None # so we don't pass this around via pickling
         mcall = min(nested_maxcall - ncall, nested_maxcall_batch)
         miter = min(nested_maxiter - niter, nested_maxiter_batch)
         if nested_use_stop:

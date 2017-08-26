@@ -6,7 +6,8 @@ from prospect.models import model_setup
 from prospect.io import write_results
 from prospect import fitting
 from prospect.likelihood import lnlike_spec, lnlike_phot, write_log
-
+from dynesty.dynamicsampler import stopping_function, weight_function, _kld_error
+from dynesty.utils import *
 
 # --------------
 # Read command line arguments
@@ -67,12 +68,10 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     lnp_prior = model.prior_product(theta, nested=True)
     if np.isfinite(lnp_prior):
         # Generate mean model
-        # t1 = time.time()
         try:
             mu, phot, x = model.mean_model(theta, obs, sps=sps)
         except(ValueError):
             return -np.infty
-        #d1 = time.time() - t1
 
         # Noise modeling
         if spec_noise is not None:
@@ -84,14 +83,10 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
                    'phot': phot, 'maggies_unc': obs['maggies_unc']}
 
         # Calculate likelihoods
-        #t2 = time.time()
         lnp_spec = lnlike_spec(mu, obs=obs, spec_noise=spec_noise, **vectors)
         lnp_phot = lnlike_phot(phot, obs=obs, phot_noise=phot_noise, **vectors)
-        #d2 = time.time() - t2
-        #if verbose:
-        #    write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
 
-        return lnp_prior + lnp_phot + lnp_spec
+        return lnp_phot + lnp_spec
     else:
         return -np.infty
 
@@ -168,6 +163,8 @@ if __name__ == "__main__":
     tstart = time.time()  # time it
     dynestyout = fitting.run_dynesty_sampler(lnprobfn, prior_transform, model.ndim,
                                              pool=pool, queue_size=nprocs, 
+                                             stop_function=stopping_function,
+                                             wt_function=weight_function,
                                              **rp)
     ndur = time.time() - tstart
     print('done dynesty in {0}s'.format(ndur))
