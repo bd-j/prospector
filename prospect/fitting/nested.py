@@ -46,7 +46,7 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                         nested_maxcall_batch=None, nested_maxiter=None,
                         stop_function=None, wt_function=None,
                         nested_maxiter_batch=None, nested_stop_kwargs={},
-                        nested_save_proposals=True,**kwargs):
+                        nested_save_bounds=True,**kwargs):
 
     # instantiate sampler
     dsampler = dynesty.DynamicNestedSampler(lnprobfn, prior_transform, ndim,
@@ -129,7 +129,7 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                                                  logl_bounds=logl_bounds,
                                                  maxiter=miter,
                                                  maxcall=mcall,
-                                                 save_proposals=nested_save_proposals):
+                                                 save_bounds=nested_save_bounds):
                 (worst, ustar, vstar, loglstar, nc,
                  worst_it, propidx, propiter, eff) = results
                 ncall += nc
