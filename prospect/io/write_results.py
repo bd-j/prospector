@@ -146,7 +146,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     try:
         # If ``hfile`` is not a file object, assume it is a filename and open
         hf = h5py.File(hfile, "a")
-    except(AttributeError):
+    except(AttributeError,TypeError):
         hf = hfile
     except(NameError):
         print("HDF5 file could not be opened, as h5py could not be imported.")
