@@ -99,6 +99,7 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         Rsigma = ckms / sigma
         R = ckms / fwhm
         width = Rsigma
+        assert np.size(sigma) == 1, "`resolution` must be scalar for `smoothtype`='vel'"
 
     elif smoothtype == 'R':
         linear = False
@@ -108,6 +109,7 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         fwhm = sigma * sigma_to_fwhm
         R = ckms / fwhm
         width = Rsigma
+        assert np.size(sigma) == 1, "`resolution` must be scalar for `smoothtype`='R'"
         # convert inres from Rsigma to sigma (km/s)
         try:
             kwargs['inres'] = ckms / kwargs['inres']
@@ -122,6 +124,7 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         Rsigma = None
         R = None
         width = sigma
+        assert np.size(sigma) == 1, "`resolution` must be scalar for `smoothtype`='lambda'"
 
     elif smoothtype == 'lsf':
         linear = True
@@ -136,12 +139,18 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
     if outwave is None:
         outwave = wave
 
-    # Actually do the smoothing
+    # Choose the smoothing method
     if smoothtype == 'lsf':
         if fftsmooth:
             smooth_method = smooth_lsf_fft
+            if sigma is not None:
+                # mask the resolution vector
+                sigma = resolution[mask]
         else:
             smooth_method = smoooth_lsf
+            if sigma is not None:
+                # convert to resolution on the output wavelength grid
+                sigma = np.interp(outwave, wave, resolution)
     elif linear:
         if fftsmooth:
             smooth_method = smooth_wave_fft
@@ -153,6 +162,7 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         else:
             smooth_method = smooth_vel
 
+    # Actually do the smoothing and return
     return smooth_method(w, s, outwave, sigma, **kwargs)
 
 
