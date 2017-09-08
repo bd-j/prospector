@@ -244,7 +244,7 @@ def write_dynesty_h5(hf, dynesty_out, model):
     sdat.create_dataset('logvol', data=dynesty_out['logvol'])
     sdat.create_dataset('logz', data=np.atleast_1d(dynesty_out['logz']))
     sdat.create_dataset('logzerr', data=np.atleast_1d(dynesty_out['logzerr']))
-    sdat.create_dataset('h_information', data=np.atleast_1d(dynesty_out['h']))
+    sdat.create_dataset('information', data=np.atleast_1d(dynesty_out['information']))
     sdat.create_dataset('lnprobability', data=dynesty_out['logl'])
     sdat.create_dataset('efficiency', data=np.atleast_1d(dynesty_out['eff']))
     sdat.create_dataset('niter', data=np.atleast_1d(dynesty_out['niter']))
