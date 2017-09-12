@@ -86,7 +86,7 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         lnp_spec = lnlike_spec(mu, obs=obs, spec_noise=spec_noise, **vectors)
         lnp_phot = lnlike_phot(phot, obs=obs, phot_noise=phot_noise, **vectors)
 
-        return lnp_phot + lnp_spec
+        return lnp_phot + lnp_spec + lnp_prior
     else:
         return -np.infty
 

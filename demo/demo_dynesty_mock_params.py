@@ -310,30 +310,8 @@ model_params.append({'name': 'phot_jitter', 'N': 1,
                         'units': 'mags',
                         'prior': priors.TopHat(mini=0.0, maxi=0.2)})
 
-class NestedModel(sedmodel.SedModel):
-
-    def prior_transform(self, unit_coords):
-        """Go from unit cube to parameter space, for nested sampling.
-        """
-        theta = np.zeros(len(unit_coords))
-        for k, inds in list(self.theta_index.items()):
-            func = self._config_dict[k]['prior'].unit_transform
-            kwargs = self._config_dict[k].get('prior_args', {})
-            theta[inds] = func(unit_coords[inds], **kwargs)
-
-        return theta
-
-
-    def prior_product(self, theta, **extras):
-        """
-        this isn't how we do things around these parts
-        """  
-        return 0.0
-
 def load_model(**extras):
     # In principle (and we've done it) you could have the model depend on
     # command line arguments (or anything in run_params) by making changes to
     # `model_params` here before instantiation the SedModel object.  Up to you.
-    return NestedModel(model_params)
-
-model_type = NestedModel
+    return sedmodel.SedModel(model_params)
