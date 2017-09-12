@@ -98,11 +98,18 @@ class ProspectorParams(object):
         self.propagate_parameter_dependencies()
 
     def prior_product(self, theta, nested=False, **extras):
-        """Public version of _prior_product to be overridden by subclasses
+        """Public version of _prior_product to be overridden by subclasses.
+
+        :param nested:
+            If using nested sampling, this will only return 0 (or -inf).  This
+            behavior can be overridden if you want to include complicated
+            priors that are not included in the unit prior cube based proposals
+            (e.g. something that is difficult to transform from the unit cube.)
         """
-        if nested:
+        lpp = self._prior_product(theta)
+        if nested & np.isfinite(lpp):
             return 0.0
-        return self._prior_product(theta)
+        return lpp
 
     def _prior_product(self, theta, verbose=False, **extras):
         """Return a scalar which is the ln of the product of the prior
@@ -110,7 +117,8 @@ class ProspectorParams(object):
         functions are defined in the theta descriptor.
 
         :param theta:
-            Iterable containing the free model parameter values.
+            Iterable containing the free model parameter values.  Of shape
+            (..., ndim)
 
         :returns lnp_prior:
             The log of the product of the prior probabilities for these
@@ -121,7 +129,7 @@ class ProspectorParams(object):
             
             func = self._config_dict[k]['prior']
             kwargs = self._config_dict[k].get('prior_args', {})
-            this_prior = np.sum(func(theta[inds], **kwargs))
+            this_prior = np.sum(func(theta[..., inds], **kwargs), axis=-1)
 
             #if (not np.isfinite(this_prior)):
             #    print('WARNING: ' + k + ' is out of bounds')
