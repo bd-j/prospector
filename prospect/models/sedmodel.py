@@ -1,6 +1,5 @@
 import numpy as np
 from numpy.polynomial.chebyshev import chebval, chebvander
-from scipy.interpolate import interp1d
 from .parameters import ProspectorParams
 try:
     from astropy.cosmology import WMAP9 as cosmo
@@ -132,7 +131,7 @@ class SedModel(ProspectorParams):
             else:
                 return np.exp(self.params.get('spec_norm', 0) + poly)
         else:
-            return 1.0
+            return 1.0 * self.params.get('spec_norm', 1.0)
 
     def spec_gp_params(self, theta=None, **extras):
         if theta is not None:
