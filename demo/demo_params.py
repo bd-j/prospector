@@ -243,8 +243,7 @@ model_params.append({'name': 'dust_tesc', 'N': 1,
                         'isfree': False,
                         'init': 7.0,
                         'units': 'log(Gyr)',
-                        'prior_name': None,
-                         None})
+                        'prior': None})
 
 # FSPS parameter
 model_params.append({'name': 'dust_type', 'N': 1,
