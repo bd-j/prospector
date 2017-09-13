@@ -107,7 +107,7 @@ class ProspectorParams(object):
             (e.g. something that is difficult to transform from the unit cube.)
         """
         lpp = self._prior_product(theta)
-        if nested & np.isfinite(lpp):
+        if nested & np.any(np.isfinite(lpp)):
             return 0.0
         return lpp
 
