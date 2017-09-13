@@ -146,7 +146,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     try:
         # If ``hfile`` is not a file object, assume it is a filename and open
         hf = h5py.File(hfile, "a")
-    except(AttributeError):
+    except(AttributeError,TypeError):
         hf = hfile
     except(NameError):
         print("HDF5 file could not be opened, as h5py could not be imported.")
@@ -159,8 +159,12 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
         a = sampler.acceptance_fraction
         write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample)
     except(AttributeError):
-        # nestle
-        write_nestle_h5(hf, sampler, model)
+
+        # dynesty or nestle
+        if sampler.has_key('eff'):
+            write_dynesty_h5(hf, sampler, model, tsample)
+        else:
+            write_nestle_h5(hf, sampler, model, tsample)
 
     # ----------------------
     # High level parameter and version info
@@ -205,7 +209,7 @@ def write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample):
     hf.flush()
 
 
-def write_nestle_h5(hf, nestle_out, model):
+def write_nestle_h5(hf, nestle_out, model, tsample):
     """Write nestle results to the provided HDF5 file in the `sampling` group.
     """
     try:
@@ -214,7 +218,8 @@ def write_nestle_h5(hf, nestle_out, model):
         sdat = hf.create_group('sampling')
     sdat.create_dataset('chain', data=nestle_out['samples'])
     sdat.create_dataset('weights', data=nestle_out['weights'])
-    sdat.create_dataset('lnprobability', data=nestle_out['logl'])
+    sdat.create_dataset('lnlikelihood', data=nestle_out['logl'])
+    sdat.create_dataset('lnprobability', data=nestle_out['logl'] + model.prior_product(nestle_out['samples']))
     sdat.create_dataset('logvol', data=nestle_out['logvol'])
     sdat.create_dataset('logz', data=np.atleast_1d(nestle_out['logz']))
     sdat.create_dataset('logzerr', data=np.atleast_1d(nestle_out['logzerr']))
@@ -224,9 +229,36 @@ def write_nestle_h5(hf, nestle_out, model):
     for p in ['niter', 'ncall']:
         sdat.attrs[p] = json.dumps(nestle_out[p])
     sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
+    sdat.attrs['sampling_duration'] = json.dumps(tsample)
 
     hf.flush()
 
+def write_dynesty_h5(hf, dynesty_out, model, tsample):
+    """Write nestle results to the provided HDF5 file in the `sampling` group.
+    """
+    try:
+        sdat = hf['sampling']
+    except(KeyError):
+        sdat = hf.create_group('sampling')
+
+    sdat.create_dataset('chain', data=dynesty_out['samples'])
+    sdat.create_dataset('weights', data=np.exp(dynesty_out['logwt']-dynesty_out['logz'][-1]))
+    sdat.create_dataset('logvol', data=dynesty_out['logvol'])
+    sdat.create_dataset('logz', data=np.atleast_1d(dynesty_out['logz']))
+    sdat.create_dataset('logzerr', data=np.atleast_1d(dynesty_out['logzerr']))
+    sdat.create_dataset('information', data=np.atleast_1d(dynesty_out['information']))
+    sdat.create_dataset('lnlikelihood', data=dynesty_out['logl'])
+    sdat.create_dataset('lnprobability', data=dynesty_out['logl'] + model.prior_product(dynesty_out['samples']))
+    sdat.create_dataset('efficiency', data=np.atleast_1d(dynesty_out['eff']))
+    sdat.create_dataset('niter', data=np.atleast_1d(dynesty_out['niter']))
+    sdat.create_dataset('samples_id', data=np.atleast_1d(dynesty_out['samples_id']))
+
+    # JSON Attrs
+    sdat.attrs['ncall'] = json.dumps(list(dynesty_out['ncall']))
+    sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
+    sdat.attrs['sampling_duration'] = json.dumps(tsample)
+
+    hf.flush()
 
 def write_h5_header(hf, run_params, model):
     """Write header information about the run.

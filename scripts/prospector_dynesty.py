@@ -6,7 +6,8 @@ from prospect.models import model_setup
 from prospect.io import write_results
 from prospect import fitting
 from prospect.likelihood import lnlike_spec, lnlike_phot, write_log
-
+from dynesty.dynamicsampler import stopping_function, weight_function, _kld_error
+from dynesty.utils import *
 
 # --------------
 # Read command line arguments
@@ -67,12 +68,10 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
     lnp_prior = model.prior_product(theta, nested=True)
     if np.isfinite(lnp_prior):
         # Generate mean model
-        t1 = time.time()
         try:
             mu, phot, x = model.mean_model(theta, obs, sps=sps)
         except(ValueError):
             return -np.infty
-        d1 = time.time() - t1
 
         # Noise modeling
         if spec_noise is not None:
@@ -84,16 +83,38 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
                    'phot': phot, 'maggies_unc': obs['maggies_unc']}
 
         # Calculate likelihoods
-        t2 = time.time()
         lnp_spec = lnlike_spec(mu, obs=obs, spec_noise=spec_noise, **vectors)
         lnp_phot = lnlike_phot(phot, obs=obs, phot_noise=phot_noise, **vectors)
-        d2 = time.time() - t2
-        if verbose:
-            write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
 
-        return lnp_prior + lnp_phot + lnp_spec
+        return lnp_phot + lnp_spec + lnp_prior
     else:
         return -np.infty
+
+
+def prior_transform(u, model=None):
+    if model is None:
+        model = global_model
+        
+    return model.prior_transform(u)
+
+    
+# -----------------
+# MPI pool.  This must be done *after* lnprob and
+# chi2 are defined since slaves will only see up to
+# sys.exit()
+# ------------------
+try:
+    from emcee.utils import MPIPool
+    pool = MPIPool(debug=False, loadbalance=True)
+    nprocs = pool.size+1 # are we removing the master here?
+    if not pool.is_master():
+        # Wait for instructions from the master process.
+        pool.wait()
+        sys.exit(0)
+except(ImportError, ValueError):
+    pool = None
+    nprocs = 1
+    print('Not using MPI')
 
 
 def halt(message):
@@ -116,51 +137,54 @@ if __name__ == "__main__":
     rp['sys.argv'] = sys.argv
     # Use the globals
     model = global_model
-    obsdat = global_obs
+    obs = global_obs
 
     # Try to set up an HDF5 file and write basic info to it
     outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
     odir = os.path.dirname(os.path.abspath(outroot))
     if (not os.path.exists(odir)):
-        halt('Target output directory {} does not exist, please make it.'.format(odir))
+        print('Target output directory {} does not exist, please make it.'.format(odir))
+        sys.exit(0)
     try:
         import h5py
         hfilename = outroot + '_mcmc.h5'
         hfile = h5py.File(hfilename, "a")
         print("Writing to file {}".format(hfilename))
         write_results.write_h5_header(hfile, run_params, model)
-        write_results.write_obs_to_h5(hfile, obsdat)
+        write_results.write_obs_to_h5(hfile, obs)
     except(ImportError):
         hfile = None
-    
+
     # -------
     # Sample
     # -------
     if rp['verbose']:
-        print('nestle sampling...')
-    tstart = time.time()
-    nestleout = fitting.run_nestle_sampler(lnprobfn, model, **rp)
-    dur = time.time() - tstart
-    if rp['verbose']:
-        print('done nestle in {0}s'.format(dur))
+        print('dynesty sampling...')
+    tstart = time.time()  # time it
+    dynestyout = fitting.run_dynesty_sampler(lnprobfn, prior_transform, model.ndim,
+                                             pool=pool, queue_size=nprocs, 
+                                             stop_function=stopping_function,
+                                             wt_function=weight_function,
+                                             **rp)
+    ndur = time.time() - tstart
+    print('done dynesty in {0}s'.format(ndur))
 
     # -------------------------
     # Output pickles (and HDF5)
     # -------------------------
-
-    print("Writing to {}".format(outroot))
-
-    # Write the nestle Result object as a pickle  
+    
+    # Write the dynesty result object as a pickle  
     import pickle
-    with open(outroot + '_nmc.pkl', 'w') as f:
-        pickle.dump(nestleout, f)
+    with open(outroot + '_dns.pkl', 'w') as f:
+        pickle.dump(dynestyout, f)
     partext = write_results.paramfile_string(**rp)
+    
     # Write the model as a pickle
     write_results.write_model_pickle(outroot + '_model', model, powell=None,
                                      paramfile_text=partext)
+    
     # Write HDF5
     if hfile is None:
         hfile = hfilename
-    write_results.write_hdf5(hfile, rp, model, obsdat, nestleout,
-                             None, tsample=dur)
-    print('Finished')
+    write_results.write_hdf5(hfile, rp, model, obs, dynestyout,
+                             None, tsample=ndur)
