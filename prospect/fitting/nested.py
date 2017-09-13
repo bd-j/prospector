@@ -2,8 +2,6 @@ import sys, time
 import numpy as np
 from numpy.random import normal, multivariate_normal
 from six.moves import range
-from dynesty.utils import *
-from dynesty.dynamicsampler import _kld_error
 
 try:
     import nestle
@@ -13,6 +11,8 @@ except(ImportError):
 
 try:
     import dynesty
+    from dynesty.utils import *
+    from dynesty.dynamicsampler import _kld_error
 except(ImportError):
     pass
 

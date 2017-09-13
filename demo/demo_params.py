@@ -14,6 +14,7 @@ run_params = {'verbose':True,
               'nwalkers':128,
               'nburn':[10, 10, 10], 'niter':512,
               'do_powell': False,
+              'do_levenburg': False,
               'ftol':0.5e-5, 'maxfev':5000,
               'initial_disp':0.1,
               # Obs data parameters
