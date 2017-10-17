@@ -186,6 +186,31 @@ def read_pickles(filename, **kwargs):
     return results_from(filename, **kwargs)
 
 
+def get_sps(res):
+    """This gets exactly the SPS object used in the fiting (modulo any
+    changes to FSPS itself).
+
+    It (scarily) imports the paramfile (stored as text in the results
+    dictionary) as a module and then uses the `load_sps` method defined in the
+    paramfile module.
+
+    :param res:
+        A results dictionary (the output of `results_from()`)
+
+    :returns:
+        An sps object (i.e. from prospect.sources)
+    """
+    import os
+    from ..models.model_setup import import_module_from_string
+    param_file = (res['run_params'].get('param_file', ''),
+                  res.get("paramfile_text", ''))
+    path, filename = os.path.split(param_file[0])
+    modname = filename.replace('.py', '')
+    user_module = import_module_from_string(param_file[1], modname)
+    sps = user_module.load_sps(**res['run_params'])
+    return sps
+
+
 def model_comp(theta, model, obs, sps, photflag=0, gp=None):
     """Generate and return various components of the total model for a given
     set of parameters.

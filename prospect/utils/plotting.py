@@ -72,6 +72,20 @@ def get_percentiles(res, ptile=[16, 50, 84], start=0.5, thin=10, **extras):
     return dict(zip(parnames, pct.T))
 
 
+def quantile(data, percents, weights=None):
+    ''' percents in units of 1%
+    weights specifies the frequency (count) of data.
+    '''
+    if weights is None:
+        return np.percentile(data, percents)
+    ind = np.argsort(data)
+    d = data[ind]
+    w = weights[ind]
+    p = 1.*w.cumsum()/w.sum()*100
+    y = np.interp(percents, p, d)
+    return y
+
+
 def get_stats(res, pnames, **kwargs):
     """For selected parameters, get the truth (if known), the MAP value from
     the chain, and the percentiles.
@@ -256,3 +270,7 @@ def fill_between(x, y1, y2=0, ax=None, **kwargs):
     p = pl.Rectangle((0, 0), 0, 0, **kwargs)
     ax.add_patch(p)
     return p
+
+
+def logify(x):
+    return np.log10(x)
