@@ -16,7 +16,8 @@ from ..models.parameters import names_to_functions
 run, including reconstruction of the model for making posterior samples
 """
 
-__all__ = ["results_from", "read_hdf5", "read_pickles", "read_model",
+__all__ = ["results_from", "read_hdf5", "read_pickles",
+           "read_model", "get_sps",
            "subtriangle", "param_evol"]
 
 def unpick(pickled):

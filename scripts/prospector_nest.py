@@ -28,6 +28,8 @@ global_model = model_setup.load_model(**run_params)
 # Obs as global
 global_obs = model_setup.load_obs(**run_params)
 
+run_params['ssp_libraries'] = sps.ssp.libraries
+
 # -----------------
 # LnP function as global
 # ------------------
@@ -117,6 +119,9 @@ if __name__ == "__main__":
     # Use the globals
     model = global_model
     obsdat = global_obs
+    if rp.get('debug', False):
+        halt('stopping for debug')
+
 
     # Try to set up an HDF5 file and write basic info to it
     outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
@@ -163,4 +168,4 @@ if __name__ == "__main__":
         hfile = hfilename
     write_results.write_hdf5(hfile, rp, model, obsdat, nestleout,
                              None, tsample=dur)
-    print('Finished')
+    halt('Finished')
