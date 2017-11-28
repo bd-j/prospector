@@ -20,14 +20,14 @@ run_params = model_setup.get_run_params(argv=sargv, **clargs)
 # --------------
 # Globals
 # --------------
-# SPS Model instance as global
-sps = model_setup.load_sps(**run_params)
 # GP instances as global
 spec_noise, phot_noise = model_setup.load_gp(**run_params)
 # Model as global
 global_model = model_setup.load_model(**run_params)
 # Obs as global
 global_obs = model_setup.load_obs(**run_params)
+# SPS Model instance as global
+sps = model_setup.load_sps(**run_params)
 
 # -----------------
 # LnP function as global
@@ -135,9 +135,15 @@ if __name__ == "__main__":
     # --------------
     rp = run_params
     rp['sys.argv'] = sys.argv
+    try:
+        rp['sps_libraries'] = sps.ssp.libraries
+    except(AttributeError):
+        rp['sps_libraries'] = None
     # Use the globals
     model = global_model
     obs = global_obs
+    if rp.get('debug', False):
+        halt('stopping for debug')
 
     # Try to set up an HDF5 file and write basic info to it
     outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))

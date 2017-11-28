@@ -135,7 +135,8 @@ class StarBasis(object):
         """Turn length 1 arrays into scalars and pull out functions from length
         one arrays
         """
-        for k, v in list(kwargs.items()):
+        for k, val in list(kwargs.items()):
+            v = np.atleast_1d(val)
             try:
                 if (len(v) == 1) and callable(v[0]):
                     self.params[k] = v[0]
