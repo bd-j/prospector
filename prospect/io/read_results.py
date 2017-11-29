@@ -198,7 +198,7 @@ def get_sps(res):
     :param res:
         A results dictionary (the output of `results_from()`)
 
-    :returns:
+    :returns sps:
         An sps object (i.e. from prospect.sources)
     """
     import os
@@ -209,7 +209,45 @@ def get_sps(res):
     modname = filename.replace('.py', '')
     user_module = import_module_from_string(param_file[1], modname)
     sps = user_module.load_sps(**res['run_params'])
+
+    # Now check that the SSP libraries are consistent
+    flib = res['run_params'].get('ssp_libraries', None)
+    try:
+        rlib = sps.ssp.libraries
+    except(AttributeError):
+        rlib = None
+    if (flib is None) or (rlib is None):
+        print("Could not check SSP library versions.")
+    else:
+        liberr = ("The FSPS libraries used in fitting({}) are not the "
+                  "same as the FSPS libraries that you are using now ({})".format(flib, rlib))
+        assert (flib[0] == rlib[0]) and (flib[1] == rlib[1]), liberr
+
     return sps
+
+
+def get_model(res):
+    """This gets exactly the model object used in the fiting.
+
+    It (scarily) imports the paramfile (stored as text in the results
+    dictionary) as a module and then uses the `load_model` method defined in the
+    paramfile module, with `run_params` dictionary passed to it.
+
+    :param res:
+        A results dictionary (the output of `results_from()`)
+
+    :returns model:
+        A prospect.models.SedModel object
+    """
+    import os
+    from ..models.model_setup import import_module_from_string
+    param_file = (res['run_params'].get('param_file', ''),
+                  res.get("paramfile_text", ''))
+    path, filename = os.path.split(param_file[0])
+    modname = filename.replace('.py', '')
+    user_module = import_module_from_string(param_file[1], modname)
+    model = user_module.load_model(**res['run_params'])
+    return model
 
 
 def model_comp(theta, model, obs, sps, photflag=0, gp=None):
