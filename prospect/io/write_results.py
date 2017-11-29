@@ -62,7 +62,7 @@ def githash(nofork=False, **extras):
 def write_pickles(run_params, model, obs, sampler, powell_results,
                   outroot=None, tsample=None, toptimize=None,
                   post_burnin_center=None, post_burnin_prob=None,
-                  sampling_initial_center=None, simpleout=True, **extras):
+                  sampling_initial_center=None, simpleout=False, **extras):
     """Write results to two different pickle files.  One (``*_mcmc``) contains
     only lists, dictionaries, and numpy arrays and is therefore robust to
     changes in object definitions.  The other (``*_model``) contains the actual

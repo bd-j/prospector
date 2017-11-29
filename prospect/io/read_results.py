@@ -17,8 +17,9 @@ run, including reconstruction of the model for making posterior samples
 """
 
 __all__ = ["results_from", "read_hdf5", "read_pickles",
-           "read_model", "get_sps",
+           "read_model", "get_sps", "get_model",
            "subtriangle", "param_evol"]
+
 
 def unpick(pickled):
     """create a serialized object that can go into hdf5 in py2 and py3, and can be read by both
@@ -31,7 +32,7 @@ def unpick(pickled):
     return obj
 
     
-def results_from(filename, model_file=None, **kwargs):
+def results_from(filename, model_file=None, dangerous=False, **kwargs):
     """Read a results file with stored model and MCMC chains.
 
     :param filename:
@@ -39,11 +40,16 @@ def results_from(filename, model_file=None, **kwargs):
         "h5" then it is assumed that this is an HDF5 file, otherwise it is
         assumed to be a pickle.
 
+    :param dangerous: (default, False)
+        If True, use the stored paramfile text to import the parameter file and
+        reconstitute the model object.  This executes code in the paramfile
+        text during import, and is therefore dangerous.
+
     :returns sample_results:
         A dictionary of various results including the sampling chain.
 
-    :returns powell_results:
-        A list of the optimizer results for each of the starting conditions.
+    :returns obs:
+        The obs dictionary
 
     :returns model:
         The models.sedmodel() object.
@@ -64,10 +70,14 @@ def results_from(filename, model_file=None, **kwargs):
         mname = model_file
     param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
-    model, powell_results = read_model(mname, param_file=param_file, **kwargs)
+    model, opt_results = read_model(mname, param_file=param_file, dangerous=dangerous,
+                                    **kwargs)
+    if dangerous:
+        model = read_model(res)
     res['model'] = model
+    res["optimization_results"] = opt_results 
 
-    return res, powell_results, model
+    return res, res["obs"], model
 
 
 def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
