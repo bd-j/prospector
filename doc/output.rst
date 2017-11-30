@@ -69,9 +69,11 @@ First, the results and model pickles can be read into useful dictionaries and ob
 
 .. code-block:: python
 
-		import prospect.io.read_results as bread
+		import prospect.io.read_results as rr
 		filename = "<outfilestring>_<timestamp>_mcmc"
-		results, powell_results, model = bread.results_from(filename)
+		results, obs, model = rr.results_from(filename)
+
+See the help for `prospect.io.read_results_from()` for a description of the returned objects.
 
 It is often desirable to plot the parameter traces for the MCMC chains.
 That is, one wants to see the evolution of the parameter values as a function of MCMC iteration.
@@ -80,16 +82,19 @@ It can be done easily (if ugly) by
 
 .. code-block:: python
 
-		efig = bread.param_evol(results)
+		tracefig = rr.param_evol(results)
 
 Another useful thing is to look at the "corner plot" of the parmeters.
 If one has the `corner.py (https://github.com/dfm/corner.py)`_ package, then
 
 .. code-block:: python
 
-		cfig = bread.subtriangle(results, showpars=mod.theta_labels()[:5])
+		cornerfig = rr.subtriangle(results, showpars=mod.theta_labels()[:5])
 
-will return a corner plot of the first 5 parameters of the model.  If ``showpars`` is omitted then all parameters will be plotted.  There are numerous other options to the ``subtriangle`` method, but they are documented (``help(bread.subtriangle)``)
+will return a corner plot of the first 5 parameters of the model.
+If ``showpars`` is omitted then all parameters will be plotted.
+There are numerous other options to the ``subtriangle`` method, which is a thin wrapper on `corner.py`,
+but they are documented (``help(rr.subtriangle)``)
 
 Finally, one often wants to look at posterior samples in the space of the data, or perhaps the maximum a posteriori parameter values.
 Taking the MAP as an example, this would be accomplished by
@@ -97,7 +102,6 @@ Taking the MAP as an example, this would be accomplished by
 .. code-block:: python
 
 		import np
-		obs = results["obs"]
 
 		# Find the index of the maximum a posteriori
 		ind_max = results["lnprobability"].argmax()
@@ -105,15 +109,18 @@ Taking the MAP as an example, this would be accomplished by
 		theta_max = results["chain"][walker, iteration, :]
 
 		# We need the SPS object to generate a model
-		from prospect.models import model_setup
-		sps = model_setup.load_sps(**results["run_params"])
+		sps = rr.get_sps(results)
 		# now generate the SED for the max. a post. parameters
 		spec, phot, x = model.mean_model(theta_max, obs=obs, sps=sps)
 
 		# Plot the data and the MAP model on top of each other
 		import matplotlib.pyplot as pl
-		pl.plot(obs['wavelength'], obs['spectrum'], label="Data")
-		pl.plot(obs['wavelength'], spec, label="MAP model")
+		if obs['wave'] is None:
+		    wave = sps.wavelengths
+		else:
+		    wave = obs['wavelength']
+		pl.plot(wave, obs['spectrum'], label="Data")
+		pl.plot(wave, spec, label="MAP model")
 
 
 .. |Codename| replace:: Prospector

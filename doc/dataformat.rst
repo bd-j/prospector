@@ -37,7 +37,7 @@ This dictionary should have (at least) the following keys and values:
     Also the ``rescale_spectrum`` run parameter should be False.
 
 ``"unc"``
-    The uncertainty vector, in units of ``"spectrum"``,
+    The uncertainty vector (in sigma), in units of ``"spectrum"``,
     ndarray of same length as the wavelength vector.
 
 ``"mask"``
