@@ -198,7 +198,7 @@ if __name__ == "__main__":
     if not np.isfinite(model.prior_product(model.initial_theta.copy())):
         halt("Halting: initial parameter position has zero prior probability.")
 
-    if bool(rp.get('do_powell', True)):
+    if bool(rp.get('do_powell', False)):
         ts = time.time()
         powell_opt = {'ftol': rp['ftol'], 'xtol': 1e-6, 'maxfev': rp['maxfev']}
         guesses, pinit = fitting.pminimize(chisqfn, initial_theta,
@@ -214,7 +214,7 @@ if __name__ == "__main__":
             print('done Powell in {0}s'.format(pdur))
             print('best Powell guess:{0}'.format(initial_center))
 
-    elif bool(rp.get('do_levenburg', True)):
+    elif bool(rp.get('do_levenberg', False)):
         from scipy.optimize import least_squares
         nmin = rp.get('nmin', 10)
         ts = time.time()

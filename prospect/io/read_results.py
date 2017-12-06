@@ -73,7 +73,7 @@ def results_from(filename, model_file=None, dangerous=False, **kwargs):
     model, opt_results = read_model(mname, param_file=param_file, dangerous=dangerous,
                                     **kwargs)
     if dangerous:
-        model = read_model(res)
+        model = get_model(res)
     res['model'] = model
     res["optimization_results"] = opt_results 
 
@@ -324,9 +324,12 @@ def param_evol(sample_results, showpars=None, start=0, **plot_kwargs):
     """
     import matplotlib.pyplot as pl
 
-    chain = sample_results['chain'][:, start:, :]
-    lnprob = sample_results['lnprobability'][:, start:]
-    nwalk = chain.shape[0]
+    chain = sample_results['chain'][..., start:, :]
+    lnprob = sample_results['lnprobability'][..., start:]
+    # deal with single chain (i.e. nested sampling) results
+    if len(chain.shape) == 2:
+        chain = chain[None, ...]
+        lnprob = lnprob[None, ...]
     try:
         parnames = np.array(sample_results['theta_labels'])
     except(KeyError):
@@ -399,9 +402,9 @@ def subtriangle(sample_results, outname=None, showpars=None,
         parnames = np.array(sample_results['theta_labels'])
     except(KeyError):
         parnames = np.array(sample_results['model'].theta_labels())
-    flatchain = sample_results['chain'][:, start::thin, :]
-    flatchain = flatchain.reshape(flatchain.shape[0] * flatchain.shape[1],
-                                  flatchain.shape[2])
+    flatchain = sample_results['chain'][..., start::thin, :]
+    flatchain = flatchain.reshape(-1, flatchain.shape[-1])
+    weights = res.get('weights', None)
 
     # restrict to parameters you want to show
     if showpars is not None:
@@ -413,10 +416,10 @@ def subtriangle(sample_results, outname=None, showpars=None,
         trim_outliers = len(parnames) * [trim_outliers]
     try:
         fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
-                              quantiles=[0.16, 0.5, 0.84], extents=trim_outliers, **kwargs)
+                              quantiles=[0.16, 0.5, 0.84], extents=trim_outliers, weights=weights, **kwargs)
     except:
         fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
-                              quantiles=[0.16, 0.5, 0.84], range=trim_outliers, **kwargs)
+                              quantiles=[0.16, 0.5, 0.84], range=trim_outliers, weights=weights, **kwargs)
 
     if outname is not None:
         fig.savefig('{0}.triangle.png'.format(outname))
