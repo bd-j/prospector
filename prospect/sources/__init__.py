@@ -4,8 +4,9 @@ from .star_basis import *
 from .dust_basis import *
 from .boneyard import StepSFHBasis
 
-__all__ = ["CSPSpecBasis", "CSPBasis", "to_cgs",
-           "SSPBasis", "FastSSPBasis", "FastStepBasis",
-           "StepSFHBasis",
+__all__ = ["to_cgs",
+           "CSPSpecBasis", "CSPBasis",
+           "FastSSPBasis", "SSPBasis",
+           "FastStepBasis", "StepSFHBasis",
            "StarBasis", "BigStarBasis",
            "BlackBodyDustBasis"]

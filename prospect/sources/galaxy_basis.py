@@ -5,6 +5,7 @@ from copy import deepcopy
 from .ssp_basis import SSPBasis
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
+from .constants import lightspeed, jansky_cgs, to_cgs_at_10pc
 
 try:
     import fsps
@@ -17,13 +18,8 @@ except(ImportError):
 
 __all__ = ["CSPSpecBasis", "CSPBasis", "to_cgs"]
 
-# Useful constants
-lsun = 3.846e33
-pc = 3.085677581467192e18  # in cm
-lightspeed = 2.998e18  # AA/s
-jansky_mks = 1e-26
-# value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
-to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
+
+to_cgs = to_cgs_at_10pc
 
 
 class CSPSpecBasis(SSPBasis):
@@ -198,7 +194,7 @@ class CSPBasis(object):
             spec *= to_cgs / dfactor * lightspeed / outwave**2
         else:
             # Spectrum will be in maggies
-            spec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
+            spec *= to_cgs / dfactor / (3631*jansky_cgs)
 
         # Convert from absolute maggies to apparent maggies
         maggies /= dfactor

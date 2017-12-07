@@ -4,11 +4,8 @@ from sedpy.observate import getSED
 __all__ = ["BlackBodyDustBasis"]
 
 # cgs constants
+from .constants import lsun, pc, kboltz, hplanck
 lightspeed = 29979245800.0
-lsun = 3.846e33
-pc = 3.085677581467192e+18
-kboltz = 1.3806488e-16
-hplanck = 6.62606957e-27
 
 
 class BlackBodyDustBasis(object):

@@ -4,10 +4,10 @@ from scipy.special import expi, gammainc
 from .ssp_basis import SSPBasis
 
 
-__all__ = ["StepSFHBasis", "CompositeSFH"]
+__all__ = ["StepSFHBasis", "CompositeSFH", "LinearSFHBasis"]
 
 # change base
-loge = np.log10(np.e)
+from .constants import loge
 
 
 class StepSFHBasis(SSPBasis):
@@ -226,6 +226,21 @@ class CompositeSFH(SSPBasis):
             norms = (1-fburst-const) * norms
             norms.tolist().extend([const, fburst])
         return np.array(norms)
+
+
+class LinearSFHBasis(SSPBasis):
+    """Subclass of SSPBasis that computes SSP weights for piecewise linear SFHs
+    (i.e. a linearly interpolated tabular SFH).  The parameters for this SFH
+    are:
+      * `ages` - array of shape (ntab,) giving the lookback time of each
+        tabulated SFR.  If `interp_type` is `"linear"', these are assumed to be
+        in years.  Otherwise they are in log10(years)
+      * `sfr` - array of shape (ntab,) giving the SFR (in Msun/yr)
+      * `logzsol`
+      * `dust2`
+    """
+    def get_galaxy_spectrum(self):
+        raise(NotImplementedError)
 
 
 def regular_limits(ages, tage=0., sf_trunc=0., mint_log=-3,

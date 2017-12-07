@@ -1,8 +1,10 @@
 from copy import deepcopy
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
+
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED
+from .constants import lightspeed, jansky_cgs, to_cgs_at_10pc
 
 try:
     import fsps
@@ -14,16 +16,10 @@ except(ImportError):
     pass
 
 __all__ = ["SSPBasis", "FastSSPBasis", "FastStepBasis",
-           "MultiSSPBasis", "LinearSFHBasis"]
+           "MultiSSPBasis"]
 
 
-# Useful constants
-lsun = 3.846e33
-pc = 3.085677581467192e18  # in cm
-lightspeed = 2.998e18  # AA/s
-jansky_mks = 1e-26
-# value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
-to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
+to_cgs = to_cgs_at_10pc
 
 
 class SSPBasis(object):
@@ -222,7 +218,7 @@ class SSPBasis(object):
             smspec *= to_cgs / dfactor * lightspeed / outwave**2
         else:
             # Spectrum will be in maggies
-            smspec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
+            smspec *= to_cgs / dfactor / (3631*jansky_cgs)
 
         # Convert from absolute maggies to apparent maggies
         phot /= dfactor
@@ -345,21 +341,6 @@ class FastStepBasis(SSPBasis):
 class MultiSSPBasis(SSPBasis):
     """An array of basis spectra with different ages, metallicities, and possibly dust
     attenuations.
-    """
-    def get_galaxy_spectrum(self):
-        raise(NotImplementedError)
-
-
-class LinearSFHBasis(SSPBasis):
-    """Subclass of SSPBasis that computes SSP weights for piecewise linear SFHs
-    (i.e. a linearly interpolated tabular SFH).  The parameters for this SFH
-    are:
-      * `ages` - array of shape (ntab,) giving the lookback time of each
-        tabulated SFR.  If `interp_type` is `"linear"', these are assumed to be
-        in years.  Otherwise they are in log10(years)
-      * `sfr` - array of shape (ntab,) giving the SFR (in Msun/yr)
-      * `logzsol`
-      * `dust2`
     """
     def get_galaxy_spectrum(self):
         raise(NotImplementedError)
