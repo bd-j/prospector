@@ -4,10 +4,145 @@ from scipy.special import expi, gammainc
 from .ssp_basis import SSPBasis
 
 
-__all__ = ["StepSFHBasis", "CompositeSFH", "LinearSFHBasis"]
+__all__ = ["CSPBasis", "StepSFHBasis", "CompositeSFH", "LinearSFHBasis"]
 
 # change base
 from .constants import loge
+
+
+class CSPBasis(object):
+    """
+    A class for composite stellar populations, which can be composed from
+    multiple versions of parameterized SFHs.  Deprecated, Use CSPSpecBasis instead.
+    """
+    def __init__(self, compute_vega_mags=False, zcontinuous=1, vactoair_flag=False, **kwargs):
+
+        # This is a StellarPopulation object from fsps
+        self.csp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+                                          zcontinuous=zcontinuous,
+                                          vactoair_flag=vactoair_flag)
+        self.params = {}
+
+    def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
+        """Given a theta vector, generate spectroscopy, photometry and any
+        extras (e.g. stellar mass).
+
+        :param theta:
+            ndarray of parameter values.
+
+        :param sps:
+            A python-fsps StellarPopulation object to be used for
+            generating the SED.
+
+        :returns spec:
+            The restframe spectrum in units of maggies.
+
+        :returns phot:
+            The apparent (redshifted) observed frame maggies in each of the
+            filters.
+
+        :returns extras:
+            A list of the ratio of existing stellar mass to total mass formed
+            for each component, length ncomp.
+        """
+        self.params.update(**params)
+        # Pass the model parameters through to the sps object
+        ncomp = len(self.params['mass'])
+        for ic in range(ncomp):
+            s, p, x = self.one_sed(component_index=ic, filterlist=filters)
+            try:
+                spec += s
+                maggies += p
+                extra += [x]
+            except(NameError):
+                spec, maggies, extra = s, p, [x]
+        # `spec` is now in Lsun/Hz, with the wavelength array being the
+        # observed frame wavelengths.  Flux array (and maggies) have not been
+        # increased by (1+z) due to cosmological redshift
+
+        w = self.ssp.wavelengths
+        if outwave is not None:
+            spec = np.interp(outwave, w, spec)
+        else:
+            outwave = w
+        # Distance dimming and unit conversion
+        zred = self.params.get('zred', 0.0)
+        if (zred == 0) or ('lumdist' in self.params):
+            # Use 10pc for the luminosity distance (or a number provided in the
+            # lumdist key in units of Mpc).  Do not apply cosmological (1+z)
+            # factor to the flux.
+            dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
+            a = 1.0
+        else:
+            # Use the comsological luminosity distance implied by this
+            # redshift.  Cosmological (1+z) factor on the flux was already done in one_sed
+            lumdist = cosmo.luminosity_distance(zred).value
+            dfactor = (lumdist * 1e5)**2
+        if peraa:
+            # spectrum will be in erg/s/cm^2/AA
+            spec *= to_cgs / dfactor * lightspeed / outwave**2
+        else:
+            # Spectrum will be in maggies
+            spec *= to_cgs / dfactor / (3631*jansky_cgs)
+
+        # Convert from absolute maggies to apparent maggies
+        maggies /= dfactor
+
+        return spec, maggies, extra
+
+    def one_sed(self, component_index=0, filterlist=[]):
+        """Get the SED of one component for a multicomponent composite SFH.
+        Should set this up to work as an iterator.
+
+        :param component_index:
+            Integer index of the component to calculate the SED for.
+
+        :param filterlist:
+            A list of strings giving the (FSPS) names of the filters onto which
+            the spectrum will be projected.
+
+        :returns spec:
+            The restframe spectrum in units of Lsun/Hz.
+
+        :returns maggies:
+            Broadband fluxes through the filters named in ``filterlist``,
+            ndarray.  Units are observed frame absolute maggies: M = -2.5 *
+            log_{10}(maggies).
+
+        :returns extra:
+            The extra information corresponding to this component.
+        """
+        # Pass the model parameters through to the sps object, and keep track
+        # of the mass of this component
+        mass = 1.0
+        for k, vs in list(self.params.items()):
+            try:
+                v = vs[component_index]
+            except(IndexError, TypeError):
+                v = vs
+            if k in self.csp.params.all_params:
+                self.csp.params[k] = deepcopy(v)
+            if k == 'mass':
+                mass = v
+        # Now get the spectrum.  The spectrum is in units of
+        # Lsun/Hz/per solar mass *formed*, and is restframe
+        w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
+        # redshift and get photometry.  Note we are boosting fnu by (1+z) *here*
+        a, b = (1 + self.csp.params['zred']), 0.0
+        wa, sa = w * (a + b), spec * a  # Observed Frame
+        if filterlist is not None:
+            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, filterlist)
+            phot = np.atleast_1d(10**(-0.4 * mags))
+        else:
+            phot = 0.0
+
+        # now some mass normalization magic
+        mfrac = self.csp.stellar_mass
+        if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
+            # Convert input normalization units from per stellar masss to per mass formed
+            mass /= mfrac
+        # Output correct units
+        return mass * sa, mass * phot, mfrac
 
 
 class StepSFHBasis(SSPBasis):
