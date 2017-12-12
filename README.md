@@ -38,4 +38,4 @@ Prospector is pure python.
 See [installation](doc/installation.rst) for requirements.
 Other files in the [doc/](doc/) directory explain the usage of the code.
 
-See also the [tutorial](demo/tutorial.rst) for fitting photometric data with composite stellar populations.
+See also the [tutorial](demo/tutorial.rst) or the [interactive demol](demo/InteractiveDemo.ipynb) for fitting photometric data with composite stellar populations.

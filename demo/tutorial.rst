@@ -38,13 +38,15 @@ This means you will have to modify this function heavily for your own use.
 But it also means you can use your existing data formats.
 
 Right now, the ``load_obs`` function just reads ascii data from a file,
-picks out a row, and then makes a dictionary using data in that row.
+picks out a row (corresponding to the photometry of a single galaxy),
+and then makes a dictionary using data in that row.
 You'll note that both the datafile name and the object number are keyword arguments to this function.
 That means they can be set at execution time on the command line,
 by also including those variables in the ``run_params`` dictionary.
 We'll see an example later.
 
-When you write your own ``load_obs`` function, you can add all sorts of keyword arguments that control its output.
+When you write your own ``load_obs`` function, you can add all sorts of keyword arguments that control its output
+(for example, an object name or id number that can be used to choose or find a single object in your data file).
 You can also import helper functions and modules.
 These can be either things like astropy, h5py, and sqlite or your own project specific modules and functions.
 As long as the output dictionary is in the right format, the body of this function can do anything.
@@ -58,8 +60,8 @@ The ``model_params`` list is where the model that we will fit is specified.
 Each entry in the list is a dictionary that describes a single parameter.
 You'll note that for 5 of these parameters we have set ``"isfree": True``.
 These are the parameters that will be varied during the fit.
-We have set a prior on these parameters, including prior arguments.
-Other parameters have their value set (by the ``"init"`` key) but do not vary during the fit.
+We have set priors on these parameters, including prior arguments.
+Other parameters have their value set (to the value of the ``"init"`` key) but do not vary during the fit.
 They can be made to vary by setting ``"isfree": True`` and specifying a prior.
 Parameters not listed here will be set to their default values.
 For CSPBasis this means the default values in the ``fsps.StellarPopulation()`` object,
@@ -69,6 +71,7 @@ Finally, the ``load_model()`` function takes the ``model_params`` list and
 uses it to instantiate a ``SedModel`` object.
 If you wanted to change the specification of the model using command line arguments,
 you could do it in this function using keyword arguments that are also keys of ``run_params``.
+This can be useful for example to set the initial value of the redshift ``"zred"`` on an object-by-object basis.
 
 Running a fit
 ----------------------
@@ -103,7 +106,7 @@ Working with the output
 After the fit is completed we should have a number of files with names like
 ``demo_obj0_<timestamp>_*``.  The ``_mcmc`` file is a pickle of a dictionary
 containing sampling results and various configuration data, as well as the observational data that was fit.
-The  ``_mcmc.h5`` is and HDF5 file with the same
+The  ``_mcmc.h5`` is an HDF5 file with the same
 data but in a more portable format.  The ``_model`` file is a pickle of the
 ``SedModel`` object used to generate models, saved for convenience.
 We will read these in with python and make some plots using utilities in |Codename|
@@ -116,22 +119,27 @@ module for basic (and ugly) diagnostic plots. The ``subtriangle`` method require
 .. code-block:: python
 		
 		import prospect.io.read_results as bread
-		res, pr, mod = bread.results_from("demo_obj_<timestamp>_mcmc")
+		res, obs, mod = bread.results_from("demo_obj_<timestamp>_mcmc.h5")
 		tracefig = bread.param_evol(res)
 		cornerfig = bread.subtriangle(res, start=0, thin=5)
 
+The ``res`` object is a dictionary containing various useful results.
+You can look at ``res.keys()`` to see a list of what it contains.
+The ``obs`` object is just the ``obs`` dictionary that was used in the fitting.
+The ``mod`` object is the model object that was used in the fitting.
 There are also numerous more or less poorly documented convenience methods in
-the ``prospect.utils.plotting``.  If necessary, one can regenerate models at any walker
-position in the following way:
+the ``prospect.utils.plotting``.
+If necessary, one can regenerate models at any walker position in the following way:
 
 .. code-block:: python
 		
-		import prospect.io.read_results as bread
-		res, pr, mod = bread.results_from("demo_obj_<timestamp>_mcmc")
+		import prospect.io.read_results as pread
+		res, obs, mod = pread.results_from("demo_obj_<timestamp>_mcmc")
 		# We need the correct sps object to generate models
 		from prospect.sources import CSPBasis
-		sps = CSPBasis(**res['run_params'])
-		# Choose the walker and iteration number
+		sps = pread.get_sps(res)
+		# Choose the walker and iteration number,
+		# if you used emcee for the inference
 		walker, iteration = 0, -1
 		# Get the modeled spectra and photometry.
 		# These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.

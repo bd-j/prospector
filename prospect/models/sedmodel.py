@@ -1,18 +1,8 @@
 import numpy as np
 from numpy.polynomial.chebyshev import chebval, chebvander
 from .parameters import ProspectorParams
-try:
-    from astropy.cosmology import WMAP9 as cosmo
-except(ImportError):
-    pass
 
 __all__ = ["SedModel", "PolySedModel"]
-
-lsun = 3.846e33  # ergs/s
-pc = 3.085677581467192e18  # cm
-jansky_mks = 1e-26
-# value to go from L_sun/Hz to erg/s/cm^2/Hz at 10pc
-to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 
 
 class SedModel(ProspectorParams):
@@ -83,6 +73,8 @@ class SedModel(ProspectorParams):
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
                                               filters=obs['filters'],
+                                              component=obs.get('component', -1),
+                                              lnwavegrid=obs.get('lnwavegrid', None),
                                               **self.params)
 
         spec *= obs.get('normalization_guess', 1.0)

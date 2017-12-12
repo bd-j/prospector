@@ -2,8 +2,10 @@ from itertools import chain
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from scipy.spatial import Delaunay
+
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
+from .constants import lightspeed, lsun, jansky_cgs, to_cgs_at_10pc
 
 try:
     from sklearn.neighbors import KDTree
@@ -14,12 +16,9 @@ __all__ = ["StarBasis", "BigStarBasis"]
 
 
 # Useful constants
-lsun = 3.846e33
-pc = 3.085677581467192e18  # in cm
-lightspeed = 2.998e18  # AA/s
-jansky_mks = 1e-26
 # value to go from L_sun to erg/s/cm^2 at 10pc
-to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
+to_cgs = to_cgs_at_10pc
+
 # for converting Kurucz spectral units
 log4pi = np.log10(4 * np.pi)
 log_rsun_cgs = np.log10(6.955) + 10
@@ -209,7 +208,7 @@ class StarBasis(object):
             smspec *= to_cgs / dfactor * lightspeed / outwave**2
         else:
             # Spectrum will be in maggies
-            smspec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
+            smspec *= to_cgs / dfactor / (3631*jansky_cgs)
 
         # Convert from absolute maggies to apparent maggies
         phot /= dfactor
@@ -296,7 +295,7 @@ class StarBasis(object):
         Tinv = transform[:self.ndim, :]
         x_r = inparams - transform[self.ndim, :]
         bary = np.dot(Tinv, x_r)
-        last = 1.0 - bary.sum()
+        last = np.clip(1.0 - bary.sum(), 0.0, 1.0)
         wghts = np.append(bary, last)
         oo = inds.argsort()
         return inds[oo], wghts[oo]

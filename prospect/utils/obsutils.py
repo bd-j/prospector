@@ -6,8 +6,36 @@ __all__ = ["fix_obs", "rectify_obs", "norm_spectrum", "logify_data"]
 
 
 def fix_obs(obs, rescale_spectrum=False, normalize_spectrum=False,
-            logify_spectrum=False, **kwargs):
+            logify_spectrum=False, grid_filters=False, **kwargs):
     """Make all required changes to the obs dictionary.
+
+    :param obs:
+        The `obs` dictionary that will be fit.
+
+    :param rescale_spectrum: (optional, default:False, deprecated)
+        Rescale the supplied spectrum to have a median value of 1.  The value
+        used to rescale the spectrum is added as the `"rescale"` key in the
+        supplied `obs` dictionary.
+
+    :param normalize_spectrum: (optional, default:False, deprecated)
+        Renormalize the spectrum to give the supplied magnitude through the
+        filter specified by `obs["norm_band_name"]`.  See `norm_spectrum()` for
+        details.
+
+    :param logify_spectrum: (optional, default:False, deprecated)
+        Take the log of the spectrum and associated uncertainties, for fitting
+        in log-space.  Note this distorts errors.
+
+    :param grid_filters: (optional, default:False)
+        Switch to place all filter transmission curves on a common grid of
+        dlnlambda, to provide small speed gains in the filter projections.  The
+        grid is calculated automatically from the supplied filters, and is
+        added to the `obs` dictionary as the `"lnwavegrid"` key.
+
+    :returns obs:
+        An obs dictionary that has all required keys and that has been modified
+        according to the options described above.
+
     """
     obs = rectify_obs(obs)
     obs['ndof'] = 0
@@ -33,6 +61,20 @@ def fix_obs(obs, rescale_spectrum=False, normalize_spectrum=False,
 
     if obs['maggies'] is not None:
         obs['ndof'] += obs['phot_mask'].sum()
+        if grid_filters:
+            wlo, whi, dlo = [], [], []
+            for f in obs['filters']:
+                dlnlam = np.gradient(f.wavelength)/f.wavelength
+                wlo.append(f.wavelength.min())
+                dlo.append(dlnlam.min())
+                whi.append(f.wavelength.max())
+            wmin = np.min(wlo)
+            wmax = np.max(whi)
+            dlnlam = np.min(dlo)
+            for f in obs['filters']:
+                f.gridify_transmission(dlnlam, wmin)
+                f.get_properties()
+            obs['lnwavegrid'] = np.exp(np.arange(np.log(wmin), np.log(wmax)+dlnlam, dlnlam))
     else:
         obs['maggies_unc'] = None
     return obs

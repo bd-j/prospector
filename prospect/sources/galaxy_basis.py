@@ -5,6 +5,7 @@ from copy import deepcopy
 from .ssp_basis import SSPBasis
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
+from .constants import lightspeed, jansky_cgs, to_cgs_at_10pc
 
 try:
     import fsps
@@ -15,28 +16,30 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["CSPBasis", "CSPSpecBasis", "to_cgs"]
+__all__ = ["CSPSpecBasis", "MultiComponentCSPBasis",
+           "to_cgs"]
 
-# Useful constants
-lsun = 3.846e33
-pc = 3.085677581467192e18  # in cm
-lightspeed = 2.998e18  # AA/s
-jansky_mks = 1e-26
-# value to go from L_sun/AA to erg/s/cm^2/AA at 10pc
-to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
+
+to_cgs = to_cgs_at_10pc
 
 
 class CSPSpecBasis(SSPBasis):
+
+    """A class for combinations of N composite stellar populations (including
+    single-age populations). The number of composite stellar populations is
+    given by the length of the `mass` parameter.
+    """
 
     def __init__(self, compute_vega_mags=False, zcontinuous=1, vactoair_flag=False,
                  reserved_params=['zred', 'sigma_smooth'], **kwargs):
 
         # This is a StellarPopulation object from fsps
-        self.csp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+        self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
                                           zcontinuous=zcontinuous,
                                           vactoair_flag=vactoair_flag)
         self.reserved_params = reserved_params
         self.params = {}
+        self.update(**kwargs)
 
     def update(self, **params):
         """Update the `params` attribute, making parameters scalar if possible.
@@ -66,7 +69,7 @@ class CSPSpecBasis(SSPBasis):
                 continue
             # Otherwise if a parameter exists in the FSPS parameter set, pass a
             # copy of it in.
-            if k in self.csp.params.all_params:
+            if k in self.ssp.params.all_params:
                 v = np.atleast_1d(v)
                 try:
                     # Try to pull the relevant component.
@@ -78,7 +81,7 @@ class CSPSpecBasis(SSPBasis):
                     # It was scalar, use that value for all components
                     this_v = v
 
-                self.csp.params[k] = deepcopy(this_v)
+                self.ssp.params[k] = deepcopy(this_v)
 
     def get_galaxy_spectrum(self, **params):
         """Update parameters, then loop over each component getting a spectrum
@@ -105,13 +108,13 @@ class CSPSpecBasis(SSPBasis):
         # Loop over mass components
         for i, m in enumerate(mass):
             self.update_component(i)
-            wave, spec = self.csp.get_spectrum(tage=self.csp.params['tage'],
+            wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
                                                peraa=False)
             spectra.append(spec)
-            mfrac[i] = (self.csp.stellar_mass)
+            mfrac[i] = (self.ssp.stellar_mass)
 
         # Convert normalization units from per stellar mass to per mass formed
-        if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
+        if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
             mass /= mfrac
         spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
         mfrac_sum = np.dot(mass, mfrac) / mass.sum()
@@ -119,143 +122,154 @@ class CSPSpecBasis(SSPBasis):
         return wave, spectrum, mfrac_sum
 
 
-class CSPBasis(object):
+class MultiComponentCSPBasis(CSPSpecBasis):
+
+
+    """Similar to CSPSpecBasis, a class for combinations of N composite stellar
+    populations (including single-age populations). The number of composite
+    stellar populations is given by the length of the `mass` parameter.
+
+    However, in MultiComponentCSPBasis the SED of the different components are
+    tracked, and in get_spectrum() photometry can be drawn from a given
+    component
     """
-    A class for composite stellar populations, which can be composed from
-    multiple versions of parameterized SFHs.  Should replace CSPModel.
-    """
-    def __init__(self, compute_vega_mags=False, zcontinuous=1, vactoair_flag=False, **kwargs):
+    
+    def get_galaxy_spectrum(self, **params):
+        """Update parameters, then loop over each component getting a spectrum
+        for each.  Return all the component spectra, plus the sum.
 
-        # This is a StellarPopulation object from fsps
-        self.csp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
-                                          zcontinuous=zcontinuous,
-                                          vactoair_flag=vactoair_flag)
-        self.params = {}
+        :param params:
+            A parameter dictionary that gets passed to the ``self.update``
+            method and will generally include physical parameters that control
+            the stellar population and output spectrum or SED, some of which
+            may be vectors for the different componenets
 
-    def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
-        """Given a theta vector, generate spectroscopy, photometry and any
-        extras (e.g. stellar mass).
+        :returns wave:
+            Wavelength in angstroms.
 
-        :param theta:
-            ndarray of parameter values.
+        :returns spectrum:
+            Spectrum in units of Lsun/Hz/solar masses formed.  ndarray of
+            shape(ncomponent+1, nwave).  The last element is the sum of the
+            previous elements.
 
-        :param sps:
-            A python-fsps StellarPopulation object to be used for
-            generating the SED.
+        :returns mass_fraction:
+            Fraction of the formed stellar mass that still exists, ndarray of
+            shape (ncomponent+1,)
+        """
+        self.update(**params)
+        spectra = []
+        mass = np.atleast_1d(self.params['mass']).copy()
+        mfrac = np.zeros_like(mass)
+        # Loop over mass components
+        for i, m in enumerate(mass):
+            self.update_component(i)
+            wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
+                                               peraa=False)
+            spectra.append(spec)
+            mfrac[i] = (self.ssp.stellar_mass)
+
+        # Convert normalization units from per stellar mass to per mass formed
+        if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
+            mass /= mfrac
+        spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
+        mfrac_sum = np.dot(mass, mfrac) / mass.sum()
+
+        return wave, np.squeeze(spectra + [spectrum]), np.squeeze(mfrac.tolist() + [mfrac_sum])
+
+    def get_spectrum(self, outwave=None, filters=None, component=-1, **params):
+        """Get a spectrum and SED for the given params, choosing from different
+        possible components.
+
+        :param outwave: (default: None)
+            Desired *vacuum* wavelengths.  Defaults to the values in
+            `sps.wavelength`.
+
+        :param peraa: (default: False)
+            If `True`, return the spectrum in erg/s/cm^2/AA instead of AB
+            maggies.
+
+        :param filters: (default: None)
+            A list of filter objects for which you'd like photometry to be
+            calculated.
+
+        :param component: (optional, default: -1)
+            An optional array where each element gives the index of the
+            component from which to choose the magnitude.  scalar or iterable
+            of same length as `filters`
+
+        :param **params:
+            Optional keywords giving parameter values that will be used to
+            generate the predicted spectrum.
 
         :returns spec:
-            The restframe spectrum in units of maggies.
+            Observed frame spectrum in AB maggies, unless `peraa=True` in which
+            case the units are erg/s/cm^2/AA.
 
         :returns phot:
-            The apparent (redshifted) observed frame maggies in each of the
-            filters.
+            Observed frame photometry in AB maggies.
 
-        :returns extras:
-            A list of the ratio of existing stellar mass to total mass formed
-            for each component, length ncomp.
+        :returns mass_frac:
+            The ratio of the surviving stellar mass to the total mass formed.
         """
-        self.params.update(**params)
-        # Pass the model parameters through to the sps object
-        ncomp = len(self.params['mass'])
-        for ic in range(ncomp):
-            s, p, x = self.one_sed(component_index=ic, filterlist=filters)
-            try:
-                spec += s
-                maggies += p
-                extra += [x]
-            except(NameError):
-                spec, maggies, extra = s, p, [x]
-        # `spec` is now in Lsun/Hz, with the wavelength array being the
-        # observed frame wavelengths.  Flux array (and maggies) have not been
-        # increased by (1+z) due to cosmological redshift
 
-        w = self.csp.wavelengths
-        if outwave is not None:
-            spec = np.interp(outwave, w, spec)
-        else:
-            outwave = w
-        # Distance dimming and unit conversion
-        zred = self.params.get('zred', 0.0)
-        if (zred == 0) or ('lumdist' in self.params):
-            # Use 10pc for the luminosity distance (or a number provided in the
-            # lumdist key in units of Mpc).  Do not apply cosmological (1+z)
-            # factor to the flux.
-            dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
-            a = 1.0
-        else:
-            # Use the comsological luminosity distance implied by this
-            # redshift.  Cosmological (1+z) factor on the flux was already done in one_sed
-            lumdist = cosmo.luminosity_distance(zred).value
-            dfactor = (lumdist * 1e5)**2
-        if peraa:
-            # spectrum will be in erg/s/cm^2/AA
-            spec *= to_cgs / dfactor * lightspeed / outwave**2
-        else:
-            # Spectrum will be in maggies
-            spec *= to_cgs / dfactor / 1e3 / (3631*jansky_mks)
+        # Spectrum in Lsun/Hz per solar mass formed, restframe
+        wave, spectrum, mfrac = self.get_galaxy_spectrum(**params)
 
-        # Convert from absolute maggies to apparent maggies
-        maggies /= dfactor
+        # Redshifting + Wavelength solution
+        # We do it ourselves.
+        a = 1 + self.params.get('zred', 0)
+        af = a
+        b = 0.0
 
-        return spec, maggies, extra
+        if 'wavecal_coeffs' in self.params:
+            x = wave - wave.min()
+            x = 2.0 * (x / x.max()) - 1.0
+            c = np.insert(self.params['wavecal_coeffs'], 0, 0)
+            # assume coeeficients give shifts in km/s
+            b = chebval(x, c) / (lightspeed*1e-13)
 
-    def one_sed(self, component_index=0, filterlist=[]):
-        """Get the SED of one component for a multicomponent composite SFH.
-        Should set this up to work as an iterator.
+        wa, sa = wave * (a + b), spectrum * af  # Observed Frame
+        if outwave is None:
+            outwave = wa
 
-        :param component_index:
-            Integer index of the component to calculate the SED for.
-
-        :param filterlist:
-            A list of strings giving the (FSPS) names of the filters onto which
-            the spectrum will be projected.
-
-        :returns spec:
-            The restframe spectrum in units of Lsun/Hz.
-
-        :returns maggies:
-            Broadband fluxes through the filters named in ``filterlist``,
-            ndarray.  Units are observed frame absolute maggies: M = -2.5 *
-            log_{10}(maggies).
-
-        :returns extra:
-            The extra information corresponding to this component.
-        """
-        # Pass the model parameters through to the sps object, and keep track
-        # of the mass of this component
-        mass = 1.0
-        for k, vs in list(self.params.items()):
-            try:
-                v = vs[component_index]
-            except(IndexError, TypeError):
-                v = vs
-            if k in self.csp.params.all_params:
-                self.csp.params[k] = deepcopy(v)
-            if k == 'mass':
-                mass = v
-        # Now get the spectrum.  The spectrum is in units of
-        # Lsun/Hz/per solar mass *formed*, and is restframe
-        w, spec = self.csp.get_spectrum(tage=self.csp.params['tage'], peraa=False)
-        # redshift and get photometry.  Note we are boosting fnu by (1+z) *here*
-        a, b = (1 + self.csp.params['zred']), 0.0
-        wa, sa = w * (a + b), spec * a  # Observed Frame
-        if filterlist is not None:
-            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, filterlist)
+        # Observed frame photometry, as absolute maggies
+        if filters is not None:
+            # Magic to only do filter projections for unique filters, and get a
+            # mapping back into this list of unique filters
+            # note that this may scramble order of unique_filters
+            fnames = [f.name for f in filters]
+            unique_names, uinds, filter_ind = np.unique(fnames, return_index=True, return_inverse=True)
+            unique_filters = np.array(filters)[uinds]
+            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, unique_filters)
             phot = np.atleast_1d(10**(-0.4 * mags))
         else:
             phot = 0.0
+            filter_ind = 0
 
-        # now some mass normalization magic
-        mfrac = self.csp.stellar_mass
-        if np.all(self.params.get('mass_units', 'mstar') == 'mstar'):
-            # Convert normalization units from per stellar masss to per mass formed
-            mass /= mfrac
-        # Output correct units
-        return mass * sa, mass * phot, mfrac
+        # Distance dimming and unit conversion
+        zred = self.params.get('zred', 0.0)
+        if (zred == 0) or ('lumdist' in self.params):
+            # Use 10pc for the luminosity distance (or a number
+            # provided in the dist key in units of Mpc)
+            dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
+        else:
+            lumdist = cosmo.luminosity_distance(zred).value
+            dfactor = (lumdist * 1e5)**2
 
-    @property
-    def wavelengths(self):
-        return self.csp.wavelengths
+        # Spectrum will be in maggies
+        sa *= to_cgs / dfactor / (3631*jansky_cgs)
+
+        # Convert from absolute maggies to apparent maggies
+        phot /= dfactor
+
+        # Mass normalization
+        mass = np.atleast_1d(self.params['mass'])
+        mass = np.squeeze(mass.tolist() + [mass.sum()])
+
+        sa = (sa * mass[:, None])
+        phot = (phot * mass[:, None])[component, filter_ind]
+
+        return sa[-1, :], phot, mfrac
 
 
 def gauss(x, mu, A, sigma):
