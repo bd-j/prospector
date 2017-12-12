@@ -5,7 +5,7 @@ from .dust_basis import *
 from .boneyard import StepSFHBasis
 
 __all__ = ["to_cgs",
-           "CSPSpecBasis", "CSPBasis",
+           "CSPSpecBasis", "MultiComponentCSPBasis",
            "FastSSPBasis", "SSPBasis",
            "FastStepBasis", "StepSFHBasis",
            "StarBasis", "BigStarBasis",

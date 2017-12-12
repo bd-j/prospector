@@ -16,7 +16,8 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["CSPSpecBasis", "to_cgs"]
+__all__ = ["CSPSpecBasis", "MultiComponentCSPBasis",
+           "to_cgs"]
 
 
 to_cgs = to_cgs_at_10pc
@@ -119,6 +120,156 @@ class CSPSpecBasis(SSPBasis):
         mfrac_sum = np.dot(mass, mfrac) / mass.sum()
 
         return wave, spectrum, mfrac_sum
+
+
+class MultiComponentCSPBasis(CSPSpecBasis):
+
+
+    """Similar to CSPSpecBasis, a class for combinations of N composite stellar
+    populations (including single-age populations). The number of composite
+    stellar populations is given by the length of the `mass` parameter.
+
+    However, in MultiComponentCSPBasis the SED of the different components are
+    tracked, and in get_spectrum() photometry can be drawn from a given
+    component
+    """
+    
+    def get_galaxy_spectrum(self, **params):
+        """Update parameters, then loop over each component getting a spectrum
+        for each.  Return all the component spectra, plus the sum.
+
+        :param params:
+            A parameter dictionary that gets passed to the ``self.update``
+            method and will generally include physical parameters that control
+            the stellar population and output spectrum or SED, some of which
+            may be vectors for the different componenets
+
+        :returns wave:
+            Wavelength in angstroms.
+
+        :returns spectrum:
+            Spectrum in units of Lsun/Hz/solar masses formed.  ndarray of
+            shape(ncomponent+1, nwave).  The last element is the sum of the
+            previous elements.
+
+        :returns mass_fraction:
+            Fraction of the formed stellar mass that still exists, ndarray of
+            shape (ncomponent+1,)
+        """
+        self.update(**params)
+        spectra = []
+        mass = np.atleast_1d(self.params['mass']).copy()
+        mfrac = np.zeros_like(mass)
+        # Loop over mass components
+        for i, m in enumerate(mass):
+            self.update_component(i)
+            wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
+                                               peraa=False)
+            spectra.append(spec)
+            mfrac[i] = (self.ssp.stellar_mass)
+
+        # Convert normalization units from per stellar mass to per mass formed
+        if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
+            mass /= mfrac
+        spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
+        mfrac_sum = np.dot(mass, mfrac) / mass.sum()
+
+        return wave, np.squeeze(spectra + [spectrum]), np.squeeze(mfrac.tolist() + [mfrac_sum])
+
+    def get_spectrum(self, outwave=None, filters=None, component=-1, **params):
+        """Get a spectrum and SED for the given params, choosing from different
+        possible components.
+
+        :param outwave: (default: None)
+            Desired *vacuum* wavelengths.  Defaults to the values in
+            `sps.wavelength`.
+
+        :param peraa: (default: False)
+            If `True`, return the spectrum in erg/s/cm^2/AA instead of AB
+            maggies.
+
+        :param filters: (default: None)
+            A list of filter objects for which you'd like photometry to be
+            calculated.
+
+        :param component: (optional, default: -1)
+            An optional array where each element gives the index of the
+            component from which to choose the magnitude.  scalar or iterable
+            of same length as `filters`
+
+        :param **params:
+            Optional keywords giving parameter values that will be used to
+            generate the predicted spectrum.
+
+        :returns spec:
+            Observed frame spectrum in AB maggies, unless `peraa=True` in which
+            case the units are erg/s/cm^2/AA.
+
+        :returns phot:
+            Observed frame photometry in AB maggies.
+
+        :returns mass_frac:
+            The ratio of the surviving stellar mass to the total mass formed.
+        """
+
+        # Spectrum in Lsun/Hz per solar mass formed, restframe
+        wave, spectrum, mfrac = self.get_galaxy_spectrum(**params)
+
+        # Redshifting + Wavelength solution
+        # We do it ourselves.
+        a = 1 + self.params.get('zred', 0)
+        af = a
+        b = 0.0
+
+        if 'wavecal_coeffs' in self.params:
+            x = wave - wave.min()
+            x = 2.0 * (x / x.max()) - 1.0
+            c = np.insert(self.params['wavecal_coeffs'], 0, 0)
+            # assume coeeficients give shifts in km/s
+            b = chebval(x, c) / (lightspeed*1e-13)
+
+        wa, sa = wave * (a + b), spectrum * af  # Observed Frame
+        if outwave is None:
+            outwave = wa
+
+        # Observed frame photometry, as absolute maggies
+        if filters is not None:
+            # Magic to only do filter projections for unique filters, and get a
+            # mapping back into this list of unique filters
+            # note that this may scramble order of unique_filters
+            fnames = [f.name for f in filters]
+            unique_names, uinds, filter_ind = np.unique(fnames, return_index=True, return_inverse=True)
+            unique_filters = np.array(filters)[uinds]
+            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, unique_filters)
+            phot = np.atleast_1d(10**(-0.4 * mags))
+        else:
+            phot = 0.0
+            filter_ind = 0
+
+        # Distance dimming and unit conversion
+        zred = self.params.get('zred', 0.0)
+        if (zred == 0) or ('lumdist' in self.params):
+            # Use 10pc for the luminosity distance (or a number
+            # provided in the dist key in units of Mpc)
+            dfactor = (self.params.get('lumdist', 1e-5) * 1e5)**2
+        else:
+            lumdist = cosmo.luminosity_distance(zred).value
+            dfactor = (lumdist * 1e5)**2
+
+        # Spectrum will be in maggies
+        sa *= to_cgs / dfactor / (3631*jansky_cgs)
+
+        # Convert from absolute maggies to apparent maggies
+        phot /= dfactor
+
+        # Mass normalization
+        mass = np.atleast_1d(self.params['mass'])
+        mass = np.squeeze(mass.tolist() + [mass.sum()])
+
+        sa = (sa * mass[:, None])
+        phot = (phot * mass[:, None])[component, filter_ind]
+
+        return sa[-1, :], phot, mfrac
 
 
 def gauss(x, mu, A, sigma):

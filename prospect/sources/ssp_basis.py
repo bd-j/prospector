@@ -145,13 +145,20 @@ class SSPBasis(object):
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
         """Get a spectrum and SED for the given params.
 
-        :param outwave:
+        :param outwave: (default: None)
             Desired *vacuum* wavelengths.  Defaults to the values in
-            sps.ssp.wavelength.
+            `sps.wavelength`.
 
         :param peraa: (default: False)
             If `True`, return the spectrum in erg/s/cm^2/AA instead of AB
             maggies.
+
+        :param filters: (default: None)
+            A list of filter objects for which you'd like photometry to be calculated. 
+
+        :param **params:
+            Optional keywords giving parameter values that will be used to
+            generate the predicted spectrum.
 
         :returns spec:
             Observed frame spectrum in AB maggies, unless `peraa=True` in which
