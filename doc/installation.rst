@@ -7,9 +7,7 @@ You will also need:
 
 -  `numpy <http://www.numpy.org>`_ and `SciPy <http://www.scipy.org>`_
 
--  `emcee <http://dan.iel.fm/emcee/current/>`_ and/or
-`nestle <http://http://kylebarbary.com/nestle/>`_ and/or `dynesty <https://dynesty.readthedocs.io/en/latest/>`_
-for inference (Please cite these packages in any publications)
+-  `emcee <http://dan.iel.fm/emcee/current/>`_ and/or `nestle <http://http://kylebarbary.com/nestle/>`_ and/or `dynesty <https://dynesty.readthedocs.io/en/latest/>`_ for inference (Please cite these packages in any publications)
 
 -  `sedpy <https://github.com/bd-j/sedpy>`_ (for filter projections)
 
@@ -22,10 +20,10 @@ For more portable output files, or for modeling stars, you will need:
 For modeling galaxies you will need:
 
 -  `FSPS <https://github.com/cconroy20/fsps>`_ and
-   `python-FSPS <https://github.com/dfm/python-FSPS>`_
+   `python-FSPS <https://github.com/dfm/python-FSPS>`_ (Please cite these packages in any publications)
 
 You may also wish to have `AstroPy <https://astropy.readthedocs.org/en/stable/>`_
-for FITS file processing and cosmological calculations.
+for FITS file processing and cosmological calculations, please cite this package in any publications.
 
 For parallel processing you will need:
 

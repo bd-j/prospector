@@ -38,4 +38,26 @@ Prospector is pure python.
 See [installation](doc/installation.rst) for requirements.
 Other files in the [doc/](doc/) directory explain the usage of the code.
 
-See also the [tutorial](demo/tutorial.rst) or the [interactive demol](demo/InteractiveDemo.ipynb) for fitting photometric data with composite stellar populations.
+See also the [tutorial](demo/tutorial.rst), the [interactive demo](demo/InteractiveDemo.ipynb),
+or the [deconstructed demo](demo/DeconstructedDemo.ipynb) for fitting photometric data with composite stellar populations.
+
+
+Citation
+------
+If you use this code, please reference the doi below, and make sure to cite the dependencies as listed in [installation](doc/installation.rst)
+[![DOI](https://zenodo.org/badge/10490445.svg)](https://zenodo.org/badge/latestdoi/10490445)
+
+You might also cite:
+```
+@article{2017ApJ...837..170L,
+   author = {{Leja}, J. and {Johnson}, B.~D. and {Conroy}, C. and {van Dokkum}, P.~G. and {Byler}, N.},
+   title = "{Deriving Physical Properties from Broadband Photometry with Prospector: Description of the Model and a Demonstration of its Accuracy Using 129 Galaxies in the Local Universe}",
+   journal = {\apj},
+   year = 2017,
+   volume = 837,
+   pages = {170},
+   eprint = {1609.09073},
+   doi = {10.3847/1538-4357/aa5ffe},
+  adsurl = {http://adsabs.harvard.edu/abs/2017ApJ...837..170L},
+}
+```
