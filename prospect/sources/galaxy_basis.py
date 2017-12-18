@@ -202,11 +202,11 @@ class MultiComponentCSPBasis(CSPSpecBasis):
             generate the predicted spectrum.
 
         :returns spec:
-            Observed frame spectrum in AB maggies, unless `peraa=True` in which
-            case the units are erg/s/cm^2/AA.
+            Observed frame component spectra in AB maggies, unless `peraa=True` in which
+            case the units are erg/s/cm^2/AA.  (ncomp+1, nwave)
 
         :returns phot:
-            Observed frame photometry in AB maggies.
+            Observed frame photometry in AB maggies, ndarray of shape (ncomp+1, nfilters)
 
         :returns mass_frac:
             The ratio of the surviving stellar mass to the total mass formed.
@@ -269,7 +269,7 @@ class MultiComponentCSPBasis(CSPSpecBasis):
         sa = (sa * mass[:, None])
         phot = (phot * mass[:, None])[component, filter_ind]
 
-        return sa[-1, :], phot, mfrac
+        return sa, phot, mfrac
 
 
 def gauss(x, mu, A, sigma):

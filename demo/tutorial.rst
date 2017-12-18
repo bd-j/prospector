@@ -13,7 +13,7 @@ The next thing you need to do is make a temporary work directory, ``<workdir>``
 		cp <codedir>/demo/demo_* .
 
 We now have a prospector executable, a *parameter file*  or two, and some data.
-Take a look at the data file in an editor, you'll see it its a simple ascii file, with a few rows and several columns.
+Take a look at the data file in an editor, you'll see it is a simple ascii file, with a few rows and several columns.
 Each row is a different galaxay, each column is a different piece of information about that galaxy.
 
 This is just an example.
@@ -27,9 +27,8 @@ It is passed to each of the other main setup functions in ``param_file.py``
 
 About those imports.
 Since we are fitting galaxies with a composite stellar population,
-we made sure to import the ``sources.CSPBasis`` class.
+we made sure to import the ``sources.CSPSpecBasis`` class.
 If you were fitting stars or non-parameteric SFHs you would use a different object from ``sources``.
-We also made a little alias for a particular prior function, the tophat.
 
 The next thing to look at is the ``load_obs()`` function.
 This is where you take the data from whatever format you have and
@@ -46,7 +45,7 @@ by also including those variables in the ``run_params`` dictionary.
 We'll see an example later.
 
 When you write your own ``load_obs`` function, you can add all sorts of keyword arguments that control its output
-(for example, an object name or id number that can be used to choose or find a single object in your data file).
+(for example, an object name or ID number that can be used to choose or find a single object in your data file).
 You can also import helper functions and modules.
 These can be either things like astropy, h5py, and sqlite or your own project specific modules and functions.
 As long as the output dictionary is in the right format, the body of this function can do anything.
@@ -61,6 +60,7 @@ Each entry in the list is a dictionary that describes a single parameter.
 You'll note that for 5 of these parameters we have set ``"isfree": True``.
 These are the parameters that will be varied during the fit.
 We have set priors on these parameters, including prior arguments.
+Any free parameter *must* have an associated prior.
 Other parameters have their value set (to the value of the ``"init"`` key) but do not vary during the fit.
 They can be made to vary by setting ``"isfree": True`` and specifying a prior.
 Parameters not listed here will be set to their default values.
@@ -104,11 +104,12 @@ and the ``run_params`` dictionary to make sure everything is working fine.
 Working with the output
 --------------------------------
 After the fit is completed we should have a number of files with names like
-``demo_obj0_<timestamp>_*``.  The ``_mcmc`` file is a pickle of a dictionary
-containing sampling results and various configuration data, as well as the observational data that was fit.
-The  ``_mcmc.h5`` is an HDF5 file with the same
-data but in a more portable format.  The ``_model`` file is a pickle of the
-``SedModel`` object used to generate models, saved for convenience.
+``demo_obj0_<timestamp>_*``. 
+The  ``_mcmc.h5`` is an HDF5 file containing sampling results and various configuration data,
+as well as the observational data that was fit.
+If produced the ``_mcmc`` file is a pickle of a dictionary with the same
+data but in a less portable format.
+The ``_model`` file is a pickle of the ``SedModel`` object used to generate models, saved for convenience.
 We will read these in with python and make some plots using utilities in |Codename|
 
 To read the data back in from the output files that we've generated, use
