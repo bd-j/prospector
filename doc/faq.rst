@@ -18,6 +18,35 @@ Wavelengths are vacuum Angstroms by default.
 By default, masses are in solar masses of stars *formed*.
 Note that this is different than surviving solar masses (due to stellar mass loss).
 
+Can I fit my spectrum too?
+------------
+There are several extra considerations that come up when fitting spectroscopy
+
+   1) wavelength range and resolution - Prospector is based on FSPS, which uses the MILES spectral library.
+      These have a resolution of ~2.5A FWHM from 3750AA - 7200AA restframe, and much lower (R~200 or so, but not actually well defined) outside this range.
+      Higher resolution data (after including both velocity dispersion and instrumental resolution) or spectral points outside this range cannot yet be fit.
+
+   2) Relatedly, line spread function.
+      Prospector includes methods for FFT based smoothing of the spectra, assuming a gaussian LSF (in either wavelength or velocity space).
+      There is also the possibility of FFT based smoothing for wavelength dependent gaussian dispersion (i.e. sigma_lambda = f(lambda) with f possibly a polynomial of lambda).
+      In practice the smoothed spectra will be a combination of the library resolution plus whatever FFT smoothing is applied.
+      Hopefully this can be made to match your actual data resolution, which is a combination of the physical velocity dispersion and the instrumental resolution.
+      The smoothing is controlled by the parameters `sigma_smooth`, `smooth_type`, and `fftsmooth`
+
+   3) Nebular emission.
+      While prospector/FSPS include self-consistent nebular emission,
+      the treatment is probably not flexible enough at the moment to fit high S/N, high resolution data including nebular emission
+      (e.g. due to deviations of line ratios from Cloudy predictions or to complicated gas kinematics that are different than stellar kinematics).
+      For very low resolution data this is less of an issue.
+
+   4) spectrophotometric calibration.
+      There are various options for dealing with the spectral continuum shape depending on
+      how well you think your spectra are calibrated and if you also fit photometry to tie down the continuum shape.
+      You can optimize out a polynomial "calibration" vector,
+      or simultaneously fit for a polynomial and marginalize over the polynomial coefficients
+      (this allows you to place priors on the accuracy of the spectrophotometric calibration).
+      Or you can just take the spectrum as perfectly calibrated.
+
 
 How long will it take to fit my data?
 ---------
