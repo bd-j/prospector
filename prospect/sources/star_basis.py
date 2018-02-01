@@ -32,7 +32,7 @@ class StarBasis(object):
     _spectra = None
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
-                 n_neighbors=0, log_interp=True, logify_Z=True,
+                 n_neighbors=0, log_interp=True, logify_Z=False,
                  use_params=None, rescale_libparams=False, in_memory=True, **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
@@ -91,7 +91,9 @@ class StarBasis(object):
             self.stellar_pars = tuple(use_params)
         self.ndim = len(self.stellar_pars)
 
-        # Build the triangulation and kdtree
+        # Build the triangulation and kdtree (after rescaling)
+        if self._rescale:
+            self.parameter_range = np.array([model_points.min(axis=0), model_points.max(axis=0)])
         self.triangulate()
         try:
             self.build_kdtree()
@@ -284,7 +286,7 @@ class StarBasis(object):
                 raise ValueError("Requested spectrum ({}) outside convex hull,"
                                  " and nearest neighbor interpolation turned "
                                  "off.".format(*pstring))
-            ind, wght = self.weights_kNN(inparams, k=self.n_neighbors)
+            ind, wght = self.weights_knn(inparams, k=self.n_neighbors)
             if self.verbose:
                 print("Parameters {0} outside model convex hull. "
                       "Using model index {1} instead. ".format(inparams, ind))
@@ -300,16 +302,6 @@ class StarBasis(object):
         oo = inds.argsort()
         return inds[oo], wghts[oo]
 
-    def triangulate(self):
-        """Build the Delauynay Triangulation of the model library.
-        """
-        # slow.  should use a view based method
-        model_points = np.array([list(self._libparams[d]) for d in self.stellar_pars]).T
-        if self._rescale:
-            self.parameter_range = np.array([model_points.min(axis=0), model_points.max(axis=0)])
-            model_points = self.rescale_params(model_points)
-        self._dtri = Delaunay(model_points)
-
     def rescale_params(self, points):
         if self._rescale:
             x = np.atleast_2d(points)
@@ -318,15 +310,22 @@ class StarBasis(object):
         else:
             return points
 
+    def triangulate(self):
+        """Build the Delauynay Triangulation of the model library.
+        """
+        # slow.  should use a view based method
+        model_points = np.array([list(self._libparams[d]) for d in self.stellar_pars]).T
+        self._dtri = Delaunay(self.rescale_params(model_points))
+
     def build_kdtree(self):
         """Build the kdtree of the model points.
         """
         # slow.  should use a view based method
         model_points = np.array([list(self._libparams[d])
                                  for d in self.stellar_pars])
-        self._kdt = KDTree(model_points.T)
+        self._kdt = KDTree(self.rescale_params(model_points.T))
 
-    def weights_kNN(self, target_points, k=1):
+    def weights_knn(self, target_points, k=1):
         """The interpolation weights are determined from the inverse distance
         to the k nearest neighbors.
 
