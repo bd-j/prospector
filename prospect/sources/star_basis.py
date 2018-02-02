@@ -33,7 +33,8 @@ class StarBasis(object):
 
     def __init__(self, libname='ckc14_deimos.h5', verbose=False,
                  n_neighbors=0, log_interp=True, logify_Z=False,
-                 use_params=None, rescale_libparams=False, in_memory=True, **kwargs):
+                 use_params=None, rescale_libparams=False, in_memory=True,
+                 **kwargs):
         """An object which holds the stellar spectral library, performs
         interpolations of that library, and has methods to return attenuated,
         normalized, smoothed stellar spectra.  The interpolations are performed
@@ -44,14 +45,16 @@ class StarBasis(object):
         :param libname:
             Path to the hdf5 file to use for the spectral library.
 
-        :param n_neighbors: (default:0)
-            Number of nearest neighbors to use when requested parameters are
-            outside the convex hull of the library prameters.  If ``0`` then a
-            ValueError is raised instead of the nearest spectrum.
-
         :param verbose:
             If True, print information about the parameters used when a point
             is outside the convex hull.
+
+        :param n_neighbors: (default:0)
+            Number of nearest neighbors to use when requested parameters are
+            outside the convex hull of the library prameters.  If ``0`` then a
+            ValueError is raised instead of the nearest spectrum.  If greater
+            than 1 then the neighbors are combined using inverse distance
+            weights.
 
         :param log_interp: (default:True)
             Switch to interpolate in log(flux) instead of linear flux.
@@ -62,15 +65,18 @@ class StarBasis(object):
             grid and construct spectra.  Otherwise all fields of `_libparams`
             will be used.
 
+        :param rescale_libparams: (default: False)
+            If True, rescale the parameters to the unit cube before generating
+            the triangulation (and kd-tree).  Note that the `param_vector`
+            method will also rescale the input parameters in this case.  This
+            can help for nearest neighbor lookup and in the triangulation based
+            weights when your variables have very different scales, assuming
+            that the ranges give a reasonable relative distance metric.
+
         :param in_memory: (default: True)
             Switch to keep the spectral library in memory or access it through
             the h5py File object.  Note if the latter, then zeroed spectra are
             *not* filtered out.
-
-        :param rescale: (default: False)
-            If True, rescale the parameters to the unit cube before generating
-            the triangulation.  Note that the `param_vector` method will also
-            rescale the input parameters in this case.
         """
         # Cache initialization variables
         self.verbose = verbose
@@ -93,7 +99,9 @@ class StarBasis(object):
 
         # Build the triangulation and kdtree (after rescaling)
         if self._rescale:
-            self.parameter_range = np.array([model_points.min(axis=0), model_points.max(axis=0)])
+            ranges = [[self._libparams[d].min(), self._libparams[d].max()]
+                      for d in self.stellar_pars]
+            self.parameter_range = np.array(ranges).T
         self.triangulate()
         try:
             self.build_kdtree()
@@ -133,8 +141,8 @@ class StarBasis(object):
             rfn.rename_fields(self._libparams, {'Z': 'logZ'})
 
     def update(self, **kwargs):
-        """Turn length 1 arrays into scalars and pull out functions from length
-        one arrays
+        """Update the `params` dictionary, turning length 1 arrays into scalars
+        and pull out functions from length one arrays
         """
         for k, val in list(kwargs.items()):
             v = np.atleast_1d(val)
@@ -303,6 +311,15 @@ class StarBasis(object):
         return inds[oo], wghts[oo]
 
     def rescale_params(self, points):
+        """Rescale the given parameters to the unit cube, if the ``_rescale`` attribute is ``True``
+
+        :param points:
+            An array of parameter values, of shape (npoint, ndim)
+
+        :returns x:
+            An array of parameter values rescaled to the unit cube, ndarray of
+            shape (npoint, ndim)
+        """
         if self._rescale:
             x = np.atleast_2d(points)
             x = (x - self.parameter_range[0, :]) / np.diff(self.parameter_range, axis=0)
@@ -314,7 +331,8 @@ class StarBasis(object):
         """Build the Delauynay Triangulation of the model library.
         """
         # slow.  should use a view based method
-        model_points = np.array([list(self._libparams[d]) for d in self.stellar_pars]).T
+        model_points = np.array([list(self._libparams[d])
+                                 for d in self.stellar_pars]).T
         self._dtri = Delaunay(self.rescale_params(model_points))
 
     def build_kdtree(self):
@@ -342,7 +360,7 @@ class StarBasis(object):
              The weights of each model given by ind in the interpolates.
         """
         try:
-            dists, inds = self._kdt.query(target_points, k=k,
+            dists, inds = self._kdt.query(np.atleast_2d(target_points), k=k,
                                           return_distance=True)
         except:
             return [0], [0]
@@ -373,14 +391,14 @@ class BigStarBasis(StarBasis):
     def __init__(self, libname='', verbose=False, log_interp=True,
                  n_neighbors=0,  driver=None, in_memory=False,
                  use_params=None, strictness=0.0, **kwargs):
-        """An object which holds the stellar spectral library, performs
+        """An object which holds the stellar spectral library, performs linear
         interpolations of that library, and has methods to return attenuated,
         normalized, smoothed stellar spoectra.
 
         This object is set up to work with large grids, so the models file is
-        kept open for acces from disk.  scikits-learn kd-trees are required for
-        model access.  Ideally the grid should be regular (though the spacings
-        need not be equal along a given dimension).
+        kept open for access from disk.  scikits-learn or scipy kd-trees are
+        required for model access.  Ideally the grid should be regular (though
+        the spacings need not be equal along a given dimension).
 
         :param libname:
             Path to the hdf5 file to use for the spectral library. Must have
@@ -390,7 +408,8 @@ class BigStarBasis(StarBasis):
         :param n_neighbors: (default:0)
             Number of nearest neighbors to use when requested parameters are
             outside the convex hull of the library prameters.  If ``0`` then a
-            ValueError is raised instead of the nearest spectrum.
+            ValueError is raised instead of the nearest spectrum.  Does not
+            work, currently.
 
         :param verbose:
             If True, print information about the parameters used when a point
