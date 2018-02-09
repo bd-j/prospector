@@ -324,6 +324,7 @@ def param_evol(sample_results, showpars=None, start=0, **plot_kwargs):
     """
     import matplotlib.pyplot as pl
 
+    nwalk = sample_results['run_params']['nwalkers']
     chain = sample_results['chain'][..., start:, :]
     lnprob = sample_results['lnprobability'][..., start:]
     # deal with single chain (i.e. nested sampling) results
@@ -375,7 +376,7 @@ def param_evol(sample_results, showpars=None, start=0, **plot_kwargs):
 
 def subtriangle(sample_results, outname=None, showpars=None,
                 start=0, thin=1, truths=None, trim_outliers=None,
-                extents=None, **kwargs):
+                extents=None, show_titles = True, **kwargs):
     """Make a triangle plot of the (thinned, latter) samples of the posterior
     parameter space.  Optionally make the plot only for a supplied subset of
     the parameters.
@@ -404,7 +405,7 @@ def subtriangle(sample_results, outname=None, showpars=None,
         parnames = np.array(sample_results['model'].theta_labels())
     flatchain = sample_results['chain'][..., start::thin, :]
     flatchain = flatchain.reshape(-1, flatchain.shape[-1])
-    weights = res.get('weights', None)
+    weights = sample_results.get('weights', None)
 
     # restrict to parameters you want to show
     if showpars is not None:
@@ -415,10 +416,10 @@ def subtriangle(sample_results, outname=None, showpars=None,
     if trim_outliers is not None:
         trim_outliers = len(parnames) * [trim_outliers]
     try:
-        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
+        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False, show_titles=show_titles,
                               quantiles=[0.16, 0.5, 0.84], extents=trim_outliers, weights=weights, **kwargs)
     except:
-        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False,
+        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False, show_titles=show_titles,
                               quantiles=[0.16, 0.5, 0.84], range=trim_outliers, weights=weights, **kwargs)
 
     if outname is not None:
