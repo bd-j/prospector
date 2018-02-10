@@ -119,10 +119,10 @@ module for basic (and ugly) diagnostic plots. The ``subtriangle`` method require
 
 .. code-block:: python
 		
-		import prospect.io.read_results as bread
-		res, obs, mod = bread.results_from("demo_obj_<timestamp>_mcmc.h5")
-		tracefig = bread.param_evol(res)
-		cornerfig = bread.subtriangle(res, start=0, thin=5)
+		import prospect.io.read_results as pread
+		res, obs, mod = pread.results_from("demo_obj_<timestamp>_mcmc.h5")
+		tracefig = pread.param_evol(res)
+		cornerfig = pread.subtriangle(res, start=0, thin=5)
 
 The ``res`` object is a dictionary containing various useful results.
 You can look at ``res.keys()`` to see a list of what it contains.
@@ -137,7 +137,7 @@ If necessary, one can regenerate models at any walker position in the following 
 		import prospect.io.read_results as pread
 		res, obs, mod = pread.results_from("demo_obj_<timestamp>_mcmc")
 		# We need the correct sps object to generate models
-		from prospect.sources import CSPBasis
+		from prospect.sources import CSPSpecBasis
 		sps = pread.get_sps(res)
 		# Choose the walker and iteration number,
 		# if you used emcee for the inference
