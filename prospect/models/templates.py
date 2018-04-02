@@ -26,6 +26,7 @@ par_name = {"N": 1,
 # --------------------------
 # --- Some (very) common parameters ----
 # --------------------------
+
 zred = {"N": 1, "isfree": False,
         "init": 0.1,
         "units": "redshift",
@@ -172,7 +173,7 @@ _alpha_["duste_qpah"]["isfree"] = True
 _alpha_["duste_umin"]["isfree"] = True
 _alpha_["duste_gamma"]["isfree"] = True
 
-# Complexify the attenuation
+# Complexify the dust attenuation
 _alpha_["dust_type"] = {"N": 1, "isfree": False, "init": 4, "units": "FSPS index"}
 _alpha_["dust2"]["prior"] = priors.TopHat(mini=0.0, maxi=4.0)
 _alpha_["dust1"]      = {"N": 1, "isfree": True,
