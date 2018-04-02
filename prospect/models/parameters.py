@@ -13,34 +13,36 @@ param_template = {'name': '', 'N': 1, 'isfree': False,
 
 class ProspectorParams(object):
     """
-    :param config_list:
-        A list of ``model parameters``.
+    :param configuration:
+        A list or dictionary of ``model parameters``.
     """
-    # information about each parameter stored as a list
+    # -- Information about each parameter stored as a list:
     # config_list = []
-    # information about each parameter as a dictionary keyed by
-    # parameter name for easy access
-    # _config_dict = {}
-    # Model parameter state, keyed by parameter name
+    # -- Information about each parameter as a dictionary keyed by parameter
+    # -- name for easy access
+    # config_dict = {}
+    # -- Model parameter state, keyed by parameter name
     # params = {}
-    # Mapping from parameter name to index in the theta vector
+    # -- Mapping from parameter name to index in the theta vector
     # theta_index = {}
-    # the initial theta vector
+    # -- Initial theta vector
     # theta_init = np.array([])
 
-    # Information about the fiting parameters, filenames, fitting and
-    # configure options, runtime variables, etc.
-    # run_params = {}
-    # obs = {}
-
-    def __init__(self, config_list, verbose=True):
-        self.init_config_list = config_list
-        self.config_list = config_list
+    def __init__(self, configuration, verbose=True):
+        self.init_config = deepcopy(configuration)
+        if type(configuration) == list:
+            self.config_list = config_list
+            self.config_dict = plist_to_pdict(self.config_list)
+        elif type(configuration) == dict:
+            self.config_dict = configuration
+            self.config_list = pdict_to_plist(self.config_dict)
+        else:
+            raise(TypeError, "Configuration variable not of valid type: {}".format(type(configuration)))
         self.configure()
         self.verbose = verbose
 
     def configure(self, reset=False, **kwargs):
-        """Use the parameter config_list to generate a theta_index mapping, and
+        """Use the parameter config_dict to generate a theta_index mapping, and
         propogate the initial parameters into the params state dictionary, and
         store the intital theta vector implied by the config dictionary.
 
@@ -55,15 +57,16 @@ class ProspectorParams(object):
         self._has_parameter_dependencies = False
         if (not hasattr(self, 'params')) or reset:
             self.params = {}
-        self._config_dict = plist_to_pdict(self.config_list)
+
         self.map_theta()
         # Propogate initial parameter values from the configure dictionary
         # Populate the 'prior' key of the configure dictionary
         # Check for 'depends_on'
-        for par, info in list(self._config_dict.items()):
+        for par, info in list(self.config_dict.items()):
             self.params[par] = np.atleast_1d(info['init'])
             try:
-                self._config_dict[par]['prior'] = info['prior_function']
+                # this is for backwards compatibility
+                self.config_dict[par]['prior'] = info['prior_function']
             except(KeyError):
                 pass
             if info.get('depends_on', None) is not None:
@@ -81,8 +84,8 @@ class ProspectorParams(object):
         self.theta_index = {}
         count = 0
         for par in self.free_params:
-            self.theta_index[par] = slice(count, count+self._config_dict[par]['N'])
-            count += self._config_dict[par]['N']
+            self.theta_index[par] = slice(count, count+self.config_dict[par]['N'])
+            count += self.config_dict[par]['N']
         self.ndim = count
 
     def set_parameters(self, theta):
@@ -111,7 +114,7 @@ class ProspectorParams(object):
             return 0.0
         return lpp
 
-    def _prior_product(self, theta, verbose=False, **extras):
+    def _prior_product(self, theta, **extras):
         """Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the prior
         functions are defined in the theta descriptor.
@@ -127,13 +130,11 @@ class ProspectorParams(object):
         lnp_prior = 0
         for k, inds in list(self.theta_index.items()):
             
-            func = self._config_dict[k]['prior']
-            kwargs = self._config_dict[k].get('prior_args', {})
+            func = self.config_dict[k]['prior']
+            kwargs = self.config_dict[k].get('prior_args', {})
             this_prior = np.sum(func(theta[..., inds], **kwargs), axis=-1)
-
-            #if (not np.isfinite(this_prior)):
-            #    print('WARNING: ' + k + ' is out of bounds')
             lnp_prior += this_prior
+
         return lnp_prior
 
     def prior_transform(self, unit_coords):
@@ -141,8 +142,8 @@ class ProspectorParams(object):
         """
         theta = np.zeros(len(unit_coords))
         for k, inds in list(self.theta_index.items()):
-            func = self._config_dict[k]['prior'].unit_transform
-            kwargs = self._config_dict[k].get('prior_args', {})
+            func = self.config_dict[k]['prior'].unit_transform
+            kwargs = self.config_dict[k].get('prior_args', {})
             theta[inds] = func(unit_coords[inds], **kwargs)
         return theta
 
@@ -153,7 +154,7 @@ class ProspectorParams(object):
         """
         if self._has_parameter_dependencies is False:
             return
-        for p, info in list(self._config_dict.items()):
+        for p, info in list(self.config_dict.items()):
             if 'depends_on' in info:
                 value = info['depends_on'](**self.params)
                 self.params[p] = np.atleast_1d(value)
@@ -230,12 +231,12 @@ class ProspectorParams(object):
         """
         bounds = np.zeros([self.ndim, 2])
         for p, inds in list(self.theta_index.items()):
-            kwargs = self._config_dict[p].get('prior_args', {})
+            kwargs = self.config_dict[p].get('prior_args', {})
             try:
-                pb = self._config_dict[p]['prior'].bounds(**kwargs)
+                pb = self.config_dict[p]['prior'].bounds(**kwargs)
             except(AttributeError):
                 # old style
-                pb = priors.plotting_range(self._config_dict[p]['prior_args'])
+                pb = priors.plotting_range(self.config_dict[p]['prior_args'])
             bounds[inds, :] = np.array(pb).T
         # Force types ?
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a, b in bounds]
@@ -255,7 +256,7 @@ class ProspectorParams(object):
         """
         disp = np.zeros(self.ndim) + default_disp
         for par, inds in list(self.theta_index.items()):
-            d = self._config_dict[par].get('init_disp', default_disp)
+            d = self.config_dict[par].get('init_disp', default_disp)
             disp[inds] = d
         if fractional_disp:
             disp = self.theta * disp
@@ -267,7 +268,7 @@ class ProspectorParams(object):
         """
         dfloor = np.zeros(self.ndim)
         for par, inds in list(self.theta_index.items()):
-            d = self._config_dict[par].get('disp_floor', 0.0)
+            d = self.config_dict[par].get('disp_floor', 0.0)
             dfloor[inds] = d
         return dfloor
 
@@ -302,8 +303,8 @@ class ProspectorParamsHMC(ProspectorParams):
         """
         lnp_prior_grad = np.zeros_like(theta)
         for k, inds in list(self.theta_index.items()):
-            grad = self._config_dict[k]['prior'].gradient
-            kwargs = self._config_dict[k].get('prior_args', {})
+            grad = self.config_dict[k]['prior'].gradient
+            kwargs = self.config_dict[k].get('prior_args', {})
             lnp_prior_grad[inds] = grad(theta[inds], **kwargs)
         return lnp_prior_grad
 
@@ -324,7 +325,7 @@ class ProspectorParamsHMC(ProspectorParams):
         while oob:
             oob = False
             for k, inds in list(self.theta_index.items()):
-                par = self._config_dict[k]
+                par = self.config_dict[k]
                 if 'upper' in par.keys():
                     above = theta[inds] > par['upper']
                     oob = oob or np.any(above)
