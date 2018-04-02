@@ -20,12 +20,12 @@ Setup environments
 * Load modules we'll use and create a python environment
   ```bash
   module purge
-  module load python/2.7.11-fasrc01
+  module load anaconda/5.0.1-fasrc01
+  conda create -n pro --clone="$PYTHON_HOME"
+  source activate pro
   module load gcc/4.8.2-fasrc01
   module load openmpi/1.8.8-fasrc01
   module load hdf5/1.8.16-fasrc01
-  conda create -n pro --clone="$PYTHON_HOME"
-  source activate pro
   ```
 
 * Compile FSPS-- there can be some advantage to doing this on the cores you
@@ -48,7 +48,7 @@ Setup environments
 
   ```bash
   source activate pro
-  pip install h5py
+  pip install --no-binary=h5py h5py
   pip install mpi4py==1.3.1
   ```
 

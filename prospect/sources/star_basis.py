@@ -401,9 +401,7 @@ class BigStarBasis(StarBasis):
         the spacings need not be equal along a given dimension).
 
         :param libname:
-            Path to the hdf5 file to use for the spectral library. Must have
-            "ckc" or "ykc" in the filename (to specify which kind of loader to
-            use)
+            Path to the hdf5 file to use for the spectral library.
 
         :param n_neighbors: (default:0)
             Number of nearest neighbors to use when requested parameters are
