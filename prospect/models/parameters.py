@@ -8,10 +8,12 @@ __all__ = ["ProspectorParams", "ProspectorParamsHMC"]
 
 
 # A template for what parameter configuration list element should look like
-param_template = {'name': '', 'N': 1,
-                  'isfree': False,
-                  'init': 0.0, 'units': '',
-                  'prior': priors.TopHat(mini=0, maxi=1.0)}
+param_template = {'name': '',
+                  'N': 1,
+                  'isfree': True,
+                  'init': 0.5, 'units': '',
+                  'prior': priors.TopHat(mini=0, maxi=1.0),
+                  'depends_on': None}
 
 
 class ProspectorParams(object):
