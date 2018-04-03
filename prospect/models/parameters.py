@@ -4,7 +4,7 @@ import json, pickle
 from . import priors
 
 
-__all__ = ["ProspectorParams", "ProspectorParamsHMC"]
+__all__ = ["ProspectorParams", "plist_to_pdict", "pdict_to_plist"]
 
 
 # A template for what parameter configuration list element should look like
@@ -26,9 +26,9 @@ class ProspectorParams(object):
     * params: model parameter state dictionary.
     * theta_index: A dictionary that maps parameter names to indices (or rather
       slices) of the parameter vector theta.
-    * config_list: Information about each parameter stored as a list.
     * config_dict: Information about each parameter as a dictionary keyed by
       parameter name for easy access.
+    * config_list: Information about each parameter stored as a list.
 
     Intitialization is via, e.g.,
 
@@ -51,6 +51,7 @@ class ProspectorParams(object):
             of strings.
         """
         self.init_config = deepcopy(configuration)
+        self.parameter_order = param_order
         if type(configuration) == list:
             self.config_list = config_list
             self.config_dict = plist_to_pdict(self.config_list)
@@ -181,10 +182,11 @@ class ProspectorParams(object):
                 value = info['depends_on'](**self.params)
                 self.params[p] = np.atleast_1d(value)
 
-    def rectify_theta(self, theta):
-        tiny_number = 1e-10
+    def rectify_theta(self, theta, epsilon=1e-10):
+        """Replace zeros in a given theta vector with a small number epsilon.
+        """
         zero = (theta == 0)
-        theta[zero] = tiny_number
+        theta[zero] = epsilon
         return theta
 
     @property
@@ -312,61 +314,6 @@ class ProspectorParams(object):
         return self.config_dict
 
 
-class ProspectorParamsHMC(ProspectorParams):
-    """Object describing a model parameter set, and conversions between a
-    parameter dictionary and a theta vector (for use in MCMC sampling).  Also
-    contains a method for computing the prior probability of a given theta
-    vector.
-    """
-
-    def lnp_prior_grad(self, theta):
-        """Return a vector of gradients in the prior probability.  Requires
-        that functions giving the gradients are given in the theta descriptor.
-
-        :param theta:
-            A theta parameter vector containing the desired
-            parameters.  ndarray of shape (ndim,)
-        """
-        lnp_prior_grad = np.zeros_like(theta)
-        for k, inds in list(self.theta_index.items()):
-            grad = self.config_dict[k]['prior'].gradient
-            kwargs = self.config_dict[k].get('prior_args', {})
-            lnp_prior_grad[inds] = grad(theta[inds], **kwargs)
-        return lnp_prior_grad
-
-    def check_constrained(self, theta):
-        """For HMC, check if the trajectory has hit a wall in any parameter.
-        If so, reflect the momentum and update the parameter position in the
-        opposite direction until the parameter is within the bounds. Bounds
-        are specified via the 'upper' and 'lower' keys of the theta descriptor.
-
-        :param theta:
-            A theta parameter vector containing the desired parameters.
-            ndarray of shape (ndim,)
-        """
-        oob = True
-        sign = np.ones_like(theta)
-        if self.verbose:
-            print('theta in={0}'.format(theta))
-        while oob:
-            oob = False
-            for k, inds in list(self.theta_index.items()):
-                par = self.config_dict[k]
-                if 'upper' in par.keys():
-                    above = theta[inds] > par['upper']
-                    oob = oob or np.any(above)
-                    theta[inds][above] = 2 * par['upper'] - theta[inds][above]
-                    sign[inds][above] *= -1
-                if 'lower' in par.keys():
-                    below = theta[inds] < par['lower']
-                    oob = oob or np.any(below)
-                    theta[inds][below] = 2 * par['lower'] - theta[inds][below]
-                    sign[inds][below] *= -1
-        if self.verbose:
-            print('theta out={0}'.format(theta))
-        return theta, sign, oob
-
-
 def plist_to_pdict(inplist):
     """Convert from a parameter list to a parameter dictionary, where the keys
     of the cdictionary are the parameter names.
@@ -384,17 +331,32 @@ def plist_to_pdict(inplist):
 def pdict_to_plist(pdict, order=None):
     """Convert from a parameter dictionary to a parameter list of dictionaries,
     adding each key to each value dictionary as the `name' keyword.
-    Optionally, do this in an order specified by `order`.This method is not
+    Optionally, do this in an order specified by `order`. This method is not
     used often, so it can be a bit inefficient
+
+    :param pdict:
+        A dictionary of parameter specification dictionaries, keyed by
+        parameter name.  If a list is given instead of a dictionary, this same
+        list is returned.
+
+    :param order:
+        An iterable of parameter names specifying the order in which they
+        should be added to the parameter list
+
+    :returns plist:
+        A list of parameter specification dictinaries (with the `"name"` key
+        added.)  The listed dictionaries are *not* copied from the input
+        dictionary.
     """
     if type(pdict) is list:
         return pdict[:]
     plist = []
     if order is not None:
-        iterable = [(k, pdict[k]) for k in order]
+        assert len(order) == len(pdict)
     else:
-        iterable = list(pdict.items())
-    for k, v in iterable:
+        order = pdict.keys()
+    for k in order:
+        v = pdict[k]
         v['name'] = k
         plist += [v]
     return plist
