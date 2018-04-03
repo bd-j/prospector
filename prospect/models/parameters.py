@@ -53,7 +53,7 @@ class ProspectorParams(object):
         self.init_config = deepcopy(configuration)
         self.parameter_order = param_order
         if type(configuration) == list:
-            self.config_list = config_list
+            self.config_list = configuration
             self.config_dict = plist_to_pdict(self.config_list)
         elif type(configuration) == dict:
             self.config_dict = configuration
@@ -120,7 +120,7 @@ class ProspectorParams(object):
         """
         assert len(theta) == self.ndim
         for k, inds in list(self.theta_index.items()):
-            self.params[k] = np.atleast_1d(theta[inds])
+            self.params[k] = np.atleast_1d(theta[inds]).copy()
         self.propagate_parameter_dependencies()
 
     def prior_product(self, theta, nested=False, **extras):
