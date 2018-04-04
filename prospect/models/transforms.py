@@ -25,7 +25,24 @@ def delogify_mass(logmass=0.0, **extras):
     """
     return 10**logmass
 
+def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
+    """This function transfroms from a fractional age of a burst to an absolute
+    age.  With this transformation one can sample in ``fage_burst`` without
+    worry about the case tburst > tage.
 
+    :param tage:
+        The age of the host galaxy (Gyr)
+
+    :param fage_burst:
+        The fraction of the host age at which the burst occurred
+
+    :returns tburst:
+        The age of the host when the burst occurred (i.e. the tburst FSPS
+        parameter)
+    """
+    return tage * fage_burst
+
+#
 # --------------------------------------
 # --- Transforms for Prospector-alpha non-parametric SFH (Leja et al. 2017) ---
 # --------------------------------------

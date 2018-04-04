@@ -8,12 +8,76 @@ import numpy as np
 from . import priors
 from . import transforms
 
-__all__ = ["_basic_", "_dust_emission_", "_nebular_", "_agn_",
-           "_ssp_", "parametric_", "_nonpar_",
-           "_alpha_",
-#           "spectroscopy", "specphot"
+__all__ = ["TemplateLibrary",
+           "adjust_nonpar_bins"
            ]
 
+
+class Directory(object):
+    """A dict-like that only returns copies of the dictionary values.
+    It also includes a dictionary of information describing each entry in the
+    directory.
+    """
+
+    def __init__(self):
+        self._entries = {}
+        self._descriptions = {}
+        try:
+            self.iteritems = self._entries.iteritems
+        except AttributeError:
+            self.iteritems = self._entries.items
+
+    def __getitem__(self, k):
+        return deepcopy(self._entries[k])
+
+    def __setitem__(self, k, v):
+        entry, description = v
+        self._entries[k] = entry
+        self._descriptions[k] = description
+
+    def describe(self, k):
+        return deepcopy(self._descriptions[k])
+
+    def show_contents(self):
+        for k, v in list(self._descriptions.items()):
+            print("'{}':\n  {}".format(k, v))
+
+
+def adjust_nonpar_bins(parset, agelims=[0., 8., 9., 10.]):
+    """Given a list of limits in age for bins, adjust the parameter
+    specifications to work for those limits.
+
+    :param parset:
+        The parameter specification dictionary to adjust.  Must have entries (keys) for 
+        "mass", "agebins", "zfraction"
+
+    :param agelims:
+        An iterable fo bin edges, in log(yrs) of lookback time.
+    """
+    agebins = np.array([agelims[:-1], agelims[1:]]).T
+    ncomp = len(agelims) - 1
+    sfr_fraction = np.ones(ncomp) / ncomp  # constant sfr
+    zinit = np.zeros(ncomp - 1)
+    zinit[0] = 1 - sfr_fraction[0]
+    for i in range(1, len(zinit)):
+        zinit[i] = 1.0 - sfr_fraction[i] / np.prod(zinit[:i])
+
+    # Set up the prior in `z` variables that corresponds to a dirichlet in sfr
+    # fraction.  THIS IS IMPORTANT
+    alpha = np.arange(ncomp-1, 0, -1)
+    zprior = priors.Beta(alpha=alpha, beta=np.ones_like(alpha), mini=0.0, maxi=1.0)
+
+    parset['mass']['N'] = ncomp
+    parset['agebins']['N'] = ncomp
+    parset['agebins']['init'] = agebins
+    parset['z_fraction']['N'] = len(zinit)
+    parset['z_fraction']['init'] = zinit
+    parset['z_fraction']['prior'] = zprior
+
+    return parset
+
+
+TemplateLibrary = Directory()
 
 # A template for what parameter configuration element should look like
 par_name = {"N": 1,
@@ -47,99 +111,142 @@ dust2 = {"N": 1, "isfree": True,
          "units": "optical depth at 5500AA",
          "prior": priors.TopHat(mini=0.0, maxi=2.0)}
 
-_basic_ = {"zred":zred,
-           "mass": mass,
-           "logzsol": logzsol,
-           "dust2": dust2}
-
+sfh = {"N": 1, "isfree": False, "init": 0, "units": "FSPS index"}
+    
 tage = {"N": 1, "isfree": True,
         "init": 1, "units": "Gyr",
         "prior": priors.TopHat(mini=0.001, maxi=13.8)}
+
+_basic_ = {"zred":zred,
+           "mass": mass,
+           "logzsol": logzsol,  # FSPS parameter
+           "dust2": dust2,      # FSPS parameter
+           "sfh": sfh,          # FSPS parameter
+           "tage": tage         # FSPS parameter
+           }
+
+TemplateLibrary["ssp"] = (_basic_,
+                          ("Basic set of (free) parameters for single burst SFH"))
+
+
+# ----------------------------
+# --- Parametric SFH -----
+# ----------------------------
+_parametric_ = TemplateLibrary["ssp"]
+_parametric_["sfh"]["init"] = 4   # Delay-tau
+_parametric_["tau"]  = {"N": 1, "isfree": True,
+                        "init": 1, "units": "Gyr^{-1}",
+                        "prior": priors.LogUniform(mini=0.1, maxi=30)}
+
+TemplateLibrary["parametric"] = (_parametric_,
+                                 ("Basic set of (free) parameters for a delay-tau SFH."))
 
 
 # --------------------------
 # ---  Dust emission ----
 # --------------------------
 
-# FSPS / Draine & Li parameter
 duste_umin  = {"N": 1, "isfree": False,
                "init": 1.0, "units": 'MMP83 local MW intensity',
                "prior": priors.TopHat(mini=0.1, maxi=25)}
 
-# FSPS / Draine & Li parameter
 duste_qpah  = {"N": 1, "isfree": False,
                'init': 4.0, "units": 'Percent mass fraction of PAHs in dust.',
                "prior": priors.TopHat(mini=0.5, maxi=7.0)}
 
-# FSPS / Draine & Li parameter
+
 duste_gamma = {"N": 1, "isfree": False,
                "init": 0.0, "units": 'Mass fraction of dust in high radiation intensity.',
                "prior": priors.LogUniform(mini=1e-3, maxi=0.15)}
 
-_dust_emission_ = {"duste_umin": duste_umin,
-                   "duste_qpah": duste_qpah,
-                   "duste_gamma": duste_gamma}
+_dust_emission_ = {"duste_umin": duste_umin,    # FSPS / Draine & Li parameter
+                   "duste_qpah": duste_qpah,    # FSPS / Draine & Li parameter
+                   "duste_gamma": duste_gamma   # FSPS / Draine & Li parameter
+                   }
+
+TemplateLibrary["dust_emission"] = (_dust_emission_,
+                                    ("The set of (fixed) dust emission parameters."))
+
 
 # --------------------------
-# --- Nebular Emission ---
+# --- Nebular Emission ----
 # --------------------------
+
 add_neb = {'N': 1, 'isfree': False, 'init': True}
+neb_cont = {'N': 1, 'isfree': False, 'init': True}
+neb_spec = {'N': 1, 'isfree': False, 'init': True}
 
-# FSPS parameter.  See Byler et al 2017
 # Note this depends on stellar metallicity
 gas_logz = {'N': 1, 'isfree': False,
             'init': 0.0, 'units': r'log Z/Z_\odot',
             'depends_on': transforms.stellar_logzsol,
             'prior': priors.TopHat(mini=-2.0, maxi=0.5)}
 
-# FSPS parameter.  See Byler et al 2017
 gas_logu = {"N": 1, 'isfree': False,
             'init': -2.0, 'units': r"Q_H/N_H",
             'prior': priors.TopHat(mini=-4, maxi=-1)}
 
-_nebular_ = {"add_nebular_emission": add_neb,
-             "gas_logz": gas_logz,
-             "gas_logu": gas_logu}
+_nebular_ = {"add_neb_emission": add_neb,    # FSPS parameter.
+             "add_neb_continuum": neb_cont,  # FSPS parameter.
+             "nebemlineinspec": neb_spec,    # FSPS parameter.
+             "gas_logz": gas_logz,           # FSPS parameter.
+             "gas_logu": gas_logu,           # FSPS parameter.
+             }
 
+TemplateLibrary["nebular"] = (_nebular_,
+                              ("The set of nebular emission parameters, "
+                               "with gas_logz tied to stellar logzsol."))
 
 # --------------------------
 # --- AGN Torus Emission ---
 # --------------------------
-# FSPS parameter.
+
 fagn = {'N': 1, 'isfree': False,
         'init': -2.0, 'units': r'L_{AGN}/L_*',
         'prior': priors.LogUniform(mini=-5.0, maxi=0.1)}
 
-# FSPS parameter.  See Byler et al 2017
 agn_tau = {"N": 1, 'isfree': False,
            "init": 1.0, 'units': r"optical depth",
             'prior': priors.LogUniform(mini=5.0, maxi=150.)}
 
-_agn_ = {"fagn": fagn,
-         "agn_tau": agn_tau}
+_agn_ = {"fagn": fagn,       # FSPS parameter.
+         "agn_tau": agn_tau  # FSPS parameter.
+         }
 
-    
+TemplateLibrary["agn"] = (_agn_,
+                          ("The set of (fixed) AGN dusty torus emission parameters."))
+
+
 # ----------------------------
-# --- Sspecific models ---
+# --- SF Bursts ----
 # ----------------------------
 
-# --- SSP (i.e. clusters) ---
-_ssp_ = deepcopy(_basic_)
-_ssp_["sfh"] = {"N": 1, "isfree": False, "init": 0, "units": "FSPS index"}
-_ssp_["tage"] = tage
+fage_burst = {'N': 1, 'isfree': False,
+              'init': 0.0, 'units': 'time at wich burst happens, as a fraction of `tage`',
+              'prior': priors.TopHat(mini=0.5, maxi=1.0)}
 
-# --- Parametric SFH with photometry -----
-_parameteric_ = deepcopy(_basic_)
-_parameteric_["sfh"]  = {"N": 1, "isfree": False, "init": 4, "units": "FSPS index"}
-_parameteric_["tage"] = tage
-_parameteric_["tau"]  = {"N": 1, "isfree": True,
-                         "init": 1, "units": "Gyr^{-1}",
-                         "prior": priors.LogUniform(mini=0.1, maxi=30)}
+tburst = {'N': 1, 'isfree': False,
+          'init': 0.0, 'units': 'Gyr',
+          'prior': None, 'depends_on': transforms.tburst_from_fage}
 
-# --- Non-parametric with photometry
+fburst = {'N': 1, 'isfree': False,
+          'init': 0.0, 'units': 'fraction of total mass formed in the burst',
+          'prior': priors.TopHat(mini=0.0, maxi=0.5)}
+
+_burst_ = {"tburst": tburst,
+           "fburst": fburst,
+           "fage_burst": fage_burst}
+
+TemplateLibrary["burst"] = (_burst_,
+                            ("The set of (fixed) SFR burst parameters, "
+                            "with the burst time controlled by `fage_burst`."))
+
+# ----------------------------
+# --- Non-parametric SFH ----
+# ----------------------------
 # Using the dirichlet prior on SFR fractions.
 
-_nonpar_ = deepcopy(_basic_)
+_nonpar_ = TemplateLibrary["ssp"]
 
 _nonpar_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
 # This will be the mass in each bin.  It depends on other free and fixed
@@ -158,15 +265,18 @@ _nonpar_["z_fraction"] = {"N": 2, 'isfree': True, 'init': [0, 0], 'units': None,
 # This is the *total* stellar mass formed
 _nonpar_["total_mass"] = mass
 
-def adjust_nonpar(parset, agelims=[0., 8., 9., 10.]):
-    pass
+TemplateLibrary["nonparametric"] = (_nonpar_,
+                                    "Non-parameteric SFH with Dirichlet prior")
 
 
+# ----------------------------
 # --- Prospector-alpha ---
-_alpha_ = deepcopy(_nonpar_)
-_alpha_.update(deepcopy(_dust_emission_))
-_alpha_.update(deepcopy(_nebular_))
-_alpha_.update(deepcopy(_agn_))
+# ----------------------------
+
+_alpha_ = TemplateLibrary["nonparametric"]
+_alpha_.update(TemplateLibrary["dust_emission"])
+_alpha_.update(TemplateLibrary["nebular"])
+_alpha_.update(TemplateLibrary["agn"])
 
 # Set the dust emission free
 _alpha_["duste_qpah"]["isfree"] = True
@@ -182,4 +292,9 @@ _alpha_["dust1"]      = {"N": 1, "isfree": True,
 _alpha_["dust_index"] = {"N": 1, "isfree": True,
                          "init": 0.0, "units": "power-law multiplication of Calzetti",
                          "prior": priors.TopHat(mini=-2.0, maxi=0.5)}
+# in Gyr
+alpha_agelims = np.array([1e-9, 0.1, 0.3, 1.0, 3.0, 6.0, 13.6])
+_alpha_ = adjust_nonpar_bins(_alpha_, agelims=(np.log10(alpha_agelims) + 9))
 
+TemplateLibrary["alpha"] = (_alpha_,
+                            "The prospector-alpha model, Leja et al. 2017")
