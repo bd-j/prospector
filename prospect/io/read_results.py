@@ -260,48 +260,11 @@ def get_model(res):
     return model
 
 
-def model_comp(theta, model, obs, sps, photflag=0, gp=None):
-    """Generate and return various components of the total model for a given
-    set of parameters.
-    """
-    logarithmic = obs.get('logify_spectrum')
-    obs, _, _ = obsdict(obs, photflag=photflag)
-    mask = obs['mask']
-    mu = model.mean_model(theta, obs, sps=sps)[photflag][mask]
-    sed = model.sed(theta, obs, sps=sps)[photflag][mask]
-    wave = obs['wavelength'][mask]
-
-    if photflag == 0:
-        cal = model.spec_calibration(theta, obs)
-        if type(cal) is not float:
-            cal = cal[mask]
-        try:
-            s, a, l = model.spec_gp_params()
-            gp.kernel[:] = np.log(np.array([s[0], a[0]**2, l[0]**2]))
-            spec = obs['spectrum'][mask]
-            if logarithmic:
-                gp.compute(wave, obs['unc'][mask])
-                delta = gp.predict(spec - mu, wave)
-            else:
-                gp.compute(wave, obs['unc'][mask], flux=mu)
-                delta = gp.predict(spec - mu)
-            if len(delta) == 2:
-                delta = delta[0]
-        except(TypeError, AttributeError, KeyError):
-            delta = 0
-    else:
-        mask = np.ones(len(obs['wavelength']), dtype=bool)
-        cal = np.ones(len(obs['wavelength']))
-        delta = np.zeros(len(obs['wavelength']))
-
-    return sed, cal, delta, mask, wave
-
-
-def param_evol(sample_results, showpars=None, start=0, **plot_kwargs):
+def traceplot(results, showpars=None, start=0, chains=slice(None), **plot_kwargs):
     """Plot the evolution of each parameter value with iteration #, for each
     walker in the chain.
 
-    :param sample_results:
+    :param results:
         A Prospector results dictionary, usually the output of
         ``results_from('resultfile')``.
 
@@ -324,23 +287,29 @@ def param_evol(sample_results, showpars=None, start=0, **plot_kwargs):
     """
     import matplotlib.pyplot as pl
 
-    nwalk = sample_results['run_params']['nwalkers']
-    chain = sample_results['chain'][..., start:, :]
-    lnprob = sample_results['lnprobability'][..., start:]
-    # deal with single chain (i.e. nested sampling) results
-    if len(chain.shape) == 2:
-        chain = chain[None, ...]
-        lnprob = lnprob[None, ...]
+
+    # Get parameter names
     try:
-        parnames = np.array(sample_results['theta_labels'])
+        parnames = np.array(results['theta_labels'])
     except(KeyError):
         parnames = np.array(sample_results['model'].theta_labels())
-
     # Restrict to desired parameters
     if showpars is not None:
         ind_show = np.array([p in showpars for p in parnames], dtype=bool)
         parnames = parnames[ind_show]
-        chain = chain[:, :, ind_show]
+    else:
+        ind_show = slice(None)
+
+    # Get the arrays we need (trace, lnp, wghts)
+    trace = results['chain'][..., ind_show]
+    if trace.ndim ==2:
+        trace = trace[None, :]
+    trace = trace[chains, start:, :]
+    lnp = np.atleast_2d(results['lnprobability'])[chains, start:]
+    wghts = results.get('weights', None)
+    if wghts is not None:
+        wghts = wghts[start:]
+    nwalk = trace.shape[0]
 
     # Set up plot windows
     ndim = len(parnames) + 1
@@ -354,29 +323,43 @@ def param_evol(sample_results, showpars=None, start=0, **plot_kwargs):
     plotdim = factor * sz + factor * (sz - 1) * whspace
     dim = lbdim + plotdim + trdim
 
-    fig, axes = pl.subplots(nx, ny, figsize=(dim[1], dim[0]))
-    lb = lbdim / dim
-    tr = (lbdim + plotdim) / dim
-    fig.subplots_adjust(left=lb[1], bottom=lb[0], right=tr[1], top=tr[0],
-                        wspace=whspace, hspace=whspace)
+    if figsize is None:
+        fig, axes = pl.subplots(nx, ny, figsize=(dim[1], dim[0]), sharex=True)
+    else:
+        fig, axes = pl.subplots(nx, ny, figsize=figsize, sharex=True)
+    axes = np.atleast_2d(axes)
+    #lb = lbdim / dim
+    #tr = (lbdim + plotdim) / dim
+    #fig.subplots_adjust(left=lb[1], bottom=lb[0], right=tr[1], top=tr[0],
+    #                    wspace=whspace, hspace=whspace)
 
     # Sequentially plot the chains in each parameter
     for i in range(ndim - 1):
-        ax = axes.flatten()[i]
+        ax = axes.flat[i]
         for j in range(nwalk):
-            ax.plot(chain[j, :, i], **plot_kwargs)
+            ax.plot(trace[j, :, i], **plot_kwargs)
         ax.set_title(parnames[i])
     # Plot lnprob
-    ax = axes.flatten()[-1]
+    ax = axes.flat[-1]
     for j in range(nwalk):
-        ax.plot(lnprob[j, :])
+        ax.plot(lnp[j, :])
     ax.set_title('lnP')
+
+    [ax.set_xlabel("iteration") for ax in axes[-1,:]]
+    [ax.set_xicklabels('') for ax in axes[:-1, :].flat]
+    
     return fig
 
 
-def subtriangle(sample_results, outname=None, showpars=None,
-                start=0, thin=1, truths=None, trim_outliers=None,
-                extents=None, show_titles = True, **kwargs):
+def param_evol(results, **kwargs):
+    """Backwards compatability
+    """
+    return traceplot(results, **kwargs)
+
+
+def subtriangle(results, showpars=None, truths=None,
+                start=0, thin=1, chains=slice(None),
+                logify=["mass", "tau"], **kwargs):
     """Make a triangle plot of the (thinned, latter) samples of the posterior
     parameter space.  Optionally make the plot only for a supplied subset of
     the parameters.
@@ -399,54 +382,46 @@ def subtriangle(sample_results, outname=None, showpars=None,
         import triangle
 
     # pull out the parameter names and flatten the thinned chains
+    # Get parameter names
     try:
-        parnames = np.array(sample_results['theta_labels'])
+        parnames = np.array(results['theta_labels'], dtype='S20')
     except(KeyError):
         parnames = np.array(sample_results['model'].theta_labels())
-    flatchain = sample_results['chain'][..., start::thin, :]
-    flatchain = flatchain.reshape(-1, flatchain.shape[-1])
-    weights = sample_results.get('weights', None)
-
-    # restrict to parameters you want to show
+    # Restrict to desired parameters
     if showpars is not None:
         ind_show = np.array([p in showpars for p in parnames], dtype=bool)
-        flatchain = flatchain[:, ind_show]
-        #truths = truths[ind_show]
         parnames = parnames[ind_show]
-    if trim_outliers is not None:
-        trim_outliers = len(parnames) * [trim_outliers]
-    try:
-        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False, show_titles=show_titles,
-                              quantiles=[0.16, 0.5, 0.84], extents=trim_outliers, weights=weights, **kwargs)
-    except:
-        fig = triangle.corner(flatchain, labels=parnames, truths=truths,  verbose=False, show_titles=show_titles,
-                              quantiles=[0.16, 0.5, 0.84], range=trim_outliers, weights=weights, **kwargs)
-
-    if outname is not None:
-        fig.savefig('{0}.triangle.png'.format(outname))
-        #pl.close(fig)
     else:
-        return fig
+        ind_show = slice(None)
+
+    # Get the arrays we need (trace, wghts)
+    trace = results['chain'][..., ind_show]
+    if trace.ndim ==2:
+        trace = trace[None, :]
+    trace = trace[chains, start:, :]
+    wghts = results.get('weights', None)
+    if wghts is not None:
+        wghts = wghts[start:]
+    samples = trace.reshape(trace.shape[0] * trace.shape[1], trace.shape[2])
+
+    # logify some parameters
+    for p in logify:
+        if p in parnames:
+            idx = parnames.tolist().index(p)
+            samples[:, idx] = np.log10(samples[:,idx])
+            parnames[idx] = "log({})".format(parnames[idx])
+
+    corner_kwargs = {"plot_datapoints": False, "plot_density": False,
+                     "fill_contours": True, "show_titles": True}
+    corner_kwargs.update(kwargs)
+    
+    fig = triangle.corner(samples, labels=parnames, truths=truths,
+                          quantiles=[0.16, 0.5, 0.84], weights=wghts, **corner_kwargs)
+
+    return fig
 
 
-def obsdict(inobs, photflag):
-    """Return a dictionary of observational data, generated depending on
-    whether you're matching photometry or spectroscopy.
-    """
-    obs = inobs.copy()
-    if photflag == 0:
-        outn = 'spectrum'
-        marker = None
-    elif photflag == 1:
-        outn = 'sed'
-        marker = 'o'
-        obs['wavelength'] = np.array([f.wave_effective for f in obs['filters']])
-        obs['spectrum'] = obs['maggies']
-        obs['unc'] = obs['maggies_unc']
-        obs['mask'] = obs['phot_mask'] > 0
-
-    return obs, outn, marker
-
+# --- Deprecated code
 # All this because scipy changed the name of one class, which
 # shouldn't even be a class.
 
