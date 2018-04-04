@@ -8,6 +8,8 @@ apj*
 *bib
 *~
 *.pyc
+.ipynb_checkpoints
+*.h5
 junk*
 detritus/
 build/

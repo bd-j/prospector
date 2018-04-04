@@ -4,6 +4,7 @@ from numpy.random import normal, multivariate_normal
 
 try:
     import emcee
+    EMCEE_VERSION = emcee.__version__.split('.')[0]
 except(ImportError):
     pass
 
@@ -14,11 +15,11 @@ __all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball",
            "emcee_burn"]
 
 
-def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
+def run_emcee_sampler(lnprobfn, initial_center, model, verbose=True,
                       postargs=[], postkwargs={}, prob0=None,
                       nwalkers=None, nburn=[16], niter=32,
                       walker_factor=4, storechain=True,
-                      nthreads=1, pool=None, hdf5=None, interval=1,
+                      pool=None, hdf5=None, interval=1,
                       convergence_check_interval=None, convergence_chunks=325,
                       convergence_stable_points_criteria=3,
                       **kwargs):
@@ -48,8 +49,10 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         Number of iterations for the production run
 
     :param nburn:
-        List of the number of iterations to run in each round of brun-in (for
-        removing stuck walkers)
+        List of the number of iterations to run in each round of burn-in (for
+        removing stuck walkers.) E.g. `nburn=[32, 64]` will run the sampler for
+        32 iterations before reinitializing and then run the sampler for
+        another 64 iterations before starting the production run.
 
     :param storechain: (default: True)
         If using HDF5 output, setting this to False will keep the chain from
@@ -61,7 +64,7 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
 
     :param hdf5: (optional)
         H5py.File object that will be used to store the chain in the datasets
-        ``"chain"`` and ``"lnprobability"``.  If not set, the chin will instead
+        ``"chain"`` and ``"lnprobability"``.  If not set, the chain will instead
         be stored as a numpy array in the returned sampler object
 
     :param interval:
@@ -88,76 +91,90 @@ def run_emcee_sampler(lnprobf, initial_center, model, verbose=True,
         print('number of walkers={}'.format(nwalkers))
 
     # Initialize sampler
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobf,
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn,
                                      args=postargs, kwargs=postkwargs,
-                                     threads=nthreads, pool=pool)
+                                     pool=pool)
     # Burn in sampler
     initial, in_cent, in_prob = emcee_burn(esampler, initial_center, nburn, model,
                                            prob0=prob0, verbose=verbose, **kwargs)
     # Production run
     esampler.reset()
 
-    conv_crit = convergence_stable_points_criteria
     if hdf5 is not None:
         # Set up hdf5 backend
         sdat = hdf5.create_group('sampling')
-        if convergence_check_interval is None:  # static dataset
-            chain = sdat.create_dataset("chain", (nwalkers, niter, ndim))
+        if convergence_check_interval is None:
+            # static dataset
+            chain  = sdat.create_dataset("chain", (nwalkers, niter, ndim))
             lnpout = sdat.create_dataset("lnprobability", (nwalkers, niter))
-        else:  # dynamic dataset
-            nfirstcheck = (2 * convergence_chunks +
-                           convergence_check_interval * (conv_crit - 1))
-            chain = sdat.create_dataset('chain', (nwalkers, nfirstcheck, ndim),
-                                        maxshape=(nwalkers, None, ndim))
-            lnpout = sdat.create_dataset('lnprobability', (nwalkers, nfirstcheck),
-                                         maxshape=(nwalkers, None))
-            kl = sdat.create_dataset('kl_divergence', (conv_crit, ndim),
-                                     maxshape=(None, ndim))
-            kl_iter = sdat.create_dataset('kl_iteration', (conv_crit,),
+        else:
+            # dynamic dataset
+            conv_int = convergence_check_interval
+            conv_crit = convergence_stable_points_criteria
+            nfirstcheck = (2 * convergence_chunks +  conv_int * (conv_crit - 1))
+
+            chain   = sdat.create_dataset('chain',
+                                          (nwalkers, nfirstcheck, ndim),
+                                          maxshape=(nwalkers, None, ndim))
+            lnpout  = sdat.create_dataset('lnprobability',
+                                          (nwalkers, nfirstcheck),
+                                          maxshape=(nwalkers, None))
+            kl      = sdat.create_dataset('kl_divergence',
+                                          (conv_crit, ndim),
+                                          maxshape=(None, ndim))
+            kl_iter = sdat.create_dataset('kl_iteration',
+                                          (conv_crit,),
                                           maxshape=(None,))
     else:
         storechain = True
 
+    # Do some emcee version specific choices
+    if EMCEE_VERSION == '3':
+        mc_args = {"store": storechain,
+                   "iterations": niter}
+    else:
+        mc_args = {"storechain": storechain,
+                   "iterations": niter}
+
     # Main loop over iterations of the MCMC sampler
     if verbose:
         print('starting production')
-    for i, result in enumerate(esampler.sample(initial, iterations=niter,
-                                               storechain=storechain)):
+    for i, result in enumerate(esampler.sample(initial, **mc_args)):
         if hdf5 is not None:
             chain[:, i, :] = result[0]
             lnpout[:, i] = result[1]
-
-            if (convergence_check_interval is not None) and \
-               (i+1 >= nfirstcheck) and \
-               ((i+1 - nfirstcheck) % convergence_check_interval == 0):
-
+            do_convergence_check = ((convergence_check_interval is not None) and
+                                    (i+1 >= nfirstcheck) and
+                                    ((i+1 - nfirstcheck) % convergence_check_interval == 0))
+            if do_convergence_check:
                 if verbose:
                     print('checking convergence after iteration {0}').format(i+1)
-                converge_flag, info = convergence_check(chain,
-                                                        convergence_check_interval=convergence_check_interval,
-                                                        convergence_stable_points_criteria=conv_crit,
-                                                        convergence_chunks=convergence_chunks, **kwargs)
+                converged, info = convergence_check(chain,
+                                                    convergence_check_interval=conv_int,
+                                                    convergence_stable_points_criteria=conv_crit,
+                                                    convergence_chunks=convergence_chunks, **kwargs)
                 kl[:, :] = info['kl_test']
                 kl_iter[:] = info['iteration']
                 hdf5.flush()
 
-                if converge_flag:
+                if converged:
                     if verbose:
                         print('converged, ending emcee.')
                     break
                 else:
                     if verbose:
                         print('not converged, continuing.')
-                    # if we're going to exit soon, do something fancy
                     if (i+1 > (niter-convergence_check_interval)):
+                        # if we're going to exit soon, do something fancy
                         ngrow = niter - (i + 1)
                         chain.resize(chain.shape[1]+ngrow, axis=1)
                         lnpout.resize(lnpout.shape[1]+ngrow, axis=1)
-                    else:  # else extend by convergence_check_interval
-                        chain.resize(chain.shape[1]+convergence_check_interval, axis=1)
-                        lnpout.resize(lnpout.shape[1]+convergence_check_interval, axis=1)
-                        kl.resize(kl.shape[0]+1, axis=0)
-                        kl_iter.resize(kl_iter.shape[0]+1, axis=0)
+                    else:
+                        # else extend by convergence_check_interval
+                        chain.resize(chain.shape[1] + convergence_check_interval, axis=1)
+                        lnpout.resize(lnpout.shape[1] + convergence_check_interval, axis=1)
+                        kl.resize(kl.shape[0] + 1, axis=0)
+                        kl_iter.resize(kl_iter.shape[0] + 1, axis=0)
 
             if (np.mod(i+1, int(interval*niter)) == 0) or (i+1 == niter):
                 # do stuff every once in awhile
@@ -179,8 +196,16 @@ def emcee_burn(sampler, initial_center, nburn, model=None, prob0=None,
     :param nburn:
         List giving the number of iterations in each round of burn-in.
         E.g. nburn=[32, 64] will run the sampler for 32 iterations before
-        reinittializing and then run the sampler for another 64 iterations
+        reinitializing and then run the sampler for another 64 iterations
     """
+    # Do some emcee version specific choices
+    if EMCEE_VERSION == '3':
+        nwalkers = sampler.nwalkers
+        mc_args = {"store": True}
+    else:
+        nwalkers = sampler.k
+        mc_args = {"storechain": True}
+
     # Set up initial positions
     model.set_parameters(initial_center)
     disps = model.theta_disps(default_disp=initial_disp)
@@ -190,12 +215,12 @@ def emcee_burn(sampler, initial_center, nburn, model=None, prob0=None,
     else:
         disp_floor = 0.0
     disps = np.sqrt(disps**2 + disp_floor**2)
-    initial = resample_until_valid(sampler_ball, initial_center, disps, sampler.k,
+    initial = resample_until_valid(sampler_ball, initial_center, disps, nwalkers,
                                    limits=limits, prior_check=model)
 
     # Start the burn-in
     for k, iburn in enumerate(nburn):
-        epos, eprob, state = sampler.run_mcmc(initial, iburn, storechain=True)
+        epos, eprob, state = sampler.run_mcmc(initial, iburn, **mc_args)
         # Find best walker position
         best = sampler.flatlnprobability.argmax()
         # Is new position better than old position?
@@ -399,48 +424,3 @@ def restart_sampler(sample_results, lnprobf, sps, niter,
                                      threads=nthreads,  pool=pool)
     epos, eprob, state = esampler.run_mcmc(initial, niter, rstate0=state)
     return esampler
-
-
-def run_hmc_sampler(model, sps, lnprobf, initial_center, rp, pool=None):
-    """Run a (single) HMC chain, performing initial steps to adjust the
-    epsilon.
-    """
-    import hmc
-
-    sampler = hmc.BasicHMC()
-    eps = 0.
-    # need to fix this:
-    length = niter = nsegmax = nchains = None
-
-    # initial conditions and calulate initial epsilons
-    pos, prob, thiseps = sampler.sample(initial_center, model,
-                                        iterations=10, epsilon=None,
-                                        length=length, store_trajectories=False,
-                                        nadapt=0)
-    eps = thiseps
-    # Adaptation of stepsize
-    for k in range(nsegmax):
-        # Advance each sampler after adjusting step size
-        afrac = sampler.accepted.sum()*1.0/sampler.chain.shape[0]
-        if afrac >= 0.9:
-            shrink = 2.0
-        elif afrac <= 0.6:
-            shrink = 1/2.0
-        else:
-            shrink = 1.00
-
-        eps *= shrink
-        pos, prob, thiseps = sampler.sample(sampler.chain[-1, :], model,
-                                            iterations=iterations,
-                                            epsilon=eps, length=length,
-                                            store_trajectories=False, nadapt=0)
-        # this should not have actually changed during the sampling
-        alleps[k] = thiseps
-    # Main run
-    afrac = sampler.accepted.sum()*1.0/sampler.chain.shape[0]
-    if afrac < 0.6:
-        eps = eps/1.5
-    hpos, hprob, eps = sampler.sample(initial_center, model, iterations=niter,
-                                      epsilon=eps, length=length,
-                                      store_trajectories=False, nadapt=0)
-    return sampler
