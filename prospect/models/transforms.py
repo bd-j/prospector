@@ -25,6 +25,12 @@ def delogify_mass(logmass=0.0, **extras):
     """
     return 10**logmass
 
+
+# --------------------------------------
+# Fancier transforms
+# --------------------------------------
+
+
 def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
     """This function transfroms from a fractional age of a burst to an absolute
     age.  With this transformation one can sample in ``fage_burst`` without
@@ -41,6 +47,33 @@ def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
         parameter)
     """
     return tage * fage_burst
+
+
+def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
+    """
+    """
+    from ..source.constants import cosmo
+    tuniv = cosmo.age(zred).value
+    tage = tage_tuniv * tuniv
+    return tage
+
+
+def zred_to_agebins(zred=0.0, agebins=[], **extras):
+    """
+    """
+    from ..source.constants import cosmo
+    tuniv = cosmo.age(zred).value * 1e9
+    tbinmax = tuniv * 0.85
+    ncomp = len(agebins)
+    agelims = list(agebins[0]) + np.linspace(agebins[1][1], np.log10(tbinmax), ncomp-2).tolist() + [np.log10(tuniv)]
+    return np.array(agelims)
+
+
+def dust2_from_dustmu():
+    """
+    """
+    pass
+
 
 #
 # --------------------------------------

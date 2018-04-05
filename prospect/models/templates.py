@@ -56,11 +56,8 @@ def adjust_nonpar_bins(parset, agelims=[0., 8., 9., 10.]):
     """
     agebins = np.array([agelims[:-1], agelims[1:]]).T
     ncomp = len(agelims) - 1
-    sfr_fraction = np.ones(ncomp) / ncomp  # constant sfr
-    zinit = np.zeros(ncomp - 1)
-    zinit[0] = 1 - sfr_fraction[0]
-    for i in range(1, len(zinit)):
-        zinit[i] = 1.0 - sfr_fraction[i] / np.prod(zinit[:i])
+    # constant SFR
+    zinit = np.array([(i-1)/float(i) for i in range(ncomp, 1, -1)])
 
     # Set up the prior in `z` variables that corresponds to a dirichlet in sfr
     # fraction.  THIS IS IMPORTANT
