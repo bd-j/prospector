@@ -5,14 +5,10 @@ from copy import deepcopy
 from .ssp_basis import SSPBasis
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED, vac2air, air2vac
-from .constants import lightspeed, jansky_cgs, to_cgs_at_10pc
+from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
 
 try:
     import fsps
-except(ImportError):
-    pass
-try:
-    from astropy.cosmology import WMAP9 as cosmo
 except(ImportError):
     pass
 

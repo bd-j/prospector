@@ -4,14 +4,10 @@ from numpy.polynomial.chebyshev import chebval
 
 from ..utils.smoothing import smoothspec
 from sedpy.observate import getSED
-from .constants import lightspeed, jansky_cgs, to_cgs_at_10pc
+from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
 
 try:
     import fsps
-except(ImportError):
-    pass
-try:
-    from astropy.cosmology import WMAP9 as cosmo
 except(ImportError):
     pass
 
@@ -263,11 +259,11 @@ class SSPBasis(object):
 
     @property
     def logage(self):
-        return self.ssp.ssp_ages
+        return self.ssp.ssp_ages.copy()
 
     @property
     def wavelengths(self):
-        return self.ssp.wavelengths
+        return self.ssp.wavelengths.copy()
 
 
 class FastSSPBasis(SSPBasis):

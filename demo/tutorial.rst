@@ -9,7 +9,7 @@ The next thing you need to do is make a temporary work directory, ``<workdir>``
 .. code-block:: shell
 		
 		cd <workdir>
-		cp <codedir>/scripts/prospector.py .
+		cp <codedir>/scripts/prospector*.py .
 		cp <codedir>/demo/demo_* .
 
 We now have a prospector executable, a *parameter file*  or two, and some data.
@@ -28,7 +28,8 @@ It is passed to each of the other main setup functions in ``param_file.py``
 About those imports.
 Since we are fitting galaxies with a composite stellar population,
 we made sure to import the ``sources.CSPSpecBasis`` class.
-If you were fitting stars or non-parameteric SFHs you would use a different object from ``sources``.
+If you were fitting stars or non-parameteric SFHs you would use a different
+object from the ``sources`` module.
 
 The next thing to look at is the ``load_obs()`` function.
 This is where you take the data from whatever format you have and
@@ -48,17 +49,20 @@ When you write your own ``load_obs`` function, you can add all sorts of keyword 
 (for example, an object name or ID number that can be used to choose or find a single object in your data file).
 You can also import helper functions and modules.
 These can be either things like astropy, h5py, and sqlite or your own project specific modules and functions.
-As long as the output dictionary is in the right format, the body of this function can do anything.
+As long as the output dictionary is in the right format (see dataformat.rst), the body of this function can do anything.
 
 Ok, now we go to the ``load_sps`` function.
 This one is pretty straightforward, it simply instantiates our CSPBasis object.
-After that is ``load_gp``, ignore that for now.
+After that is ``load_gp``, which is for complexifying the noise model -- ignore that for now.
 
 Now on to the fun part.
-The ``model_params`` list is where the model that we will fit is specified.
-Each entry in the list is a dictionary that describes a single parameter.
-You'll note that for 5 of these parameters we have set ``"isfree": True``.
-These are the parameters that will be varied during the fit.
+The ``load_model`` function is where the model that we will fit will be constructed.
+First we have to specify a dictionary or list of model parameter specifications (see models.rst).
+Each specification is a dictionary that describes a single parameter.
+We can build the model from predefined sets of model parameter specifications,
+stored in the ``models.templates.TemplateLibrary`` directory.
+You'll note that for 5 of these parameters we have set.
+Any parameters with ``"isfree": True`` in its specification will be varied during the fit.
 We have set priors on these parameters, including prior arguments.
 Any free parameter *must* have an associated prior.
 Other parameters have their value set (to the value of the ``"init"`` key) but do not vary during the fit.
@@ -67,7 +71,7 @@ Parameters not listed here will be set to their default values.
 For CSPBasis this means the default values in the ``fsps.StellarPopulation()`` object,
 see `python-fsps (http://dan.iel.fm/python-fsps/current/)`_ for details
 
-Finally, the ``load_model()`` function takes the ``model_params`` list and
+Finally, the ``load_model()`` function takes the ``model_params`` collection  and
 uses it to instantiate a ``SedModel`` object.
 If you wanted to change the specification of the model using command line arguments,
 you could do it in this function using keyword arguments that are also keys of ``run_params``.
@@ -103,26 +107,24 @@ and the ``run_params`` dictionary to make sure everything is working fine.
 
 Working with the output
 --------------------------------
-After the fit is completed we should have a number of files with names like
-``demo_obj0_<timestamp>_*``. 
-The  ``_mcmc.h5`` is an HDF5 file containing sampling results and various configuration data,
+After the fit is completed we should have a file with a name like
+``demo_obj0_<timestamp>_mcmc.h5``. 
+This is an HDF5 file containing sampling results and various configuration data,
 as well as the observational data that was fit.
-If produced the ``_mcmc`` file is a pickle of a dictionary with the same
-data but in a less portable format.
-The ``_model`` file is a pickle of the ``SedModel`` object used to generate models, saved for convenience.
-We will read these in with python and make some plots using utilities in |Codename|
+By setting ``run_params["output_pickles"]=True`` you can also output versions of this information in the less portable pickle format.
+We will read the HDF5 with python and make some plots using utilities in |Codename|
 
 To read the data back in from the output files that we've generated, use
 methods in ``prospect.io.read_results``.  There are also some methods in this
-module for basic (and ugly) diagnostic plots. The ``subtriangle`` method requires that you have the `corner
+module for basic diagnostic plots. The ``subcorner`` method requires that you have the `corner
 <http://corner.readthedocs.io/en/latest/>`_ package installed.
 
 .. code-block:: python
 		
 		import prospect.io.read_results as pread
 		res, obs, mod = pread.results_from("demo_obj_<timestamp>_mcmc.h5")
-		tracefig = pread.param_evol(res)
-		cornerfig = pread.subtriangle(res, start=0, thin=5)
+		tracefig = pread.traceplot(res)
+		cornerfig = pread.subcorner(res, start=0, thin=5)
 
 The ``res`` object is a dictionary containing various useful results.
 You can look at ``res.keys()`` to see a list of what it contains.
@@ -130,26 +132,41 @@ The ``obs`` object is just the ``obs`` dictionary that was used in the fitting.
 The ``mod`` object is the model object that was used in the fitting.
 There are also numerous more or less poorly documented convenience methods in
 the ``prospect.utils.plotting``.
-If necessary, one can regenerate models at any walker position in the following way:
+
+If necessary, one can regenerate models at any position in the posterior chain.  This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the ``read_results.get_sps()`` method
 
 .. code-block:: python
 		
 		import prospect.io.read_results as pread
 		res, obs, mod = pread.results_from("demo_obj_<timestamp>_mcmc")
 		# We need the correct sps object to generate models
-		from prospect.sources import CSPSpecBasis
 		sps = pread.get_sps(res)
+
+Now we will choose a specific parameter value from the chain, using the last iteration of the first walker, and plot what the observations and the model look like, as well as the uncertainty normalized residual
+
+.. code-block:: python
+		
 		# Choose the walker and iteration number,
 		# if you used emcee for the inference
 		walker, iteration = 0, -1
 		# Get the modeled spectra and photometry.
 		# These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
 		spec, phot, mfrac = mod.mean_model(res['chain'][walker, iteration, :], obs=res['obs'], sps=sps)
+		# mfrac is the ratio of the surviving stellar mass to the formed mass (the ``"mass"`` parameter).
 		# Plot the model SED
 		import matplotlib.pyplot as pl
 		wave = [f.wave_effective for f in res['obs']['filters']]
-		pl.plot(wave, res['obs']['maggies'], '-o', label='Observations')
-		pl.plot(wave, phot, '-o', label='Model at {},{}'.format(walker, iteration))
-		pl.ylabel("Maggies")
+		sedfig, sedax = pl.subplots()
+		sedax.plot(wave, res['obs']['maggies'], '-o', label='Observations')
+		sedax.plot(wave, phot, '-o', label='Model at {},{}'.format(walker, iteration))
+		sedax.set_ylabel("Maggies")
+		sedax.set_xlabel("wavelength")
+		# Plot residuals for this walker and iteration
+		chifig, chiax = pl.subplots()
+		chi = (res['obs']['maggies'] - phot) / res['obs']['maggies_unc']
+		chifig.plot(wave, chi, 'o')
+		chiax.set_ylabel("Chi")
+		chiax.set_xlabel("wavelength")
+
 
 .. |Codename| replace:: Prospector

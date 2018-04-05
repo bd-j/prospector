@@ -16,9 +16,9 @@ from ..models.parameters import names_to_functions
 run, including reconstruction of the model for making posterior samples
 """
 
-__all__ = ["results_from", "read_hdf5", "read_pickles",
-           "read_model", "get_sps", "get_model",
-           "subtriangle", "traceplot"]
+__all__ = ["results_from",
+           "get_sps", "get_model",
+           "traceplot", "subcorner"]
 
 
 def unpick(pickled):
@@ -32,7 +32,7 @@ def unpick(pickled):
     return obj
 
     
-def results_from(filename, model_file=None, dangerous=False, **kwargs):
+def results_from(filename, model_file=None, dangerous=True, **kwargs):
     """Read a results file with stored model and MCMC chains.
 
     :param filename:
@@ -42,7 +42,7 @@ def results_from(filename, model_file=None, dangerous=False, **kwargs):
 
     :param dangerous: (default, False)
         If True, use the stored paramfile text to import the parameter file and
-        reconstitute the model object.  This executes code in the paramfile
+        reconstitute the model object.  This executes code in the stored paramfile
         text during import, and is therefore dangerous.
 
     :returns sample_results:
@@ -260,7 +260,8 @@ def get_model(res):
     return model
 
 
-def traceplot(results, showpars=None, start=0, chains=slice(None), **plot_kwargs):
+def traceplot(results, showpars=None, start=0, chains=slice(None),
+              figsize=None, **plot_kwargs):
     """Plot the evolution of each parameter value with iteration #, for each
     walker in the chain.
 
@@ -272,6 +273,11 @@ def traceplot(results, showpars=None, start=0, chains=slice(None), **plot_kwargs
         A list of strings of the parameters to show.  Defaults to all
         parameters in the ``"theta_labels"`` key of the ``sample_results``
         dictionary.
+
+    :param chains:
+        If results are from an ensemble sampler, setting `chain` to an integer
+        array of walker indices will cause only those walkers to be used in
+        generating the plot.  Useful for to keep the plot from getting too cluttered.
 
     :param start: (optional, default: 0)
         Integer giving the iteration number from which to start plotting.
@@ -338,15 +344,17 @@ def traceplot(results, showpars=None, start=0, chains=slice(None), **plot_kwargs
         ax = axes.flat[i]
         for j in range(nwalk):
             ax.plot(trace[j, :, i], **plot_kwargs)
-        ax.set_title(parnames[i])
+        ax.set_title(parnames[i], y=1.02)
     # Plot lnprob
     ax = axes.flat[-1]
     for j in range(nwalk):
-        ax.plot(lnp[j, :])
-    ax.set_title('lnP')
+        ax.plot(lnp[j, :], **plot_kwargs)
+    ax.set_title('lnP', y=1.02)
 
     [ax.set_xlabel("iteration") for ax in axes[-1,:]]
-    [ax.set_xicklabels('') for ax in axes[:-1, :].flat]
+    #[ax.set_xticklabels('') for ax in axes[:-1, :].flat]
+
+    pl.tight_layout()
     
     return fig
 
@@ -357,24 +365,36 @@ def param_evol(results, **kwargs):
     return traceplot(results, **kwargs)
 
 
-def subtriangle(results, showpars=None, truths=None,
-                start=0, thin=1, chains=slice(None),
-                logify=["mass", "tau"], **kwargs):
+def subcorner(results, showpars=None, truths=None,
+              start=0, thin=1, chains=slice(None),
+              logify=["mass", "tau"], **kwargs):
     """Make a triangle plot of the (thinned, latter) samples of the posterior
     parameter space.  Optionally make the plot only for a supplied subset of
     the parameters.
 
-    :param start:
-        The iteration number to start with when drawing samples to plot.
-
-    :param thin:
-        The thinning of each chain to perform when drawing samples to plot.
-
-    :param showpars:
+    :param showpars: (optional)
         List of string names of parameters to include in the corner plot.
 
-    :param truths:
-        List of truth values for the chosen parameters
+    :param truths: (optional)
+        List of truth values for the chosen parameters.
+
+    :param start: (optional, default: 0)
+        The iteration number to start with when drawing samples to plot.
+
+    :param thin: (optional, default: 1)
+        The thinning of each chain to perform when drawing samples to plot.
+
+    :param chains: (optional)
+        If results are from an ensemble sampler, setting `chain` to an integer
+        array of walker indices will cause only those walkers to be used in
+        generating the plot.  Useful for emoving stuck walkers.
+
+    :param **kwargs:
+        Remaining keywords are passed to the ``corner`` plotting package.
+
+    :param logify:
+        A list of parameter names to plot in `log10(parameter)` instead of
+        `parameter`
     """
     try:
         import corner as triangle
@@ -389,37 +409,50 @@ def subtriangle(results, showpars=None, truths=None,
         parnames = np.array(sample_results['model'].theta_labels())
     # Restrict to desired parameters
     if showpars is not None:
-        ind_show = np.array([p in showpars for p in parnames], dtype=bool)
+        ind_show = np.array([parnames.tolist().index(p) for p in showpars])
         parnames = parnames[ind_show]
     else:
         ind_show = slice(None)
 
     # Get the arrays we need (trace, wghts)
     trace = results['chain'][..., ind_show]
-    if trace.ndim ==2:
+    if trace.ndim == 2:
         trace = trace[None, :]
-    trace = trace[chains, start:, :]
+    trace = trace[chains, start::thin, :]
     wghts = results.get('weights', None)
     if wghts is not None:
-        wghts = wghts[start:]
+        wghts = wghts[start::thin]
     samples = trace.reshape(trace.shape[0] * trace.shape[1], trace.shape[2])
 
     # logify some parameters
+    xx = samples.copy()
+    if truths is not None:
+        xx_truth = np.array(truths).copy()
+    else:
+        xx_truth = None
     for p in logify:
         if p in parnames:
             idx = parnames.tolist().index(p)
-            samples[:, idx] = np.log10(samples[:,idx])
+            xx[:, idx] = np.log10(xx[:,idx])
             parnames[idx] = "log({})".format(parnames[idx])
+            if truths is not None:
+                xx_truth[idx] = np.log10(xx_truth[idx])
 
+    # mess with corner defaults
     corner_kwargs = {"plot_datapoints": False, "plot_density": False,
                      "fill_contours": True, "show_titles": True}
     corner_kwargs.update(kwargs)
     
-    fig = triangle.corner(samples, labels=parnames, truths=truths,
+    fig = triangle.corner(xx, labels=parnames, truths=xx_truth,
                           quantiles=[0.16, 0.5, 0.84], weights=wghts, **corner_kwargs)
 
     return fig
 
+
+def subtriangle(results, **kwargs):
+    """Backwards compatability
+    """
+    return subcorner(results, **kwargs)
 
 # --- Deprecated code
 # All this because scipy changed the name of one class, which

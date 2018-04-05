@@ -117,7 +117,7 @@ def load_model(param_file=None, **extras):
     ext = param_file.split('.')[-1]
     if ext == 'py':
         setup_module = import_module_from_file(param_file)
-        mp = deepcopy(setup_module.model_params)
+        #mp = deepcopy(setup_module.model_params)
         model = setup_module.load_model(**extras)
     elif ext == 'json':
         rp, mp = parameters.read_plist(param_file)

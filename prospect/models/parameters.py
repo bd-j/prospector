@@ -4,7 +4,7 @@ import json, pickle
 from . import priors
 
 
-__all__ = ["ProspectorParams", "plist_to_pdict", "pdict_to_plist"]
+__all__ = ["ProspectorParams"] #, "plist_to_pdict", "pdict_to_plist"]
 
 
 # A template for what parameter configuration list element should look like
@@ -59,7 +59,8 @@ class ProspectorParams(object):
             self.config_dict = configuration
             self.config_list = pdict_to_plist(self.config_dict, order=param_order)
         else:
-            raise(TypeError, "Configuration variable not of valid type: {}".format(type(configuration)))
+            raise(TypeError, ("Configuration variable not of valid type: "
+                              "{}".format(type(configuration))))
         self.configure(**kwargs)
         self.verbose = verbose
 
@@ -85,13 +86,14 @@ class ProspectorParams(object):
         # Populate the 'prior' key of the configure dictionary
         # Check for 'depends_on'
         for par, info in list(self.config_dict.items()):
-            self.params[par] = np.atleast_1d(info['init'])
+            self.params[par] = np.atleast_1d(info['init']).copy()
             try:
                 # this is for backwards compatibility
                 self.config_dict[par]['prior'] = info['prior_function']
             except(KeyError):
                 pass
             if info.get('depends_on', None) is not None:
+                assert callable(info["depends_on"])
                 self._has_parameter_dependencies = True
         # propogate user supplied values to the params state, overriding the
         # configure `init` values
@@ -329,10 +331,10 @@ def plist_to_pdict(inplist):
 
 
 def pdict_to_plist(pdict, order=None):
-    """Convert from a parameter dictionary to a parameter list of dictionaries,
-    adding each key to each value dictionary as the `name' keyword.
-    Optionally, do this in an order specified by `order`. This method is not
-    used often, so it can be a bit inefficient
+    """Convert from a dictionary of parameter dictionaries to a list of
+    parameter dictionaries, adding each key to each value dictionary as the
+    `name' keyword.  Optionally, do this in an order specified by `order`. This
+    method is not used often, so it can be a bit inefficient
 
     :param pdict:
         A dictionary of parameter specification dictionaries, keyed by
