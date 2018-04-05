@@ -188,7 +188,7 @@ if __name__ == "__main__":
         write_results.write_obs_to_h5(hfile, obsdat)
     except(ImportError):
         hfile = None
-        
+
     # -----------------------------------------
     # Initial guesses using minimization
     # -----------------------------------------
@@ -243,9 +243,9 @@ if __name__ == "__main__":
         initial_center = initial_theta.copy()
         initial_prob = None
 
-    # -------
-    # Sample
-    # -------
+    # ---------------------
+    # Sampling
+    # -----------------------
     if rp['verbose']:
         print('emcee sampling...')
     tstart = time.time()
@@ -258,14 +258,15 @@ if __name__ == "__main__":
         print('done emcee in {0}s'.format(edur))
 
     # -------------------------
-    # Output pickles (and HDF5)
+    # Output HDF5 (and pickles if asked for)
     # -------------------------
     print("Writing to {}".format(outroot))
-    write_results.write_pickles(rp, model, obsdat, esampler, guesses,
-                                outroot=outroot, toptimize=pdur, tsample=edur,
-                                sampling_initial_center=initial_center,
-                                post_burnin_center=burn_p0,
-                                post_burnin_prob=burn_prob0)
+    if rp.get("output_pickles", False):
+        write_results.write_pickles(rp, model, obsdat, esampler, guesses,
+                                    outroot=outroot, toptimize=pdur, tsample=edur,
+                                    sampling_initial_center=initial_center,
+                                    post_burnin_center=burn_p0,
+                                    post_burnin_prob=burn_prob0)
     if hfile is None:
         hfile = hfilename
     write_results.write_hdf5(hfile, rp, model, obsdat, esampler, guesses,

@@ -159,7 +159,6 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
         a = sampler.acceptance_fraction
         write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample)
     except(AttributeError):
-
         # dynesty or nestle
         if sampler.has_key('eff'):
             write_dynesty_h5(hf, sampler, model, tsample)
@@ -182,10 +181,6 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     hf.attrs['prospector_version'] = json.dumps(bgh)
     hf.close()
 
-    #if mfile is None:
-    #    mfile = hf.name.replace('.h5', '_model')
-    #write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results)
-
 
 def write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample):
     """Write emcee information to the provided HDF5 file in the `sampling`
@@ -196,11 +191,16 @@ def write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample):
     except(KeyError):
         sdat = hf.create_group('sampling')
     if 'chain' not in sdat:
-        sdat.create_dataset('chain', data=sampler.chain)
-        sdat.create_dataset('lnprobability', data=sampler.lnprobability)
-    sdat.create_dataset('acceptance', data=sampler.acceptance_fraction)
-    sdat.create_dataset('sampling_initial_center', data=sampling_initial_center)
-    sdat.create_dataset('initial_theta', data=model.initial_theta.copy())
+        sdat.create_dataset('chain',
+                            data=sampler.chain)
+        sdat.create_dataset('lnprobability',
+                            data=sampler.lnprobability)
+    sdat.create_dataset('acceptance',
+                        data=sampler.acceptance_fraction)
+    sdat.create_dataset('sampling_initial_center',
+                        data=sampling_initial_center)
+    sdat.create_dataset('initial_theta',
+                        data=model.initial_theta.copy())
     # JSON Attrs
     sdat.attrs['rstate'] = pick(sampler.random_state)
     sdat.attrs['sampling_duration'] = json.dumps(tsample)
@@ -216,14 +216,23 @@ def write_nestle_h5(hf, nestle_out, model, tsample):
         sdat = hf['sampling']
     except(KeyError):
         sdat = hf.create_group('sampling')
-    sdat.create_dataset('chain', data=nestle_out['samples'])
-    sdat.create_dataset('weights', data=nestle_out['weights'])
-    sdat.create_dataset('lnlikelihood', data=nestle_out['logl'])
-    sdat.create_dataset('lnprobability', data=nestle_out['logl'] + model.prior_product(nestle_out['samples']))
-    sdat.create_dataset('logvol', data=nestle_out['logvol'])
-    sdat.create_dataset('logz', data=np.atleast_1d(nestle_out['logz']))
-    sdat.create_dataset('logzerr', data=np.atleast_1d(nestle_out['logzerr']))
-    sdat.create_dataset('h_information', data=np.atleast_1d(nestle_out['h']))
+    sdat.create_dataset('chain',
+                        data=nestle_out['samples'])
+    sdat.create_dataset('weights',
+                        data=nestle_out['weights'])
+    sdat.create_dataset('lnlikelihood',
+                        data=nestle_out['logl'])
+    sdat.create_dataset('lnprobability',
+                        data=(nestle_out['logl'] +
+                              model.prior_product(nestle_out['samples'])))
+    sdat.create_dataset('logvol',
+                        data=nestle_out['logvol'])
+    sdat.create_dataset('logz',
+                        data=np.atleast_1d(nestle_out['logz']))
+    sdat.create_dataset('logzerr',
+                        data=np.atleast_1d(nestle_out['logzerr']))
+    sdat.create_dataset('h_information',
+                        data=np.atleast_1d(nestle_out['h']))
 
     # JSON Attrs
     for p in ['niter', 'ncall']:
@@ -241,17 +250,29 @@ def write_dynesty_h5(hf, dynesty_out, model, tsample):
     except(KeyError):
         sdat = hf.create_group('sampling')
 
-    sdat.create_dataset('chain', data=dynesty_out['samples'])
-    sdat.create_dataset('weights', data=np.exp(dynesty_out['logwt']-dynesty_out['logz'][-1]))
-    sdat.create_dataset('logvol', data=dynesty_out['logvol'])
-    sdat.create_dataset('logz', data=np.atleast_1d(dynesty_out['logz']))
-    sdat.create_dataset('logzerr', data=np.atleast_1d(dynesty_out['logzerr']))
-    sdat.create_dataset('information', data=np.atleast_1d(dynesty_out['information']))
-    sdat.create_dataset('lnlikelihood', data=dynesty_out['logl'])
-    sdat.create_dataset('lnprobability', data=dynesty_out['logl'] + model.prior_product(dynesty_out['samples']))
-    sdat.create_dataset('efficiency', data=np.atleast_1d(dynesty_out['eff']))
-    sdat.create_dataset('niter', data=np.atleast_1d(dynesty_out['niter']))
-    sdat.create_dataset('samples_id', data=np.atleast_1d(dynesty_out['samples_id']))
+    sdat.create_dataset('chain',
+                        data=dynesty_out['samples'])
+    sdat.create_dataset('weights',
+                        data=np.exp(dynesty_out['logwt']-dynesty_out['logz'][-1]))
+    sdat.create_dataset('logvol',
+                        data=dynesty_out['logvol'])
+    sdat.create_dataset('logz',
+                        data=np.atleast_1d(dynesty_out['logz']))
+    sdat.create_dataset('logzerr',
+                        data=np.atleast_1d(dynesty_out['logzerr']))
+    sdat.create_dataset('information',
+                        data=np.atleast_1d(dynesty_out['information']))
+    sdat.create_dataset('lnlikelihood',
+                        data=dynesty_out['logl'])
+    sdat.create_dataset('lnprobability',
+                        data=(dynesty_out['logl'] +
+                              model.prior_product(dynesty_out['samples'])))
+    sdat.create_dataset('efficiency',
+                        data=np.atleast_1d(dynesty_out['eff']))
+    sdat.create_dataset('niter',
+                        data=np.atleast_1d(dynesty_out['niter']))
+    sdat.create_dataset('samples_id',
+                        data=np.atleast_1d(dynesty_out['samples_id']))
 
     # JSON Attrs
     sdat.attrs['ncall'] = json.dumps(list(dynesty_out['ncall']))

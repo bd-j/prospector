@@ -18,7 +18,7 @@ run, including reconstruction of the model for making posterior samples
 
 __all__ = ["results_from", "read_hdf5", "read_pickles",
            "read_model", "get_sps", "get_model",
-           "subtriangle", "param_evol"]
+           "subtriangle", "traceplot"]
 
 
 def unpick(pickled):
@@ -221,7 +221,7 @@ def get_sps(res):
     sps = user_module.load_sps(**res['run_params'])
 
     # Now check that the SSP libraries are consistent
-    flib = res['run_params'].get('ssp_libraries', None)
+    flib = res['run_params'].get('sps_libraries', None)
     try:
         rlib = sps.ssp.libraries
     except(AttributeError):
