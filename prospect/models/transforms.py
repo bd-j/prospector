@@ -1,9 +1,11 @@
 # A place to store handy parameter transormations
 
 import numpy as np
-
+from ..sources.constants import cosmo
 
 __all__ = ["stellar_logzsol", "delogify_mass",
+           "tburst_from_fage", "tage_from_tuniv", "zred_to_agebins",
+           "dustratio_to_dust1",
            "zfrac_to_masses", "zfrac_to_sfrac", "zfrac_to_sfr", "masses_to_zfrac",
            "sfratio_to_sfr", "sfratio_to_mass"]
 
@@ -30,7 +32,6 @@ def delogify_mass(logmass=0.0, **extras):
 # Fancier transforms
 # --------------------------------------
 
-
 def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
     """This function transfroms from a fractional age of a burst to an absolute
     age.  With this transformation one can sample in ``fage_burst`` without
@@ -50,32 +51,42 @@ def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
 
 
 def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
+    """This function calculates a galaxy age from the age of the univers at
+    `zred` and the age given as a fraction of the age of the universe.  This
+    allows for both zred and tage parameters without tage exceeding the age of
+    the universe.
+
+    :param zred:
+        Cosmological redshift
+
+    :param tage_tuniv:
+        The ratio of tage to the age of the universe at `zred`:
+
+    :returns tage:
+        The stellar population age, in Gyr
     """
-    """
-    from ..source.constants import cosmo
     tuniv = cosmo.age(zred).value
     tage = tage_tuniv * tuniv
     return tage
 
 
 def zred_to_agebins(zred=0.0, agebins=[], **extras):
+    """Set the nonparameteric SFH age bins depending on the age of the universe
+    at `zred`
     """
-    """
-    from ..source.constants import cosmo
     tuniv = cosmo.age(zred).value * 1e9
     tbinmax = tuniv * 0.85
     ncomp = len(agebins)
     agelims = list(agebins[0]) + np.linspace(agebins[1][1], np.log10(tbinmax), ncomp-2).tolist() + [np.log10(tuniv)]
-    return np.array(agelims)
+    return np.array([agelims[:-1], agelims[1:]]).T
 
 
-def dust2_from_dustmu():
+def dustratio_to_dust1(dust2=0.0, dust_ratio=0.0, **extras):
+    """Set the value of dust1 from the value of dust2 and dust_ratio
     """
-    """
-    pass
+    return dust2 * dust_ratio
 
 
-#
 # --------------------------------------
 # --- Transforms for Prospector-alpha non-parametric SFH (Leja et al. 2017) ---
 # --------------------------------------

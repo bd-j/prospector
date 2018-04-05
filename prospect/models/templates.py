@@ -9,7 +9,8 @@ from . import priors
 from . import transforms
 
 __all__ = ["TemplateLibrary",
-           "adjust_nonpar_bins"
+           "describe",
+           "adjust_nonpar_bins",
            ]
 
 
@@ -36,11 +37,24 @@ class Directory(object):
         self._descriptions[k] = description
 
     def describe(self, k):
-        return deepcopy(self._descriptions[k])
+        print(describe(self._entries[k]))
 
     def show_contents(self):
         for k, v in list(self._descriptions.items()):
             print("'{}':\n  {}".format(k, v))
+
+
+def describe(parset):
+    ttext = "Free Parameters: (name: prior) \n-----------\n"
+    free = ["{}: {}".format(k, v["prior"])
+            for k, v in list(parset.items()) if v["isfree"]]
+    ttext += "  " + "\n  ".join(free)
+
+    ftext = "Fixed Parameters: (name: value [, depends_on]) \n-----------\n"
+    fixed = ["{}: {} {}".format(k, v["init"], v.get("depends_on", ""))
+            for k, v in list(parset.items()) if not v["isfree"]]
+    ftext += "  " + "\n  ".join(fixed)
+    return ttext + "\n\n" + ftext
 
 
 def adjust_nonpar_bins(parset, agelims=[0., 8., 9., 10.]):
@@ -275,10 +289,12 @@ _alpha_.update(TemplateLibrary["dust_emission"])
 _alpha_.update(TemplateLibrary["nebular"])
 _alpha_.update(TemplateLibrary["agn"])
 
-# Set the dust emission free
+# Set the dust and agn emission free
 _alpha_["duste_qpah"]["isfree"] = True
 _alpha_["duste_umin"]["isfree"] = True
 _alpha_["duste_gamma"]["isfree"] = True
+_alpha_["fagn"]["isfree"] = True
+_alpha_["agn_tau"]["isfree"] = True
 
 # Complexify the dust attenuation
 _alpha_["dust_type"] = {"N": 1, "isfree": False, "init": 4, "units": "FSPS index"}
