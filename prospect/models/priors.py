@@ -103,6 +103,10 @@ class Prior(object):
         self.name = name
         self.update(**kwargs)
 
+    def __repr__(self):
+        argstring = ['{}={}'.format(k, v) for k, v in list(self.params.items())] 
+        return '{}({})'.format(self.__class__, ",".join(argstring))
+
     def update(self, **kwargs):
         """Update `params` values using alias.
         """

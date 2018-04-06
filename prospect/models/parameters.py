@@ -2,45 +2,69 @@ from copy import deepcopy
 import numpy as np
 import json, pickle
 from . import priors
-from ..utils.obsutils import logify_data, norm_spectrum
 
-__all__ = ["ProspectorParams", "ProspectorParamsHMC"]
 
-param_template = {'name': '', 'N': 1, 'isfree': False,
-                  'init': 0.0, 'units': '',
-                  'prior_function': None, 'prior_args': None}
+__all__ = ["ProspectorParams", "plist_to_pdict", "pdict_to_plist"]
+
+
+# A template for what parameter configuration list element should look like
+param_template = {'name': '',
+                  'N': 1,
+                  'isfree': True,
+                  'init': 0.5, 'units': '',
+                  'prior': priors.TopHat(mini=0, maxi=1.0),
+                  'depends_on': None}
 
 
 class ProspectorParams(object):
     """
-    :param config_list:
-        A list of ``model parameters``.
+    This is the base model class that holds model parameters and information
+    about them (e.g. priors, bounds, transforms, free vs fixed state).  In
+    addition to the documented methods, it contains several important
+    attributes:
+
+    * params: model parameter state dictionary.
+    * theta_index: A dictionary that maps parameter names to indices (or rather
+      slices) of the parameter vector theta.
+    * config_dict: Information about each parameter as a dictionary keyed by
+      parameter name for easy access.
+    * config_list: Information about each parameter stored as a list.
+
+    Intitialization is via, e.g.,
+
+    ::
+       model_dict = {"name": "mass", "N": 1, "isfree": False, "init": 1e10}
+       model = ProspectorParams(model_dict, order=None)
+
+    :param configuration:
+        A list or dictionary of model parameters specifications.
     """
-    # information about each parameter stored as a list
-    # config_list = []
-    # information about each parameter as a dictionary keyed by
-    # parameter name for easy access
-    # _config_dict = {}
-    # Model parameter state, keyed by parameter name
-    # params = {}
-    # Mapping from parameter name to index in the theta vector
-    # theta_index = {}
-    # the initial theta vector
-    # theta_init = np.array([])
 
-    # Information about the fiting parameters, filenames, fitting and
-    # configure options, runtime variables, etc.
-    # run_params = {}
-    # obs = {}
+    def __init__(self, configuration, verbose=True, param_order=None, **kwargs):
+        """
+        :param configuration:
+            A list or dictionary of parameter specification dictionaries.
 
-    def __init__(self, config_list, verbose=True):
-        self.init_config_list = config_list
-        self.config_list = config_list
-        self.configure()
+        :param param_order: (optional, default: None)
+            If given and `configuration` is a dictionary, this will specify the
+            order in which the parameters appear in the theta vector.  Iterable
+            of strings.
+        """
+        self.init_config = deepcopy(configuration)
+        self.parameter_order = param_order
+        if type(configuration) == list:
+            self.config_list = configuration
+            self.config_dict = plist_to_pdict(self.config_list)
+        elif type(configuration) == dict:
+            self.config_dict = configuration
+            self.config_list = pdict_to_plist(self.config_dict, order=param_order)
+        else:
+            raise(TypeError, "Configuration variable not of valid type: {}".format(type(configuration)))
+        self.configure(**kwargs)
         self.verbose = verbose
 
     def configure(self, reset=False, **kwargs):
-        """Use the parameter config_list to generate a theta_index mapping, and
+        """Use the parameter config_dict to generate a theta_index mapping, and
         propogate the initial parameters into the params state dictionary, and
         store the intital theta vector implied by the config dictionary.
 
@@ -55,24 +79,26 @@ class ProspectorParams(object):
         self._has_parameter_dependencies = False
         if (not hasattr(self, 'params')) or reset:
             self.params = {}
-        self._config_dict = plist_to_pdict(self.config_list)
+
         self.map_theta()
         # Propogate initial parameter values from the configure dictionary
         # Populate the 'prior' key of the configure dictionary
         # Check for 'depends_on'
-        for par, info in list(self._config_dict.items()):
+        for par, info in list(self.config_dict.items()):
             self.params[par] = np.atleast_1d(info['init'])
             try:
-                self._config_dict[par]['prior'] = info['prior_function']
+                # this is for backwards compatibility
+                self.config_dict[par]['prior'] = info['prior_function']
             except(KeyError):
                 pass
             if info.get('depends_on', None) is not None:
                 self._has_parameter_dependencies = True
-        # propogate user supplied values, overriding the configure
+        # propogate user supplied values to the params state, overriding the
+        # configure `init` values
         for k, v in list(kwargs.items()):
             self.params[k] = np.atleast_1d(v)
         # store these initial values
-        self.initial_theta = self.theta.copy()  # self.rectify_theta((self.theta.copy()))
+        self.initial_theta = self.theta.copy()
 
     def map_theta(self):
         """Construct the mapping from parameter name to the index in the theta
@@ -81,8 +107,8 @@ class ProspectorParams(object):
         self.theta_index = {}
         count = 0
         for par in self.free_params:
-            self.theta_index[par] = slice(count, count+self._config_dict[par]['N'])
-            count += self._config_dict[par]['N']
+            self.theta_index[par] = slice(count, count+self.config_dict[par]['N'])
+            count += self.config_dict[par]['N']
         self.ndim = count
 
     def set_parameters(self, theta):
@@ -94,7 +120,7 @@ class ProspectorParams(object):
         """
         assert len(theta) == self.ndim
         for k, inds in list(self.theta_index.items()):
-            self.params[k] = np.atleast_1d(theta[inds])
+            self.params[k] = np.atleast_1d(theta[inds]).copy()
         self.propagate_parameter_dependencies()
 
     def prior_product(self, theta, nested=False, **extras):
@@ -111,7 +137,7 @@ class ProspectorParams(object):
             return 0.0
         return lpp
 
-    def _prior_product(self, theta, verbose=False, **extras):
+    def _prior_product(self, theta, **extras):
         """Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the prior
         functions are defined in the theta descriptor.
@@ -126,14 +152,12 @@ class ProspectorParams(object):
         """
         lnp_prior = 0
         for k, inds in list(self.theta_index.items()):
-            
-            func = self._config_dict[k]['prior']
-            kwargs = self._config_dict[k].get('prior_args', {})
-            this_prior = np.sum(func(theta[..., inds], **kwargs), axis=-1)
 
-            #if (not np.isfinite(this_prior)):
-            #    print('WARNING: ' + k + ' is out of bounds')
+            func = self.config_dict[k]['prior']
+            kwargs = self.config_dict[k].get('prior_args', {})
+            this_prior = np.sum(func(theta[..., inds], **kwargs), axis=-1)
             lnp_prior += this_prior
+
         return lnp_prior
 
     def prior_transform(self, unit_coords):
@@ -141,8 +165,8 @@ class ProspectorParams(object):
         """
         theta = np.zeros(len(unit_coords))
         for k, inds in list(self.theta_index.items()):
-            func = self._config_dict[k]['prior'].unit_transform
-            kwargs = self._config_dict[k].get('prior_args', {})
+            func = self.config_dict[k]['prior'].unit_transform
+            kwargs = self.config_dict[k].get('prior_args', {})
             theta[inds] = func(unit_coords[inds], **kwargs)
         return theta
 
@@ -153,15 +177,16 @@ class ProspectorParams(object):
         """
         if self._has_parameter_dependencies is False:
             return
-        for p, info in list(self._config_dict.items()):
+        for p, info in list(self.config_dict.items()):
             if 'depends_on' in info:
                 value = info['depends_on'](**self.params)
                 self.params[p] = np.atleast_1d(value)
 
-    def rectify_theta(self, theta):
-        tiny_number = 1e-10
+    def rectify_theta(self, theta, epsilon=1e-10):
+        """Replace zeros in a given theta vector with a small number epsilon.
+        """
         zero = (theta == 0)
-        theta[zero] = tiny_number
+        theta[zero] = epsilon
         return theta
 
     @property
@@ -189,8 +214,7 @@ class ProspectorParams(object):
         return [k['name'] for k in pdict_to_plist(self.config_list)
                 if (k['isfree'] is False)]
 
-    def theta_labels(self, name_map={'amplitudes': 'A',
-                                     'emission_luminosity': 'eline'}):
+    def theta_labels(self, name_map={}):
         """Using the theta_index parameter map, return a list of the model
         parameter names that has the same order as the sampling chain array.
 
@@ -218,9 +242,6 @@ class ProspectorParams(object):
                     index.append(inds.start+i)
         return [l for (i, l) in sorted(zip(index, label))]
 
-    #def write_json(self, filename):
-    #    pass
-
     def theta_bounds(self):
         """Get the bounds on each parameter from the prior.
 
@@ -230,15 +251,16 @@ class ProspectorParams(object):
         """
         bounds = np.zeros([self.ndim, 2])
         for p, inds in list(self.theta_index.items()):
-            kwargs = self._config_dict[p].get('prior_args', {})
+            kwargs = self.config_dict[p].get('prior_args', {})
             try:
-                pb = self._config_dict[p]['prior'].bounds(**kwargs)
+                pb = self.config_dict[p]['prior'].bounds(**kwargs)
             except(AttributeError):
-                # old style
-                pb = priors.plotting_range(self._config_dict[p]['prior_args'])
+                # old style, including for backwards compatibility
+                pb = priors.plotting_range(self.config_dict[p]['prior_args'])
             bounds[inds, :] = np.array(pb).T
         # Force types ?
-        bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0]) for a, b in bounds]
+        bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0])
+                  for a, b in bounds]
         return bounds
 
     def theta_disps(self, default_disp=0.1, fractional_disp=False):
@@ -255,7 +277,7 @@ class ProspectorParams(object):
         """
         disp = np.zeros(self.ndim) + default_disp
         for par, inds in list(self.theta_index.items()):
-            d = self._config_dict[par].get('init_disp', default_disp)
+            d = self.config_dict[par].get('init_disp', default_disp)
             disp[inds] = d
         if fractional_disp:
             disp = self.theta * disp
@@ -263,11 +285,12 @@ class ProspectorParams(object):
 
     def theta_disp_floor(self, thetas=None):
         """Get a vector of dispersions for each parameter to use as a floor for
-        the walker-calculated dispersions. This can be overridden by subclasses
+        the emcee walker-calculated dispersions. This can be overridden by
+        subclasses.
         """
         dfloor = np.zeros(self.ndim)
         for par, inds in list(self.theta_index.items()):
-            d = self._config_dict[par].get('disp_floor', 0.0)
+            d = self.config_dict[par].get('disp_floor', 0.0)
             dfloor[inds] = d
         return dfloor
 
@@ -284,60 +307,11 @@ class ProspectorParams(object):
 
         return thetas
 
-
-class ProspectorParamsHMC(ProspectorParams):
-    """Object describing a model parameter set, and conversions between a
-    parameter dictionary and a theta vector (for use in MCMC sampling).  Also
-    contains a method for computing the prior probability of a given theta
-    vector.
-    """
-
-    def lnp_prior_grad(self, theta):
-        """Return a vector of gradients in the prior probability.  Requires
-        that functions giving the gradients are given in the theta descriptor.
-
-        :param theta:
-            A theta parameter vector containing the desired
-            parameters.  ndarray of shape (ndim,)
+    @property
+    def _config_dict(self):
+        """Backwards compatibility
         """
-        lnp_prior_grad = np.zeros_like(theta)
-        for k, inds in list(self.theta_index.items()):
-            grad = self._config_dict[k]['prior'].gradient
-            kwargs = self._config_dict[k].get('prior_args', {})
-            lnp_prior_grad[inds] = grad(theta[inds], **kwargs)
-        return lnp_prior_grad
-
-    def check_constrained(self, theta):
-        """For HMC, check if the trajectory has hit a wall in any parameter.
-        If so, reflect the momentum and update the parameter position in the
-        opposite direction until the parameter is within the bounds. Bounds
-        are specified via the 'upper' and 'lower' keys of the theta descriptor.
-
-        :param theta:
-            A theta parameter vector containing the desired parameters.
-            ndarray of shape (ndim,)
-        """
-        oob = True
-        sign = np.ones_like(theta)
-        if self.verbose:
-            print('theta in={0}'.format(theta))
-        while oob:
-            oob = False
-            for k, inds in list(self.theta_index.items()):
-                par = self._config_dict[k]
-                if 'upper' in par.keys():
-                    above = theta[inds] > par['upper']
-                    oob = oob or np.any(above)
-                    theta[inds][above] = 2 * par['upper'] - theta[inds][above]
-                    sign[inds][above] *= -1
-                if 'lower' in par.keys():
-                    below = theta[inds] < par['lower']
-                    oob = oob or np.any(below)
-                    theta[inds][below] = 2 * par['lower'] - theta[inds][below]
-                    sign[inds][below] *= -1
-        if self.verbose:
-            print('theta out={0}'.format(theta))
-        return theta, sign, oob
+        return self.config_dict
 
 
 def plist_to_pdict(inplist):
@@ -354,14 +328,35 @@ def plist_to_pdict(inplist):
     return pdict
 
 
-def pdict_to_plist(pdict):
+def pdict_to_plist(pdict, order=None):
     """Convert from a parameter dictionary to a parameter list of dictionaries,
     adding each key to each value dictionary as the `name' keyword.
+    Optionally, do this in an order specified by `order`. This method is not
+    used often, so it can be a bit inefficient
+
+    :param pdict:
+        A dictionary of parameter specification dictionaries, keyed by
+        parameter name.  If a list is given instead of a dictionary, this same
+        list is returned.
+
+    :param order:
+        An iterable of parameter names specifying the order in which they
+        should be added to the parameter list
+
+    :returns plist:
+        A list of parameter specification dictinaries (with the `"name"` key
+        added.)  The listed dictionaries are *not* copied from the input
+        dictionary.
     """
     if type(pdict) is list:
         return pdict[:]
     plist = []
-    for k, v in list(pdict.items()):
+    if order is not None:
+        assert len(order) == len(pdict)
+    else:
+        order = pdict.keys()
+    for k in order:
+        v = pdict[k]
         v['name'] = k
         plist += [v]
     return plist

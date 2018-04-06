@@ -1,9 +1,16 @@
 import numpy as np
 
+try:
+    import astropy.cosmology.WMAP9 as cosmo
+except(ImportError):
+    cosmo = None
+
+
 __all__ = ['lsun', 'pc', 'lightspeed', 'ckms',
            'jansky_mks', 'jansky_cgs',
            'to_cgs_at_10pc', 'loge',
-           'kboltz', 'hplanck']
+           'kboltz', 'hplanck',
+           'cosmo']
 
 
 # Useful constants
