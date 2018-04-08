@@ -146,22 +146,21 @@ By setting ``run_params["output_pickles"]=True`` you can also output versions of
 We will read the HDF5 with python and make some plots using utilities in |Codename|
 
 To read the data back in from the output files that we've generated, use
-methods in ``prospect.io.read_results``.  There are also some methods in this
-module for basic diagnostic plots. The ``subcorner`` method requires that you have the `corner
-<http://corner.readthedocs.io/en/latest/>`_ package installed.
+methods in ``prospect.io.read_results``. 
 
 .. code-block:: python
 		
 		import prospect.io.read_results as pread
 		res, obs, mod = pread.results_from("demo_obj_<fitter>_<timestamp>_mcmc.h5")
-		tracefig = pread.traceplot(res)
-		cornerfig = pread.subcorner(res, start=0, thin=5)
 
 The ``res`` object is a dictionary containing various useful results.
 You can look at ``res.keys()`` to see a list of what it contains.
 The ``obs`` object is just the ``obs`` dictionary that was used in the fitting.
 The ``mod`` object is the model object that was used in the fitting.
 
+There are also some methods in this module for basic diagnostic plots.
+The ``subcorner`` method requires that you have the `corner
+<http://corner.readthedocs.io/en/latest/>`_ package installed.
 It's possible now to examine the traces (i.e. the evolution of parameter value with MC iteration)
 and the posterior PDFs for the parameters.
 
@@ -194,8 +193,9 @@ that can be done as follows
 
 		# 16th, 50th, and 84th percentiles of the posterior
 		from prospect.utils.plotting import quantile
-		post_pcts = quantile(flatchain, percents=[16, 50, 84],
-		                                  weights=res.get("weights", None))
+		post_pcts = [quantile(flatchain[:, i], percents=[16, 50, 84],
+		                                    weights=res.get("weights", None))
+				      for i in range mod.ndim]
 
 If necessary, one can regenerate models at any position in the posterior chain.
 This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the ``read_results.get_sps()`` method.
@@ -231,13 +231,15 @@ Now we will choose a specific parameter value from the chain and plot what the o
 		sedax.plot(wave, phot, '-o', label='Model at {},{}'.format(walker, iteration))
 		sedax.set_ylabel("Maggies")
 		sedax.set_xlabel("wavelength")
+		sedax.set_xscale('log')
 
 		# Plot residuals for this walker and iteration
 		chifig, chiax = pl.subplots()
 		chi = (res['obs']['maggies'] - phot) / res['obs']['maggies_unc']
-		chifig.plot(wave, chi, 'o')
+		chiax.plot(wave, chi, 'o')
 		chiax.set_ylabel("Chi")
 		chiax.set_xlabel("wavelength")
+		chiax.set_xscale('log')
 
 
 .. |Codename| replace:: Prospector

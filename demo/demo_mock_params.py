@@ -185,6 +185,10 @@ def load_model(zred=0.0, add_neb=True, **extras):
     if add_neb:
         model_params.update(TemplateLibrary["nebular"])
 
+    # --- Set dispersions for emcee ---
+    model_params["mass"]["init_disp"] = 1e8
+    model_params["mass"]["disp_floor"] = 1e7 
+
     # --- Complexify dust attenuation ---
     # Switch to Kriek and Conroy 2013
     model_params["dust_type"] = {'N': 1, 'isfree': False,

@@ -73,7 +73,10 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
     model, opt_results = read_model(mname, param_file=param_file, dangerous=dangerous,
                                     **kwargs)
     if dangerous:
-        model = get_model(res)
+        try:
+            model = get_model(res)
+        except:
+            model = None
     res['model'] = model
     res["optimization_results"] = opt_results 
 
