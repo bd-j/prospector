@@ -27,7 +27,6 @@ run_params = {'verbose':True,
               # Optimization parameters
               'do_powell': False,
               'ftol':0.5e-5, 'maxfev':5000,
-              'initial_disp':0.1,
               'do_levenburg': True,
               'nmin': 10,
               # emcee Fitter parameters
@@ -35,19 +34,20 @@ run_params = {'verbose':True,
               'nburn': [32, 32, 64],
               'niter': 256,
               'interval': 0.25,
+              'initial_disp':0.1,
               # dynesty Fitter parameters
               'nested_bound': 'multi', # bounding method
               'nested_sample': 'unif', # sampling method
               'nested_nlive_init': 100,
-              'nested_nlive_batch': 200,
+              'nested_nlive_batch': 100,
               'nested_bootstrap': 0,
-              'nested_dlogz_init': 0.02,
+              'nested_dlogz_init': 0.05,
               'nested_weight_kwargs': {"pfrac": 1.0},
               'nested_stop_kwargs': {"post_thresh": 0.05},
               # Mock data parameters
               'snr': 20.0,
               'add_noise': False,
-              'filterset': galex + sdss + twomass + spitzer[:2],
+              'filterset': galex + sdss + twomass,
               # Input mock model parameters
               'mass': 1e10,
               'logzsol': -0.5,
@@ -76,6 +76,10 @@ def load_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     :param snr:
         The S/N of the phock photometry.  This can also be a vector of same
         lngth as the number of filters.
+
+    :param filterset:
+        A list of `sedpy` filter names.  Mock photometry will be generated
+        for these filters.
 
     :param add_noise: (optional, boolean, default: True)
         If True, add a realization of the noise to the mock spectrum

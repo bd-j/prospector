@@ -12,12 +12,15 @@ The next thing you need to do is make a temporary work directory, ``<workdir>``
 		cp <codedir>/scripts/prospector*.py .
 		cp <codedir>/demo/demo_* .
 
-We now have a prospector executable, a *parameter file*  or two, and some data.
-Take a look at the data file in an editor, you'll see it is a simple ascii file, with a few rows and several columns.
+We now have some prospector executable scripts, a *parameter file*  or two, and some data.
+Take a look at the ``demo_photometry.dat`` file in an editor, you'll see it is a simple ascii file, with a few rows and several columns.
 Each row is a different galaxay, each column is a different piece of information about that galaxy.
 
 This is just an example.
 In practice |Codename| can work with a wide variety of data types.
+
+The parameter file
+----------------------
 
 Open up ``demo_params.py`` in an editor, preferably one with syntax highlighting.
 You'll see that it's a python file.
@@ -79,19 +82,32 @@ This can be useful for example to set the initial value of the redshift ``"zred"
 
 Running a fit
 ----------------------
+There are two kinds of fitting packages that can be used with |Codename|.
+The first is ``emcee`` which implements ensemble MCMC sampling,
+and the second is ``dynesty``, which implements dynamic nested sampling.
+Choosing which to use involves choosing which script to run
 
-To run this fit on object 0, we would do the following at the command line
-
-.. code-block:: shell
-		
-		python prospector.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0
-
-If we wanted to change something about the MCMC parameters, we could also do that at the command line
+To run this fit on object 0 using ``emcee``, we would do the following at the command line
 
 .. code-block:: shell
 		
-		python prospector.py --param_file=demo_params.py --objid=0 --outfile=demo_obj0 \
-		--nwalkers=32 --niter=1024
+		python prospector.py --param_file=demo_params.py --objid=0 \
+                --outfile=demo_obj0_emcee 
+
+If we wanted to change something about the MCMC parameters, or fit a different object,
+we could also do that at the command line
+
+.. code-block:: shell
+		
+		python prospector.py --param_file=demo_params.py --objid=1 \
+		--outfile=demo_obj1_emcee --nwalkers=32 --niter=1024
+
+And if we want to use nested sampling with ``dynesty`` we would do the following
+
+.. code-block:: shell
+		
+		python prospector_dynesty.py --param_file=demo_params.py --objid=0 \
+		--outfile=demo_obj0_dynesty 
 
 Finally, it is sometimes useful to run the script from the interpreter to do some checks.
 This is best done with the IPython enhanced interactive python.
@@ -108,7 +124,7 @@ and the ``run_params`` dictionary to make sure everything is working fine.
 Working with the output
 --------------------------------
 After the fit is completed we should have a file with a name like
-``demo_obj0_<timestamp>_mcmc.h5``. 
+``demo_obj0_<fitter>_<timestamp>_mcmc.h5``. 
 This is an HDF5 file containing sampling results and various configuration data,
 as well as the observational data that was fit.
 By setting ``run_params["output_pickles"]=True`` you can also output versions of this information in the less portable pickle format.
@@ -122,7 +138,7 @@ module for basic diagnostic plots. The ``subcorner`` method requires that you ha
 .. code-block:: python
 		
 		import prospect.io.read_results as pread
-		res, obs, mod = pread.results_from("demo_obj_<timestamp>_mcmc.h5")
+		res, obs, mod = pread.results_from("demo_obj_<fitter>_<timestamp>_mcmc.h5")
 		tracefig = pread.traceplot(res)
 		cornerfig = pread.subcorner(res, start=0, thin=5)
 
@@ -130,29 +146,68 @@ The ``res`` object is a dictionary containing various useful results.
 You can look at ``res.keys()`` to see a list of what it contains.
 The ``obs`` object is just the ``obs`` dictionary that was used in the fitting.
 The ``mod`` object is the model object that was used in the fitting.
-There are also numerous more or less poorly documented convenience methods in
-the ``prospect.utils.plotting``.
 
-If necessary, one can regenerate models at any position in the posterior chain.  This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the ``read_results.get_sps()`` method
+It's possible now to examine the traces (i.e. the evolution of parameter value with MC iteration)
+and the posterior PDFs for the parameters.
+
+.. code-block:: python
+
+		# Trace plots
+		tfig = pread.traceplot(res)
+		# Corner figure of posterior PDFs
+		cfig = pread.subcorner(res)
+
+If you want to get the `maximum a. posteriori` values, or percentiles of the posterior pdf,
+that can be done as follows
+(note that for ``dynesty`` the weights of each posterior sample must be taken into account when calculating quantiles)
+:
+
+.. code-block:: python
+
+		# Maximum posterior probability sample
+		imax = np.argmax(res['lnprobability'])
+		csz = res["chain"].shape
+		if res["chain"].ndim > 2:
+		    # emcee
+		    i, j = np.unravel_index(imax, res['lnprobability'].shape)
+		    theta_max = res['chain'][i, j, :].copy()
+		    flatchain = res["chain"].reshape(csz[0] * csz[1], csz[2])
+		else:
+		    # dynesty
+		    theta_max = res['chain'][imax, :].copy()
+		    flatchain = res["chain"]
+
+		# 16th, 50th, and 84th percentiles of the posterior
+		from prospect.utils.plotting import quantile
+		post_pcts = quantile(flatchain, percents=[16, 50, 84],
+		                                  weights=res.get("weights", None))
+
+If necessary, one can regenerate models at any position in the posterior chain.
+This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the ``read_results.get_sps()`` method.
 
 .. code-block:: python
 		
-		import prospect.io.read_results as pread
-		res, obs, mod = pread.results_from("demo_obj_<timestamp>_mcmc")
 		# We need the correct sps object to generate models
 		sps = pread.get_sps(res)
 
-Now we will choose a specific parameter value from the chain, using the last iteration of the first walker, and plot what the observations and the model look like, as well as the uncertainty normalized residual
+Now we will choose a specific parameter value from the chain and plot what the observations and the model look like, as well as the uncertainty normalized residual.  For ``emcee`` results we will use the last iteration of the first walker, while for ``dynesty`` results we will just use the last sample in the chain.
 
 .. code-block:: python
 		
 		# Choose the walker and iteration number,
-		# if you used emcee for the inference
-		walker, iteration = 0, -1
+		if res["chain"].ndim > 2:
+ 		    # if you used emcee for the inference
+		    walker, iteration = 0, -1
+		    theta = res['chain'][walker, iteration, :]
+		else:
+		    # if you used dynesty
+		    theta = res['chain'][iteration, :]
+
 		# Get the modeled spectra and photometry.
 		# These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
-		spec, phot, mfrac = mod.mean_model(res['chain'][walker, iteration, :], obs=res['obs'], sps=sps)
+		spec, phot, mfrac = mod.mean_model(theta, obs=res['obs'], sps=sps)
 		# mfrac is the ratio of the surviving stellar mass to the formed mass (the ``"mass"`` parameter).
+
 		# Plot the model SED
 		import matplotlib.pyplot as pl
 		wave = [f.wave_effective for f in res['obs']['filters']]
@@ -161,6 +216,7 @@ Now we will choose a specific parameter value from the chain, using the last ite
 		sedax.plot(wave, phot, '-o', label='Model at {},{}'.format(walker, iteration))
 		sedax.set_ylabel("Maggies")
 		sedax.set_xlabel("wavelength")
+
 		# Plot residuals for this walker and iteration
 		chifig, chiax = pl.subplots()
 		chi = (res['obs']['maggies'] - phot) / res['obs']['maggies_unc']

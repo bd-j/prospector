@@ -15,21 +15,21 @@ run_params = {'verbose':True,
               # Optimization parameters
               'do_powell': False,
               'ftol':0.5e-5, 'maxfev': 5000,
-              'initial_disp':0.1,
               'do_levenburg': True,
               'nmin': 10,
               # emcee fitting parameters
               'nwalkers':128,
-              'nburn': [10, 10, 10],
+              'nburn': [16, 32, 64],
               'niter': 512,
               'interval': 0.25,
+              'initial_disp': 0.1,
               # dynesty Fitter parameters
               'nested_bound': 'multi', # bounding method
               'nested_sample': 'unif', # sampling method
               'nested_nlive_init': 100,
-              'nested_nlive_batch': 200,
+              'nested_nlive_batch': 100,
               'nested_bootstrap': 0,
-              'nested_dlogz_init': 0.01,
+              'nested_dlogz_init': 0.05,
               'nested_weight_kwargs': {"pfrac": 1.0},
               'nested_stop_kwargs': {"post_thresh": 0.1},
               # Obs data parameters
@@ -116,7 +116,7 @@ def load_obs(objid=0, phottable='demo_photometry.dat',
         dm = 25 + 5 * np.log10(luminosity_distance)
         mags += dm
 
-    # Build output dictionary. 
+    # Build output dictionary.
     obs = {}
     # This is a list of sedpy filter objects.    See the
     # sedpy.observate.load_filters command for more details on its syntax.
@@ -160,7 +160,7 @@ def load_gp(**extras):
 # MODEL_PARAMS
 # --------------
 
-def load_model(object_redshift=None, fixed_metallicity=None, add_dust=False, 
+def load_model(object_redshift=None, fixed_metallicity=None, add_dust=False,
                add_neb=False, luminosity_distance=None, **extras):
     """Construct a model.  This method defines a number of parameter
     specification dictionaries and uses them to initialize a
@@ -191,29 +191,31 @@ def load_model(object_redshift=None, fixed_metallicity=None, add_dust=False,
     # parameters.  Also, look at `TemplateLibrary.describe("parameteric")` to
     # view the parameters, their initial values, and the priors in detail.
     model_params = TemplateLibrary["parametric"]
-    
+
     # Add lumdist parameter.  If this is not added then the distance is
     # controlled by the "zred" parameter and a WMAP9 cosmology.
     if luminosity_distance is not None:
         model_params["lumdist"] = {"N": 1, "isfree": False,
                                    "init": luminosity_distance, "units":"Mpc"}
-    
+
     # Adjust model initial values (only important for emcee)
     model_params["dust2"]["init"] = 0.1
     model_params["logzsol"]["init"] = -0.3
     model_params["tage"]["init"] = 13.
     model_params["mass"]["init"] = 1e8
 
-    # If we are going to be using emcee, it is useful to provide a 
+    # If we are going to be using emcee, it is useful to provide an
     # initial scale for the cloud of walkers (the default is 0.1)
     # For dynesty these can be skipped
     model_params["mass"]["init_disp"] = 1e7
-    model_params["tau"]["init_disp"] = 1.0
-    model_params["tage"]["init_disp"] = 1.0
-    
+    model_params["tau"]["init_disp"] = 3.0
+    model_params["tage"]["init_disp"] = 5.0
+    model_params["tage"]["disp_floor"] = 2.0
+    model_params["dust2"]["disp_floor"] = 0.1
+
     # adjust priors
     model_params["dust2"]["prior"] = priors.TopHat(mini=0.0, maxi=2.0)
-    model_params["tau"]["prior"] = priors.LogUniform(mini=1e-1, maxi=1e2)
+    model_params["tau"]["prior"] = priors.LogUniform(mini=1e-1, maxi=10)
     model_params["mass"]["prior"] = priors.LogUniform(mini=1e6, maxi=1e10)
 
     # Change the model parameter specifications based on some keyword arguments
@@ -236,7 +238,7 @@ def load_model(object_redshift=None, fixed_metallicity=None, add_dust=False,
     if add_neb:
         # Add nebular emission (with fixed parameters)
         model_params.update(TemplateLibrary["nebular"])
-        
+
     # Now instantiate the model using this new dictionary of parameter specifications
     model = SedModel(model_params)
 
