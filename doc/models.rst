@@ -24,19 +24,16 @@ For a single parameter the specification is a dictionary that must at minimum in
     Boolean specifying whether a parameter is free to vary during
     optimization and sampling (``True``) or not (``False``).
 
-For parameters with ``"isfree": True`` the following additional keys of the dictionary are required:
+For parameters with ``"isfree": True`` the following additional key is required:
 
 ``"prior"``
-    The prior object or function (e.g. ``priors.TopHat(mini=10, maxi=12)`` or ``priors.tophat``).
-    The use of functions is deprecated.
+    An instance of a prior object, including parameters for the prior
+    (e.g. ``priors.TopHat(mini=10, maxi=12)``).
 
-``"prior_args"``
-    This is only required if using prior functions (``priors.tophat``) instead
-    of prior objects (``priors.TopHat``).
-    It is a dictionary of arguments to the prior function (e.g. ``"mini":0, "maxi":100``)
-
+If using ``emcee``, the following key can be useful to have:
+    
 ``"init_disp"``
-    The dispersion in this parameter to use when generating an `emcee` sampler ball.
+    The dispersion in this parameter to use when generating an ``emcee`` sampler ball.
     This is not technically required, as it defaults to 10% of the initial value.
     It is ignored if nested sampling is used.
 
@@ -63,11 +60,13 @@ These include things like spectral smoothing, wavelength calibration, spectropho
 Be warned though, if you include a parameter that does not affect the model the code will not complain,
 and if that parameter is free it will simply result in a posterior PDF that is the same as the prior (though optimization algorithms may fail).
 
+A number of predefined sets of parameters (with priors) are available from ``models.templates.TemplateLibrary``,
+these can be a good starting place for building your model.
 
 Priors
 ---------
 
-Prior functions and objects can be found in the ``prospect.models.priors`` module.
+Prior objects can be found in the ``prospect.models.priors`` module.
 It is recommended to use the objects instead of the functions,
 as they have some useful attributes and are suitable for all types of sampling.
 The prior functions by contrast will not work for nested sampling.
@@ -76,15 +75,16 @@ When specifying a prior using an object, you can and should specify the paramete
 
 
 
-The ``model_params`` list
+The ``model_params`` list or dictionary
 -------------------------------------
 
-This is simply a list of each of the dictionaries describing the model parameters.
+This is simply a list or dictionary (keyed by parameter name) of each of the dictionaries describing the model parameters.
 It is passed to the ``ProspectorParams`` object on initialization.
-The order of the list sets the order of the free parameters in the parameter vector.
+If using a list, the order of the list sets the order of the free parameters in the parameter vector.
 The free parameters will be varied by the code during the optimization and sampling phases.
 The initial value from which optimization is begun is set by the ``"init"`` values of each parameter.
-For fixed parameters the ``"init"`` value gives the value of that parameter to use throughout the optimization and MCMC phases
+For fixed parameters the ``"init"`` value gives the value of that parameter to
+use throughout the optimization and sampling phases
 (unless the ``"depends_on"`` key is present, see Advanced_.)
 
 

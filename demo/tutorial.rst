@@ -25,7 +25,7 @@ The parameter file
 Open up ``demo_params.py`` in an editor, preferably one with syntax highlighting.
 You'll see that it's a python file.
 Some things are imported, and then there is the ``run_params`` dictionary.
-This dictionary is where you put variables that control the operation of the code.
+This dictionary is where you store variables that control the operation of the code.
 It is passed to each of the other main setup functions in ``param_file.py``
 
 About those imports.
@@ -55,26 +55,41 @@ These can be either things like astropy, h5py, and sqlite or your own project sp
 As long as the output dictionary is in the right format (see dataformat.rst), the body of this function can do anything.
 
 Ok, now we go to the ``load_sps`` function.
-This one is pretty straightforward, it simply instantiates our CSPBasis object.
+This one is pretty straightforward, it simply instantiates our ``CSPSpecBasis`` object.
 After that is ``load_gp``, which is for complexifying the noise model -- ignore that for now.
 
 Now on to the fun part.
 The ``load_model`` function is where the model that we will fit will be constructed.
+The specific model that you choose to construct depends on your data and your scientific question.
 First we have to specify a dictionary or list of model parameter specifications (see models.rst).
 Each specification is a dictionary that describes a single parameter.
 We can build the model from predefined sets of model parameter specifications,
 stored in the ``models.templates.TemplateLibrary`` directory.
-You'll note that for 5 of these parameters we have set.
+In this example we choose the ``"parameteric"`` set, which has the parameters necessary for a delay-tau SFH fit.
+This parameter set can be inspected in any of the following ways
+
+.. code-block:: python
+		
+		from prospect.models.templates import TemplateLibrary
+		# Show basic descriptin of all pre-defined parameter sets
+		TemplateLibrary.show_contents()
+		# method 1: print the whole dictionary of dictionaries
+		print(TemplateLibrary["parametric"])
+		# Method 2: show a summary of the free and fixed parameters
+		print(TemplateLibrary.describe("parametric")
+
+You'll see that this model has 5 free parameters.
 Any parameters with ``"isfree": True`` in its specification will be varied during the fit.
 We have set priors on these parameters, including prior arguments.
 Any free parameter *must* have an associated prior.
 Other parameters have their value set (to the value of the ``"init"`` key) but do not vary during the fit.
 They can be made to vary by setting ``"isfree": True`` and specifying a prior.
 Parameters not listed here will be set to their default values.
-For CSPBasis this means the default values in the ``fsps.StellarPopulation()`` object,
+For ``CSPSpecBasis`` this means the default values in the ``fsps.StellarPopulation()`` object,
 see `python-fsps (http://dan.iel.fm/python-fsps/current/)`_ for details
+Once you get a set of parameters from the ``TemplateLibrary`` you can modify or add parameter specifications.
 
-Finally, the ``load_model()`` function takes the ``model_params`` collection  and
+Finally, the ``load_model()`` function takes the ``model_params`` dictionary or list that you build and
 uses it to instantiate a ``SedModel`` object.
 If you wanted to change the specification of the model using command line arguments,
 you could do it in this function using keyword arguments that are also keys of ``run_params``.

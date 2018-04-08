@@ -6,8 +6,8 @@ and/or spectroscopic data.  Prospector allows you to:
 * Combine photometric and spectroscopic data rigorously using a flexible
   spectroscopic calibration model.
 
-* Infer high-dimensional stellar population properties using parameteric SFHs
-  (with ensemble MCMC sampling)
+* Infer high-dimensional stellar population properties using parameteric or nonparametric SFHs
+  (with nested or ensemble MCMC sampling)
 
 * Use spectra and/or photometry to constrain the linear combination of stellar population
   components that are present in a galaxy (e.g. non-parametric SFHs).
@@ -17,7 +17,7 @@ and/or spectroscopic data.  Prospector allows you to:
 
 * Forward model many aspects of spectroscopic data analysis and
   calibration, including spectrophotometric calibration, sky emission (coming soon),
-  and wavelength solution (coming soon), thus properly incorporating uncertainties
+  and wavelength solution, thus properly incorporating uncertainties
   in these components in the final  parameter uncertainties.
 
 Installation
@@ -38,13 +38,15 @@ Prospector is pure python.
 See [installation](doc/installation.rst) for requirements.
 Other files in the [doc/](doc/) directory explain the usage of the code.
 
-See also the [tutorial](demo/tutorial.rst), the [interactive demo](demo/InteractiveDemo.ipynb),
-or the [deconstructed demo](demo/DeconstructedDemo.ipynb) for fitting photometric data with composite stellar populations.
+See also the [tutorial](demo/tutorial.rst), the [demo notebook](demo/NestedDemo.ipynb),
+or the [deconstructed demo](demo/DeconstructedDemo.ipynb)
+for fitting photometric data with composite stellar populations.
 
 
 Citation
 ------
-If you use this code, please reference the doi below, and make sure to cite the dependencies as listed in [installation](doc/installation.rst)
+If you use this code, please reference the doi below,
+and make sure to cite the dependencies as listed in [installation](doc/installation.rst)
 [![DOI](https://zenodo.org/badge/10490445.svg)](https://zenodo.org/badge/latestdoi/10490445)
 
 You might also cite:

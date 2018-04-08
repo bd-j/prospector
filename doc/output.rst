@@ -1,26 +1,52 @@
 Output format
 ================
 
-The output of the code is in several files.
+By default the output of the code is an HDF5 file, with filename
+``<output>_<timestamp>_mcmc.h5``
 
-Two of these are pickle files (`pickle <https://docs.python.org/2/library/pickle.html>`_
-is Python's internal object serialization module), roughly equivalent to IDL SAVE files.
-The are included for convenience, but are not very portable.
+Optionally several pickle files
+(`pickle <https://docs.python.org/2/library/pickle.html>`_ is Python's internal object serialization module),
+roughly equivalent to IDL SAVE files, can be output.
+These may be convenient, but are not very portable.
 
-The third file is an HDF5 file, described below.
 
-Results pickle
-----------------------
-The results pickle is relatively portable file, which is a serialization of a dictionary containing
-the production MCMC chains from emcee,
-the input ``obs`` dictionary,
+HDF5 output
+---------------------
+The output HDF5 file contains ``datasets`` for the input observational data and the MCMC sampling chains.
+A significant amount of metadata is stored as JSON in dataset attributes.
+Anything that could not be JSON serialized during writing will have been pickled instead,
+with the pickle stored as string data in place of the JSON.
+
+The HDF5 files can read back into python using
+
+.. code-block:: python
+
+		import prospect.io.read_results as pread
+		filename = "<outfilestring>_<timestamp>_mcmc.h5"
+		results, obs, model = pread.results_from(filename)
+
+which gives a ``results`` dictionary, the ``obs`` dictionary containing the data to which the model was fit,
+and the ``model`` object used in the fitting.
+The ``results`` dictionary contains
+the production MCMC chains from `emcee` or the chains and weights from `dynesty`,
 basic descriptions of the model parameters,
 and the ``run_params`` dictionary.
 Some additional ancillary information is stored, such as code versions, runtimes, MCMC acceptance fractions,
 and model parameter positions at various phases of of the code.
 There is also a text version of the **parameter file** used.
+The results dictionary contains the information needed to regenerate the *sps* object used in generating SEDs.
 
-The results pickle has ``<timestamp>_mcmc`` appended onto the output file string specified when the code was run,
+.. code-block:: python
+
+		sps = pread.get_sps(res)
+
+
+Pickles
+----------------------
+The results pickle is relatively portable file, which is a serialization of a dictionary containing
+
+The results pickle is a serialization of the results dictionary,
+and has ``<timestamp>_mcmc`` appended onto the output file string specified when the code was run,
 where ``timestamp`` is in UT seconds.
 It uses only basic scientific python types (e.g. dictionaries, lists, and numpy arrays).
 It should therefore be readable on any system with Python and Numpy installed.
@@ -34,8 +60,6 @@ This can be accomplished with
 		    result = pickle.load(f)
 		print(result.keys())
 
-Model pickle
-----------------------
 The model pickle has the extension ``<timestamp>_model``.
 It is a direct serialization of the model object used during fitting, and is thus extremely useful for regenerating posterior samples of the SED,
 or otherwise exploring properties of the model.
@@ -53,19 +77,13 @@ If that is possible, then the following code will read the model pickle:
 
 If Powell optimization was performed, this pickle also contains the optimization results (as a list of Scipy OptimizerResult objects).
 
-HDF5 output
----------------------
-The output HDF5 file contains datasets for the input observational data and the MCMC sampling chains
-A significant amount of metadata is stored as JSON in dataset attributes.
-Anything that could not be JSON serialized during writing will have been pickled instead,
-with the pickle stored as string data in place of the JSON.
 
 
 Basic diagnostic plots
 -----------------------------
-Several methods for visualization of the results are included in the |Codename|.read_results module.
+Several methods for visualization of the results are included in the |Codename|.io.read_results module.
 
-First, the results and model pickles can be read into useful dictionaries and objects using
+First, the results file can be read into useful dictionaries and objects using
 
 .. code-block:: python
 
@@ -73,28 +91,28 @@ First, the results and model pickles can be read into useful dictionaries and ob
 		filename = "<outfilestring>_<timestamp>_mcmc"
 		results, obs, model = rr.results_from(filename)
 
-See the help for `prospect.io.read_results_from()` for a description of the returned objects.
+See the help for ``prospect.io.read_results_from()`` for a description of the returned objects.
 
 It is often desirable to plot the parameter traces for the MCMC chains.
 That is, one wants to see the evolution of the parameter values as a function of MCMC iteration.
 This is useful to check for convergence.
-It can be done easily (if ugly) by
+It can be done easily for both `emcee` and `dynesty` results by
 
 .. code-block:: python
 
-		tracefig = rr.param_evol(results)
+		tracefig = rr.traceplot(results)
 
 Another useful thing is to look at the "corner plot" of the parmeters.
 If one has the `corner.py (https://github.com/dfm/corner.py)`_ package, then
 
 .. code-block:: python
 
-		cornerfig = rr.subtriangle(results, showpars=mod.theta_labels()[:5])
+		cornerfig = rr.subcorner(results, showpars=mod.theta_labels()[:5])
 
-will return a corner plot of the first 5 parameters of the model.
-If ``showpars`` is omitted then all parameters will be plotted.
-There are numerous other options to the ``subtriangle`` method, which is a thin wrapper on `corner.py`,
-but they are documented (``help(rr.subtriangle)``)
+will return a corner plot of the first 5 free parameters of the model.
+If ``showpars`` is omitted then all free parameters will be plotted.
+There are numerous other options to the ``subcorner`` method, which is a thin wrapper on `corner.py`,
+but they are documented (``help(rr.subcorner)``)
 
 Finally, one often wants to look at posterior samples in the space of the data, or perhaps the maximum a posteriori parameter values.
 Taking the MAP as an example, this would be accomplished by
@@ -103,7 +121,7 @@ Taking the MAP as an example, this would be accomplished by
 
 		import np
 
-		# Find the index of the maximum a posteriori
+		# Find the index of the maximum a posteriori sample (for `emcee` results)
 		ind_max = results["lnprobability"].argmax()
 		walker, iteration = np.unravel_index(ind_max, results["lnprobability"].shape)
 		theta_max = results["chain"][walker, iteration, :]
