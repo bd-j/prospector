@@ -34,14 +34,6 @@ def get_truths(res):
         return None
 
 
-def get_prior(res, pname):
-    from ..models.parameters import names_to_functions
-    mp = [names_to_functions(p) for p in res['model_params']]
-    mpn = [m['name'] for m in mp]
-    ind = mpn.index(pname)
-    return mp[ind]['prior_function'], mp[ind]['prior_args']
-
-
 def get_percentiles(res, ptile=[16, 50, 84], start=0.5, thin=10, **extras):
     """Get get percentiles of the marginalized posterior for each parameter.
 
@@ -68,7 +60,7 @@ def get_percentiles(res, ptile=[16, 50, 84], start=0.5, thin=10, **extras):
     flatchain = res['chain'][:, start_index::thin, :]
     dims = flatchain.shape
     flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
-    pct = np.percentile(flatchain, ptile, axis=0)
+    pct = quantile(flatchain, ptile, weights=res.get("weights", None), axis=0)
     return dict(zip(parnames, pct.T))
 
 

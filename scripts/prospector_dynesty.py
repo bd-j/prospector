@@ -97,24 +97,9 @@ def prior_transform(u, model=None):
         
     return model.prior_transform(u)
 
-    
-# -----------------
-# MPI pool.  This must be done *after* lnprob and
-# chi2 are defined since slaves will only see up to
-# sys.exit()
-# ------------------
-try:
-    from emcee.utils import MPIPool
-    pool = MPIPool(debug=False, loadbalance=True)
-    nprocs = pool.size+1 # are we removing the master here?
-    if not pool.is_master():
-        # Wait for instructions from the master process.
-        pool.wait()
-        sys.exit(0)
-except(ImportError, ValueError):
-    pool = None
-    nprocs = 1
-    print('Not using MPI')
+
+pool = None
+nprocs = 1
 
 
 def halt(message):
@@ -149,17 +134,8 @@ if __name__ == "__main__":
     outroot = "{0}_{1}".format(rp['outfile'], int(time.time()))
     odir = os.path.dirname(os.path.abspath(outroot))
     if (not os.path.exists(odir)):
-        print('Target output directory {} does not exist, please make it.'.format(odir))
-        sys.exit(0)
-    try:
-        import h5py
-        hfilename = outroot + '_mcmc.h5'
-        hfile = h5py.File(hfilename, "a")
-        print("Writing to file {}".format(hfilename))
-        write_results.write_h5_header(hfile, run_params, model)
-        write_results.write_obs_to_h5(hfile, obs)
-    except(ImportError):
-        hfile = None
+        badout = 'Target output directory {} does not exist, please make it.'.format(odir)
+        halt(badout)
 
     # -------
     # Sample
@@ -176,21 +152,21 @@ if __name__ == "__main__":
     print('done dynesty in {0}s'.format(ndur))
 
     # -------------------------
-    # Output pickles (and HDF5)
+    # Output HDF5 (and pickles if asked for)
     # -------------------------
+    if rp.get("output_pickles", False):
+        # Write the dynesty result object as a pickle
+        import pickle
+        with open(outroot + '_dns.pkl', 'w') as f:
+            pickle.dump(dynestyout, f)
     
-    # Write the dynesty result object as a pickle  
-    import pickle
-    with open(outroot + '_dns.pkl', 'w') as f:
-        pickle.dump(dynestyout, f)
-    partext = write_results.paramfile_string(**rp)
-    
-    # Write the model as a pickle
-    write_results.write_model_pickle(outroot + '_model', model, powell=None,
-                                     paramfile_text=partext)
+        # Write the model as a pickle
+        partext = write_results.paramfile_string(**rp)
+        write_results.write_model_pickle(outroot + '_model', model, powell=None,
+                                         paramfile_text=partext)
     
     # Write HDF5
     if hfile is None:
-        hfile = hfilename
+        hfile = outroot + '_mcmc.h5'
     write_results.write_hdf5(hfile, rp, model, obs, dynestyout,
                              None, tsample=ndur)

@@ -1,5 +1,6 @@
 import numpy as np
-from prospect.models import priors, sedmodel
+from prospect.models import priors, SedModel
+from prospect.models.templates import TemplateLibrary
 from prospect.sources import CSPSpecBasis
 from sedpy.observate import load_filters
 
@@ -10,19 +11,36 @@ from sedpy.observate import load_filters
 run_params = {'verbose':True,
               'debug':False,
               'outfile':'demo_galphot',
-              # Fitter parameters
-              'nwalkers':128,
-              'nburn':[10, 10, 10], 'niter':512,
+              'output_pickles': False,
+              # Optimization parameters
               'do_powell': False,
-              'do_levenburg': False,
-              'ftol':0.5e-5, 'maxfev':5000,
-              'initial_disp':0.1,
+              'ftol':0.5e-5, 'maxfev': 5000,
+              'do_levenburg': True,
+              'nmin': 10,
+              # emcee fitting parameters
+              'nwalkers':128,
+              'nburn': [16, 32, 64],
+              'niter': 512,
+              'interval': 0.25,
+              'initial_disp': 0.1,
+              # dynesty Fitter parameters
+              'nested_bound': 'multi', # bounding method
+              'nested_sample': 'unif', # sampling method
+              'nested_nlive_init': 100,
+              'nested_nlive_batch': 100,
+              'nested_bootstrap': 0,
+              'nested_dlogz_init': 0.05,
+              'nested_weight_kwargs': {"pfrac": 1.0},
+              'nested_stop_kwargs': {"post_thresh": 0.1},
               # Obs data parameters
               'objid':0,
               'phottable': 'demo_photometry.dat',
               'logify_spectrum':False,
               'normalize_spectrum':False,
-              'wlo':3750., 'whi':7200.,
+              'luminosity_distance': 1e-5,  # in Mpc
+              # Model parameters
+              'add_neb': False,
+              'add_dust': False,
               # SPS parameters
               'zcontinuous': 1,
               }
@@ -49,7 +67,8 @@ filtersets = (galex + bessell + spitzer,
               galex + sdss + spitzer)
 
 
-def load_obs(objid=0, phottable='demo_photometry.dat', **kwargs):
+def load_obs(objid=0, phottable='demo_photometry.dat',
+             luminosity_distance=None, **kwargs):
     """Load photometry from an ascii file.  Assumes the following columns:
     `objid`, `filterset`, [`mag0`,....,`magN`] where N >= 11.  The User should
     modify this function (including adding keyword arguments) to read in their
@@ -61,6 +80,10 @@ def load_obs(objid=0, phottable='demo_photometry.dat', **kwargs):
 
     :param phottable:
         Name (and path) of the ascii file containing the photometry.
+
+    :param luminosity_distance: (optional)
+        The Johnson 2013 data are given as AB absolute magnitudes.  They can be
+        turned into apparent magnitudes by supplying a luminosity distance.
 
     :returns obs:
         Dictionary of observational data.
@@ -88,8 +111,12 @@ def load_obs(objid=0, phottable='demo_photometry.dat', **kwargs):
     # And here we loop over the magnitude columns
     mags = [catalog[ind]['mag{}'.format(i)] for i in range(len(filternames))]
     mags = np.array(mags)
+    # And since these are absolute mags, we can shift to any distance.
+    if luminosity_distance is not None:
+        dm = 25 + 5 * np.log10(luminosity_distance)
+        mags += dm
 
-    # Build output dictionary. 
+    # Build output dictionary.
     obs = {}
     # This is a list of sedpy filter objects.    See the
     # sedpy.observate.load_filters command for more details on its syntax.
@@ -120,6 +147,7 @@ def load_sps(zcontinuous=1, compute_vega_mags=False, **extras):
                        compute_vega_mags=compute_vega_mags)
     return sps
 
+
 # -----------------
 # Gaussian Process
 # ------------------
@@ -127,210 +155,92 @@ def load_sps(zcontinuous=1, compute_vega_mags=False, **extras):
 def load_gp(**extras):
     return None, None
 
+
 # --------------
 # MODEL_PARAMS
 # --------------
 
-# You'll note below that we have 5 free parameters:
-# mass, logzsol, tage, tau, dust2
-# They are all scalars.
-#
-# The other parameters are all fixed, but we want to explicitly set their
-# values, possibly from something differnt than the FSPS defaults
+def load_model(object_redshift=None, fixed_metallicity=None, add_dust=False,
+               add_neb=False, luminosity_distance=None, **extras):
+    """Construct a model.  This method defines a number of parameter
+    specification dictionaries and uses them to initialize a
+    `models.sedmodel.SedModel` object.
 
-model_params = []
+    :param object_redshift:
+        If given, given the model redshift to this value.
 
-# --- Distance ---
-# This is the redshift.  Because we are not separately supplying a ``lumdist``
-# parameter, the distance will be determined from the redshift using a WMAP9
-# cosmology, unless the redshift is 0, in which case the distance is assumed to
-# be 10pc (i.e. for absolute magnitudes)
-model_params.append({'name': 'zred', 'N': 1,
-                        'isfree': False,
-                        'init': 0.0,
-                        'units': '',
-                        'prior':priors.TopHat(mini=0.0, maxi=4.0)})
+    :param add_dust: (optional, default: False)
+        Switch to add (fixed) parameters relevant for dust emission.
 
-# --- SFH --------
-# FSPS parameter.  sfh=4 is a delayed-tau SFH
-model_params.append({'name': 'sfh', 'N': 1,
-                        'isfree': False,
-                        'init': 4,
-                        'units': 'type'
-                    })
+    :param add_neb: (optional, default: False)
+        Switch to add (fixed) parameters relevant for nebular emission, and
+        turn nebular emission on.
 
-# Normalization of the SFH.  If the ``mass_units`` parameter is not supplied,
-# this will be in surviving stellar mass.  Otherwise it is in the total stellar
-# mass formed.
-model_params.append({'name': 'mass', 'N': 1,
-                        'isfree': True,
-                        'init': 1e7,
-                        'init_disp': 1e6,
-                        'units': r'M_\odot',
-                        'prior':priors.TopHat(mini=1e6, maxi=1e9)})
+    :param luminosity_distance: (optional)
+        If present, add a `"lumdist"` parameter to the model, and set it's
+        value (in Mpc) to this.  This allows one to decouple redshift from
+        distance, and fit, e.g., absolute magnitudes (by setting
+        luminosity_distance to 1e-5 (10pc))
+    """
+    # --- Get a basic delay-tau SFH parameter set. ---
+    # This has 5 free parameters:
+    #   "mass", "logzsol", "dust2", "tage", "tau"
+    # And two fixed parameters
+    #   "zred"=0.1, "sfh"=4
+    # See the python-FSPS documentation for details about most of these
+    # parameters.  Also, look at `TemplateLibrary.describe("parameteric")` to
+    # view the parameters, their initial values, and the priors in detail.
+    model_params = TemplateLibrary["parametric"]
 
-# Since we have zcontinuous=1 above, the metallicity is controlled by the
-# ``logzsol`` parameter.
-model_params.append({'name': 'logzsol', 'N': 1,
-                        'isfree': True,
-                        'init': 0,
-                        'init_disp': 0.1,
-                        'units': r'$\log (Z/Z_\odot)$',
-                        'prior': priors.TopHat(mini=-1, maxi=0.19)})
+    # Add lumdist parameter.  If this is not added then the distance is
+    # controlled by the "zred" parameter and a WMAP9 cosmology.
+    if luminosity_distance is not None:
+        model_params["lumdist"] = {"N": 1, "isfree": False,
+                                   "init": luminosity_distance, "units":"Mpc"}
 
-# FSPS parameter
-model_params.append({'name': 'tau', 'N': 1,
-                        'isfree': True,
-                        'init': 1.0,
-                        'units': 'Gyr',
-                        'prior':priors.LogUniform(mini=0.1, maxi=100)})
+    # Adjust model initial values (only important for emcee)
+    model_params["dust2"]["init"] = 0.1
+    model_params["logzsol"]["init"] = -0.3
+    model_params["tage"]["init"] = 13.
+    model_params["mass"]["init"] = 1e8
 
-# FSPS parameter
-model_params.append({'name': 'tage', 'N': 1,
-                        'isfree': True,
-                        'init': 5.0,
-                        'init_disp': 3.0,
-                        'units': 'Gyr',
-                        'prior':priors.TopHat(mini=0.101, maxi=14.0)})
+    # If we are going to be using emcee, it is useful to provide an
+    # initial scale for the cloud of walkers (the default is 0.1)
+    # For dynesty these can be skipped
+    model_params["mass"]["init_disp"] = 1e7
+    model_params["tau"]["init_disp"] = 3.0
+    model_params["tage"]["init_disp"] = 5.0
+    model_params["tage"]["disp_floor"] = 2.0
+    model_params["dust2"]["disp_floor"] = 0.1
 
+    # adjust priors
+    model_params["dust2"]["prior"] = priors.TopHat(mini=0.0, maxi=2.0)
+    model_params["tau"]["prior"] = priors.LogUniform(mini=1e-1, maxi=10)
+    model_params["mass"]["prior"] = priors.LogUniform(mini=1e6, maxi=1e10)
 
-# FSPS parameter
-model_params.append({'name': 'tburst', 'N': 1,
-                        'isfree': False,
-                        'init': 0.0,
-                        'units': '',
-                        'prior':priors.TopHat(mini=0.0, maxi=1.3)})
+    # Change the model parameter specifications based on some keyword arguments
+    if fixed_metallicity is not None:
+        # make it a fixed parameter
+        model_params["logzsol"]["isfree"] = False
+        #And use value supplied by fixed_metallicity keyword
+        model_params["logzsol"]['init'] = fixed_metallicity 
 
-# FSPS parameter
-model_params.append({'name': 'fburst', 'N': 1,
-                        'isfree': False,
-                        'init': 0.0,
-                        'units': '',
-                        'prior':priors.TopHat(mini=0.0, maxi=0.5)})
+    if object_redshift is not None:
+        # make sure zred is fixed
+        model_params["zred"]['isfree'] = False
+        # And set the value to the object_redshift keyword
+        model_params["zred"]['init'] = object_redshift
 
-# --- Dust ---------
-# FSPS parameter
-model_params.append({'name': 'dust1', 'N': 1,
-                        'isfree': False,
-                        'init': 0.0,
-                        'units': '',
-                        'prior':priors.TopHat(mini=0.1, maxi=2.0)})
+    if add_dust:
+        # Add dust emission (with fixed dust SED parameters)
+        model_params.update(TemplateLibrary["dust_emission"])
 
-# FSPS parameter
-model_params.append({'name': 'dust2', 'N': 1,
-                        'isfree': True,
-                        'init': 0.35,
-                        'reinit': True,
-                        'init_disp': 0.3,
-                        'units': '',
-                        'prior':priors.TopHat(mini=0.0, maxi=2.0)})
+    if add_neb:
+        # Add nebular emission (with fixed parameters)
+        model_params.update(TemplateLibrary["nebular"])
 
-# FSPS parameter
-model_params.append({'name': 'dust_index', 'N': 1,
-                        'isfree': False,
-                        'init': -0.7,
-                        'units': '',
-                        'prior':priors.TopHat(mini=-1.5, maxi=-0.5)})
+    # Now instantiate the model using this new dictionary of parameter specifications
+    model = SedModel(model_params)
 
-# FSPS parameter
-model_params.append({'name': 'dust1_index', 'N': 1,
-                        'isfree': False,
-                        'init': -1.0,
-                        'units': '',
-                        'prior':priors.TopHat(mini=-1.5, maxi=-0.5)})
-
-# FSPS parameter
-model_params.append({'name': 'dust_tesc', 'N': 1,
-                        'isfree': False,
-                        'init': 7.0,
-                        'units': 'log(Gyr)',
-                        'prior': None})
-
-# FSPS parameter
-model_params.append({'name': 'dust_type', 'N': 1,
-                        'isfree': False,
-                        'init': 0,
-                        'units': 'index'})
-
-# FSPS parameter
-model_params.append({'name': 'add_dust_emission', 'N': 1,
-                        'isfree': False,
-                        'init': True,
-                        'units': 'index'})
-
-# FSPS parameter
-model_params.append({'name': 'duste_umin', 'N': 1,
-                        'isfree': False,
-                        'init': 1.0,
-                        'units': 'MMP83 local MW intensity'})
-
-# --- Stellar Pops ------------
-# FSPS parameter
-model_params.append({'name': 'tpagb_norm_type', 'N': 1,
-                        'isfree': False,
-                        'init': 2,
-                        'units': 'index'})
-
-# FSPS parameter
-model_params.append({'name': 'add_agb_dust_model', 'N': 1,
-                        'isfree': False,
-                        'init': True,
-                        'units': 'index'})
-
-# FSPS parameter
-model_params.append({'name': 'agb_dust', 'N': 1,
-                        'isfree': False,
-                        'init': 1,
-                        'units': 'index'})
-
-# --- Nebular Emission ------
-
-# FSPS parameter
-model_params.append({'name': 'add_neb_emission', 'N': 1,
-                     'isfree': False,
-                     'init': True})
-
-# Here is a really simple function that takes a **dict argument, picks out the
-# `logzsol` key, and returns the value.  This way, we can have gas_logz find
-# the value of logzsol and use it, if we uncomment the 'depends_on' line in the
-# `gas_logz` parameter definition.
-#
-# One can use this kind of thing to transform parameters as well (like making
-# them linear instead of log, or divide everything by 10, or whatever.) You can
-# have one parameter depend on several others (or vice versa).  Just remember
-# that a parameter with `depends_on` must always be fixed.  It's also not a
-# good idea to have one parameter depend on another parameter that *also*
-# depends on something, since dependency resolution order is arbitrary.
-
-def stellar_logzsol(logzsol=0.0, **extras):
-    return logzsol
-
-
-# FSPS parameter
-model_params.append({'name': 'gas_logz', 'N': 1,
-                        'isfree': False,
-                        'init': 0.0,
-                        'units': r'log Z/Z_\odot',
-#                        'depends_on': stellar_logzsol,
-                        'prior':priors.TopHat(mini=-2.0, maxi=0.5)})
-
-# FSPS parameter
-model_params.append({'name': 'gas_logu', 'N': 1,
-                        'isfree': False,
-                        'init': -2.0,
-                        'units': '',
-                        'prior':priors.TopHat(mini=-4, maxi=-1)})
-
-# --- Calibration ---------
-model_params.append({'name': 'phot_jitter', 'N': 1,
-                        'isfree': False,
-                        'init': 0.0,
-                        'units': 'mags',
-                        'prior':priors.TopHat(mini=0.0, maxi=0.2)})
-
-def load_model(**extras):
-    # In principle (and we've done it) you could have the model depend on
-    # command line arguments (or anything in run_params) by making changes to
-    # `model_params` here before instantiation the SedModel object.  Up to you.
-    return sedmodel.SedModel(model_params)
+    return model
 
