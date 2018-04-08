@@ -7,36 +7,42 @@ Command line syntax calls the ``prospector.py`` script as an executable and is a
 
 .. code-block:: shell
 
-		cd demo
-		python prospector.py --param_file=demo_params.py
+		python prospector.py --param_file=parameter_file.py
 
 Additional command line options can be given (see below).
 You can copy the ``prospector.py`` script to wherever you intend to run the code, or put it in your path.
-The required variables and functions in ``demo_params.py`` are
 
-1. ``run_params``: A dictionary.
+The parameter file
+------------
 
-   This dictionary specifies global options and parameters used for setting up and running the code.
-	 It is passed as keywords to all the functions listed below.
+The parameter ile is a python file, and can have whatever name you wish.
+The required variables and functions in a **parameter file** are:
 
-2. ``model_params``: A list of dictionaries.
+1. ``run_params``:
+   This dictionary specifies global options and parameters used for setting up
+   and running the code. It is passed as keywords to all the functions listed below.
 
-   Each element is a dictionary discribing an individiual model parameter,
-   to be varied or kept constant during the fitting
-
-3. ``load_obs``: A function.
-
+2. :method:`load_obs`: 
    This function will take the ``run_params`` dictionary as keyword arguments
-   and returns on obs dictionary (see Data_)
+   and returns on obs dictionary (see :doc:`dataformat` .)
 
-4. ``load_model``: A function
+3. :method:`load_model`:
+   This function will take the ``run_params`` dictionary as keyword arguments
+   and return an instance of a :class:`ProspectorParams` subclass, containing
+   information about the parameters of the model (see :doc:`models` .)
 
+4.  :method:`load_sps`:
+    This function will take the ``run_params`` dictionary as keyword arguments
+    and return an **sps** object, which must have the method
+    :method:`get_spectrum` defined.  This object generally includes all the
+    spectral libraries necessary to build a model, as well as much of the model
+    building code and as such has a large memory footprint.
 
-5. ``load_sps``: A function
+4.  :method:`load_sps`:
+    This function should return a NoiseModel object for the spectroscopy and/or
+    photometry.  Either or both can be ``None`` in which case the likelihood
+    will not include covariant noise and is equivalent to basic :math:`\chi^2`.
 
-
-See ``tests.sh`` and the parameter files and ``prospector.py script`` in the
-“demo” directory of the repository for more examples of proper usage.
 
 The ``run_params`` dictionary
 ----------------------------
@@ -44,9 +50,10 @@ The ``run_params`` dictionary
 The following parameters conrol key aspects of the operation of the code,
 and are stored in a special dictionary called ``run_params``.
 The ``run_params`` dictionary is passed as keyword arguments to the
-``load_obs``, ``load_sps``, ``load_model``, and ``load_gp`` functions.
-This means you can add to it if you want additional parameters to control the output of these functions.
-
+:function:`load_obs`, :function:`load_sps`, and :function:``load_model`
+functions.
+This means you can add to it if you want additional parameters to control the
+output of these functions.
 
 General parameters:
 
@@ -62,7 +69,13 @@ General parameters:
     String.  Base name of the output files.
     Various extensions as well as a time stamp will be appened to this string.
 
-Fitter parameters:
+
+Nested sampling parameters:
+
+``"dynesty_npoints"``
+    The number of active points in the nested sampling algorithm, defaults to 200
+
+Ensemble sampling parameters:
 
 ``"nwalkers"``
     Integer.  Number of emcee walkers.
@@ -110,16 +123,6 @@ Optimization parameters:
 		The best final position is chosen from all optimizations.
 		This provides some robustness against local minima.
 
-Nested sampling parameters:
-
-``"nestle_method"``
-		One of ``"single"``, ``"multi"``, or ``"classic"``.  The method to use in
-		nested sampling.
-
-``"nestle_npoints"``
-		The number of active points in the nested sampling algorithm, defaults to 200
-
-
 Data manipulation parameters:
 
 ``"logify_data"``
@@ -129,9 +132,9 @@ Data manipulation parameters:
 ``"rescale_spectrum"``
     Boolean.  If ``True``, rescale the spectrum to have an average of 1 before doing anything.
     The scaling parameter is stored in the ``obs`` dict as ``obs["rescale"]``.
-		This parameter should be ``False`` unless you are simultaneously fitting photometry
-		(see ``normalize_spectrum`` below),
-		or you are fitting for the spectral calibration as well.
+    This parameter should be ``False`` unless you are simultaneously fitting
+    photometry (see ``normalize_spectrum`` below), or you are fitting for the
+    spectral calibration as well.
 
 ``"normalize_spectrum"``
     optional Boolean.
