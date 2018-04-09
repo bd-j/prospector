@@ -306,7 +306,7 @@ class ProspectorParams(object):
             disp = self.theta * disp
         return disp
 
-    def theta_disp_floor(self):
+    def theta_disp_floor(self, thetas=None):
         """Get a vector of dispersions for each parameter to use as a floor for
         the emcee walker-calculated dispersions. This can be overridden by
         subclasses.
