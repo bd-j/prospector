@@ -1,0 +1,16 @@
+sources
+===============
+Classes in the :module:`prospect.sources` module are used to instantiate
+**sps** objects.  They are defined by the presence of a :method:`get_spectrum`
+method that takes a wavelength array, a list of filter objects, and a parameter
+dictionary and return a spectrum, a set of broadband fluxes, and a blob of
+ancillary information.
+
+Most of these classes are a wrapper on ``fsps.StellarPopulation`` objects, and
+as such have a significant memory footprint.  The parameter dictionary can
+include any ``fsps`` parameter, as well as parameters used by these classes to
+control redshifting, spectral smoothing, wavelength calibration, and other
+aspects of the model.
+
+.. automodule:: prospect.sources
+   :members: SSPBasis, CSPSpecBasis, FastSSPBasis, StepSFHBasis, FastStepBasis, BlackBodyDustBasis

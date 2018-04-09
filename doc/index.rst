@@ -38,8 +38,11 @@ Prospector allows you to:
 .. toctree::
    :maxdepth: 1
    :caption: API Reference
-
-   api.rst
+	     
+   api/models_api
+   api/sources_api
+   api/fitting_api
+   api/io_api
 
 License and Attribution
 -------
