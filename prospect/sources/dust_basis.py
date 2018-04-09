@@ -1,5 +1,9 @@
 import numpy as np
-from sedpy.observate import getSED
+
+try:
+    from sedpy.observate import getSED
+except(ImportError):
+    pass
 
 __all__ = ["BlackBodyDustBasis"]
 
