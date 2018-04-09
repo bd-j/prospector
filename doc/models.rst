@@ -1,7 +1,8 @@
-The Model
+Models
 =========
 
-Parameter specification
+
+Parameter Specification
 -----------------------
 
 All model parameters require a specification in the **parameter file**.
@@ -42,7 +43,7 @@ So, in the end, this looks something like
 
 .. code-block:: python
 
-    mass_param = {"name": "mass",
+    mass = {"name": "mass",
                   "N": 1,
                   "init": 1e9,
                   "init_disp": 1e8, # only important if using emcee sampling
@@ -60,55 +61,61 @@ These include things like spectral smoothing, wavelength calibration, spectropho
 Be warned though, if you include a parameter that does not affect the model the code will not complain,
 and if that parameter is free it will simply result in a posterior PDF that is the same as the prior (though optimization algorithms may fail).
 
-A number of predefined sets of parameters (with priors) are available from ``models.templates.TemplateLibrary``,
-these can be a good starting place for building your model.
 
 Priors
 ---------
 
-Prior objects can be found in the ``prospect.models.priors`` module.
+Prior objects can be found in the :py:mod:`prospect.models.priors` module.
 It is recommended to use the objects instead of the functions,
 as they have some useful attributes and are suitable for all types of sampling.
 The prior functions by contrast will not work for nested sampling.
 When specifying a prior using an object, you can and should specify the parameters of that prior on initialization, e.g.
-``priors.ClippedNormal(mean=0.0, sigma=1.0, mini=0.0, maxi=3.0)``
+
+.. code-block:: python
+
+		mass["prior"] = priors.ClippedNormal(mean=0.0, sigma=1.0, mini=0.0, maxi=3.0)``
+
+
+Parameter Set Templates
+-----------
+
+A number of predefined sets of parameters (with priors) are available as
+dictionaries of model specifications from ``models.templates.TemplateLibrary``,
+these can be a good starting place for building your model.
+To see the available parameter sets to inspect the free and fixed parameters in
+a given set, you can do something like
+
+.. code-block:: python
+		
+		from prospect.models.templates import TemplateLibrary
+		# Show all pre-defined parameter sets
+		TemplateLibrary.show_contents()
+		# Show details on the "parameteric" set of parameters
+		TemplateLibrary.describe("parametric")
+		# Simply print all parameter specifications in "parametric"
+		print(TemplateLibrary["parametric"])
+		# Actually get a copy of one of the predefined sets
+		model_params = TemplateLibrary["parametric"]
 
 
 
-The ``model_params`` list or dictionary
--------------------------------------
-
-This is simply a list or dictionary (keyed by parameter name) of each of the dictionaries describing the model parameters.
-It is passed to the ``ProspectorParams`` object on initialization.
-If using a list, the order of the list sets the order of the free parameters in the parameter vector.
-The free parameters will be varied by the code during the optimization and sampling phases.
-The initial value from which optimization is begun is set by the ``"init"`` values of each parameter.
-For fixed parameters the ``"init"`` value gives the value of that parameter to
-use throughout the optimization and sampling phases
-(unless the ``"depends_on"`` key is present, see Advanced_.)
-
-
-The ``load_model()`` method
+The ``load_model()`` Method
 ------------------------------------------
 
-This should return an instance of a subclass of the ``prospect.models.ProspectorParams`` object.
-It is given the ``run_params`` dictionary as an argument list,
-so the model parameters can be modified within this function based on keywords given in ``run_params`` (or at the command line).
+This method in the **parameter file** should take the ``run_params`` dictionary
+as an argument list, and return an instance of the :class:`ProspectorParams`
+subclass.
 
+The :class:`ProspectorParams` is initialized with a list or dictionary (keyed
+by parameter name) of each of the model parameter specifications described
+above. If using a list, the order of the list sets the order of the free parameters in
+the parameter vector.  The free parameters will be varied by the code during
+the optimization and sampling phases.  The initial value from which
+optimization is begun is set by the ``"init"`` values of each parameter.  For
+fixed parameters the ``"init"`` value gives the value of that parameter to use
+throughout the optimization and sampling phases (unless the ``"depends_on"``
+key is present, see :doc:`advanced`.)
 
-The ``load_sps()`` function
--------------------------------------
-
-The likelihood function and SED models require an object (``sps``) from  ``prospect.sources`` as an argument.
-This object should be returned by the ``load_sps()`` function in the **parameter file**.
-The ``sps`` object generally includes all the spectral libraries necessary to build a model,
-as well as much of the model building code.
-This object is defined globally to enable multiprocessing, since generally it can't (or shouldn't) be serialized
-and sent to other processors.
-
-
-The ``load_gp()`` function
--------------------------------------
-
-This function should return a NoiseModel object for the spectroscopy or photometry.
-Either or both can be ``None`` in which case the likelihood will not include covariant noise and is equivalent to basic chi-square.
+The ``run_params`` dictionary of arguments (including command line
+modifications) can be used to modify the model parameters within this method
+before the :class:`ProspectorParams` model object is instantiated.
