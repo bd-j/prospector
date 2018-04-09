@@ -3,11 +3,11 @@ import numpy as np
 from numpy.polynomial.chebyshev import chebval
 
 from ..utils.smoothing import smoothspec
-from sedpy.observate import getSED
 from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
 
 try:
     import fsps
+    from sedpy.observate import getSED
 except(ImportError):
     pass
 

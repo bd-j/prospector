@@ -4,7 +4,6 @@ from numpy.polynomial.chebyshev import chebval
 from scipy.spatial import Delaunay
 
 from ..utils.smoothing import smoothspec
-from sedpy.observate import getSED, vac2air, air2vac
 from .constants import lightspeed, lsun, jansky_cgs, to_cgs_at_10pc
 
 try:
@@ -12,6 +11,12 @@ try:
 except(ImportError):
     from scipy.spatial import cKDTree as KDTree
 
+try:
+    from sedpy.observate import getSED, vac2air, air2vac
+except(ImportError):
+    pass
+
+    
 __all__ = ["StarBasis", "BigStarBasis"]
 
 
