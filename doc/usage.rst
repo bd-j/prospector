@@ -22,23 +22,23 @@ The required variables and functions in a **parameter file** are:
    This dictionary specifies global options and parameters used for setting up
    and running the code. It is passed as keywords to all the functions listed below.
 
-2. :method:`load_obs`: 
+2. :py:meth:`load_obs`: 
    This function will take the ``run_params`` dictionary as keyword arguments
    and returns on obs dictionary (see :doc:`dataformat` .)
 
-3. :method:`load_model`:
+3. :py:meth:`load_model`:
    This function will take the ``run_params`` dictionary as keyword arguments
    and return an instance of a :class:`ProspectorParams` subclass, containing
    information about the parameters of the model (see :doc:`models` .)
 
-4.  :method:`load_sps`:
+4.  :py:meth:`load_sps`:
     This function will take the ``run_params`` dictionary as keyword arguments
     and return an **sps** object, which must have the method
-    :method:`get_spectrum` defined.  This object generally includes all the
+    :py:meth:`get_spectrum` defined.  This object generally includes all the
     spectral libraries necessary to build a model, as well as much of the model
     building code and as such has a large memory footprint.
 
-4.  :method:`load_sps`:
+4.  :py:meth:`load_sps`:
     This function should return a NoiseModel object for the spectroscopy and/or
     photometry.  Either or both can be ``None`` in which case the likelihood
     will not include covariant noise and is equivalent to basic :math:`\chi^2`.
@@ -50,7 +50,7 @@ The ``run_params`` dictionary
 The following parameters conrol key aspects of the operation of the code,
 and are stored in a special dictionary called ``run_params``.
 The ``run_params`` dictionary is passed as keyword arguments to the
-:function:`load_obs`, :function:`load_sps`, and :function:``load_model`
+:py:meth:`load_obs`, :py:meth:`load_sps`, and :py:meth:``load_model`
 functions.
 This means you can add to it if you want additional parameters to control the
 output of these functions.
@@ -69,6 +69,9 @@ General parameters:
     String.  Base name of the output files.
     Various extensions as well as a time stamp will be appened to this string.
 
+``"output_pickles"``
+   Boolean.  If ``True`` then write pickle files in addition to HDF5.  Deafult
+   is ``False``.
 
 Nested sampling parameters:
 

@@ -1,4 +1,4 @@
-sources
+prospect.sources
 ===============
 Classes in the :module:`prospect.sources` module are used to instantiate
 **sps** objects.  They are defined by the presence of a :method:`get_spectrum`

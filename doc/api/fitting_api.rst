@@ -1,4 +1,4 @@
-fitting
+prospect.fitting
 ====
 
 .. automodule:: prospect.fitting

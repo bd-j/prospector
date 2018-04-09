@@ -1,7 +1,8 @@
 Models
 =========
 
-Parameter specification
+
+Parameter Specification
 -----------------------
 
 All model parameters require a specification in the **parameter file**.
@@ -60,23 +61,45 @@ These include things like spectral smoothing, wavelength calibration, spectropho
 Be warned though, if you include a parameter that does not affect the model the code will not complain,
 and if that parameter is free it will simply result in a posterior PDF that is the same as the prior (though optimization algorithms may fail).
 
-A number of predefined sets of parameters (with priors) are available from ``models.templates.TemplateLibrary``,
-these can be a good starting place for building your model.
 
 Priors
 ---------
 
-Prior objects can be found in the :module:`prospect.models.priors` module.
+Prior objects can be found in the :py:mod:`prospect.models.priors` module.
 It is recommended to use the objects instead of the functions,
 as they have some useful attributes and are suitable for all types of sampling.
 The prior functions by contrast will not work for nested sampling.
 When specifying a prior using an object, you can and should specify the parameters of that prior on initialization, e.g.
 
 .. code-block:: python
+
 		mass["prior"] = priors.ClippedNormal(mean=0.0, sigma=1.0, mini=0.0, maxi=3.0)``
 
 
-The ``load_model()`` method
+Parameter Set Templates
+-----------
+
+A number of predefined sets of parameters (with priors) are available as
+dictionaries of model specifications from ``models.templates.TemplateLibrary``,
+these can be a good starting place for building your model.
+To see the available parameter sets to inspect the free and fixed parameters in
+a given set, you can do something like
+
+.. code-block:: python
+		
+		from prospect.models.templates import TemplateLibrary
+		# Show all pre-defined parameter sets
+		TemplateLibrary.show_contents()
+		# Show details on the "parameteric" set of parameters
+		TemplateLibrary.describe("parametric")
+		# Simply print all parameter specifications in "parametric"
+		print(TemplateLibrary["parametric"])
+		# Actually get a copy of one of the predefined sets
+		model_params = TemplateLibrary["parametric"]
+
+
+
+The ``load_model()`` Method
 ------------------------------------------
 
 This method in the **parameter file** should take the ``run_params`` dictionary

@@ -3,8 +3,7 @@
 import numpy as np
 import scipy.stats
 
-__all__ = ["normal", "tophat", "normal_clipped", "lognormal", "logarithmic",
-           "plotting_range",
+__all__ = ["plotting_range",
            "Prior", "TopHat", "Normal", "ClippedNormal",
            "LogNormal", "LogUniform", "Beta"]
 
@@ -77,13 +76,22 @@ def plotting_range(prior_args):
 class Prior(object):
     """Encapsulate the priors in an object.  Each prior should have a
     distribution name and optional parameters specifying scale and location
-    (e.g. min/max or mean/sigma).  These can be aliased. When called, the
-    argument should be a variable and it should return the ln-prior-probability
-    of that value.
+    (e.g. min/max or mean/sigma).  These can be aliased at instantiation using
+    the ``parnames`` keyword. When called, the argument should be a variable
+    and the object should return the ln-prior-probability of that value.
+
+    .. code-block:: python
+        
+        ln_prior_prob = Prior()(value)
 
     Should be able to sample from the prior, and to get the gradient of the
     prior at any variable value.  Methods should also be avilable to give a
     useful plotting range and, if there are bounds, to return them.
+
+    :param parnames:
+        A list of names of the parameters, used to alias the intrinsic
+        parameter names.  This way different instances of the same Prior can
+        have different parameter names, in case they are being fit for....
     """
 
     def __init__(self, parnames=[], name='', **kwargs):
@@ -214,7 +222,14 @@ class Prior(object):
 
 
 class TopHat(Prior):
+    """A simple uniform prior, described by two parameters
 
+    :param mini:
+        Minimum of the distribution
+
+    :param maxi:
+        Maximum of the distribution
+    """
     prior_params = ['mini', 'maxi']
     distribution = scipy.stats.uniform
 
@@ -238,8 +253,14 @@ class TopHat(Prior):
 
 class Normal(Prior):
     """A simple gaussian prior.
-    """
 
+
+    :param mean:
+        Mean of the distribution
+
+    :param sigma:
+        Standard deviation of the distribution
+    """
     prior_params = ['mean', 'sigma']
     distribution = scipy.stats.norm
 
@@ -265,8 +286,19 @@ class Normal(Prior):
 
 class ClippedNormal(Prior):
     """A Gaussian prior clipped to some range.
-    """
 
+    :param mean:
+        Mean of the normal distribution
+
+    :param sigma:
+        Standard deviation of the normal distribution
+
+    :param mini:
+        Minimum of the distribution
+
+    :param maxi:
+        Maximum of the distribution
+    """
     prior_params = ['mean', 'sigma', 'mini', 'maxi']
     distribution = scipy.stats.truncnorm
 
@@ -295,10 +327,15 @@ class ClippedNormal(Prior):
 
 
 class LogUniform(Prior):
-    """Like log-normal, but the distribution of ln of the variable is
+    """Like log-normal, but the distribution of natural log of the variable is
     distributed uniformly instead of normally.
-    """
 
+    :param mini:
+        Minimum of the distribution
+
+    :param maxi:
+        Maximum of the distribution
+    """
     prior_params = ['mini', 'maxi']
     distribution = scipy.stats.reciprocal
 
@@ -320,8 +357,17 @@ class LogUniform(Prior):
 
 class Beta(Prior):
     """A Beta distribution.
-    """
 
+    :param mini:
+        Minimum of the distribution
+
+    :param maxi:
+        Maximum of the distribution
+
+    :param alpha:
+
+    :param beta:
+    """
     prior_params = ['mini', 'maxi', 'alpha', 'beta']
     distribution = scipy.stats.beta
 
@@ -350,7 +396,15 @@ class Beta(Prior):
 
 
 class LogNormal(Prior):
+    """A log-normal prior, where the natural log of the variable is distributed
+    normally.  Useful for parameters that cannot be less than zero.
 
+    :param mode:
+        Mode of the log-normal distribution, in linear units
+
+    :param sigma:
+        Standard deviation of the log-normal distribution, in logarithmic units
+    """
     prior_params = ['mode', 'sigma']
     distribution = scipy.stats.lognorm
 

@@ -36,13 +36,14 @@ Prospector allows you to:
    tutorial
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: API Reference
-	     
+
    api/models_api
    api/sources_api
    api/fitting_api
    api/io_api
+   api/utils_api
 
 License and Attribution
 -------
