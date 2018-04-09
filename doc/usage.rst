@@ -38,8 +38,8 @@ The required variables and functions in a **parameter file** are:
     spectral libraries necessary to build a model, as well as much of the model
     building code and as such has a large memory footprint.
 
-4.  :py:meth:`load_sps`:
-    This function should return a NoiseModel object for the spectroscopy and/or
+5.  :py:meth:`load_gp`:
+    This function should return a :py:class:`NoiseModel` object for the spectroscopy and/or
     photometry.  Either or both can be ``None`` in which case the likelihood
     will not include covariant noise and is equivalent to basic :math:`\chi^2`.
 

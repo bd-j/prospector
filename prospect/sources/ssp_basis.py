@@ -21,8 +21,8 @@ to_cgs = to_cgs_at_10pc
 class SSPBasis(object):
 
     """This is a class that wraps the fsps.StellarPopulation object, which is
-    used for producing SSPs.  The StellarPopulation object is accessed as
-    `SSPBasis().ssp`.
+    used for producing SSPs.  The ``fsps.StellarPopulation`` object is accessed
+    as ``SSPBasis().ssp``.
 
     This class allows for the custom calculation of relative SSP weights (by
     overriding ``all_ssp_weights``) to produce spectra from arbitrary composite
@@ -32,17 +32,22 @@ class SSPBasis(object):
     parameteric SFHs.
 
     The base implementation here produces an SSP interpolated to the age given
-    by `tage`, with initial mass given by ``mass``.  However, this is much
+    by ``tage``, with initial mass given by ``mass``.  However, this is much
     slower than letting FSPS calculate the weights, as implemented in
-    FastSSPBasis.
+    :py:class:`FastSSPBasis`.
 
-    Furthermore, smoothing and filter projections are handled outside of fsps,
-    allowing for fast and more flexible algorithms
+    Furthermore, smoothing, redshifting, and filter projections are handled
+    outside of FSPS, allowing for fast and more flexible algorithms.
+
+    :param reserved_params:
+        These are parameters which have names like the FSPS parameters but will
+        not be passed to the StellarPopulation object because we are overriding
+        their functionality using (hopefully more efficient) custom algorithms.
     """
 
-    def __init__(self, compute_vega_mags=False, zcontinuous=1,
+    def __init__(self, zcontinuous=1, reserved_params=['tage', 'sigma_smooth'],
                  interp_type='logarithmic', flux_interp='linear', sfh_type='ssp',
-                 mint_log=-3, reserved_params=['tage', 'sigma_smooth'],
+                 mint_log=-3, compute_vega_mags=False,
                  **kwargs):
         """
         :param interp_type: (default: "logarithmic")
@@ -80,8 +85,11 @@ class SSPBasis(object):
         self.update(**kwargs)
 
     def update(self, **params):
-        """Update the parameters, passing through *unreserved* FSPS parameters to
-        the fsps.StellarPopulation object.
+        """Update the parameters, passing the *unreserved* FSPS parameters
+        through to the ``fsps.StellarPopulation`` object.
+
+        :param params:
+            A parameter dictionary.
         """
         for k, v in params.items():
             # try to make parameters scalar
@@ -267,7 +275,7 @@ class SSPBasis(object):
 
 
 class FastSSPBasis(SSPBasis):
-    """A subclass of SSPBasis that is a faster way to do SSP models by letting
+    """A subclass of :py:class:`SSPBasis` that is a faster way to do SSP models by letting
     FSPS do the weight calculations.
     """
 
@@ -278,11 +286,20 @@ class FastSSPBasis(SSPBasis):
 
 
 class FastStepBasis(SSPBasis):
-    """Let FSPS do the work of calculating weights for a step function
-    (non-parameteric) SFH.
+    """Subclass of :py:class:`SSPBasis` that implements a "nonparameteric"
+    (i.e. binned) SFH.  This is accomplished by generating a tabular SFH with
+    the proper form to be passed to FSPS. The key parameters for this SFH are:
+
+      * ``agebins`` - array of shape ``(nbin, 2)` giving the younger and older
+        (in lookback time) edges of each bin in log10(years)
+
+      * ``mass`` - array of shape ``(nbin,)`` giving the total stellar mass
+        (in solar masses) **formed** in each bin.
     """
 
     def get_galaxy_spectrum(self, **params):
+        """Construct the tabular SFH and feed it to the ``ssp``.
+        """
         self.update(**params)
         mtot = self.params['mass'].sum()
         time, sfr, tmax = self.convert_sfh(self.params['agebins'], self.params['mass'])
@@ -292,24 +309,25 @@ class FastStepBasis(SSPBasis):
         return wave, spec / mtot, self.ssp.stellar_mass / mtot
 
     def convert_sfh(self, agebins, mformed, epsilon=1e-4, maxage=None):
-        """Given AGEBIN of shape (N, 2), MFORMED of shape (n,)  the time vector
-        should be on EITHER SIDE of each bin edge with a "closeness" defined by
-        a parameter epsilon.
+        """Given arrays of agebins and formed masses with each bin, calculate a
+        tabular SFH.  The resulting time vector has time points either side of
+        each bin edge with a "closeness" defined by a parameter epsilon.
 
         :param agebins:
-            An array of bin edges, log(yrs).  This method assumes that the upper edge of
-            one bin is the same as the lower edge of another bin.  ndarray of shape (N, 2)
+            An array of bin edges, log(yrs).  This method assumes that the
+            upper edge of one bin is the same as the lower edge of another bin.
+            ndarray of shape ``(nbin, 2)``
 
         :param mformed:
-            The stellar mass formed in each bin.  ndarray of shape (N,)
+            The stellar mass formed in each bin.  ndarray of shape ``(nbin,)``
 
         :param epsilon: (optional, default 1e-4)
             A small number used to define the fraction time separation of
             adjacent points at the bin edges.
 
-        :param maxage: (optional, default None)
-            A maximum age of stars in the population, in yrs.  If None then the maximum
-            value of agebins is used.  Note that an error will occur if maxage
+        :param maxage: (optional, default: ``None``)
+            A maximum age of stars in the population, in yrs.  If ``None`` then the maximum
+            value of ``agebins`` is used.  Note that an error will occur if maxage
             < the maximum age in agebins.
 
         :returns time:
