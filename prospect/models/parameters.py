@@ -23,18 +23,19 @@ class ProspectorParams(object):
     addition to the documented methods, it contains several important
     attributes:
 
-    * params: model parameter state dictionary.
-    * theta_index: A dictionary that maps parameter names to indices (or rather
-      slices) of the parameter vector theta.
-    * config_dict: Information about each parameter as a dictionary keyed by
+    * :py:attr:`params`: model parameter state dictionary.
+    * :py:attr:`theta_index`: A dictionary that maps parameter names to indices (or rather
+      slices) of the parameter vector ``theta``.
+    * :py:attr:`config_dict`: Information about each parameter as a dictionary keyed by
       parameter name for easy access.
-    * config_list: Information about each parameter stored as a list.
+    * :py:attr:`config_list`: Information about each parameter stored as a list.
 
     Intitialization is via, e.g.,
 
-    ::
+    .. code-block:: python
+
        model_dict = {"name": "mass", "N": 1, "isfree": False, "init": 1e10}
-       model = ProspectorParams(model_dict, order=None)
+       model = ProspectorParams(model_dict, param_order=None)
 
     :param configuration:
         A list or dictionary of model parameters specifications.
@@ -65,17 +66,18 @@ class ProspectorParams(object):
         self.verbose = verbose
 
     def configure(self, reset=False, **kwargs):
-        """Use the parameter config_dict to generate a theta_index mapping, and
-        propogate the initial parameters into the params state dictionary, and
-        store the intital theta vector implied by the config dictionary.
+        """Use the :py:attr:`config_dict` to generate a :py:attr:`theta_index`
+        mapping, and propogate the initial parameters into the
+        :py:attr:`params` state dictionary, and store the intital theta vector
+        thus implied.
 
         :param kwargs:
             Keyword parameters can be used to override or add to the initial
-            parameter values specified in config_list
+            parameter values specified in :py:attr:`config_dict`
 
         :param reset: (default: False)
-            If true, empty the params dictionary before rereading the
-            config_list.
+            If true, empty the params dictionary before re-reading the
+            :py:attr:`config_dict`
         """
         self._has_parameter_dependencies = False
         if (not hasattr(self, 'params')) or reset:
@@ -104,7 +106,8 @@ class ProspectorParams(object):
 
     def map_theta(self):
         """Construct the mapping from parameter name to the index in the theta
-        vector corresponding to the first element of that parameter.
+        vector corresponding to the first element of that parameter.  Called
+        during configuration.
         """
         self.theta_index = {}
         count = 0
@@ -114,11 +117,11 @@ class ProspectorParams(object):
         self.ndim = count
 
     def set_parameters(self, theta):
-        """Propagate theta into the model parameters dictionary.
+        """Propagate theta into the model parameters :py:attr:`params` dictionary.
 
         :param theta:
-            A theta parameter vector containing the desired parameters.
-            ndarray of shape (ndim,)
+            A theta parameter vector containing the desired parameters. ndarray
+            of shape ``(ndim,)``
         """
         assert len(theta) == self.ndim
         for k, inds in list(self.theta_index.items()):
@@ -128,11 +131,18 @@ class ProspectorParams(object):
     def prior_product(self, theta, nested=False, **extras):
         """Public version of _prior_product to be overridden by subclasses.
 
+        :param theta:
+            The parameter vector for which you want to calculate the
+            prior. ndarray of shape ``(..., ndim)``
+
         :param nested:
             If using nested sampling, this will only return 0 (or -inf).  This
             behavior can be overridden if you want to include complicated
             priors that are not included in the unit prior cube based proposals
             (e.g. something that is difficult to transform from the unit cube.)
+
+        :returns lnp_prior:
+            The natural log of the prior probability at ``theta``
         """
         lpp = self._prior_product(theta)
         if nested & np.any(np.isfinite(lpp)):
@@ -145,11 +155,11 @@ class ProspectorParams(object):
         functions are defined in the theta descriptor.
 
         :param theta:
-            Iterable containing the free model parameter values.  Of shape
-            (..., ndim)
+            Iterable containing the free model parameter values. ndarray of
+            shape ``(ndim,)``
 
         :returns lnp_prior:
-            The log of the product of the prior probabilities for these
+            The natural log of the product of the prior probabilities for these
             parameter values.
         """
         lnp_prior = 0
@@ -164,6 +174,13 @@ class ProspectorParams(object):
 
     def prior_transform(self, unit_coords):
         """Go from unit cube to parameter space, for nested sampling.
+
+        :param unit_coords:
+            Coordinates in the unit hyper-cube. ndarray of shape ``(ndim,)``.
+            
+        :returns theta:
+            The parameter vector corresponding to the location in prior CDF
+            corresponding to ``unit_coords``. ndarray of shape ``(ndim,)``
         """
         theta = np.zeros(len(unit_coords))
         for k, inds in list(self.theta_index.items()):
@@ -175,7 +192,7 @@ class ProspectorParams(object):
     def propagate_parameter_dependencies(self):
         """Propogate any parameter dependecies. That is, for parameters whose
         value depends on another parameter, calculate those values and store
-        them in the ``params`` dictionary.
+        them in the :py:attr:`self.params` dictionary.
         """
         if self._has_parameter_dependencies is False:
             return
@@ -203,15 +220,15 @@ class ProspectorParams(object):
 
     @property
     def free_params(self):
-        """A list of the free model parameters.
+        """A list of the names of the free model parameters.
         """
         return [k['name'] for k in pdict_to_plist(self.config_list)
                 if k['isfree']]
 
     @property
     def fixed_params(self):
-        """A list of the fixed model parameters that are specified in the
-        ``model_params``.
+        """A list of the names fixed model parameters that are specified in the
+        ``config_dict``.
         """
         return [k['name'] for k in pdict_to_plist(self.config_list)
                 if (k['isfree'] is False)]
@@ -248,8 +265,8 @@ class ProspectorParams(object):
         """Get the bounds on each parameter from the prior.
 
         :returns bounds:
-            A list of length self.ndim of tuples (lo, hi) giving the parameter
-            bounds.
+            A list of length ``ndim`` of tuples ``(lo, hi)`` giving the
+            parameter bounds.
         """
         bounds = np.zeros([self.ndim, 2])
         for p, inds in list(self.theta_index.items()):
@@ -271,11 +288,15 @@ class ProspectorParams(object):
         overridden by subclasses if fractional dispersions are desired.
 
         :param initial_disp: (default: 0.1)
-            The default dispersion to use in case the `init_disp` key is not
-            provided in the parameter configuration.
+            The default dispersion to use in case the ``"init_disp"`` key is
+            not provided in the parameter configuration.
 
         :param fractional_disp: (default: False)
-            Treat the dispersion values as fractional dispersions
+            Treat the dispersion values as fractional dispersions.
+
+        :returns disp:
+            The dispersion in the parameters to use for generating clouds of
+            walkers (or minimizers.) ndarray of shape ``(ndim,)``
         """
         disp = np.zeros(self.ndim) + default_disp
         for par, inds in list(self.theta_index.items()):
@@ -285,10 +306,14 @@ class ProspectorParams(object):
             disp = self.theta * disp
         return disp
 
-    def theta_disp_floor(self, thetas=None):
+    def theta_disp_floor(self):
         """Get a vector of dispersions for each parameter to use as a floor for
         the emcee walker-calculated dispersions. This can be overridden by
         subclasses.
+
+        :returns disp_floor:
+            The minimum dispersion in the parameters to use for generating
+            clouds of walkers (or minimizers.) ndarray of shape ``(ndim,)``
         """
         dfloor = np.zeros(self.ndim)
         for par, inds in list(self.theta_index.items()):
@@ -299,8 +324,11 @@ class ProspectorParams(object):
     def clip_to_bounds(self, thetas):
         """Clip a set of parameters theta to within the priors.
 
+        :param theta:
+            The parameter vector, ndarray of shape ``(ndim,)``.
+
         :returns thetas:
-            Clipped to theta priors.
+            The input vector, clipped to the bounds of the priors.
         """
         bounds = self.theta_bounds()
         for i in range(len(bounds)):

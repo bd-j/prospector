@@ -1,4 +1,9 @@
-# A place to store handy parameter transormations
+"""This module contains parameter transformations that may be usefulto
+transform from parameters that easier to sample in to the parameters required
+for building SED models.
+
+They can be used as ``"depends_on"`` entries in parameter specifications.
+"""
 
 import numpy as np
 from ..sources.constants import cosmo
@@ -17,6 +22,12 @@ __all__ = ["stellar_logzsol", "delogify_mass",
 def stellar_logzsol(logzsol=0.0, **extras):
     """Simple function that takes an argument list and returns the value of the
     `logzsol` argument (i.e. the stellar metallicity)
+
+    :param logzsol:
+        FSPS stellar metaliicity parameter.
+
+    :returns logzsol:
+        The same.
     """
     return logzsol
 
@@ -24,6 +35,12 @@ def stellar_logzsol(logzsol=0.0, **extras):
 def delogify_mass(logmass=0.0, **extras):
     """Simple function that takes an argument list uncluding a `logmass`
     parameter and returns the corresponding linear mass.
+
+    :param logmass:
+        The log10(mass)
+
+    :returns mass:
+        The mass in linear units
     """
     return 10**logmass
 
@@ -35,7 +52,7 @@ def delogify_mass(logmass=0.0, **extras):
 def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
     """This function transfroms from a fractional age of a burst to an absolute
     age.  With this transformation one can sample in ``fage_burst`` without
-    worry about the case tburst > tage.
+    worry about the case ``tburst`` > ``tage``.
 
     :param tage:
         The age of the host galaxy (Gyr)
@@ -44,7 +61,7 @@ def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
         The fraction of the host age at which the burst occurred
 
     :returns tburst:
-        The age of the host when the burst occurred (i.e. the tburst FSPS
+        The age of the host when the burst occurred (i.e. the FSPS ``tburst``
         parameter)
     """
     return tage * fage_burst
@@ -52,15 +69,15 @@ def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
 
 def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
     """This function calculates a galaxy age from the age of the univers at
-    `zred` and the age given as a fraction of the age of the universe.  This
-    allows for both zred and tage parameters without tage exceeding the age of
-    the universe.
+    ``zred`` and the age given as a fraction of the age of the universe.  This
+    allows for both ``zred`` and ``tage`` parameters without ``tage`` exceeding
+    the age of the universe.
 
     :param zred:
-        Cosmological redshift
+        Cosmological redshift.
 
     :param tage_tuniv:
-        The ratio of tage to the age of the universe at `zred`:
+        The ratio of ``tage`` to the age of the universe at ``zred``.
 
     :returns tage:
         The stellar population age, in Gyr
@@ -72,7 +89,18 @@ def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
 
 def zred_to_agebins(zred=0.0, agebins=[], **extras):
     """Set the nonparameteric SFH age bins depending on the age of the universe
-    at `zred`
+    at ``zred``. The first bin is not altered and the last bin is always 15% of
+    the upper edge of the oldest bin, but the intervenening bins are evenly
+    spaced in log(age).
+
+    :param zred:
+        Cosmological redshift.  This sets the age of the universe.
+
+    :param agebins:
+        The SFH bin edges in log10(years).  ndarray of shape ``(nbin, 2)``.
+
+    :returns agebins:
+        The new SFH bin edges.
     """
     tuniv = cosmo.age(zred).value * 1e9
     tbinmax = tuniv * 0.85
@@ -83,6 +111,17 @@ def zred_to_agebins(zred=0.0, agebins=[], **extras):
 
 def dustratio_to_dust1(dust2=0.0, dust_ratio=0.0, **extras):
     """Set the value of dust1 from the value of dust2 and dust_ratio
+
+    :param dust2:
+        The diffuse dust V-band optical depth (the FSPS ``dust2`` parameter.)
+
+    :param dust_ratio:
+        The ratio of the extra optical depth towards young stars to the diffuse
+        optical depth affecting all stars.
+
+    :returns dust1:
+        The extra optical depth towards young stars (the FSPS ``dust1``
+        parameter.)
     """
     return dust2 * dust_ratio
 
@@ -95,6 +134,10 @@ def zfrac_to_sfrac(z_fraction=None, **extras):
     """This transforms from independent dimensionless `z` variables to sfr
     fractions. The transformation is such that sfr fractions are drawn from a
     Dirichlet prior.  See Betancourt et al. 2010 and Leja et al. 2017
+
+    :param z_fraction:
+        latent variables drawn form a specific set of Beta distributions. (see
+        Betancourt 2010)
 
     :returns sfrac:
         The star formation fractions (See Leja et al. 2017 for definition).
@@ -113,6 +156,13 @@ def zfrac_to_masses(total_mass=None, z_fraction=None, agebins=None, **extras):
     fractions and then to bin mass fractions. The transformation is such that
     sfr fractions are drawn from a Dirichlet prior.  See Betancourt et al. 2010
     and Leja et al. 2017
+
+    :param total_mass:
+        The total mass formed over all bins in the SFH.
+
+    :param z_fraction:
+        latent variables drawn form a specific set of Beta distributions. (see
+        Betancourt 2010)
 
     :returns masses:
         The stellar mass formed in each age bin.
@@ -156,8 +206,11 @@ def zfrac_to_sfr(total_mass=None, z_fraction=None, agebins=None, **extras):
 
 
 def masses_to_zfrac(mass=None, agebins=None, **extras):
-    """The inverse of zfrac_to_masses, for setting mock parameters based on
-    real bin masses.
+    """The inverse of :py:meth:`zfrac_to_masses`, for setting mock parameters
+    based on mock bin masses.
+
+    :returns total_mass:
+        The total mass
 
     :returns zfrac:
         The dimensionless `z` variables used for sfr fraction parameterization.

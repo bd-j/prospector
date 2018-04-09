@@ -6,37 +6,40 @@ __all__ = ["SedModel", "PolySedModel"]
 
 
 class SedModel(ProspectorParams):
-    """For models composed of SSPs and sums of SSPs which use the
-    sps_basis.StellarPopBasis as the sps object.
+    """A subclass of :py:class:`ProspectorParams` taht passes the models
+    through to an ``sps`` object and returns spectra and photometry, including
+    optional spectroscopic calibration and sky emission.
     """
 
     def mean_model(self, theta, obs, sps=None, **extras):
-        """Given a theta vector, generate a spectrum, photometry, and any
+        """Given a ``theta`` vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
 
         :param theta:
-            ndarray of parameter values.
+            ndarray of parameter values, of shape ``(ndim,)``
 
         :param obs:
-            An observation dictionary, containing the output
-            wavelength array, the photometric filter lists, and the
-            key 'logify_spectrum' which is True if the comparison to
-            the model is to be made in the log.
+            An observation dictionary, containing the output wavelength array,
+            the photometric filter lists, and the key ``"logify_spectrum"`` which
+            is ``True`` if the comparison to the model is to be made in the log.
 
         :param sps:
-            A StellarPopBasis object to be used
-            in the model generation.
+            An `sps` object to be used in the model generation.  It must have
+            the :py:method:`get_spectrum` method defined.
 
         :returns spec:
             The model spectrum for these parameters, at the wavelengths
-            specified by obs['wavelength'], and optionally in the log.
+            specified by ``obs['wavelength']``, including multiplication by the
+            calibration vector.
 
         :returns phot:
             The model photometry for these parameters, for the filters
-            specified in obs['filters'].
+            specified in ``obs['filters']``.  Units of maggies.
 
         :returns extras:
-            Any extra aspects of the model that are returned.
+            Any extra aspects of the model that are returned.  Typically this
+            will be `mfrac` the ratio of the surviving stellar mass to the
+            stellar mass formed.
         """
         s, p, x = self.sed(theta, obs, sps=sps, **extras)
         self._speccal = self.spec_calibration(obs=obs, **extras)
@@ -47,7 +50,7 @@ class SedModel(ProspectorParams):
         return s, p, x
 
     def sed(self, theta, obs, sps=None, **kwargs):
-        """Given a theta vector, generate a spectrum, photometry, and any
+        """Given a ``theta vector``, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), ***not** including any instrument
         calibration effects.
 
@@ -60,16 +63,18 @@ class SedModel(ProspectorParams):
 
         :returns spec:
             The model spectrum for these parameters, at the wavelengths
-            specified by obs['wavelength'], in linear units.
+            specified by ``obs['wavelength']``.  Default units are maggies, and
+            the calibration vector is **not** applied.
 
         :returns phot:
             The model photometry for these parameters, for the filters
-            specified in obs['filters'].
+            specified in ``obs['filters']``. Units are maggies.
 
         :returns extras:
-            Any extra aspects of the model that are returned.
+            Any extra aspects of the model that are returned.  Typically this
+            will be `mfrac` the ratio of the surviving stellar mass to the
+            steallr mass formed.
         """
-
         self.set_parameters(theta)
         spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
                                               filters=obs['filters'],
@@ -93,12 +98,22 @@ class SedModel(ProspectorParams):
         return 0.
 
     def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """Implements a Chebyshev polynomial calibration model. If
-        ``"pivot_wave"`` is not present in ``obs`` then 1.0 is returned.
+        """Implements a Chebyshev polynomial calibration model.  This only
+        occurs if ``"poly_coeffs"`` is present in the :py:attr:`params`
+        dictionary, otherwise the value of ``params["spec_norm"]`` is returned.
+
+        :param theta: (optional)
+            If given, set :py:attr:`params` using this vector before
+            calculating the calibration polynomial. ndarray of shape
+            ``(ndim,)``
+
+        :param obs:
+            A dictionary of observational data, must contain the key
+            ``"wavelength"``
 
         :returns cal:
            If ``params["cal_type"]`` is ``"poly"``, a polynomial given by
-           'spec_norm' * (1 + \Sum_{m=1}^M 'poly_coeffs'[m-1] T_n(x)).
+           ``'spec_norm'`` :math:`\times (1 + \Sum_{m=1}^M```'poly_coeffs'[m-1]``:math:` \times T_n(x))`.
            Otherwise, the exponential of a Chebyshev polynomial.
         """
         if theta is not None:
@@ -140,14 +155,15 @@ class SedModel(ProspectorParams):
         return s, [0.0], [0]
 
 
-# This is a subclass of SedModel that replaces the calibration vector with the
-# maximum likelihood chebyshev polynomial describing the difference between the
-# observed and the model spectrum
 class PolySedModel(SedModel):
+    """This is a subclass of SedModel that replaces the calibration vector with
+    the maximum likelihood chebyshev polynomial describing the difference
+    between the observed and the model spectrum.
+    """
 
     def spec_calibration(self, theta=None, obs=None, **kwargs):
         """Implements a Chebyshev polynomial calibration model. This uses
-        least-squres to find the *optimal* Chebyshev polynomial of a certain
+        least-squres to find the **optimal** Chebyshev polynomial of a certain
         order describing the ratio of the observed spectrum to the model
         spectrum, conditional on all other parameters, using least squares.
         The first coefficient is always set to 1, as the overall normalization
@@ -189,8 +205,7 @@ class PolySedModel(SedModel):
 
 
 def gauss(x, mu, A, sigma):
-    """
-    Sample multiple gaussians at positions x.
+    """Sample multiple gaussians at positions x.
 
     :param x:
         locations where samples are desired.
