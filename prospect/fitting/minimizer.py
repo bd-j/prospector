@@ -1,100 +1,16 @@
 import numpy as np
 from numpy.random import normal, multivariate_normal
-from scipy.optimize import minimize
-
-try:
-    import multiprocessing
-except ImportError:
-    pass
 
 
-__all__ = ["Pminimize", "pminimize", "minimizer_ball", "reinitialize"]
+__all__ = ["minimize_wrapper", "minimizer_ball", "reinitialize"]
 
 
-class Pminimize(object):
-    """A class for performing minimizations using scipy's minimize function.
-    This class enables minimizations from different initial positions to be
-    parallelized.
-
-    If a pool object is passed, that object's map function is used to
-    parallelize the minimizations.  Otherwise, if nthreads > 1, we
-    generate a pool using multiprocessing and use that map function.
-
-    :param chi2fn:
-        Function to be minimized.
-
-    :param opts:
-        Dictionary of options for the minimization, as described in
-        scipy's minimize docs.
-
-    :param args:
-        A sequence of objects that are passed as
-        an arguments to your chi2 function
-
-    :param method:  (Default: 'powell')
-        Minimization method.  This should probably be 'powell', since
-        I haven't tried anything else and there's no way to pass
-        hessians or jacobians.
-
-    :param pool: (Default: None)
-        A pool object which contains a map method that will be used
-        for distributing tasks.
-
-    :param nthreads: (Default: 1)
-        If pool is None and nthreads > 1, create a mutiprocessing pool
-        with nthreads threads.  Otherwise, this is ignored.
-    """
-
-    def __init__(self, chi2fn, args, opts, method='powell', pool=None, nthreads=1):
-        self.method = method
-        self.opts = opts
-        self.args = args
-        self._size = None
-
-        # Wrap scipy's minimize to make it pickleable
-        self.minimize = _minimize_wrapper(chi2fn, args, method, opts)
-
-        self.pool = pool
-        if nthreads > 1 and self.pool is None:
-            self.pool = multiprocessing.Pool(nthreads)
-            self._size = nthreads
-
-    def run(self, pinit):
-        """Actually run the minimizations, in parallel if pool has been set up.
-
-        :param pinit:
-           An iterable where each element is a parameter vector for a
-           starting condition.
-
-        :returns results:
-            A list of scipy-style minimization results objects,
-            corresponding to the initial locations.
-        """
-        if self.pool is not None:
-            M = self.pool.map
-        else:
-            M = map
-
-        results = list(M(self.minimize,  [np.array(p) for p in pinit]))
-        return results
-
-    @property
-    def size(self):
-        if self.pool is None:
-            return 1
-        elif self._size is not None:
-        #    print('uhoh')
-            return self._size
-        else:
-            return self.pool.size
-
-
-class _minimize_wrapper(object):
+class minimize_wrapper(object):
     """This is a hack to make the minimization function pickleable (for MPI)
     even though it requires many arguments.  Ripped off from emcee.
     """
-    def __init__(self, function, args, method, options):
-        self.f = minimize
+    def __init__(self, algorithm, function, args, method, options):
+        self.f = algorithm
         self.func = function
         self.args = tuple(args)
         self.meth = method
@@ -103,7 +19,7 @@ class _minimize_wrapper(object):
     def __call__(self, x):
         try:
             return self.f(self.func, x, args=self.args,
-                          method=self.meth, options=self.opts)
+                          method=self.meth, **self.opts)
         except:
             import traceback
             print("minimizer: Exception while trying to minimize the function:")
@@ -113,25 +29,7 @@ class _minimize_wrapper(object):
             traceback.print_exc()
             raise
 
-
-def pminimize(chi2fn, initial, args=None, model=None,
-              method='powell', opts=None,
-              pool=None, nthreads=1):
-    """Do as many minimizations as you have threads, in parallel.  Always use
-    initial_center for one of the minimization streams, the rest will be
-    sampled from the prior for each parameter.  Returns each of the
-    minimization result dictionaries, as well as the starting positions.
-    """
-    # Instantiate the minimizer
-    mini = Pminimize(chi2fn, args, opts,
-                     method=method, pool=pool, nthreads=1)
-    size = mini.size
-    pinitial = minimizer_ball(initial, size, model)
-    powell_guesses = mini.run(pinitial)
-
-    return [powell_guesses, pinitial]
-
-
+        
 def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
                  **extras):
     """Check if the Powell minimization found a minimum close to the edge of
@@ -176,6 +74,7 @@ def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
         if ((g - b[0] < edge) or (b[1] - g < edge)) and (reinit[k]):
             output[k] = b[0] + prange/2
     return output
+
 
 def minimizer_ball(center, nminimizers, model, seed=None):
     """Draw initial values from the (1d, separable, independent) priors for
