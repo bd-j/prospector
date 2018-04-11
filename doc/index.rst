@@ -7,16 +7,17 @@ Prospector allows you to:
 * Combine photometric and spectroscopic data rigorously using a flexible
   spectroscopic calibration model.
 
-* Infer high-dimensional stellar population properties using parameteric or nonparametric SFHs
-  (with nested or ensemble MCMC sampling)
+* Infer high-dimensional stellar population properties, including nebular
+  emission, from rest UV through Far-IR data (with nested or ensemble MCMC sampling.)
 
-* Use spectra and/or photometry to constrain the linear combination of stellar population
-  components that are present in a galaxy (e.g. non-parametric SFHs).
+* Use spectra and/or photometry to constrain the linear combination of stellar
+  population components that are present in a galaxy (e.g. non-parametric
+  SFHs).
 
-* Forward model many aspects of spectroscopic data analysis and
-  calibration, including spectrophotometric calibration, sky emission (coming soon),
-  and wavelength solution, thus properly incorporating uncertainties
-  in these components in the final  parameter uncertainties.
+* Forward model many aspects of spectroscopic data analysis and calibration,
+  including spectral resolution, spectrophotometric calibration, sky emission
+  (coming soon), and wavelength solution, thus properly incorporating
+  uncertainties in these components in the final parameter uncertainties.
 
   
 .. toctree::
