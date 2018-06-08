@@ -166,7 +166,6 @@ if __name__ == "__main__":
                                          paramfile_text=partext)
     
     # Write HDF5
-    if hfile is None:
-        hfile = outroot + '_mcmc.h5'
+    hfile = outroot + '_mcmc.h5'
     write_results.write_hdf5(hfile, rp, model, obs, dynestyout,
                              None, tsample=ndur)
