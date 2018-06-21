@@ -161,7 +161,7 @@ def chi_spec(spec_mu, obs, **extras):
     if obs['spectrum'] is None:
         return np.array([])
     mask = obs.get('mask', slice(None))
-    delta = (obs['spectrum'] - phot_mu)[mask]
+    delta = (obs['spectrum'] - spec_mu)[mask]
     unc = obs['unc'][mask]
     chi = delta / unc
     return chi
