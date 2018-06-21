@@ -419,3 +419,82 @@ class LogNormal(Prior):
     @property
     def loc(self):
         pass
+
+class SkewNormal(Prior):
+    """A normal distribution including a skew parameter
+
+    :param location:
+        Center (*not* mean, mode, or median) of the distribution. 
+        The center will approach the mean as skew approaches zero.
+
+    :param sigma:
+        Standard deviation of the distribution
+
+    :param skew:
+        Skewness of the distribution
+    """
+
+    prior_params = ['location', 'sigma', 'skew']
+    distribution = scipy.stats.skewnorm
+
+    @property
+    def args(self):
+        return [self.params['skew']]
+
+    @property
+    def scale(self):
+        return self.params['sigma']
+
+    @property
+    def loc(self):
+        return self.params['location']
+
+    @property
+    def range(self):
+        nsig = 4
+        return (self.params['location'] - nsig * self.params['sigma'],
+                self.params['location'] + nsig * self.params['sigma'])
+
+    def bounds(self, **kwargs):
+        #if len(kwargs) > 0:
+        #    self.update(**kwargs)
+        return (-np.inf, np.inf)
+
+class StudentT(Prior):
+    """A Student's T distribution
+
+    :param mean:
+        Mean of the distribution
+
+    :param scale:
+        Size of the distribution, analogous to the standard deviation
+
+    :param df:
+        Number of degrees of freedom
+    """
+
+    prior_params = ['mean', 'scale', 'df']
+    distribution = scipy.stats.t
+
+    @property
+    def args(self):
+        return [self.params['df']]
+
+    @property
+    def scale(self):
+        return self.params['scale']
+
+    @property
+    def loc(self):
+        return self.params['mean']
+
+    @property
+    def range(self):
+        nsig = 4
+        return (self.params['location'] - nsig * self.params['scale'],
+                self.params['location'] + nsig * self.params['scale'])
+
+    def bounds(self, **kwargs):
+        #if len(kwargs) > 0:
+        #    self.update(**kwargs)
+        return (-np.inf, np.inf)
