@@ -3,22 +3,21 @@ Prospector
 Conduct principled inference of stellar population properties from photometric
 and/or spectroscopic data.  Prospector allows you to:
 
-* Combine photometric and spectroscopic data rigorously using a flexible
-  spectroscopic calibration model.
-
 * Infer high-dimensional stellar population properties using parameteric or nonparametric SFHs
   (with nested or ensemble MCMC sampling)
 
 * Use spectra and/or photometry to constrain the linear combination of stellar population
   components that are present in a galaxy (e.g. non-parametric SFHs).
 
-* Fit individual stellar spectra using large (in both n and d) interpolated
-  grids, or polynomial spectral interpolators (coming soon).
+* Combine photometric and spectroscopic data rigorously using a flexible
+  spectroscopic calibration model.
 
 * Forward model many aspects of spectroscopic data analysis and
   calibration, including spectrophotometric calibration, sky emission (coming soon),
   and wavelength solution, thus properly incorporating uncertainties
   in these components in the final  parameter uncertainties.
+
+Read the documentation [here](http://prospect.readthedocs.io/en/latest/).
 
 Installation
 ------
@@ -36,7 +35,8 @@ import prospect
 
 Prospector is pure python.
 See [installation](doc/installation.rst) for requirements.
-Other files in the [doc/](doc/) directory explain the usage of the code.
+Other files in the [doc/](doc/) directory explain the usage of the code,
+and you can read the documentation [here](http://prospect.readthedocs.io/en/latest/).
 
 See also the [tutorial](demo/tutorial.rst), the [demo notebook](demo/NestedDemo.ipynb),
 or the [deconstructed demo](demo/DeconstructedDemo.ipynb)
