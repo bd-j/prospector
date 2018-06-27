@@ -275,7 +275,7 @@ def write_dynesty_h5(hf, dynesty_out, model, tsample):
                         data=np.atleast_1d(dynesty_out['samples_id']))
 
     # JSON Attrs
-    sdat.attrs['ncall'] = json.dumps(list(dynesty_out['ncall']))
+    sdat.attrs['ncall'] = json.dumps(dynesty_out['ncall'].tolist())
     sdat.attrs['theta_labels'] = json.dumps(list(model.theta_labels()))
     sdat.attrs['sampling_duration'] = json.dumps(tsample)
 
