@@ -160,7 +160,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
         write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample)
     except(AttributeError):
         # dynesty or nestle
-        if sampler.has_key('eff'):
+        if 'eff' in sampler:
             write_dynesty_h5(hf, sampler, model, tsample)
         else:
             write_nestle_h5(hf, sampler, model, tsample)
