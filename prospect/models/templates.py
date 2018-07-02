@@ -137,7 +137,7 @@ _basic_ = {"zred":zred,
            }
 
 TemplateLibrary["ssp"] = (_basic_,
-                          ("Basic set of (free) parameters for single burst SFH"))
+                          ("Basic set of (free) parameters for a delta function SFH"))
 
 
 # ----------------------------
@@ -149,8 +149,8 @@ _parametric_["tau"]  = {"N": 1, "isfree": True,
                         "init": 1, "units": "Gyr^{-1}",
                         "prior": priors.LogUniform(mini=0.1, maxi=30)}
 
-TemplateLibrary["parametric"] = (_parametric_,
-                                 ("Basic set of (free) parameters for a delay-tau SFH."))
+TemplateLibrary["parametric_sfh"] = (_parametric_,
+                                    ("Basic set of (free) parameters for a delay-tau SFH."))
 
 
 # --------------------------
@@ -218,7 +218,7 @@ fagn = {'N': 1, 'isfree': False,
 
 agn_tau = {"N": 1, 'isfree': False,
            "init": 1.0, 'units': r"optical depth",
-            'prior': priors.LogUniform(mini=5.0, maxi=150.)}
+           'prior': priors.LogUniform(mini=5.0, maxi=150.)}
 
 _agn_ = {"fagn": fagn,       # FSPS parameter.
          "agn_tau": agn_tau  # FSPS parameter.
@@ -227,10 +227,60 @@ _agn_ = {"fagn": fagn,       # FSPS parameter.
 TemplateLibrary["agn"] = (_agn_,
                           ("The set of (fixed) AGN dusty torus emission parameters."))
 
+# --------------------------
+# --- Spectral Smoothing ---
+# --------------------------
+smooth = {'N': 1,'isfree': False, 'init': 'vel'}
+fft = {'N': 1,'isfree': False, 'init': True}
+wlo = { 'N': 1, 'isfree': False, 'init': 3500.0, 'units': r'$\AA$'}
+whi = { 'N': 1, 'isfree': False, 'init': 7800.0, 'units': r'$\AA$'}
+
+sigma_smooth = {'N': 1, 'isfree': True,
+                'init': 200.0, 'units': 'km/s',
+                'prior': priors.TopHat(mini=10, maxi=300)})
+
+_smoothing_ = {"smoothtype": smooth, "fftsmooth": fft,
+               #"min_wave_smooth": wlo, "max_wave_smooth": whi,
+               "sigma_smooth": sigma_smooth}
+
+TemplateLibrary["smoothing"] = (_smoothing_,
+                                ("Set of parameters for spectal smoothing."))
+
+
+# --------------------------
+# --- Spectral calibration
+# -------------------------
+
+# What order polynomial?
+npoly = 12
+porder = {'N': 1, 'isfree': False, 'init': npoly}
+# This can be used to penalize polynomial terms during optimization (and can be a vector of length porder["init"]).
+preg = {'N': 1, 'isfree': False, 'init': 0.}
+# Overall normalization of the spectrum.
+spec_norm = {'N': 10, 'isfree': False,
+            'init': 1.0, 'units': 'f_true/f_obs',
+            'prior': priors.Normal(mean=1.0, sigma=0.1)}
+# for explicitly fitting for the polynomial coefficients
+polymax = 0.1 / (np.arange(npoly) + 1)
+pcoeffs = {'N': npoly, 'isfree': True,
+           'init': np.zeros(npoly),
+           'units': 'ln(f_tru/f_obs)_j=\sum_{i=1}^N poly_coeffs_{i-1} * lambda_j^i',
+           'prior': priors.TopHat(mini=-polymax, maxi=polymax)}
+
+_polyopt_ = {"polyorder": porder, "poly_regularization": preg,
+             "spec_norm": spec_norm}
+_polyfit_ = {"spec_norm": spec_norm, "poly_coeffs": pcoeffs}
+
+TemplateLibrary["optimize_speccal"] = (_polyopt_,
+                                       ("Set of parameters (most of which are fixed) "
+                                        "for optimizing a polynomial calibration vector."))
+TemplateLibrary["fit_speccal"] = (_polyfit_,
+                                  ("Set of parameters (most of which are free) for sampling "
+                                   "the coefficients of a polynomial calibration vector."))
 
 # ----------------------------
-# --- SF Bursts ----
-# ----------------------------
+# --- SF Bursts ---
+# ---------------------------
 
 fage_burst = {'N': 1, 'isfree': False,
               'init': 0.0, 'units': 'time at wich burst happens, as a fraction of `tage`',
@@ -248,14 +298,15 @@ _burst_ = {"tburst": tburst,
            "fburst": fburst,
            "fage_burst": fage_burst}
 
-TemplateLibrary["burst"] = (_burst_,
-                            ("The set of (fixed) SFR burst parameters, "
-                            "with the burst time controlled by `fage_burst`."))
+TemplateLibrary["burst_sfh"] = (_burst_,
+                               ("The set of (fixed) parameters for an SF burst "
+                                "added to a parameteric SFH, with the burst time "
+                                "controlled by `fage_burst`."))
 
 # ----------------------------
-# --- Non-parametric SFH ----
+# --- Dirichlet SFH ----
 # ----------------------------
-# Using the dirichlet prior on SFR fractions.
+# Using the dirichlet prior on SFR fractions in bins of constant SF.
 
 _nonpar_ = TemplateLibrary["ssp"]
 
@@ -276,7 +327,7 @@ _nonpar_["z_fraction"] = {"N": 2, 'isfree': True, 'init': [0, 0], 'units': None,
 # This is the *total* stellar mass formed
 _nonpar_["total_mass"] = mass
 
-TemplateLibrary["nonparametric"] = (_nonpar_,
+TemplateLibrary["dirichlet_sfh"] = (_nonpar_,
                                     "Non-parameteric SFH with Dirichlet prior")
 
 
@@ -284,7 +335,7 @@ TemplateLibrary["nonparametric"] = (_nonpar_,
 # --- Prospector-alpha ---
 # ----------------------------
 
-_alpha_ = TemplateLibrary["nonparametric"]
+_alpha_ = TemplateLibrary["dirichlet_sfh"]
 _alpha_.update(TemplateLibrary["dust_emission"])
 _alpha_.update(TemplateLibrary["nebular"])
 _alpha_.update(TemplateLibrary["agn"])
