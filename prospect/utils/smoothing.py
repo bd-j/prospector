@@ -29,11 +29,12 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         The smoothing parameter.  Units depend on ``smoothtype``.
 
     :param outwave:
-        The output wavelength vector.  If None then the input wavelength vector
-        will be assumed, though if min_wave_smooth or max_wave_smooth are also
-        specified, then the output spectrum may have different length than spec
-        or wave, or the convolution may be strange outside of min_wave_smooth
-        and max_wave_smooth.  Basically, always set outwave to be safe.
+        The output wavelength vector.  If ``None`` then the input wavelength
+        vector will be assumed, though if ``min_wave_smooth`` or
+        ``max_wave_smooth`` are also specified, then the output spectrum may
+        have different length than ``spec`` or ``wave``, or the convolution may
+        be strange outside of ``min_wave_smooth`` and ``max_wave_smooth``.
+        Basically, always set ``outwave`` to be safe.
 
     :param smoothtype: (optional default: "vel")
         The type of smoothing to do.  One of:
@@ -57,8 +58,9 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
 
     :param min_wave_smooth: (optional default: 0)
         The minimum wavelength of the input vector to consider when smoothing
-        the spectrum.  If None then it is determined from the output wavelength
-        vector and padded by some multiple of the desired resolution.
+        the spectrum.  If ``None`` then it is determined from the output
+        wavelength vector and padded by some multiple of the desired
+        resolution.
 
     :param max_wave_smooth: (optional default: Inf)
         The maximum wavelength of the input vector to consider when smoothing
@@ -130,6 +132,9 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         linear = True
         width = 100
         sigma = resolution
+
+    else:
+        raise ValueError, "smoothtype {} is not valid".format(smoothtype)
 
     # Mask the input spectrum depending on outwave or the wave_smooth kwargs
     mask = mask_wave(wave, width=width, outwave=outwave, linear=linear,
