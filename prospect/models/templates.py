@@ -93,9 +93,10 @@ TemplateLibrary = Directory()
 # A template for what parameter configuration element should look like
 par_name = {"N": 1,
             "isfree": True,
-            "init": 0.5, "units": "",
+            "init": 0.5,
             "prior": priors.TopHat(mini=0, maxi=1.0),
-            "depends_on": None}
+            "depends_on": None,
+            "units": "",}
 
 # ---------------------
 # --- Explicit defaults
@@ -240,6 +241,23 @@ _agn_ = {"fagn": fagn,       # FSPS parameter.
 
 TemplateLibrary["agn"] = (_agn_,
                           ("The set of (fixed) AGN dusty torus emission parameters."))
+
+# --------------------------
+# --- IGM Absorption ---
+# --------------------------
+add_igm = {'N': 1, 'isfree': False, 'init': True}
+
+igm_fact ={'N': 1, 'isfree': False, 'init': 1.0,
+           'units': 'factor by which to scale the Madau attenuation',
+           'prior': priors.ClippedNormal(mean=1.0, sigma=0.1, mini=0.0, maxi=2.0)}
+
+_igm_ = {"add_igm_absorption": add_igm,  # FSPS Parameter.
+         "igm_factor": igm_fact,   # FSPS Parameter.
+         }
+
+TemplateLibrary["igm"] = (_igm_,
+                          ("The set of (fixed) IGM absorption parameters."))
+
 
 # --------------------------
 # --- Spectral Smoothing ---
