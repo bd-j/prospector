@@ -174,11 +174,11 @@ def load_model(zred=0.0, add_neb=True, **extras):
     # parameters.  Also, look at `TemplateLibrary.describe("parameteric")` to
     # view the parameters, their initial values, and the priors in detail
     from prospect.models.templates import TemplateLibrary
-    model_params = TemplateLibrary["parametric"]
+    model_params = TemplateLibrary["parametric_sfh"]
 
     # --- Adjust the basic model ----
     # Add burst parameters (fixed to zero be default)
-    model_params.update(TemplateLibrary["burst"])
+    model_params.update(TemplateLibrary["burst_sfh"])
     # Add dust emission parameters (fixed)
     model_params.update(TemplateLibrary["dust_emission"])
     # Add nebular emission parameters and turn nebular emission on

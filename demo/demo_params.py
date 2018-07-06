@@ -188,9 +188,9 @@ def load_model(object_redshift=None, fixed_metallicity=None, add_dust=False,
     # And two fixed parameters
     #   "zred"=0.1, "sfh"=4
     # See the python-FSPS documentation for details about most of these
-    # parameters.  Also, look at `TemplateLibrary.describe("parameteric")` to
+    # parameters.  Also, look at `TemplateLibrary.describe("parametric_sfh")` to
     # view the parameters, their initial values, and the priors in detail.
-    model_params = TemplateLibrary["parametric"]
+    model_params = TemplateLibrary["parametric_sfh"]
 
     # Add lumdist parameter.  If this is not added then the distance is
     # controlled by the "zred" parameter and a WMAP9 cosmology.

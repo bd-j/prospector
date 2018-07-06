@@ -74,9 +74,9 @@ This parameter set can be inspected in any of the following ways
 		# Show basic descriptin of all pre-defined parameter sets
 		TemplateLibrary.show_contents()
 		# method 1: print the whole dictionary of dictionaries
-		print(TemplateLibrary["parametric"])
+		print(TemplateLibrary["parametric_sfh"])
 		# Method 2: show a summary of the free and fixed parameters
-		print(TemplateLibrary.describe("parametric")
+		print(TemplateLibrary.describe("parametric_sfh")
 
 You'll see that this model has 5 free parameters.
 Any parameters with ``"isfree": True`` in its specification will be varied during the fit.
