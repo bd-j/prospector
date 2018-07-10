@@ -91,11 +91,11 @@ a given set, you can do something like
 		# Show all pre-defined parameter sets
 		TemplateLibrary.show_contents()
 		# Show details on the "parameteric" set of parameters
-		TemplateLibrary.describe("parametric")
-		# Simply print all parameter specifications in "parametric"
-		print(TemplateLibrary["parametric"])
+		TemplateLibrary.describe("parametric_sfh")
+		# Simply print all parameter specifications in "parametric_sfh"
+		print(TemplateLibrary["parametric_sfh"])
 		# Actually get a copy of one of the predefined sets
-		model_params = TemplateLibrary["parametric"]
+		model_params = TemplateLibrary["parametric_sfh"]
 
 
 

@@ -1,4 +1,4 @@
-"""This module contains parameter transformations that may be usefulto
+"""This module contains parameter transformations that may be useful to
 transform from parameters that easier to sample in to the parameters required
 for building SED models.
 
