@@ -33,7 +33,7 @@ def stellar_logzsol(logzsol=0.0, **extras):
 
 
 def delogify_mass(logmass=0.0, **extras):
-    """Simple function that takes an argument list uncluding a `logmass`
+    """Simple function that takes an argument list including a `logmass`
     parameter and returns the corresponding linear mass.
 
     :param logmass:
@@ -44,6 +44,17 @@ def delogify_mass(logmass=0.0, **extras):
     """
     return 10**logmass
 
+def total_mass(mass=0.0, **extras):
+    """Simple function that takes an argument list uncluding a `mass`
+    parameter and returns the corresponding total mass.
+
+    :param mass:
+        length-N vector of masses in bins
+
+    :returns total mass:
+        Total mass in linear units
+    """
+    return mass.sum()
 
 # --------------------------------------
 # Fancier transforms
@@ -125,9 +136,68 @@ def dustratio_to_dust1(dust2=0.0, dust_ratio=0.0, **extras):
     """
     return dust2 * dust_ratio
 
+# --------------------------------------
+# --- Transforms for the continuity non-parametric SFHs used in (Leja et al. 2018) ---
+# --------------------------------------
+
+def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None, **extras):
+    logsfr_ratios = np.clip(logsfr_ratios,-100,100) # numerical issues...
+    nbins = agebins.shape[0]
+    sratios = 10**logsfr_ratios
+    dt = (10**agebins[:,1]-10**agebins[:,0])
+    coeffs = np.array([ (1./np.prod(sratios[:i])) * (np.prod(dt[1:i+1]) / np.prod(dt[:i])) for i in range(nbins)])
+    m1 = (10**logmass) / coeffs.sum()
+
+    return m1 * coeffs
+
+def logsfr_ratios_to_masses_flex(logmass=None, logsfr_ratio_young=None, logsfr_ratio_old=None, agebins=None, **extras):
+    logsfr_ratio_young = np.clip(logsfr_ratio_young,-100,100)
+    logsfr_ratio_old = np.clip(logsfr_ratio_old,-100,100)
+
+    nbins = agebins.shape[0]-2
+    syoung, sold = 10**logsfr_ratio_young, 10**logsfr_ratio_old
+    dtyoung, dt1 = (10**agebins[:2,1]-10**agebins[:2,0])
+    dtn, dtold = (10**agebins[-2:,1]-10**agebins[-2:,0])
+    mbin = (10**logmass) / (syoung*dtyoung/dt1 + sold*dtold/dtn + nbins)
+    myoung = syoung*mbin*dtyoung/dt1
+    mold = sold*mbin*dtold/dtn
+    n_masses = np.full(nbins, mbin)
+
+    return np.array(myoung.tolist()+n_masses.tolist()+mold.tolist())
+
+def logsfr_ratios_to_agebins(logsfr_ratios=None, **extras):
+    """this transforms from SFR ratios to agebins
+    by assuming a constant amount of mass forms in each bin
+    agebins = np.array([NBINS,2])
+
+    use equation:
+        delta(t1) = tuniv  / (1 + SUM(n=1 to n=nbins-1) PROD(j=1 to j=n) Sn)
+        where Sn = SFR(n) / SFR(n+1) and delta(t1) is width of youngest bin
+    """
+
+    # numerical stability
+    logsfr_ratios = np.clip(logsfr_ratios,-100,100)
+
+    # calculate delta(t) for oldest, youngest bins (fixed)
+    lower_time = (10**agebins[0,1]-10**agebins[0,0])
+    upper_time = (10**agebins[-1,1]-10**agebins[-1,0])
+    tflex = (10**agebins[-1,-1]-upper_time-lower_time)
+
+    # figure out other bin sizes
+    n_ratio = logsfr_ratios.shape[0]
+    sfr_ratios = 10**logsfr_ratios
+    dt1 = tflex / (1 + np.sum([np.prod(sfr_ratios[:(i+1)]) for i in range(n_ratio)]))
+
+    # translate into agelims vector (time bin edges)
+    agelims = [1, lower_time, dt1+lower_time]
+    for i in range(n_ratio): agelims += [dt1*np.prod(sfr_ratios[:(i+1)]) + agelims[-1]]
+    agelims += [tuniv[0]]
+    agebins = np.log10([agelims[:-1], agelims[1:]]).T
+
+    return agebins
 
 # --------------------------------------
-# --- Transforms for Prospector-alpha non-parametric SFH (Leja et al. 2017) ---
+# --- Transforms for Dirichlet non-parametric SFH used in (Leja et al. 2017) ---
 # --------------------------------------
 
 def zfrac_to_sfrac(z_fraction=None, **extras):
