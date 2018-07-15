@@ -337,6 +337,89 @@ TemplateLibrary["burst_sfh"] = (_burst_,
                                 "added to a parameteric SFH, with the burst time "
                                 "controlled by `fage_burst`."))
 
+# -----------------------------------
+# --- Nonparametric-logmass SFH ----
+# -----------------------------------
+# Using a (perhaps dangerously) simple nonparametric model of mass in fixed time bins with a logarithmic prior.
+
+_nonpar_lm_ = TemplateLibrary["ssp"]
+
+_nonpar_lm_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+# This will be the mass in each bin.  It depends on other free and fixed
+# parameters.  Its length needs to be modified based on the number of bins
+_nonpar_lm_["mass"]       = {'N': 3, 'isfree': True, 'init': 1e6, 'units': r'M$_\odot$',
+                          'prior': priors.LogUniform(mini=1e5, maxi=1e12)}
+# This gives the start and stop of each age bin.  It can be adjusted and its
+# length must match the lenth of "mass"
+_nonpar_lm_["agebins"]    = {'N': 3, 'isfree': False,
+                          'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
+                          'units': 'log(yr)'}
+# This is the *total* stellar mass formed
+_nonpar_lm_["total_mass"] = {"N": 1, "isfree": False, "init": 1e10, "units": "Solar masses formed",
+                             "depends_on": transforms.total_mass}
+
+TemplateLibrary["nonpar_logm_sfh"] = (_nonpar_lm_,
+                                    "Non-parameteric SFH fitting for mass in fixed time bins")
+
+# ----------------------------
+# --- Continuity SFH ----
+# ----------------------------
+# A non-parametric SFH model of mass in fixed time bins with a smoothness prior
+
+_nonpar_continuity_ = TemplateLibrary["ssp"]
+
+_nonpar_continuity_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+# This is the *total*  mass formed, as a variable
+_nonpar_continuity_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
+                                  'prior': priors.TopHat(mini=7, maxi=12)}
+# This will be the mass in each bin.  It depends on other free and fixed
+# parameters.  Its length needs to be modified based on the number of bins
+_nonpar_continuity_["mass"]       = {'N': 3, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+                                     'depends_on': transforms.logsfr_ratios_to_masses}
+# This gives the start and stop of each age bin.  It can be adjusted and its
+# length must match the lenth of "mass"
+_nonpar_continuity_["agebins"]    = {'N': 3, 'isfree': False,
+                          'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
+                          'units': 'log(yr)'}
+# This controls the distribution of SFR(t) / SFR(t+dt). It has NBINS-1 components.
+_nonpar_continuity_["logsfr_ratios"] = {'N': 2, 'isfree': True, 'init': [0.0,0.0],
+                                       'prior':priors.StudentT(mean=np.full(2,0.0),
+                                                               scale=np.full(2,0.3),
+                                                               df=np.full(2,2))}
+TemplateLibrary["nonpar_continuity_sfh"] = (_nonpar_continuity_,
+                                            "Non-parameteric SFH fitting for mass in fixed time bins with a smoothness prior")
+
+# ----------------------------
+# --- Flexible Continuity SFH ----
+# ----------------------------
+# A non-parametric SFH model of mass in flexible time bins with a smoothness prior
+
+_nonpar_continuity_flex_ = TemplateLibrary["ssp"]
+
+_nonpar_continuity_flex_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+# This is the *total*  mass formed
+_nonpar_continuity_flex_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
+                                       'prior': priors.TopHat(mini=7, maxi=12)}
+# These variables control the ratio of SFRs in adjacent bins
+# there is one for a fixed "youngest" bin, one for the fixed "oldest" bin, and (N-1) for N flexible bins in between
+_nonpar_continuity_flex_["logsfr_ratio_young"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
+                                                  'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
+_nonpar_continuity_flex_["logsfr_ratio_old"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
+                                                  'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
+_nonpar_continuity_flex_["logsfr_ratios"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
+                                                  'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
+# This will be the mass in each bin.  It depends on other free and fixed
+# parameters.  Its length needs to be modified based on the number of bins
+_nonpar_continuity_flex_["mass"]       = {'N': 4, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+                                          'transform': transforms.logsfr_ratios_to_masses_flex}
+# This gives the start and stop of each age bin.  It can be adjusted and its
+# length must match the lenth of "mass"
+_nonpar_continuity_flex_["agebins"]    = {'N': 4, 'isfree': False,
+                                          'depends_on': transforms.logsfr_ratios_to_agebins,
+                                          'init': [[0.0, 7.5], [7.5, 8.5],[8.5,9.7], [9.7, 10.0]],
+                                          'units': 'log(yr)'}
+TemplateLibrary["nonpar_continuity_flex_sfh"] = (_nonpar_continuity_flex_,
+                                                 "Non-parameteric SFH fitting for mass in flexible time bins with a smoothness prior")
 # ----------------------------
 # --- Dirichlet SFH ----
 # ----------------------------
