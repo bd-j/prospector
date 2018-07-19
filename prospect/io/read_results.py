@@ -264,7 +264,7 @@ def get_model(res):
 
 
 def traceplot(results, showpars=None, start=0, chains=slice(None),
-              figsize=None, **plot_kwargs):
+              figsize=None, truths=None, **plot_kwargs):
     """Plot the evolution of each parameter value with iteration #, for each
     walker in the chain.
 
@@ -354,8 +354,13 @@ def traceplot(results, showpars=None, start=0, chains=slice(None),
         ax.plot(lnp[j, :], **plot_kwargs)
     ax.set_title('lnP', y=1.02)
 
+
     [ax.set_xlabel("iteration") for ax in axes[-1,:]]
     #[ax.set_xticklabels('') for ax in axes[:-1, :].flat]
+
+    if truths is not None:
+        for i, t in enumerate(truths[ind_show]):
+            axes.flat[i].axhline(t, color='k', linestyle=':')
 
     pl.tight_layout()
     
