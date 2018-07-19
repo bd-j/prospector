@@ -123,6 +123,7 @@ class Prior(object):
                 self.params[k] = kwargs[self.alias[k]]
             except(KeyError):
                 pass
+        # FIXME: Should add a check for unexpected kwargs.
 
     def __len__(self):
         """The length is set by the maximum size of any of the prior_params.
@@ -399,26 +400,81 @@ class LogNormal(Prior):
     """A log-normal prior, where the natural log of the variable is distributed
     normally.  Useful for parameters that cannot be less than zero.
 
+    Note that ``LogNormal(np.exp(mode) / f) == LogNormal(np.exp(mode) * f)``
+    and ``f = np.exp(sigma)`` corresponds to "one sigma" from the peak.
+
     :param mode:
-        Mode of the log-normal distribution, in linear units
+        Natural log of the variable value at which the probability density is
+        highest.
 
     :param sigma:
-        Standard deviation of the log-normal distribution, in logarithmic units
+        Standard deviation of the distribution of the natural log of the
+        variable.
     """
     prior_params = ['mode', 'sigma']
     distribution = scipy.stats.lognorm
 
     @property
     def args(self):
-        pass
+        return [self.params["sigma"]]
 
     @property
     def scale(self):
-        pass
+        return  np.exp(self.params["mode"] + self.params["sigma"]**2)
 
     @property
     def loc(self):
-        pass
+        return 0
+
+    @property
+    def range(self):
+        nsig = 4
+        return (np.exp(self.params['mode'] + (nsig * self.params['sigma'])),
+                np.exp(self.params['mode'] - (nsig * self.params['sigma'])))
+
+    def bounds(self, **kwargs):
+        return (0, np.inf)
+
+
+class LogNormalLinpar(Prior):
+    """A log-normal prior, where the natural log of the variable is distributed
+    normally.  Useful for parameters that cannot be less than zero.
+
+    LogNormal(mode=x, sigma=y) is equivalent to
+    LogNormalLinpar(mode=np.exp(x), sigma_factor=np.exp(y))
+
+    :param mode:
+        The (linear) value of the variable where the probability density is
+        highest. Must be > 0.
+
+    :param sigma_factor:
+        The (linear) factor describing the dispersion of the log of the
+        variable.  Must be > 0
+    """
+    prior_params = ['mode', 'sigma_factor']
+    distribution = scipy.stats.lognorm
+
+    @property
+    def args(self):
+        return [np.log(self.params["sigma_factor"])]
+
+    @property
+    def scale(self):
+        k = self.params["sigma_factor"]**np.log(self.params["sigma_factor"])
+        return  self.params["mode"] * k
+
+    @property
+    def loc(self):
+        return 0
+
+    @property
+    def range(self):
+        nsig = 4
+        return (self.params['mode'] * (nsig * self.params['sigma_factor']),
+                self.params['mode'] /  (nsig * self.params['sigma_factor']))
+
+    def bounds(self, **kwargs):
+        return (0, np.inf)
 
 class SkewNormal(Prior):
     """A normal distribution including a skew parameter
@@ -433,7 +489,6 @@ class SkewNormal(Prior):
     :param skew:
         Skewness of the distribution
     """
-
     prior_params = ['location', 'sigma', 'skew']
     distribution = scipy.stats.skewnorm
 
@@ -456,9 +511,8 @@ class SkewNormal(Prior):
                 self.params['location'] + nsig * self.params['sigma'])
 
     def bounds(self, **kwargs):
-        #if len(kwargs) > 0:
-        #    self.update(**kwargs)
         return (-np.inf, np.inf)
+
 
 class StudentT(Prior):
     """A Student's T distribution
@@ -472,7 +526,6 @@ class StudentT(Prior):
     :param df:
         Number of degrees of freedom
     """
-
     prior_params = ['mean', 'scale', 'df']
     distribution = scipy.stats.t
 
@@ -495,6 +548,4 @@ class StudentT(Prior):
                 self.params['location'] + nsig * self.params['scale'])
 
     def bounds(self, **kwargs):
-        #if len(kwargs) > 0:
-        #    self.update(**kwargs)
         return (-np.inf, np.inf)
