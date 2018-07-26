@@ -134,7 +134,7 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         sigma = resolution
 
     else:
-        raise ValueError, "smoothtype {} is not valid".format(smoothtype)
+        raise ValueError("smoothtype {} is not valid".format(smoothtype))
 
     # Mask the input spectrum depending on outwave or the wave_smooth kwargs
     mask = mask_wave(wave, width=width, outwave=outwave, linear=linear,
