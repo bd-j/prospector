@@ -7,7 +7,7 @@ and/or spectroscopic data.  Prospector allows you to:
   (with nested or ensemble MCMC sampling)
 
 * Use spectra and/or photometry to constrain the linear combination of stellar population
-  components that are present in a galaxy (e.g. non-parametric SFHs).
+  components that are present in a galaxy (i.e. non-parametric SFHs).
 
 * Combine photometric and spectroscopic data rigorously using a flexible
   spectroscopic calibration model.
@@ -18,6 +18,10 @@ and/or spectroscopic data.  Prospector allows you to:
   in these components in the final  parameter uncertainties.
 
 Read the documentation [here](http://prospect.readthedocs.io/en/latest/).
+
+Demonstration of inference with increasing number of photometric bands
+![Demonstration of inference with increasing number of photometric bands](doc/images/animation.gif)
+
 
 Installation
 ------
@@ -43,13 +47,15 @@ or the [deconstructed demo](demo/DeconstructedDemo.ipynb)
 for fitting photometric data with composite stellar populations.
 
 
+
+
 Citation
 ------
 If you use this code, please reference the doi below,
 and make sure to cite the dependencies as listed in [installation](doc/installation.rst)
 [![DOI](https://zenodo.org/badge/10490445.svg)](https://zenodo.org/badge/latestdoi/10490445)
 
-You might also cite:
+You should also cite:
 ```
 @article{2017ApJ...837..170L,
    author = {{Leja}, J. and {Johnson}, B.~D. and {Conroy}, C. and {van Dokkum}, P.~G. and {Byler}, N.},

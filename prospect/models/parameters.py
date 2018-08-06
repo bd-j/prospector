@@ -324,7 +324,7 @@ class ProspectorParams(object):
     def clip_to_bounds(self, thetas):
         """Clip a set of parameters theta to within the priors.
 
-        :param theta:
+        :param thetas:
             The parameter vector, ndarray of shape ``(ndim,)``.
 
         :returns thetas:
