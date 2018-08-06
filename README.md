@@ -19,8 +19,11 @@ and/or spectroscopic data.  Prospector allows you to:
 
 Read the documentation [here](http://prospect.readthedocs.io/en/latest/).
 
-Demonstration of inference with increasing number of photometric bands
-![Demonstration of inference with increasing number of photometric bands](doc/images/animation.gif)
+Example
+-------
+Inference with mock broadband data, showing the change in posteriors as the
+number of photometric bands is increased.
+![Demonstration of posteriro inference with increasing number of photometric bands](doc/images/animation.gif)
 
 
 Installation

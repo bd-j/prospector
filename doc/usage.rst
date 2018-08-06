@@ -13,7 +13,7 @@ Additional command line options can be given (see below).
 You can copy the ``prospector.py`` script to wherever you intend to run the code, or put it in your path.
 
 The parameter file
-------------
+-------------------------
 
 The parameter ile is a python file, and can have whatever name you wish.
 The required variables and functions in a **parameter file** are:
@@ -45,7 +45,7 @@ The required variables and functions in a **parameter file** are:
 
 
 The ``run_params`` dictionary
-----------------------------
+-----------------------------------------
 
 The following parameters conrol key aspects of the operation of the code,
 and are stored in a special dictionary called ``run_params``.

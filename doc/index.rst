@@ -4,11 +4,11 @@ Prospector
 properties from photometric and/or spectroscopic data using flexible models.
 Prospector allows you to:
 
-* Combine photometric and spectroscopic data rigorously using a flexible
-  spectroscopic calibration model.
-
 * Infer high-dimensional stellar population properties, including nebular
   emission, from rest UV through Far-IR data (with nested or ensemble MCMC sampling.)
+
+* Combine photometric and spectroscopic data rigorously using a flexible
+  spectroscopic calibration model.
 
 * Use spectra and/or photometry to constrain the linear combination of stellar
   population components that are present in a galaxy (e.g. non-parametric
@@ -19,7 +19,7 @@ Prospector allows you to:
   (coming soon), and wavelength solution, thus properly incorporating
   uncertainties in these components in the final parameter uncertainties.
 
-  
+
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
@@ -32,8 +32,9 @@ Prospector allows you to:
 
 .. toctree::
    :maxdepth: 1
-   :caption: Tutorials
+   :caption: Demos & Tutorials
 
+   demo
    tutorial
 
 .. toctree::
@@ -47,7 +48,7 @@ Prospector allows you to:
    api/utils_api
 
 License and Attribution
--------
+------------------------------
 
 *Copyright 2014-2018 Benjamin D. Johnson and contributors.*
 

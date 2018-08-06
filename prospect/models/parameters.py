@@ -34,7 +34,7 @@ class ProspectorParams(object):
 
     .. code-block:: python
 
-       model_dict = {"name": "mass", "N": 1, "isfree": False, "init": 1e10}
+       model_dict = {"mass": {"N": 1, "isfree": False, "init": 1e10}}
        model = ProspectorParams(model_dict, param_order=None)
 
     :param configuration:

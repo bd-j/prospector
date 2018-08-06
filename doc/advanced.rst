@@ -2,7 +2,7 @@ Advanced Usage
 ==============
 
 Parameter transfomations
-------------------------
+---------------------------------
 
 Problem: But I don't want to sample in ``dumb_parameter``!
 Solution: Transform to parameters that are easier to sample in.
@@ -31,7 +31,7 @@ It is important that any parameter with the ``"depends_on"`` key present is a fi
 For portability and easy reconstruction of the model it is important that the ``depends_on`` function be defined within the parameter file.
 
 User defined models
--------------------
+--------------------------
 
 Problem: The pre-packaged models suck! You can do better.
 Or, you have stars instead of stellar populations. Or spectra of the IGM or planets or AGN or something.
@@ -46,13 +46,13 @@ See any of the ``sources`` objects for the appropriate ``get_spectrum`` API.
 Note that ``sources.StarBasis`` and ``sources.BigStarBasis`` are fairly general objects for grid storage and interpolation, feel free to subclass them if you are using grids of SEDs that can be stored in HDF5 files.
 
 Multiple Spectra
----------------
+----------------------
 
 We are working on this.
 It will involve a new ThetaParameters subclass that can loop over ``obs['spectra']`` and apportion vectors of parameters correctly.
 
 Linear Algebra
---------------
+--------------------
 
 This code is slow! Get better math.
 
@@ -61,7 +61,7 @@ this code does lots of matrix inversions as part of the gaussian process.
 This is very computationally intensive, and massive gains can be made by using optimized linear algebra libraries.
 
 MPI
----
+------
 
 This code is slow! Get moar processors.
 
@@ -82,13 +82,13 @@ using same general pattern as in Prospector.  Run this with
 
 
 Noise Modeling
---------------
+-------------------
 
 This is handled by specifiying rules for constructing a covariance matrix, and supplying a ``load_gp()`` method in the parameter file.
 Flexibility in this is an active area of code development.
 
 Mock data
----------
+---------------
 
 Really this should not be advanced.
 Everyone should do mock data tests.

@@ -1,9 +1,9 @@
 Models
-=========
+======
 
 
 Parameter Specification
------------------------
+------------------------------
 
 All model parameters require a specification in the **parameter file**.
 For a single parameter the specification is a dictionary that must at minimum include several keys:
@@ -77,7 +77,7 @@ When specifying a prior using an object, you can and should specify the paramete
 
 
 Parameter Set Templates
------------
+--------------------------------
 
 A number of predefined sets of parameters (with priors) are available as
 dictionaries of model specifications from ``models.templates.TemplateLibrary``,

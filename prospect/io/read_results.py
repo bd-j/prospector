@@ -397,7 +397,7 @@ def subcorner(results, showpars=None, truths=None,
         array of walker indices will cause only those walkers to be used in
         generating the plot.  Useful for emoving stuck walkers.
 
-    :param **kwargs:
+    :param kwargs:
         Remaining keywords are passed to the ``corner`` plotting package.
 
     :param logify:

@@ -1,7 +1,7 @@
 Tutorial
 ============
 
-Here is a quick demo of how to get up and running with |Codename|.
+Here is a quick guide to get up and running with |Codename|.
 
 We assume you have installed |Codename| and all its dependencies as laid out in the docs.
 The next thing you need to do is make a temporary work directory, ``<workdir>``
@@ -86,7 +86,7 @@ Other parameters have their value set (to the value of the ``"init"`` key) but d
 They can be made to vary by setting ``"isfree": True`` and specifying a prior.
 Parameters not listed here will be set to their default values.
 For ``CSPSpecBasis`` this means the default values in the ``fsps.StellarPopulation()`` object,
-see `python-fsps (http://dan.iel.fm/python-fsps/current/)`_ for details
+see `python-fsps <http://dan.iel.fm/python-fsps/current/>`_ for details
 Once you get a set of parameters from the ``TemplateLibrary`` you can modify or add parameter specifications.
 
 Finally, the ``load_model()`` function takes the ``model_params`` dictionary or list that you build and
