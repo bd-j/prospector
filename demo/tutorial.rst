@@ -195,7 +195,7 @@ that can be done as follows
 		from prospect.utils.plotting import quantile
 		post_pcts = [quantile(flatchain[:, i], percents=[16, 50, 84],
 		                                    weights=res.get("weights", None))
-				      for i in range mod.ndim]
+				      for i in range(mod.ndim)]
 
 If necessary, one can regenerate models at any position in the posterior chain.
 This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the ``read_results.get_sps()`` method.

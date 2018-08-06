@@ -1,6 +1,11 @@
 prospect.utils
 =========
 
+prospect.utils.smoothing
+---------
+
+.. automodule:: prospect.utils.smoothing
+   :members: smoothspec
 
 prospect.utils.plotting
 ---------
@@ -8,8 +13,3 @@ prospect.utils.plotting
 .. automodule:: prospect.utils.plotting
    :members:
 
-prospect.utils.smoothing
----------
-
-.. automodule:: prospect.utils.smoothing
-   :members: write_hdf5, write_pickles
