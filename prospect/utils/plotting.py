@@ -34,7 +34,7 @@ def get_truths(res):
         return None
 
 
-def get_percentiles(res, ptile=[16, 50, 84], start=0.5, thin=10, **extras):
+def get_percentiles(res, ptile=[16, 50, 84], start=0.0, thin=1, **extras):
     """Get get percentiles of the marginalized posterior for each parameter.
 
     :param res:
@@ -54,14 +54,18 @@ def get_percentiles(res, ptile=[16, 50, 84], start=0.5, thin=10, **extras):
        Dictionary with keys giving the parameter names and values giving the
        requested percentiles for that parameter.
     """
-    nw, niter = res['chain'].shape[:-1]
+
     parnames = np.array(res.get('theta_labels', res['model'].theta_labels()))
+    niter = res['chain'].shape[-2]
     start_index = np.floor(start * (niter-1)).astype(int)
-    flatchain = res['chain'][:, start_index::thin, :]
-    dims = flatchain.shape
-    flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
-    pct = quantile(flatchain, ptile, weights=res.get("weights", None), axis=0)
-    return dict(zip(parnames, pct.T))
+    if res["chain"].ndim > 2:
+        flatchain = res['chain'][:, start_index::thin, :]
+        dims = flatchain.shape
+        flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
+    elif res["chain"].ndim == 2:
+        flatchain = res["chain"][start_index::thin, :]
+    pct = np.array([quantile(p, ptile, weights=res.get("weights", None)) for p in flatchain.T])
+    return dict(zip(parnames, pct))
 
 
 def quantile(data, percents, weights=None):
@@ -187,14 +191,17 @@ def hist_samples(res, showpars=None, start=0, thin=1,
     :param thin: (optional, default: 10.0)
        Only use every ``thin`` iteration when calculating percentiles.
     """
-    nw, niter = res['chain'].shape[:-1]
     parnames = np.array(res.get('theta_labels', res['model'].theta_labels()))
+    niter = res['chain'].shape[-2]
     start_index = np.floor(start * (niter-1)).astype(int)
-    flatchain = res['chain'][:, start_index::thin, :]
-    dims = flatchain.shape
-    flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
+    if res["chain"].ndim > 2:        
+        flatchain = res['chain'][:, start_index::thin, :]
+        dims = flatchain.shape
+        flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
+    elif res["chain"].ndim == 2:
+        flatchain = res["chain"][start_index::thin, :]
     if showpars is None:
-        ind_show = np.ones(len(parnames), dtype=bool)
+        ind_show = slice(None)
     else:
         ind_show = np.array([p in showpars for p in parnames], dtype= bool)
     flatchain = flatchain[:, ind_show]
