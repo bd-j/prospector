@@ -457,10 +457,27 @@ def subcorner(results, showpars=None, truths=None,
     return fig
 
 
+def compare_paramfile(res, filename):
+    """Compare the runtime parameter file text stored in the `res` dictionary
+    to the text of some existing file with fully qualified path `filename`.
+    """
+    from pprint import pprint
+    from difflib import unified_diff
+
+    a = res["paramfile_text"]
+    aa = a.split('\n')
+    with open(filename, "r") as f:
+        b = json.dumps(f.read())
+    bbl = json.loads(b)
+    bb = bbl.split('\n')
+    pprint([l for l in unified_diff(aa, bb)])
+
+
 def subtriangle(results, **kwargs):
     """Backwards compatability
     """
     return subcorner(results, **kwargs)
+
 
 # --- Deprecated code
 # All this because scipy changed the name of one class, which

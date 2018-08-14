@@ -128,12 +128,11 @@ def write_model_pickle(outname, model, bgh=None, powell=None, **kwargs):
 
 
 def paramfile_string(param_file=None, **extras):
-    pstr = ''
     try:
         with open(param_file, "r") as pfile:
             pstr = pfile.read()
     except:
-        pass
+        pstr = ''
     return pstr
 
 
