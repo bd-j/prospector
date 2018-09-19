@@ -22,6 +22,8 @@ clargs = model_setup.parse_args(sargv, argdict=argdict)
 # Result object and Globals
 # ----------
 result, global_obs, global_model = pr.results_from(clargs["restart_from"])
+is_emcee = (len(result["chain"].shape) == 3) & (result["chain"].shape[0] > 1)
+assert is_emcee, "Result file does not have a chain of the proper shape."
 
 # SPS Model instance (with libraries check)
 sps = pr.get_sps(result)
@@ -187,7 +189,7 @@ if __name__ == "__main__":
     initial_positions = result["chain"][:, -1, :]
     guesses = None
     initial_center = initial_positions.mean(axis=0)
-    
+
     # ---------------------
     # Sampling
     # -----------------------
