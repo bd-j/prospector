@@ -6,6 +6,7 @@ np.errstate(invalid='ignore')
 
 from prospect.models import model_setup
 from prospect.io import write_results
+from prospect.io import read_results as pr
 from prospect import fitting
 from prospect.likelihood import lnlike_spec, lnlike_phot, write_log, chi_spec, chi_phot
 
@@ -34,7 +35,7 @@ param_file = (result['run_params'].get('param_file', ''),
 path, filename = os.path.split(param_file[0])
 modname = filename.replace('.py', '')
 user_module = import_module_from_string(param_file[1], modname)
-spec_noise, phot_noise = user_model.load_gp(**run_params)
+spec_noise, phot_noise = user_module.load_gp(**run_params)
 
 # -----------------
 # LnP function as global
@@ -183,18 +184,20 @@ if __name__ == "__main__":
     # Initial guesses from end of last chain
     # -----------------------------------------
 
-    initial_positions = res["chain"][:, -1, :]
-
+    initial_positions = result["chain"][:, -1, :]
+    guesses = None
+    initial_center = initial_positions.mean(axis=0)
+    
     # ---------------------
     # Sampling
     # -----------------------
     if rp['verbose']:
         print('emcee sampling...')
     tstart = time.time()
-    out = fitting.restart_emcee_sampler(lnprobfn, initial_positions, model,
+    out = fitting.restart_emcee_sampler(lnprobfn, initial_positions,
                                         postkwargs=postkwargs,
                                         pool=pool, hdf5=hfile, **rp)
-    esampler, _, _ = out
+    esampler = out
     edur = time.time() - tstart
     if rp['verbose']:
         print('done emcee in {0}s'.format(edur))
@@ -205,12 +208,12 @@ if __name__ == "__main__":
     print("Writing to {}".format(outroot))
     if rp.get("output_pickles", False):
         write_results.write_pickles(rp, model, obsdat, esampler, guesses,
-                                    outroot=outroot, toptimize=pdur, tsample=edur,
+                                    outroot=outroot, toptimize=0, tsample=edur,
                                     sampling_initial_center=initial_center)
     if hfile is None:
         hfile = hfilename
     write_results.write_hdf5(hfile, rp, model, obsdat, esampler, guesses,
-                             toptimize=pdur, tsample=edur,
+                             toptimize=0, tsample=edur,
                              sampling_initial_center=initial_center)
     try:
         hfile.close()
