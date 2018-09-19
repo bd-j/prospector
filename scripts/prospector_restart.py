@@ -14,7 +14,7 @@ from prospect.likelihood import lnlike_spec, lnlike_phot, write_log, chi_spec, c
 # Read command line arguments
 # --------------
 sargv = sys.argv
-argdict = {'restart_from': ''}
+argdict = {'restart_from': '', 'niter': 1024}
 clargs = model_setup.parse_args(sargv, argdict=argdict)
 
 # ----------
@@ -25,6 +25,7 @@ result, global_obs, global_model = pr.results_from(clargs["restart_from"])
 # SPS Model instance (with libraries check)
 sps = pr.get_sps(result)
 run_params = result["run_params"]
+run_params.update(clargs)
 
 # Noise model (this should be doable via read_results)
 from prospect.models.model_setup import import_module_from_string
