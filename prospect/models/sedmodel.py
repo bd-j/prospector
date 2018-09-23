@@ -163,20 +163,20 @@ class PolySedModel(SedModel):
 
     def spec_calibration(self, theta=None, obs=None, **kwargs):
         """Implements a Chebyshev polynomial calibration model. This uses
-        least-squres to find the **optimal** Chebyshev polynomial of a certain
-        order describing the ratio of the observed spectrum to the model
-        spectrum, conditional on all other parameters, using least squares.
-        The first coefficient is always set to 1, as the overall normalization
-        is controlled by ``spec_norm``.
+        least-squares to find the maximum-likelihood Chebyshev polynomial of a
+        certain order describing the ratio of the observed spectrum to the
+        model spectrum, conditional on all other parameters, using least
+        squares.  The first coefficient is always set to 1, as the overall
+        normalization is controlled by ``spec_norm``.
 
         :returns cal:
            A polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M
-           'poly_coeffs'[m-1] T_n(x)).  Otherwise, the exponential of a
-           Chebyshev polynomial.
+           a_{m} * T_m(x)).
         """
         if theta is not None:
             self.set_parameters(theta)
 
+        norm = self.params.get('spec_norm', 1.0)
         polyopt = ((self.params.get('polyorder', 0) > 0) &
                    (obs.get('spectrum', None) is not None)) 
         if polyopt:
@@ -186,8 +186,8 @@ class PolySedModel(SedModel):
             # masked wavelengths may have x>1, x<-1
             x = obs['wavelength'] - (obs['wavelength'][mask]).min()
             x = 2.0 * (x / (x[mask]).max()) - 1.0
-            y = (obs['spectrum'] / self._spec)[mask] - 1.0
-            yerr = (obs['unc'] / self._spec)[mask]
+            y = (obs['spectrum'] / self._spec)[mask] / norm - 1.0
+            yerr = (obs['unc'] / self._spec)[mask] / norm
             yvar = yerr**2
             A = chebvander(x[mask], order)[:, 1:]
             ATA = np.dot(A.T, A / yvar[:, None])
@@ -198,10 +198,10 @@ class PolySedModel(SedModel):
             c = np.dot(ATAinv, np.dot(A.T, y / yvar))
             Afull = chebvander(x, order)[:, 1:]
             poly = np.dot(Afull, c)
-
-            return (1.0 + poly) * self.params.get('spec_norm', 1.0)
         else:
-            return 1.0
+            poly = 0.0
+
+        return (1.0 + poly) * norm
 
 
 def gauss(x, mu, A, sigma):
