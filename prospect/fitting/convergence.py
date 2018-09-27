@@ -93,8 +93,8 @@ def convergence_check(chain, convergence_check_interval=None, convergence_chunks
     # Calculate the K-L divergence in each chunk for each parameter
     kl = np.zeros(shape=(ncheck, npars))
     xiter = np.arange(ncheck) * convergence_check_interval + niter_check_start
-    for n in xrange(ncheck):
-        for i in xrange(npars):
+    for n in range(ncheck):
+        for i in range(npars):
 
             # Define chains and calculate pdf
             lo = (xiter[n] - 2*convergence_chunks)
