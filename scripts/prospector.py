@@ -34,8 +34,8 @@ sps = model_setup.load_sps(**run_params)
 # LnP function as global
 # ------------------
 
-def lnprobfn(theta, model=None, obs=None, residuals=False,
-             verbose=run_params['verbose']):
+def lnprobfn(theta, model=None, obs=None, noise=None, sps=sps,
+             residuals=False, verbose=run_params['verbose']):
     """Given a parameter vector and optionally a dictionary of observational
     ata and a model object, return the ln of the posterior. This requires that
     an sps object (and if using spectra and gaussian processes, a GP object) be
@@ -198,39 +198,32 @@ if __name__ == "__main__":
     if not np.isfinite(model.prior_product(model.initial_theta.copy())):
         halt("Halting: initial parameter position has zero prior probability.")
 
+    nmin = rp.get('nmin', 1)
+    if pool is not None:
+        nmin = max([nmin, pool.size])
+
     if bool(rp.get('do_powell', False)):
-        ts = time.time()
+        from prospect.fitting.fitting import run_minimize
         powell_opt = {'ftol': rp['ftol'], 'xtol': 1e-6, 'maxfev': rp['maxfev']}
-        guesses, pinit = fitting.pminimize(chisqfn, initial_theta,
-                                           args=chi2args, model=model,
-                                           method='powell', opts=powell_opt,
-                                           pool=pool, nthreads=rp.get('nthreads', 1))
-        best = np.argmin([p.fun for p in guesses])
+        guesses, pdur, best = run_minimize(obsdat, model, sps, noise=None, lnprobfn=lnprobfn,
+                                           min_method='powell', min_opts={"options": powell_opt},
+                                           nmin=nmin, pool=pool)
         initial_center = fitting.reinitialize(guesses[best].x, model,
                                               edge_trunc=rp.get('edge_trunc', 0.1))
         initial_prob = -guesses[best]['fun']
-        pdur = time.time() - ts
         if rp['verbose']:
             print('done Powell in {0}s'.format(pdur))
             print('best Powell guess:{0}'.format(initial_center))
 
     elif bool(rp.get('do_levenberg', False)):
-        from scipy.optimize import least_squares
-        nmin = rp.get('nmin', 10)
-        ts = time.time()
-        pinitial = fitting.minimizer_ball(model.initial_theta.copy(), nmin, model)
-        guesses = []
-        for i, pinit in enumerate(pinitial):
-            res = least_squares(chivecfn, pinit, method='lm', x_scale='jac',
-                                xtol=1e-18, ftol=1e-18)
-            guesses.append(res)
-
-        chisq = [np.sum(r.fun**2) for r in guesses]
-        best = np.argmin(chisq)
+        from prospect.fitting.fitting import run_minimize
+        lm_opt = {"xtol": 5e-16, "ftol": 5e-16}
+        guesses, pdur, best = run_minimize(obsdat, model, sps, noise=None, lnprobfn=lnprobfn,
+                                           min_method='lm', min_opts=lm_opt,
+                                           nmin=nmin, pool=pool)        
         initial_center = fitting.reinitialize(guesses[best].x, model,
                                               edge_trunc=rp.get('edge_trunc', 0.1))
         initial_prob = None
-        pdur = time.time() - ts
         if rp['verbose']:
             print('done L-M in {0}s'.format(pdur))
             print('best L-M guess:{0}'.format(initial_center))

@@ -27,7 +27,7 @@ run_params = {'verbose':True,
               # Optimization parameters
               'do_powell': False,
               'ftol':0.5e-5, 'maxfev':5000,
-              'do_levenburg': True,
+              'do_levenberg': True,
               'nmin': 10,
               # emcee Fitter parameters
               'nwalkers':64,

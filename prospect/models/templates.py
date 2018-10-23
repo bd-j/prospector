@@ -10,7 +10,8 @@ from . import transforms
 
 __all__ = ["TemplateLibrary",
            "describe",
-           "adjust_nonpar_bins",
+           "adjust_dirichlet_agebins",
+           "adjust_continuity_agebins",
            ]
 
 
@@ -57,7 +58,7 @@ def describe(parset):
     return ttext + "\n\n" + ftext
 
 
-def adjust_nonpar_bins(parset, agelims=[0., 8., 9., 10.]):
+def adjust_dirichlet_agebins(parset, agelims=[0., 8., 9., 10.]):
     """Given a list of limits in age for bins, adjust the parameter
     specifications to work for those limits.
 
@@ -84,6 +85,41 @@ def adjust_nonpar_bins(parset, agelims=[0., 8., 9., 10.]):
     parset['z_fraction']['N'] = len(zinit)
     parset['z_fraction']['init'] = zinit
     parset['z_fraction']['prior'] = zprior
+
+    return parset
+
+
+def adjust_continuity_agebins(parset, tuniv=13.7, nbins=7):
+    """defines agebins
+    the first two agebins are hard-coded to be 0-30 Myr, 30-100 Myr
+    the final agebin is hard-coded to cover 0.85*t_univ-t_univ
+    the rest split logarithmic time evenly
+
+    inputs:
+        tuniv is the age of the Universe in Gyr
+        nbins is the number of SFH bins
+    """
+
+    if nbins < 4:
+        raise ValueError('Must have nbins >= 4, returning')
+
+    tbinmax = (tuniv * 0.85) * 1e9
+    lim1, lim2 = 7.4772, 8.0
+    agelims = [0,lim1] + np.linspace(lim2,np.log10(tbinmax),nbins-2).tolist() + [np.log10(tuniv*1e9)]
+    agebins = np.array([agelims[:-1], agelims[1:]])
+
+    ncomp = nbins
+    mean = np.zeros(ncomp-1)
+    scale = np.ones_like(mean) * 0.3
+    df = np.ones_like(mean) * 2
+    rprior = priors.StudentT(mean=mean, scale=scale, df=df)
+
+    parset['mass']['N'] = ncomp
+    parset['agebins']['N'] = ncomp
+    parset['agebins']['init'] = agebins.T
+    parset["logsfr_ratios"]["N"] = ncomp - 1
+    parset["logsfr_ratios"]["init"] = mean
+    parset["logsfr_ratios"]["prior"] = rprior
 
     return parset
 
@@ -313,7 +349,7 @@ TemplateLibrary["fit_speccal"] = (_polyfit_,
                                    "the coefficients of a polynomial calibration vector."))
 
 # ----------------------------
-# --- SF Bursts ---
+# --- Additional SF Bursts ---
 # ---------------------------
 
 fage_burst = {'N': 1, 'isfree': False,
@@ -358,8 +394,8 @@ _nonpar_lm_["agebins"]    = {'N': 3, 'isfree': False,
 _nonpar_lm_["total_mass"] = {"N": 1, "isfree": False, "init": 1e10, "units": "Solar masses formed",
                              "depends_on": transforms.total_mass}
 
-TemplateLibrary["nonpar_logm_sfh"] = (_nonpar_lm_,
-                                    "Non-parameteric SFH fitting for mass in fixed time bins")
+TemplateLibrary["logm_sfh"] = (_nonpar_lm_,
+                               "Non-parameteric SFH fitting for log-mass in fixed time bins")
 
 # ----------------------------
 # --- Continuity SFH ----
@@ -370,8 +406,8 @@ _nonpar_continuity_ = TemplateLibrary["ssp"]
 
 _nonpar_continuity_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
 # This is the *total*  mass formed, as a variable
-_nonpar_continuity_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
-                                  'prior': priors.TopHat(mini=7, maxi=12)}
+_nonpar_continuity_["logmass"]    = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
+                                     'prior': priors.TopHat(mini=7, maxi=12)}
 # This will be the mass in each bin.  It depends on other free and fixed
 # parameters.  Its length needs to be modified based on the number of bins
 _nonpar_continuity_["mass"]       = {'N': 3, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
@@ -379,15 +415,15 @@ _nonpar_continuity_["mass"]       = {'N': 3, 'isfree': False, 'init': 1e6, 'unit
 # This gives the start and stop of each age bin.  It can be adjusted and its
 # length must match the lenth of "mass"
 _nonpar_continuity_["agebins"]    = {'N': 3, 'isfree': False,
-                          'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
-                          'units': 'log(yr)'}
+                                     'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
+                                     'units': 'log(yr)'}
 # This controls the distribution of SFR(t) / SFR(t+dt). It has NBINS-1 components.
 _nonpar_continuity_["logsfr_ratios"] = {'N': 2, 'isfree': True, 'init': [0.0,0.0],
-                                       'prior':priors.StudentT(mean=np.full(2,0.0),
-                                                               scale=np.full(2,0.3),
-                                                               df=np.full(2,2))}
-TemplateLibrary["nonpar_continuity_sfh"] = (_nonpar_continuity_,
-                                            "Non-parameteric SFH fitting for mass in fixed time bins with a smoothness prior")
+                                        'prior':priors.StudentT(mean=np.full(2,0.0),
+                                                                scale=np.full(2,0.3),
+                                                                df=np.full(2,2))}
+TemplateLibrary["continuity_sfh"] = (_nonpar_continuity_,
+                                     "Non-parameteric SFH fitting for mass in fixed time bins with a smoothness prior")
 
 # ----------------------------
 # --- Flexible Continuity SFH ----
@@ -418,35 +454,34 @@ _nonpar_continuity_flex_["agebins"]    = {'N': 4, 'isfree': False,
                                           'depends_on': transforms.logsfr_ratios_to_agebins,
                                           'init': [[0.0, 7.5], [7.5, 8.5],[8.5,9.7], [9.7, 10.0]],
                                           'units': 'log(yr)'}
-TemplateLibrary["nonpar_continuity_flex_sfh"] = (_nonpar_continuity_flex_,
-                                                 "Non-parameteric SFH fitting for mass in flexible time bins with a smoothness prior")
+TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
+                                          "Non-parameteric SFH fitting for mass in flexible time bins with a smoothness prior")
 # ----------------------------
 # --- Dirichlet SFH ----
 # ----------------------------
 # Using the dirichlet prior on SFR fractions in bins of constant SF.
 
-_nonpar_ = TemplateLibrary["ssp"]
+_dirichlet_ = TemplateLibrary["ssp"]
 
-_nonpar_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+_dirichlet_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
 # This will be the mass in each bin.  It depends on other free and fixed
 # parameters.  It's length needs to be modified based on the number of bins
-_nonpar_["mass"]       = {'N': 3, 'isfree': False, 'init': 1., 'units': r'M$_\odot$',
+_dirichlet_["mass"]       = {'N': 3, 'isfree': False, 'init': 1., 'units': r'M$_\odot$',
                           'depends_on': transforms.zfrac_to_masses}
 # This gives the start and stop of each age bin.  It can be adjusted and its
 # length must match the lenth of "mass"
-_nonpar_["agebins"]    = {'N': 3, 'isfree': False,
+_dirichlet_["agebins"]    = {'N': 3, 'isfree': False,
                           'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
                           'units': 'log(yr)'}
 # Auxiliary variable used for sampling sfr_fractions from dirichlet. This
 # *must* be adjusted depending on the number of bins
-_nonpar_["z_fraction"] = {"N": 2, 'isfree': True, 'init': [0, 0], 'units': None,
+_dirichlet_["z_fraction"] = {"N": 2, 'isfree': True, 'init': [0, 0], 'units': None,
                           'prior': priors.Beta(alpha=1.0, beta=1.0, mini=0.0, maxi=1.0)}
 # This is the *total* stellar mass formed
-_nonpar_["total_mass"] = mass
+_dirichlet_["total_mass"] = mass
 
-TemplateLibrary["dirichlet_sfh"] = (_nonpar_,
-                                    "Non-parameteric SFH with Dirichlet prior")
-
+TemplateLibrary["dirichlet_sfh"] = (_dirichlet_,
+                                    "Non-parameteric SFH with Dirichlet prior (fractional SFR)")
 
 # ----------------------------
 # --- Prospector-alpha ---
@@ -475,7 +510,7 @@ _alpha_["dust_index"] = {"N": 1, "isfree": True,
                          "prior": priors.TopHat(mini=-2.0, maxi=0.5)}
 # in Gyr
 alpha_agelims = np.array([1e-9, 0.1, 0.3, 1.0, 3.0, 6.0, 13.6])
-_alpha_ = adjust_nonpar_bins(_alpha_, agelims=(np.log10(alpha_agelims) + 9))
+_alpha_ = adjust_dirichlet_agebins(_alpha_, agelims=(np.log10(alpha_agelims) + 9))
 
 TemplateLibrary["alpha"] = (_alpha_,
                             "The prospector-alpha model, Leja et al. 2017")

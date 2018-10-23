@@ -101,7 +101,7 @@ def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
 def zred_to_agebins(zred=0.0, agebins=[], **extras):
     """Set the nonparameteric SFH age bins depending on the age of the universe
     at ``zred``. The first bin is not altered and the last bin is always 15% of
-    the upper edge of the oldest bin, but the intervenening bins are evenly
+    the upper edge of the oldest bin, but the intervening bins are evenly
     spaced in log(age).
 
     :param zred:
@@ -141,29 +141,30 @@ def dustratio_to_dust1(dust2=0.0, dust_ratio=0.0, **extras):
 # --------------------------------------
 
 def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None, **extras):
-    logsfr_ratios = np.clip(logsfr_ratios,-100,100) # numerical issues...
     nbins = agebins.shape[0]
-    sratios = 10**logsfr_ratios
-    dt = (10**agebins[:,1]-10**agebins[:,0])
-    coeffs = np.array([ (1./np.prod(sratios[:i])) * (np.prod(dt[1:i+1]) / np.prod(dt[:i])) for i in range(nbins)])
+    sratios = 10**np.clip(logsfr_ratios, -100, 100) # numerical issues...
+    dt = (10**agebins[:, 1] - 10**agebins[:, 0])
+    coeffs = np.array([ (1. / np.prod(sratios[:i])) * (np.prod(dt[1: i+1]) / np.prod(dt[: i]))
+                        for i in range(nbins)])
     m1 = (10**logmass) / coeffs.sum()
 
     return m1 * coeffs
 
-def logsfr_ratios_to_masses_flex(logmass=None, logsfr_ratio_young=None, logsfr_ratio_old=None, agebins=None, **extras):
-    logsfr_ratio_young = np.clip(logsfr_ratio_young,-100,100)
-    logsfr_ratio_old = np.clip(logsfr_ratio_old,-100,100)
+def logsfr_ratios_to_masses_flex(logmass=None, agebins=None,
+                                 logsfr_ratio_young=None, logsfr_ratio_old=None,  **extras):
+    logsfr_ratio_young = np.clip(logsfr_ratio_young, -100, 100)
+    logsfr_ratio_old = np.clip(logsfr_ratio_old, -100, 100)
 
-    nbins = agebins.shape[0]-2
+    nbins = agebins.shape[0] - 2
     syoung, sold = 10**logsfr_ratio_young, 10**logsfr_ratio_old
-    dtyoung, dt1 = (10**agebins[:2,1]-10**agebins[:2,0])
-    dtn, dtold = (10**agebins[-2:,1]-10**agebins[-2:,0])
+    dtyoung, dt1 = (10**agebins[:2, 1] - 10**agebins[:2, 0])
+    dtn, dtold = (10**agebins[-2:, 1] - 10**agebins[-2:, 0])
     mbin = (10**logmass) / (syoung*dtyoung/dt1 + sold*dtold/dtn + nbins)
-    myoung = syoung*mbin*dtyoung/dt1
-    mold = sold*mbin*dtold/dtn
+    myoung = syoung * mbin * dtyoung / dt1
+    mold = sold * mbin * dtold/dtn
     n_masses = np.full(nbins, mbin)
 
-    return np.array(myoung.tolist()+n_masses.tolist()+mold.tolist())
+    return np.array(myoung.tolist() + n_masses.tolist() + mold.tolist())
 
 def logsfr_ratios_to_agebins(logsfr_ratios=None, **extras):
     """this transforms from SFR ratios to agebins
@@ -176,12 +177,12 @@ def logsfr_ratios_to_agebins(logsfr_ratios=None, **extras):
     """
 
     # numerical stability
-    logsfr_ratios = np.clip(logsfr_ratios,-100,100)
+    logsfr_ratios = np.clip(logsfr_ratios, -100, 100)
 
     # calculate delta(t) for oldest, youngest bins (fixed)
-    lower_time = (10**agebins[0,1]-10**agebins[0,0])
-    upper_time = (10**agebins[-1,1]-10**agebins[-1,0])
-    tflex = (10**agebins[-1,-1]-upper_time-lower_time)
+    lower_time = (10**agebins[0, 1] - 10**agebins[0, 0])
+    upper_time = (10**agebins[-1, 1] - 10**agebins[-1, 0])
+    tflex = (10**agebins[-1,-1] - upper_time - lower_time)
 
     # figure out other bin sizes
     n_ratio = logsfr_ratios.shape[0]
@@ -190,7 +191,8 @@ def logsfr_ratios_to_agebins(logsfr_ratios=None, **extras):
 
     # translate into agelims vector (time bin edges)
     agelims = [1, lower_time, dt1+lower_time]
-    for i in range(n_ratio): agelims += [dt1*np.prod(sfr_ratios[:(i+1)]) + agelims[-1]]
+    for i in range(n_ratio):
+        agelims += [dt1*np.prod(sfr_ratios[:(i+1)]) + agelims[-1]]
     agelims += [tuniv[0]]
     agebins = np.log10([agelims[:-1], agelims[1:]]).T
 
@@ -217,6 +219,7 @@ def zfrac_to_sfrac(z_fraction=None, **extras):
     for i in range(1, len(z_fraction)):
         sfr_fraction[i] = np.prod(z_fraction[:i]) * (1.0 - z_fraction[i])
     sfr_fraction[-1] = 1 - np.sum(sfr_fraction[:-1])
+
 
     return sfr_fraction
 
@@ -252,6 +255,27 @@ def zfrac_to_masses(total_mass=None, z_fraction=None, agebins=None, **extras):
     masses = total_mass * mass_fraction
     return masses
 
+    # -- version of above for arrays of fractions --
+    #zf = np.atleast_2d(z_fraction)
+    #shape = list(zf.shape)
+    #shape[-1] += 1
+    #sfr_fraction = np.zeros(shape)
+    #sfr_fraction[..., 0] = 1.0 - z_fraction[..., 0]
+    #for i in range(1, shape[-1]-1):
+    #   sfr_fraction[..., i] = (np.prod(z_fraction[..., :i], axis=-1) *
+    #                            (1.0 - z_fraction[...,i]))
+    #sfr_fraction[..., -1] = 1 - np.sum(sfr_fraction[..., :-1], axis=-1)
+    #sfr_fraction = np.squeeze(sfr_fraction)
+    #
+    # convert to mass fractions
+    #time_per_bin = np.diff(10**agebins, axis=-1)[:,0]
+    #sfr_fraction *= np.array(time_per_bin)
+    #mtot = np.atleast_1d(sfr_fraction.sum(axis=-1))
+    #mass_fraction = sfr_fraction / mtot[:, None]
+    #
+    #masses = np.atleast_2d(total_mass) * mass_fraction.T
+    #return masses.T
+
 
 def zfrac_to_sfr(total_mass=None, z_fraction=None, agebins=None, **extras):
     """This transforms from independent dimensionless `z` variables to SFRs.
@@ -259,19 +283,8 @@ def zfrac_to_sfr(total_mass=None, z_fraction=None, agebins=None, **extras):
     :returns sfrs:
         The SFR in each age bin (msun/yr).
     """
-    # sfr fractions
-    sfr_fraction = np.zeros(len(z_fraction) + 1)
-    sfr_fraction[0] = 1.0 - z_fraction[0]
-    for i in range(1, len(z_fraction)):
-        sfr_fraction[i] = np.prod(z_fraction[:i]) * (1.0 - z_fraction[i])
-    sfr_fraction[-1] = 1 - np.sum(sfr_fraction[:-1])
-
-    # convert to mass fractions
-    time_per_bin = np.diff(10**agebins, axis=-1)[:, 0]
-    mass_fraction = sfr_fraction * np.array(time_per_bin)
-    mass_fraction /= mass_fraction.sum()
-
-    masses = total_mass * mass_fraction
+    time_per_bin = np.diff(10**agebins, axis=-1)[:,0]
+    masses = zfrac_to_masses(total_mass, z_fraction, agebins)
     return masses / time_per_bin
 
 
