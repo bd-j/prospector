@@ -11,20 +11,23 @@ except(ImportError):
 from ..models.priors import plotting_range
 from .convergence import convergence_check
 
-__all__ = ["run_emcee_sampler", "reinitialize_ball", "sampler_ball",
+__all__ = ["run_emcee_sampler", "restart_emcee_sampler",
+           "reinitialize_ball", "sampler_ball",
            "emcee_burn"]
 
 
-def run_emcee_sampler(lnprobfn, initial_center, model, verbose=True,
-                      postargs=[], postkwargs={}, prob0=None,
+def run_emcee_sampler(lnprobfn, initial_center, model,
+                      verbose=True, postargs=[], postkwargs={},
                       nwalkers=None, nburn=[16], niter=32,
-                      walker_factor=4, storechain=True,
+                      walker_factor=4, prob0=None, storechain=True,
                       pool=None, hdf5=None, interval=1,
-                      convergence_check_interval=None, convergence_chunks=325,
-                      convergence_stable_points_criteria=3,
+                      convergence_check_interval=None,
                       **kwargs):
     """Run an emcee sampler, including iterations of burn-in and re -
     initialization.  Returns the production sampler.
+
+    Parameters
+    -----------
 
     :param lnprobfn:
         The posterior probability function.
@@ -35,6 +38,8 @@ def run_emcee_sampler(lnprobfn, initial_center, model, verbose=True,
     :param model:
         An instance of a models.ProspectorParams object.
 
+    Optional Parameters
+    -------------
     :param postargs:
         Positional arguments for ``lnprobfn``.
 
@@ -73,7 +78,10 @@ def run_emcee_sampler(lnprobfn, initial_center, model, verbose=True,
 
     :param convergence_check_interval:
         How often to assess convergence, in number of iterations. If this is
-        set, then the KL convergence test is run.
+        not `None`, then the KL convergence test is run.
+
+    Extra Parameters
+    ----------
 
     :param convergence_chunks:
         The number of iterations to combine when creating the marginalized
@@ -90,102 +98,185 @@ def run_emcee_sampler(lnprobfn, initial_center, model, verbose=True,
     if verbose:
         print('number of walkers={}'.format(nwalkers))
 
-    # Initialize sampler
-    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn,
+    # Initialize  + burn-in sampler
+    bsampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn,
                                      args=postargs, kwargs=postkwargs,
                                      pool=pool)
-    # Burn in sampler
-    initial, in_cent, in_prob = emcee_burn(esampler, initial_center, nburn, model,
-                                           prob0=prob0, verbose=verbose, **kwargs)
+    initial, in_cent, in_prob = emcee_burn(bsampler, initial_center, nburn, model,
+                                           verbose=verbose, prob0=prob0, **kwargs)
+
+    # Production run.
+    # The esampler returned by this method is different instance from the one
+    # used for burn-in
+    esampler = restart_emcee_sampler(lnprobfn, initial, niter=niter, verbose=verbose,
+                                     postargs=postargs, postkwargs=postkwargs,
+                                     pool=pool, hdf5=hdf5, interval=interval,
+                                     convergence_check_interval=convergence_check_interval,
+                                     storechain=storechain, **kwargs)
+
+    return esampler, in_cent, in_prob
+
+
+def restart_emcee_sampler(lnprobfn, initial, niter=32,
+                          verbose=True, postargs=[], postkwargs={},
+                          storechain=True, pool=None, hdf5=None, interval=1,
+                          convergence_check_interval=None,
+                          **kwargs):
+    """Run a sampler from from a specified set of walker positions and run it
+    for a specified number of iterations.
+    """
+
+    # Get dimensions
+    nwalkers, ndim = initial.shape
+    if verbose:
+        print('number of walkers={}'.format(nwalkers))
+
+    # Initialize sampler
+    esampler = emcee.EnsembleSampler(nwalkers, ndim, lnprobfn, pool=pool,
+                                     args=postargs, kwargs=postkwargs)
+
+    # Run
+    if verbose:
+        print('starting production')
+    if convergence_check_interval is None:
+        esampler = emcee_production(esampler, initial, niter, pool=pool,
+                                    hdf5=hdf5, interval=interval, storechain=storechain)
+    else:
+        cnvrg_production = emcee_production_convergence
+        esampler = cnvrg_production(esampler, initial, niter, pool=pool, verbose=verbose,
+                                    hdf5=hdf5, interval=interval, storechain=storechain,
+                                    convergence_check_interval=convergence_check_interval,
+                                    **kwargs)
+
+    if verbose:
+        print('done production')
+
+    return esampler
+
+
+def emcee_production(esampler, initial, niter, pool=None,
+                     hdf5=None, interval=None, storechain=True,
+                     **extras):
+    """
+    """
     # Production run
     esampler.reset()
+    # Do some emcee version specific choices
+    if EMCEE_VERSION == '3':
+        ndim = esampler.ndim
+        nwalkers = esampler.nwalkers
+        mc_args = {"store": storechain,
+                   "iterations": niter}
+    else:
+        ndim = esampler.dim
+        nwalkers = esampler.k
+        mc_args = {"storechain": storechain,
+                   "iterations": niter}
 
     if hdf5 is not None:
         # Set up hdf5 backend
         sdat = hdf5.create_group('sampling')
-        if convergence_check_interval is None:
-            # static dataset
-            chain  = sdat.create_dataset("chain", (nwalkers, niter, ndim))
-            lnpout = sdat.create_dataset("lnprobability", (nwalkers, niter))
-        else:
-            # dynamic dataset
-            conv_int = convergence_check_interval
-            conv_crit = convergence_stable_points_criteria
-            nfirstcheck = (2 * convergence_chunks +  conv_int * (conv_crit - 1))
-
-            chain   = sdat.create_dataset('chain',
-                                          (nwalkers, nfirstcheck, ndim),
-                                          maxshape=(nwalkers, None, ndim))
-            lnpout  = sdat.create_dataset('lnprobability',
-                                          (nwalkers, nfirstcheck),
-                                          maxshape=(nwalkers, None))
-            kl      = sdat.create_dataset('kl_divergence',
-                                          (conv_crit, ndim),
-                                          maxshape=(None, ndim))
-            kl_iter = sdat.create_dataset('kl_iteration',
-                                          (conv_crit,),
-                                          maxshape=(None,))
+        # static dataset
+        chain  = sdat.create_dataset("chain", (nwalkers, niter, ndim))
+        lnpout = sdat.create_dataset("lnprobability", (nwalkers, niter))
     else:
         storechain = True
 
-    # Do some emcee version specific choices
-    if EMCEE_VERSION == '3':
-        mc_args = {"store": storechain,
-                   "iterations": niter}
-    else:
-        mc_args = {"storechain": storechain,
-                   "iterations": niter}
-
-    # Main loop over iterations of the MCMC sampler
-    if verbose:
-        print('starting production')
     for i, result in enumerate(esampler.sample(initial, **mc_args)):
         if hdf5 is not None:
             chain[:, i, :] = result[0]
             lnpout[:, i] = result[1]
-            do_convergence_check = ((convergence_check_interval is not None) and
-                                    (i+1 >= nfirstcheck) and
-                                    ((i+1 - nfirstcheck) % convergence_check_interval == 0))
-            if do_convergence_check:
-                if verbose:
-                    print('checking convergence after iteration {0}').format(i+1)
-                converged, info = convergence_check(chain,
-                                                    convergence_check_interval=conv_int,
-                                                    convergence_stable_points_criteria=conv_crit,
-                                                    convergence_chunks=convergence_chunks, **kwargs)
-                kl[:, :] = info['kl_test']
-                kl_iter[:] = info['iteration']
-                hdf5.flush()
-
-                if converged:
-                    if verbose:
-                        print('converged, ending emcee.')
-                    break
-                else:
-                    if verbose:
-                        print('not converged, continuing.')
-                    if (i+1 > (niter-convergence_check_interval)):
-                        # if we're going to exit soon, do something fancy
-                        ngrow = niter - (i + 1)
-                        chain.resize(chain.shape[1]+ngrow, axis=1)
-                        lnpout.resize(lnpout.shape[1]+ngrow, axis=1)
-                    else:
-                        # else extend by convergence_check_interval
-                        chain.resize(chain.shape[1] + convergence_check_interval, axis=1)
-                        lnpout.resize(lnpout.shape[1] + convergence_check_interval, axis=1)
-                        kl.resize(kl.shape[0] + 1, axis=0)
-                        kl_iter.resize(kl_iter.shape[0] + 1, axis=0)
-
             if (np.mod(i+1, int(interval*niter)) == 0) or (i+1 == niter):
                 # do stuff every once in awhile
                 # this would be the place to put some callback functions
                 # e.g. [do(result, i, esampler) for do in things_to_do]
                 # like, should probably store the random state too.
                 hdf5.flush()
-    if verbose:
-        print('done production')
+    return esampler
 
-    return esampler, in_cent, in_prob
+
+def emcee_production_convergence(esampler, initial, niter, pool=None,
+                                 verbose=True, hdf5=None, interval=None,
+                                 convergence_check_interval=None,
+                                 convergence_chunks=325,
+                                 convergence_stable_points_criteria=3,
+                                 **kwargs):
+    """
+    """
+    if hdf5 is None:
+        print("Online convergence checking requires HDF5 backend")
+
+    esampler.reset()
+    # Do some emcee version specific choices
+    if EMCEE_VERSION == '3':
+        ndim = esampler.ndim
+        nwalkers = esampler.nwalkers
+        mc_args = {"store": storechain,
+                   "iterations": niter}
+    else:
+        ndim = esampler.dim
+        nwalkers = esampler.k
+        mc_args = {"storechain": storechain,
+                   "iterations": niter}
+
+    # Set up hdf5 backend
+    sdat = hdf5.create_group('sampling')
+    # dynamic dataset
+    conv_int = convergence_check_interval
+    conv_crit = convergence_stable_points_criteria
+    nfirstcheck = (2 * convergence_chunks + conv_int * (conv_crit - 1))
+    chain   = sdat.create_dataset('chain', (nwalkers, nfirstcheck, ndim),
+                                  maxshape=(nwalkers, None, ndim))
+    lnpout  = sdat.create_dataset('lnprobability', (nwalkers, nfirstcheck),
+                                  maxshape=(nwalkers, None))
+    kl      = sdat.create_dataset('kl_divergence', (conv_crit, ndim),
+                                  maxshape=(None, ndim))
+    kl_iter = sdat.create_dataset('kl_iteration', (conv_crit,),
+                                  maxshape=(None,))
+
+    # Main loop over iterations of the MCMC sampler
+    for i, result in enumerate(esampler.sample(initial, **mc_args)):
+        chain[:, i, :] = result[0]
+        lnpout[:, i] = result[1]
+        do_convergence_check = ((convergence_check_interval is not None) and
+                                (i+1 >= nfirstcheck) and
+                                ((i+1 - nfirstcheck) % convergence_check_interval == 0))
+        if do_convergence_check:
+            if verbose:
+                print('checking convergence after iteration {0}').format(i+1)
+            converged, info = convergence_check(chain,
+                                                convergence_check_interval=conv_int,
+                                                convergence_stable_points_criteria=conv_crit,
+                                                convergence_chunks=convergence_chunks, **kwargs)
+            kl[:, :] = info['kl_test']
+            kl_iter[:] = info['iteration']
+            hdf5.flush()
+
+            if converged:
+                if verbose:
+                    print('converged, ending emcee.')
+                break
+            else:
+                if verbose:
+                    print('not converged, continuing.')
+                if (i+1 > (niter-convergence_check_interval)):
+                    # if we're going to exit soon, do something fancy
+                    ngrow = niter - (i + 1)
+                    chain.resize(chain.shape[1] + ngrow, axis=1)
+                    lnpout.resize(lnpout.shape[1] + ngrow, axis=1)
+                else:
+                    # else extend by convergence_check_interval
+                    chain.resize(chain.shape[1] + convergence_check_interval, axis=1)
+                    lnpout.resize(lnpout.shape[1] + convergence_check_interval, axis=1)
+                    kl.resize(kl.shape[0] + 1, axis=0)
+                    kl_iter.resize(kl_iter.shape[0] + 1, axis=0)
+
+        if (np.mod(i+1, int(interval*niter)) == 0) or (i+1 == niter):
+            # do stuff every once in awhile
+            # stuff
+            hdf5.flush()
+
+    return esampler
 
 
 def emcee_burn(sampler, initial_center, nburn, model=None, prob0=None,
