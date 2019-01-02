@@ -210,13 +210,12 @@ Now we will choose a specific parameter value from the chain and plot what the o
 .. code-block:: python
 
 		# Choose the walker and iteration number,
+		walker, iteration = 0, -1
 		if res["chain"].ndim > 2:
  		    # if you used emcee for the inference
-		    walker, iteration = 0, -1
 		    theta = res['chain'][walker, iteration, :]
 		else:
 		    # if you used dynesty
-		    iteration = -1
 		    theta = res['chain'][iteration, :]
 
 		# Get the modeled spectra and photometry.
