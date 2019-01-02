@@ -208,6 +208,7 @@ TemplateLibrary["parametric_sfh"] = (_parametric_,
 # --------------------------
 # ---  Dust emission ----
 # --------------------------
+add_duste = {"N": 1, "isfree": False, "init": True}
 
 duste_umin  = {"N": 1, "isfree": False,
                "init": 1.0, "units": 'MMP83 local MW intensity',
@@ -222,7 +223,8 @@ duste_gamma = {"N": 1, "isfree": False,
                "init": 0.0, "units": 'Mass fraction of dust in high radiation intensity.',
                "prior": priors.LogUniform(mini=1e-3, maxi=0.15)}
 
-_dust_emission_ = {"duste_umin": duste_umin,    # FSPS / Draine & Li parameter
+_dust_emission_ = {"add_dust_emission": add_duste,
+                   "duste_umin": duste_umin,    # FSPS / Draine & Li parameter
                    "duste_qpah": duste_qpah,    # FSPS / Draine & Li parameter
                    "duste_gamma": duste_gamma   # FSPS / Draine & Li parameter
                    }
@@ -262,17 +264,19 @@ TemplateLibrary["nebular"] = (_nebular_,
 # --------------------------
 # --- AGN Torus Emission ---
 # --------------------------
+add_agn =  {"N": 1, "isfree": False, "init": True}
 
 fagn = {'N': 1, 'isfree': False,
-        'init': -2.0, 'units': r'L_{AGN}/L_*',
-        'prior': priors.LogUniform(mini=-5.0, maxi=0.1)}
+        'init': 0.01, 'units': r'L_{AGN}/L_*',
+        'prior': priors.LogUniform(mini=1e-5, maxi=3.0)}
 
 agn_tau = {"N": 1, 'isfree': False,
            "init": 1.0, 'units': r"optical depth",
            'prior': priors.LogUniform(mini=5.0, maxi=150.)}
 
 _agn_ = {"fagn": fagn,       # FSPS parameter.
-         "agn_tau": agn_tau  # FSPS parameter.
+         "agn_tau": agn_tau,  # FSPS parameter.
+         "add_agn_dust": add_agn
          }
 
 TemplateLibrary["agn"] = (_agn_,
@@ -379,6 +383,7 @@ TemplateLibrary["burst_sfh"] = (_burst_,
 # Using a (perhaps dangerously) simple nonparametric model of mass in fixed time bins with a logarithmic prior.
 
 _nonpar_lm_ = TemplateLibrary["ssp"]
+_ = _nonpar_lm_.pop("tage")
 
 _nonpar_lm_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
 # This will be the mass in each bin.  It depends on other free and fixed
@@ -403,6 +408,7 @@ TemplateLibrary["logm_sfh"] = (_nonpar_lm_,
 # A non-parametric SFH model of mass in fixed time bins with a smoothness prior
 
 _nonpar_continuity_ = TemplateLibrary["ssp"]
+_ = _nonpar_continuity_.pop("tage")
 
 _nonpar_continuity_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
 # This is the *total*  mass formed, as a variable
@@ -431,6 +437,7 @@ TemplateLibrary["continuity_sfh"] = (_nonpar_continuity_,
 # A non-parametric SFH model of mass in flexible time bins with a smoothness prior
 
 _nonpar_continuity_flex_ = TemplateLibrary["ssp"]
+_ = _nonpar_continuity_flex_.pop("tage")
 
 _nonpar_continuity_flex_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
 # This is the *total*  mass formed
@@ -462,6 +469,7 @@ TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
 # Using the dirichlet prior on SFR fractions in bins of constant SF.
 
 _dirichlet_ = TemplateLibrary["ssp"]
+_ = _dirichlet_.pop("tage")
 
 _dirichlet_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
 # This will be the mass in each bin.  It depends on other free and fixed
