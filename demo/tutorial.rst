@@ -7,7 +7,7 @@ We assume you have installed |Codename| and all its dependencies as laid out in 
 The next thing you need to do is make a temporary work directory, ``<workdir>``
 
 .. code-block:: shell
-		
+
 		cd <workdir>
 		cp <codedir>/scripts/prospector*.py .
 		cp <codedir>/demo/demo_* .
@@ -69,7 +69,7 @@ In this example we choose the ``"parameteric"`` set, which has the parameters ne
 This parameter set can be inspected in any of the following ways
 
 .. code-block:: python
-		
+
 		from prospect.models.templates import TemplateLibrary
 		# Show basic descriptin of all pre-defined parameter sets
 		TemplateLibrary.show_contents()
@@ -105,30 +105,30 @@ Choosing which to use involves choosing which script to run
 To run this fit on object 0 using ``emcee``, we would do the following at the command line
 
 .. code-block:: shell
-		
+
 		python prospector.py --param_file=demo_params.py --objid=0 \
-                --outfile=demo_obj0_emcee 
+                --outfile=demo_obj0_emcee
 
 If we wanted to change something about the MCMC parameters, or fit a different object,
 we could also do that at the command line
 
 .. code-block:: shell
-		
+
 		python prospector.py --param_file=demo_params.py --objid=1 \
 		--outfile=demo_obj1_emcee --nwalkers=32 --niter=1024
 
 And if we want to use nested sampling with ``dynesty`` we would do the following
 
 .. code-block:: shell
-		
+
 		python prospector_dynesty.py --param_file=demo_params.py --objid=0 \
-		--outfile=demo_obj0_dynesty 
+		--outfile=demo_obj0_dynesty
 
 Finally, it is sometimes useful to run the script from the interpreter to do some checks.
 This is best done with the IPython enhanced interactive python.
 
 .. code-block:: shell
-		
+
 		ipython
 		In [1]: %run prospector.py --param_file=demo_params.py --objid=0 --debug=True
 
@@ -139,17 +139,17 @@ and the ``run_params`` dictionary to make sure everything is working fine.
 Working with the output
 --------------------------------
 After the fit is completed we should have a file with a name like
-``demo_obj0_<fitter>_<timestamp>_mcmc.h5``. 
+``demo_obj0_<fitter>_<timestamp>_mcmc.h5``.
 This is an HDF5 file containing sampling results and various configuration data,
 as well as the observational data that was fit.
 By setting ``run_params["output_pickles"]=True`` you can also output versions of this information in the less portable pickle format.
 We will read the HDF5 with python and make some plots using utilities in |Codename|
 
 To read the data back in from the output files that we've generated, use
-methods in ``prospect.io.read_results``. 
+methods in ``prospect.io.read_results``.
 
 .. code-block:: python
-		
+
 		import prospect.io.read_results as pread
 		res, obs, mod = pread.results_from("demo_obj_<fitter>_<timestamp>_mcmc.h5")
 
@@ -201,14 +201,14 @@ If necessary, one can regenerate models at any position in the posterior chain.
 This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the ``read_results.get_sps()`` method.
 
 .. code-block:: python
-		
+
 		# We need the correct sps object to generate models
 		sps = pread.get_sps(res)
 
 Now we will choose a specific parameter value from the chain and plot what the observations and the model look like, as well as the uncertainty normalized residual.  For ``emcee`` results we will use the last iteration of the first walker, while for ``dynesty`` results we will just use the last sample in the chain.
 
 .. code-block:: python
-		
+
 		# Choose the walker and iteration number,
 		if res["chain"].ndim > 2:
  		    # if you used emcee for the inference
@@ -216,6 +216,7 @@ Now we will choose a specific parameter value from the chain and plot what the o
 		    theta = res['chain'][walker, iteration, :]
 		else:
 		    # if you used dynesty
+		    iteration = -1
 		    theta = res['chain'][iteration, :]
 
 		# Get the modeled spectra and photometry.
