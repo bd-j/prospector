@@ -11,6 +11,11 @@ from .nested import run_dynesty_sampler
 from ..likelihood import lnlike_spec, lnlike_phot, chi_spec, chi_phot
 
 
+__all__ = ["lnprobfn", "fit_model",
+           "run_minimize", "run_emcee", "run_dynesty"
+           ]
+
+
 def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
              residuals=False, nested=False, verbose=False):
     """Given a parameter vector and optionally a dictionary of observational
@@ -83,44 +88,51 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     return lnp_prior + lnp_phot + lnp_spec
 
 
-def wrap_lnp(lnp, obs, model, sps, **lnp_kwargs):
-    return argfix(lnprobfn, obs=obs, model=model, sps=sps,
+def wrap_lnp(lnpfn, obs, model, sps, **lnp_kwargs):
+    return argfix(lnpfn, obs=obs, model=model, sps=sps,
                   **lnp_kwargs)
 
 
-def fit_model(obs, model, sps, noise, lnprobfn=lnprobfn, **kwargs):
+def fit_model(obs, model, sps, noise, lnprobfn=lnprobfn,
+              optimize=False, emcee=False, dynesty=True, **kwargs):
     """
     """
 
-    if kwargs["optimize"]:
-        mr, tm, best = run_minimize(obs, model, sps, noise,
-                                    lnprobfn=lnprobfn, **kwargs)
+    if emcee & dynesty:
+        msg = ("Cannot run both emcee and dynesty fits "
+               "in a single call to fit_model")
+        raise(ValueError, msg)
+
+    output = {"optimization": (None, 0.),
+              "sampling": (None, 0.)}
+
+    if optimize:
+        optres, topt, best = run_minimize(obs, model, sps, noise,
+                                          lnprobfn=lnprobfn, **kwargs)
         # set to the best
         model.set_parameters(mr[best].x)
+        output["optimization"] = (optres, topt)
+
+    if emcee:
+        run_sampler = run_emcee
+    elif dynesty:
+        run_sampler = run_dynesty
     else:
-        mr, tm, best = [], 0.0, 0
+        return output
 
-    if kwargs["emcee"]:
-        sampler, temc = run_emcee(obs, model, sps, noise,
-                                  lnprobfn=lnprobfn, **kwargs)
-    else:
-        sampler, temc = None, 0.0
-
-    if kwargs["dynesty"]:
-        nestout, tnest = run_dynesty(obs, model, sps, noise,
-                                    lnprobfn=lnprobfn, **kwargs)
-    else:
-        nestout, tnest = None, 0.0
+    output["sampling"] = run_sampler(obs, model, sps, noise,
+                                     lnprobfn=lnprobfn, **kwargs)
+    return output
 
 
-def run_minimize(obs={}, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
-                 min_method='lm', min_opts={}, nmin=1, pool=None, **kwargs):
+def run_minimize(obs=None, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
+                 min_method='lm', min_opts={}, nmin=1, pool=None, **extras):
     """Run a minimization
     """
     initial = model.theta.copy()
     
-    lsq = ['lm']
-    scalar = ['powell']
+    lsq = ["lm"]
+    scalar = ["powell"]
 
     # --- Set some options based on minimization method ---
     if min_method in lsq:
@@ -156,8 +168,9 @@ def run_minimize(obs={}, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
 
 
 def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
-              hfile=None, pool=None, **kwargs):
-    """Run emcee.  thin wrapper on run_emcee_sampler
+              hfile=None, initial_positions=None,
+              **kwargs):
+    """Run emcee.  Thin wrapper on run_emcee_sampler
     """
     q = model.theta.copy()
     
@@ -168,17 +181,29 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
                   "nested": False,
                   }
 
-    t = time.time()
-    out = run_emcee_sampler(lnprobfn, q, model, kwargs=postkwargs,
-                            hdf5=hfile, pool=pool, **kwargs)
-    sampler, burn_p0, burn_prob0 = out
-    ts = time.time() - t
+    # Could try to make signatures for these two methods the same....
+    if initial_positions is not None:
+        meth = restart_emcee_sampler
+        t = time.time()
+        out = meth(lnprobfn, initial_positions, hdf5=hfile,
+                   postkwargs=postkwargs, **kwargs)
+        sampler = out
+        ts = time.time() - t
+    else:
+        meth = run_emcee_sampler
+        t = time.time()
+        out = meth(lnprobfn, q, model, hdf5=hfile,
+                   postkwargs=postkwargs, **kwargs)
+        sampler, burn_p0, burn_prob0 = out
+        ts = time.time() - t
 
     return sampler, ts
 
 
 def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
                 pool=None, **kwargs):
+    """Thin wrapper on run_dynesty_sampler
+    """
 
     def prior_transform(u, model=model):
         return model.prior_transform(u)

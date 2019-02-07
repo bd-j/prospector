@@ -110,7 +110,7 @@ def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
             # Here one can deal with module and class names that changed
             with open(model_file, 'rb') as mf:
                 mod = load(mf)
-        except(ImportError):
+        except(ImportError, KeyError):
             # here we load the parameter file as a module using the stored
             # source string.  Obviously this is dangerous as it will execute
             # whatever is in the stored source string.  But it can be used to
@@ -221,7 +221,10 @@ def get_sps(res):
     path, filename = os.path.split(param_file[0])
     modname = filename.replace('.py', '')
     user_module = import_module_from_string(param_file[1], modname)
-    sps = user_module.load_sps(**res['run_params'])
+    try:
+        sps = user_module.load_sps(**res['run_params'])
+    except(AttributeError):
+        sps = user_module.build_sps(**res['run_params'])
 
     # Now check that the SSP libraries are consistent
     flib = res['run_params'].get('sps_libraries', None)
@@ -259,7 +262,10 @@ def get_model(res):
     path, filename = os.path.split(param_file[0])
     modname = filename.replace('.py', '')
     user_module = import_module_from_string(param_file[1], modname)
-    model = user_module.load_model(**res['run_params'])
+    try:
+        model = user_module.load_model(**res['run_params'])
+    except(AttributeError):
+        model = user_module.build_model(**res['run_params'])
     return model
 
 
