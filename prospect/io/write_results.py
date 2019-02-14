@@ -1,4 +1,5 @@
-import os, subprocess, time
+import os, time
+#import subprocess
 import pickle, json, base64
 import numpy as np
 from ..models.parameters import functions_to_names, plist_to_pdict
@@ -21,14 +22,14 @@ def pick(obj):
     return np.void(pickle.dumps(obj, 0))
 
 
-def run_command(cmd):
-    """Open a child process, and return its exit status and stdout.
-    """
-    child = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE,
-                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    out = [s for s in child.stdout]
-    w = child.wait()
-    return os.WEXITSTATUS(w), out
+#def run_command(cmd):
+#    """Open a child process, and return its exit status and stdout.
+#    """
+#    child = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE,
+#                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+#    out = [s for s in child.stdout]
+#    w = child.wait()
+#    return os.WEXITSTATUS(w), out
 
 
 def githash(nofork=False, **extras):
