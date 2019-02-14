@@ -195,8 +195,8 @@ def emcee_production(esampler, initial, niter, pool=None,
     return esampler
 
 
-def emcee_production_convergence(esampler, initial, niter, pool=None,
-                                 verbose=True, hdf5=None, interval=None,
+def emcee_production_convergence(esampler, initial, niter, pool=None, verbose=True,
+                                 hdf5=None, interval=None, storechain=True,
                                  convergence_check_interval=None,
                                  convergence_chunks=325,
                                  convergence_stable_points_criteria=3,
