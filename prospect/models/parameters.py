@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 import json, pickle
 from . import priors
-
+from .templates import describe
 
 __all__ = ["ProspectorParams"] #, "plist_to_pdict", "pdict_to_plist"]
 
@@ -65,6 +65,9 @@ class ProspectorParams(object):
         self.configure(**kwargs)
         self.verbose = verbose
 
+    def __repr__(self):
+        return ":::::::\n{}\n\n{}".format(self.__class__, self.description)
+        
     def configure(self, reset=False, **kwargs):
         """Use the :py:attr:`config_dict` to generate a :py:attr:`theta_index`
         mapping, and propogate the initial parameters into the
@@ -233,6 +236,10 @@ class ProspectorParams(object):
         return [k['name'] for k in pdict_to_plist(self.config_list)
                 if (k['isfree'] is False)]
 
+    @property
+    def description(self):
+        return describe(self.config_dict)
+        
     def theta_labels(self, name_map={}):
         """Using the theta_index parameter map, return a list of the model
         parameter names that has the same order as the sampling chain array.
