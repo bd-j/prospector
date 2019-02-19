@@ -18,7 +18,8 @@ run, including reconstruction of the model for making posterior samples
 
 __all__ = ["results_from",
            "get_sps", "get_model",
-           "traceplot", "subcorner"]
+           "traceplot", "subcorner",
+           "compare_paramfile"]
 
 
 def unpick(pickled):
@@ -31,7 +32,7 @@ def unpick(pickled):
 
     return obj
 
-    
+
 def results_from(filename, model_file=None, dangerous=True, **kwargs):
     """Read a results file with stored model and MCMC chains.
 
@@ -40,7 +41,7 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
         "h5" then it is assumed that this is an HDF5 file, otherwise it is
         assumed to be a pickle.
 
-    :param dangerous: (default, False)
+    :param dangerous: (default, True)
         If True, use the stored paramfile text to import the parameter file and
         reconstitute the model object.  This executes code in the stored paramfile
         text during import, and is therefore dangerous.
@@ -195,7 +196,7 @@ def read_hdf5(filename, **extras):
 
 
 def read_pickles(filename, **kwargs):
-    """Alias for backwards compatability. Calls results_from().
+    """Alias for backwards compatability. Calls `results_from()`.
     """
     return results_from(filename, **kwargs)
 
@@ -463,6 +464,12 @@ def subcorner(results, showpars=None, truths=None,
     return fig
 
 
+def subtriangle(results, **kwargs):
+    """Backwards compatability
+    """
+    return subcorner(results, **kwargs)
+
+
 def compare_paramfile(res, filename):
     """Compare the runtime parameter file text stored in the `res` dictionary
     to the text of some existing file with fully qualified path `filename`.
@@ -477,37 +484,3 @@ def compare_paramfile(res, filename):
     bbl = json.loads(b)
     bb = bbl.split('\n')
     pprint([l for l in unified_diff(aa, bb)])
-
-
-def subtriangle(results, **kwargs):
-    """Backwards compatability
-    """
-    return subcorner(results, **kwargs)
-
-
-# --- Deprecated code
-# All this because scipy changed the name of one class, which
-# shouldn't even be a class.
-
-renametable = {
-    'Result': 'OptimizeResult',
-    }
-
-
-def mapname(name):
-    if name in renametable:
-        return renametable[name]
-    return name
-
-
-def mapped_load_global(self):
-    module = mapname(self.readline()[:-1])
-    name = mapname(self.readline()[:-1])
-    klass = self.find_class(module, name)
-    self.append(klass)
-
-
-def load(file):
-    unpickler = pickle.Unpickler(file)
-    unpickler.dispatch[pickle.GLOBAL] = mapped_load_global
-    return unpickler.load()
