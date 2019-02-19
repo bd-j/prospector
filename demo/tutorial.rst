@@ -34,13 +34,13 @@ we made sure to import the ``sources.CSPSpecBasis`` class.
 If you were fitting stars or non-parameteric SFHs you would use a different
 object from the ``sources`` module.
 
-The next thing to look at is the ``load_obs()`` function.
+The next thing to look at is the ``build_obs()`` function.
 This is where you take the data from whatever format you have and
-put it into the format required by |Codename| for a single object.
+put it into the dictionary format required by |Codename| for a single object.
 This means you will have to modify this function heavily for your own use.
 But it also means you can use your existing data formats.
 
-Right now, the ``load_obs`` function just reads ascii data from a file,
+Right now, the ``build_obs`` function just reads ascii data from a file,
 picks out a row (corresponding to the photometry of a single galaxy),
 and then makes a dictionary using data in that row.
 You'll note that both the datafile name and the object number are keyword arguments to this function.
@@ -48,24 +48,25 @@ That means they can be set at execution time on the command line,
 by also including those variables in the ``run_params`` dictionary.
 We'll see an example later.
 
-When you write your own ``load_obs`` function, you can add all sorts of keyword arguments that control its output
+When you write your own ``build_obs`` function, you can add all sorts of keyword arguments that control its output
 (for example, an object name or ID number that can be used to choose or find a single object in your data file).
 You can also import helper functions and modules.
 These can be either things like astropy, h5py, and sqlite or your own project specific modules and functions.
 As long as the output dictionary is in the right format (see dataformat.rst), the body of this function can do anything.
 
-Ok, now we go to the ``load_sps`` function.
+Ok, now we go to the ``build_sps`` function.
 This one is pretty straightforward, it simply instantiates our ``CSPSpecBasis`` object.
-After that is ``load_gp``, which is for complexifying the noise model -- ignore that for now.
+For nonparameteric fits one would use the ``FastStepBasis`` object.
+After that is ``build_noise``, which is for complexifying the noise model -- ignore that for now.
 
 Now on to the fun part.
-The ``load_model`` function is where the model that we will fit will be constructed.
+The ``build_model`` function is where the model that we will fit will be constructed.
 The specific model that you choose to construct depends on your data and your scientific question.
-First we have to specify a dictionary or list of model parameter specifications (see models.rst).
+First we have to specify a dictionary or list of model parameter specifications (see :doc:`models`).
 Each specification is a dictionary that describes a single parameter.
 We can build the model from predefined sets of model parameter specifications,
 stored in the ``models.templates.TemplateLibrary`` directory.
-In this example we choose the ``"parameteric"`` set, which has the parameters necessary for a delay-tau SFH fit.
+In this example we choose the ``"parametric_sfh"`` set, which has the parameters necessary for a delay-tau SFH fit with simple attenuation by a dust screen.
 This parameter set can be inspected in any of the following ways
 
 .. code-block:: python
@@ -89,8 +90,16 @@ For ``CSPSpecBasis`` this means the default values in the ``fsps.StellarPopulati
 see `python-fsps <http://dan.iel.fm/python-fsps/current/>`_ for details
 Once you get a set of parameters from the ``TemplateLibrary`` you can modify or add parameter specifications.
 
-Finally, the ``load_model()`` function takes the ``model_params`` dictionary or list that you build and
+Finally, the ``build_model()`` function takes the ``model_params`` dictionary or list that you build and
 uses it to instantiate a ``SedModel`` object.
+
+.. code-block:: python
+
+		from prospect.models import SedModel
+		model_params = TemplateLibrary["parametric_sfh"]
+		model = SedModel(model_params)
+
+
 If you wanted to change the specification of the model using command line arguments,
 you could do it in this function using keyword arguments that are also keys of ``run_params``.
 This can be useful for example to set the initial value of the redshift ``"zred"`` on an object-by-object basis.

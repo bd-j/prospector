@@ -1,16 +1,16 @@
 User Interaction
 ================
 
-The primary user interaction is through the ``prospector_*.py`` scripts and a **parameter file**,
+The primary user interaction is through  a **parameter file**,
 a python file in which several variables and functions must be defined.
-Command line syntax calls the ``prospector.py`` script as an executable and is as follows for single thread execution:
+Additionally some boilerplate at the end of the file actually runs the fit and stores the results.
+Command line syntax calls the parameter file and is as follows for single thread execution:
 
 .. code-block:: shell
 
-		python prospector.py --param_file=parameter_file.py
+		python parameter_file.py
 
 Additional command line options can be given (see below).
-You can copy the ``prospector.py`` script to wherever you intend to run the code, or put it in your path.
 
 The parameter file
 -------------------------
@@ -22,25 +22,25 @@ The required variables and functions in a **parameter file** are:
    This dictionary specifies global options and parameters used for setting up
    and running the code. It is passed as keywords to all the functions listed below.
 
-2. :py:meth:`load_obs`: 
+2. :py:meth:`build_obs`: 
    This function will take the ``run_params`` dictionary as keyword arguments
    and returns on obs dictionary (see :doc:`dataformat` .)
 
-3. :py:meth:`load_model`:
+3. :py:meth:`build_model`:
    This function will take the ``run_params`` dictionary as keyword arguments
    and return an instance of a :class:`ProspectorParams` subclass, containing
    information about the parameters of the model (see :doc:`models` .)
 
-4.  :py:meth:`load_sps`:
+4.  :py:meth:`build_sps`:
     This function will take the ``run_params`` dictionary as keyword arguments
     and return an **sps** object, which must have the method
     :py:meth:`get_spectrum` defined.  This object generally includes all the
     spectral libraries necessary to build a model, as well as much of the model
     building code and as such has a large memory footprint.
 
-5.  :py:meth:`load_gp`:
+5.  :py:meth:`build_noise`:
     This function should return a :py:class:`NoiseModel` object for the spectroscopy and/or
-    photometry.  Either or both can be ``None`` in which case the likelihood
+    photometry.  Either or both can be ``None``(the default)  in which case the likelihood
     will not include covariant noise and is equivalent to basic :math:`\chi^2`.
 
 

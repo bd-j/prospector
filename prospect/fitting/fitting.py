@@ -28,8 +28,9 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
 
     :param model:
         SedModel model object, with attributes including ``params``, a
-        dictionary of model parameters.  It must also have ``prior_product()``,
-        and ``mean_model()`` methods defined.
+        dictionary of model parameter state.  It must also have
+        :py:method:`prior_product`, and :py:method:`mean_model` methods
+        defined.
 
     :param obs:
         A dictionary of observational data.  The keys should be
@@ -40,6 +41,26 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
           *``maggies_unc``
           *``filters``
           * and optional spectroscopic ``mask`` and ``phot_mask``.
+
+    :param sps:
+        A prospect.sources.SSPBasis object or subclass thereof, or any object
+        with a ``get_spectrum`` method that will take a dictionary of model
+        parameters and return a spectrum, photometry, and ancillary
+        information.
+
+    :param noise: (optional, default: (None, None)
+        A 2-element tuple of NoiseModel objects.
+
+    :param residuals: (optional, default: False)
+        A switch to allow vectors of :math:`\chi` values to be returned instead
+        of a scalar posterior probability.  This can be useful for
+        least-squares optimization methods.
+
+    :param nested: (optional, default: False)
+        If ``True``, do not add the ln-prior probability to the ln-likelihood
+        when computing the ln-posterior.  For nested sampling algorithms the
+        prior probability is incorporated in the way samples are drawn, so
+        should not be included here.
 
     :returns lnp:
         Ln posterior probability.
@@ -93,9 +114,67 @@ def wrap_lnp(lnpfn, obs, model, sps, **lnp_kwargs):
                   **lnp_kwargs)
 
 
-def fit_model(obs, model, sps, noise, lnprobfn=lnprobfn,
+def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
               optimize=False, emcee=False, dynesty=True, **kwargs):
-    """
+    """Fit a model to observations using a number of differnt methods
+
+    :param obs:
+        The ``obs`` dictionary containing the data to fit to, which will be
+        passed to ``lnprobfn``.
+
+    :param model:
+        An instance of the :py:class:`prospect.models.SedModel` class
+        containing the model parameterization and parameter state.  It will be
+        passed to ``lnprobfn``.
+
+    :param sps:
+        An instance of a :py:class:`prospect.sources.SSPBasis` (sub-)class.
+        Alternatively, anything with a compatible :py:method:`get_spectrum` can
+        be used here. It will be passed to ``lnprobfn``
+
+    :param noise: (optional, default: (None, None))
+        A tuple of NoiseModel objects for the spectroscopy and photometry
+        respectively.  Can also be (None, None) in which case simple chi-square
+        will be used.
+
+    :param lnprobfn: (optional, default: lnprobfn)
+        A posterior probability function that can take ``obs``, ``model``,
+        ``sps``, and ``noise`` as keywords. By default use the
+        :py:method:`lnprobfn` defined above.
+
+    :param optimize: (optional, default: False)
+        If ``True``, conduct a round of optimization before sampling from the
+        posterior.  The model state will be set to the best value at the end of
+        optimization before continuing on to sampling or returning.  Parameters
+        controlling the optimization can be passed via ``kwargs``, including
+
+        * min_method: 'lm' | 'powell'
+        * nmin: number of minimizations to do.  Beyond the first, minimizations
+          will be started from draws from the prior. 
+        * min_opts: dictionary of minimization options passed to the
+          scipy.optimize.minimize method.
+        
+        See run_minimize() for details.
+
+    :param emcee:  (optional, default: False)
+        If ``True``, sample from the posterior using emcee.  Additonal
+        parameters controlling emcee can be passed via **kwargs.  These include
+
+        * initial_positions: A set of initial positions for the walkers
+        * hfile: an open h5py.File file handle for writing result incrementally
+        
+        Many additional emcee parameters can be provided here, see run_emcee()
+        for details.
+
+    :param dynesty:
+        If ``True``, sample from the posterior using dynesty.  Additonal
+        parameters controlling dynesty can be passed via **kwargs. See
+        run_dynesty() for details.
+
+    :returns output:
+        A dictionary with two keays, 'optimization' and 'sampling'.  The value
+        of each of these is a 2-tuple with results in the first element and
+        durations (in seconds) in the second element.
     """
 
     if emcee & dynesty:
@@ -127,7 +206,57 @@ def fit_model(obs, model, sps, noise, lnprobfn=lnprobfn,
 
 def run_minimize(obs=None, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
                  min_method='lm', min_opts={}, nmin=1, pool=None, **extras):
-    """Run a minimization
+    """Run a minimization.  This wraps the lnprobfn fixing the ``obs``,
+    ``model``, ``noise``, and ``sps`` objects, and then runs a minimization of
+    -lnP using scipy.optimize methods.
+    
+    :param obs:
+        The ``obs`` dictionary containing the data to fit to, which will be
+        passed to ``lnprobfn``.
+
+    :param model:
+        An instance of the :py:class:`prospect.models.SedModel` class
+        containing the model parameterization and parameter state.  It will be
+        passed to ``lnprobfn``.
+
+    :param sps:
+        An instance of a :py:class:`prospect.sources.SSPBasis` (sub-)class.
+        Alternatively, anything with a compatible :py:method:`get_spectrum` can
+        be used here. It will be passed to ``lnprobfn``
+
+    :param noise: (optional) 
+        If given, a tuple of :py:class:`NoiseModel` objects passed to
+        ``lnprobfn``.
+
+    :param lnprobfn: (optional, default: lnprobfn)
+        A posterior probability function that can take ``obs``, ``model``,
+        ``sps``, and ``noise`` as keywords. By default use the
+        :py:method:`lnprobfn` defined above.
+
+    :param min_method: (optional, default: 'lm')
+        Method to use for minimization
+        * 'lm': Levenberg-Marquardt
+        * 'powell': Powell line search method
+    
+    :param nmin: (optional, default: 1)
+        Number of minimizations to do.  Beyond the first, minimizations will be
+        started from draws from the prior.
+
+    :param min_opts: (optional, default: {})
+        Dictionary of minimization options passed to the scipy.optimize method.
+        These include things like 'xtol', 'ftol', etc..
+
+    :param pool: (optional, default: None)
+        A pool to use for parallel optimization from multiple initial positions.
+
+    :returns results:
+        A list of `scipy.optimize.OptimizeResult` objects.
+
+    :returns tm:
+        Wall time used for the minimization, in seconds.
+
+    :returns best:
+        The index of the results list containing the lowest chi-square result.
     """
     initial = model.theta.copy()
     
@@ -170,10 +299,88 @@ def run_minimize(obs=None, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
 def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
               hfile=None, initial_positions=None,
               **kwargs):
-    """Run emcee.  Thin wrapper on run_emcee_sampler
+    """Run emcee, optionally including burn-in and convergence checking.  Thin
+    wrapper on :py:class:`prospect.fitting.ensemble.run_emcee_sampler`
+
+    :param obs:
+        The ``obs`` dictionary containing the data to fit to, which will be
+        passed to ``lnprobfn``.
+
+    :param model:
+        An instance of the :py:class:`prospect.models.SedModel` class
+        containing the model parameterization and parameter state.  It will be
+        passed to ``lnprobfn``.
+
+    :param sps:
+        An instance of a :py:class:`prospect.sources.SSPBasis` (sub-)class.
+        Alternatively, anything with a compatible :py:method:`get_spectrum` can
+        be used here. It will be passed to ``lnprobfn``
+
+    :param noise:
+        A tuple of :py:class:`NoiseModel` objects passed to ``lnprobfn``.
+
+    :param lnprobfn: (optional, default: lnprobfn)
+        A posterior probability function that can take ``obs``, ``model``,
+        ``sps``, and ``noise`` as keywords. By default use the
+        :py:method:`lnprobfn` defined above.
+
+    :param hfile: (optional, default: None)
+        A file handle for a :py:class:`h5py.File` object that will be written
+        to incremantally during sampling.
+
+    :param initial_positions: (optional, default: None)
+        If given, a set of initial positions for the emcee walkers.  Must have
+        shape (nwalkers, ndim).  Rounds of burn-in will be skipped if this
+        parameter is present.
+
+    Extra Parameters
+    --------
+
+    :param nwalkers:
+        The number of walkers to use.  If None, use the nearest power of two to
+        ``ndim * walker_factor``.
+
+    :param niter:
+        Number of iterations for the production run
+
+    :param nburn:
+        List of the number of iterations to run in each round of burn-in (for
+        removing stuck walkers.) E.g. `nburn=[32, 64]` will run the sampler for
+        32 iterations before reinitializing and then run the sampler for
+        another 64 iterations before starting the production run.
+
+    :param storechain: (default: True)
+        If using HDF5 output, setting this to False will keep the chain from
+        being held in memory by the sampler object.
+
+    :param pool: (optional)
+        A ``Pool`` object, either from ``multiprocessing`` or from
+        ``emcee.mpi_pool``.
+
+    :param interval:
+        Fraction of the full run at which to flush to disk, if using hdf5 for
+        output.
+
+    :param convergence_check_interval:
+        How often to assess convergence, in number of iterations. If this is
+        not `None`, then the KL convergence test is run.
+
+    :param convergence_chunks:
+        The number of iterations to combine when creating the marginalized
+        parameter probability functions.
+
+    :param convergence_stable_points_criteria:
+        The number of stable convergence checks that the chain must pass before
+        being declared stable.
+
+    :returns sampler:
+        An instance of :py:class:`emcee.EnsembleSampler`.
+
+    :returns ts:
+        Duration of sampling (including burn-in) in seconds of wall time.
     """
     q = model.theta.copy()
-    
+
     postkwargs = {"obs": obs,
                   "model": model,
                   "sps": sps,
@@ -202,7 +409,31 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
 
 def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
                 pool=None, **kwargs):
-    """Thin wrapper on run_dynesty_sampler
+    """Thin wrapper on :py:class:`prospect.fitting.nested.run_dynesty_sampler`
+
+    :param obs:
+        The ``obs`` dictionary containing the data to fit to, which will be
+        passed to ``lnprobfn``.
+
+    :param model:
+        An instance of the :py:class:`prospect.models.SedModel` class
+        containing the model parameterization and parameter state.  It will be
+        passed to ``lnprobfn``.
+
+    :param sps:
+        An instance of a :py:class:`prospect.sources.SSPBasis` (sub-)class.
+        Alternatively, anything with a compatible :py:method:`get_spectrum` can
+        be used here. It will be passed to ``lnprobfn``
+
+    :param noise:
+        A tuple of :py:class:`NoiseModel` objects passed to ``lnprobfn``.
+
+    :param lnprobfn: (optional, default: lnprobfn)
+        A posterior probability function that can take ``obs``, ``model``,
+        ``sps``, and ``noise`` as keywords. By default use the
+        :py:method:`lnprobfn` defined above.  This function must also take a
+        ``nested`` keyword.
+
     """
 
     def prior_transform(u, model=model):

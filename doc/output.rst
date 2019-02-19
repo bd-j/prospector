@@ -21,9 +21,9 @@ The HDF5 files can read back into python using
 
 .. code-block:: python
 
-		import prospect.io.read_results as pread
+		import prospect.io.read_results as reader
 		filename = "<outfilestring>_<timestamp>_mcmc.h5"
-		results, obs, model = pread.results_from(filename)
+		results, obs, model = reader.results_from(filename)
 
 which gives a ``results`` dictionary, the ``obs`` dictionary containing the data to which the model was fit,
 and the ``model`` object used in the fitting.
@@ -33,7 +33,7 @@ basic descriptions of the model parameters,
 and the ``run_params`` dictionary.
 Some additional ancillary information is stored, such as code versions, runtimes, MCMC acceptance fractions,
 and model parameter positions at various phases of of the code.
-There is also a text version of the **parameter file** used.
+There is also a string version of the **parameter file** used.
 The results dictionary contains the information needed to regenerate the *sps* object used in generating SEDs.
 
 .. code-block:: python
@@ -87,11 +87,11 @@ First, the results file can be read into useful dictionaries and objects using
 
 .. code-block:: python
 
-		import prospect.io.read_results as rr
+		import prospect.io.read_results as reader
 		filename = "<outfilestring>_<timestamp>_mcmc"
-		results, obs, model = rr.results_from(filename)
+		results, obs, model = reader.results_from(filename)
 
-See the help for ``prospect.io.read_results_from()`` for a description of the returned objects.
+See the help for ``prospect.io.read_results.results_from()`` for a description of the returned objects.
 
 It is often desirable to plot the parameter traces for the MCMC chains.
 That is, one wants to see the evolution of the parameter values as a function of MCMC iteration.
@@ -100,19 +100,19 @@ It can be done easily for both `emcee` and `dynesty` results by
 
 .. code-block:: python
 
-		tracefig = rr.traceplot(results)
+		tracefig = reader.traceplot(results)
 
 Another useful thing is to look at the "corner plot" of the parmeters.
 If one has the `corner.py (https://github.com/dfm/corner.py)`_ package, then
 
 .. code-block:: python
 
-		cornerfig = rr.subcorner(results, showpars=mod.theta_labels()[:5])
+		cornerfig = reader.subcorner(results, showpars=mod.theta_labels()[:5])
 
 will return a corner plot of the first 5 free parameters of the model.
 If ``showpars`` is omitted then all free parameters will be plotted.
 There are numerous other options to the ``subcorner`` method, which is a thin wrapper on `corner.py`,
-but they are documented (``help(rr.subcorner)``)
+but they are documented (``help(reader.subcorner)``)
 
 Finally, one often wants to look at posterior samples in the space of the data, or perhaps the maximum a posteriori parameter values.
 Taking the MAP as an example, this would be accomplished by
@@ -127,7 +127,7 @@ Taking the MAP as an example, this would be accomplished by
 		theta_max = results["chain"][walker, iteration, :]
 
 		# We need the SPS object to generate a model
-		sps = rr.get_sps(results)
+		sps = reader.get_sps(results)
 		# now generate the SED for the max. a post. parameters
 		spec, phot, x = model.mean_model(theta_max, obs=obs, sps=sps)
 

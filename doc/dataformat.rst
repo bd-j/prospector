@@ -1,9 +1,9 @@
 Data Formats
 ===========
-The :py:meth:`load_obs()` function
+The :py:meth:`build_obs()` function
 ---------------------------------------
 
-The :py:meth:`load_obs(**kwargs)` function in the parameter file is written by the user and should take the ``run_params`` dictionary (modified by command line arguments) as keyword arguments.
+The :py:meth:`build_obs(**kwargs)` function in the parameter file is written by the user and should take the ``run_params`` dictionary (modified by command line arguments) as keyword arguments.
 It should return an ``obs`` dictionary described below.
 
 Other than that, the contents can be anything.
@@ -62,6 +62,7 @@ This dictionary should have (at least) the following keys and values:
 ``"phot_mask"``
     Like ``"mask"``, a boolean array, used to mask the
     photometric data during the likelihood calculation.
+    Elements with ``False`` values are ignored in the likelihood calculation.
 
 If you do not have spectral or photometric data, set ``"wavelength": None`` or ``"maggies": None`` respectively.
 Feel free to add keys that store other metadata, these will be stored on output.

@@ -6,7 +6,7 @@ __all__ = ["SedModel", "PolySedModel"]
 
 
 class SedModel(ProspectorParams):
-    """A subclass of :py:class:`ProspectorParams` taht passes the models
+    """A subclass of :py:class:`ProspectorParams` that passes the models
     through to an ``sps`` object and returns spectra and photometry, including
     optional spectroscopic calibration and sky emission.
     """
