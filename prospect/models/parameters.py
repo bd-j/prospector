@@ -117,6 +117,8 @@ class ProspectorParams(object):
         for par in self.free_params:
             self.theta_index[par] = slice(count, count+self.config_dict[par]['N'])
             count += self.config_dict[par]['N']
+            good = len(self.config_dict[par]['prior']) == self.config_dict[par]['N']
+            assert good, "{} has wrong length prior".format(par)
         self.ndim = count
 
     def set_parameters(self, theta):
@@ -169,8 +171,7 @@ class ProspectorParams(object):
         for k, inds in list(self.theta_index.items()):
 
             func = self.config_dict[k]['prior']
-            kwargs = self.config_dict[k].get('prior_args', {})
-            this_prior = np.sum(func(theta[..., inds], **kwargs), axis=-1)
+            this_prior = np.sum(func(theta[..., inds]), axis=-1)
             lnp_prior += this_prior
 
         return lnp_prior
@@ -188,8 +189,7 @@ class ProspectorParams(object):
         theta = np.zeros(len(unit_coords))
         for k, inds in list(self.theta_index.items()):
             func = self.config_dict[k]['prior'].unit_transform
-            kwargs = self.config_dict[k].get('prior_args', {})
-            theta[inds] = func(unit_coords[inds], **kwargs)
+            theta[inds] = func(unit_coords[inds])
         return theta
 
     def propagate_parameter_dependencies(self):
@@ -277,12 +277,7 @@ class ProspectorParams(object):
         """
         bounds = np.zeros([self.ndim, 2])
         for p, inds in list(self.theta_index.items()):
-            kwargs = self.config_dict[p].get('prior_args', {})
-            try:
-                pb = self.config_dict[p]['prior'].bounds(**kwargs)
-            except(AttributeError):
-                # old style, including for backwards compatibility
-                pb = priors.plotting_range(self.config_dict[p]['prior_args'])
+            pb = self.config_dict[p]['prior'].bounds()
             bounds[inds, :] = np.array(pb).T
         # Force types ?
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0])

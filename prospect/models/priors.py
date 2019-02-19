@@ -3,74 +3,9 @@
 import numpy as np
 import scipy.stats
 
-__all__ = ["plotting_range",
-           "Prior", "TopHat", "Normal", "ClippedNormal",
-           "LogNormal", "LogUniform", "Beta"]
-
-
-def zeros(theta, **extras):
-    return np.zeros_like(theta)
-
-
-def tophat(theta, mini=0.0, maxi=1.0, **extras):
-    """A simple tophat function.  Input can be scalar or matched vectors
-    """
-    lnp = 1.0 * np.zeros_like(theta)
-    n = (theta < mini) | (theta > maxi)
-    lnp[n] = -np.infty
-    return lnp
-
-
-def normal(theta, mean=0.0, sigma=1.0, **extras):
-    """A simple gaussian.  should make sure it can be vectorized.
-    """
-    return np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)
-
-
-def normal_clipped(theta, mean=0.0, sigma=1.0, mini=0.0, maxi=1.0, **extras):
-    """A clipped gaussian.
-    """
-    lnp = np.log((2*np.pi)**(-0.5)/sigma) - (theta - mean)**2/(2*sigma**2)
-    n = (theta < mini) | (theta > maxi)
-    lnp[n] = -np.infty
-
-    return lnp
-
-
-def lognormal(theta, log_mean=0.0, sigma=1.0, **extras):
-    """A lognormal  gaussian.  should make sure it can be vectorized.
-    """
-    if np.all(theta > 0):
-        return (np.log((2*np.pi)**(-0.5)/(theta*sigma)) -
-                (np.log(theta) - log_mean)**2/(2*sigma**2))
-    else:
-        return np.zeros(np.size(theta))-np.infty
-
-
-def logarithmic(theta, mini=0.0, maxi=np.inf, **extras):
-    """A logarithmic (1/x) prior, with optional bounds.
-    """
-    lnp = -np.log(theta)
-    n = (theta < mini) | (theta > maxi)
-    lnp[n] = -np.infty
-    return lnp
-
-
-def plotting_range(prior_args):
-    if 'mini' in prior_args:
-        return prior_args['mini'], prior_args['maxi']
-    if 'log_mean' in prior_args:
-        mini = (np.atleast_1d(prior_args['log_mean']) -
-                10 * np.array(prior_args['sigma']))
-        maxi = (np.atleast_1d(prior_args['log_mean']) +
-                10 * np.array(prior_args['sigma']))
-        return np.exp(mini).tolist(), np.exp(maxi).tolist()
-    if 'mean' in prior_args:
-        mini = (np.array(prior_args['mean']) -
-                10 * np.array(prior_args['sigma']))
-        maxi = (np.array(prior_args['mean']) +
-                10 * np.array(prior_args['sigma']))
-        return mini.tolist(), maxi.tolist()
+__all__ = ["Prior", "TopHat", "Normal", "ClippedNormal",
+           "LogNormal", "LogUniform", "Beta",
+           "StudentT", "SkewNormal"]
 
 
 class Prior(object):

@@ -43,14 +43,8 @@ def minimizer_ball(center, nminimizers, model, seed=None):
     if size > 1:
         ginitial = np.zeros([size - 1, model.ndim])
         for p, inds in list(model.theta_index.items()):
-            try:
-                for j in range(size-1):
-                    kwargs = model._config_dict[p].get('prior_args', {})
-                    ginitial[j, inds] = model._config_dict[p]['prior'].sample(**kwargs)
-            except AttributeError:
-                bounds = model.theta_bounds()
-                for ind in range(inds.start,inds.stop):
-                    ginitial[:, ind] = rand.uniform(bounds[ind][0], bounds[ind][1], size - 1)
+            for j in range(size-1):
+                ginitial[j, inds] = model._config_dict[p]['prior'].sample()
         pinitial += ginitial.tolist()
     return pinitial
 
