@@ -8,7 +8,6 @@ try:
 except(ImportError):
     pass
 
-from ..models.priors import plotting_range
 from .convergence import convergence_check
 
 __all__ = ["run_emcee_sampler", "restart_emcee_sampler",
@@ -72,7 +71,7 @@ def run_emcee_sampler(lnprobfn, initial_center, model,
         ``"chain"`` and ``"lnprobability"``.  If not set, the chain will instead
         be stored as a numpy array in the returned sampler object
 
-    :param interval:
+    :param interval: (optional, default: 1)
         Fraction of the full run at which to flush to disk, if using hdf5 for
         output.
 
@@ -155,7 +154,7 @@ def restart_emcee_sampler(lnprobfn, initial, niter=32,
 
 
 def emcee_production(esampler, initial, niter, pool=None,
-                     hdf5=None, interval=None, storechain=True,
+                     hdf5=None, interval=1, storechain=True,
                      **extras):
     """
     """
@@ -196,7 +195,7 @@ def emcee_production(esampler, initial, niter, pool=None,
 
 
 def emcee_production_convergence(esampler, initial, niter, pool=None, verbose=True,
-                                 hdf5=None, interval=None, storechain=True,
+                                 hdf5=None, interval=1, storechain=True,
                                  convergence_check_interval=None,
                                  convergence_chunks=325,
                                  convergence_stable_points_criteria=3,
@@ -335,7 +334,7 @@ def emcee_burn(sampler, initial_center, nburn, model=None, prob0=None,
                                               prior_check=model, **kwargs)
         sampler.reset()
         if verbose:
-            print('done burn #{}'.format(k))
+            print('done burn #{} ({} iterations)'.format(k, iburn))
 
     return epos, initial_center, prob0
 

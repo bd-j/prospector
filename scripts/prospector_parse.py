@@ -116,35 +116,18 @@ def build_all(**kwargs):
             build_sps(**kwargs), build_noise(**kwargs))
 
 
-def restarter(restart_from="", niter=32, **kwargs):
-    """Get the obs, model, and sps objects from a previous run,
-    as well as the run_params and initial positions (which are determined from
-    the end of the last run, and inserted into the run_params dictionary)
-
-    
-    """
-    from prospect.io import read_results as reader
-    result, obs, model = reader.results_from(restart_from)
-    noise = (None, None)
-
-    # check for emcee style outputs
-    is_emcee = (len(result["chain"].shape) == 3) & (result["chain"].shape[0] > 1)
-    msg = "Result file {} does not have a chain of the proper shape."
-    assert is_emcee, msg.format(restart_from)
-    
-
-    sps = pr.get_sps(result)
-    run_params = deepcopy(result["run_params"])
-    run_params["niter"] = niter
-    run_params["restart_from"] = restart_from
-
-    initial_positions = result["chain"][:, -1, :]
-    run_params["initial_positions"] = initial_positions
-
-    return obs, model, sps, noise, run_params
-
-
 def setup_h5(emcee=False, outfile=None, model=None, obs=None, **extras):
+    """If fitting with emcee, open an hdf5 file and write model, data, and meta
+    parameters to the file.  Emcee can then write incrementally to the open
+    file.  If not fitting with emcee, just get a timestampped filename.
+
+    :param emcee: (optional, default: False)
+        Boolean switch indicating whether emcee sampling is to be performed.
+
+    :returns hfile:
+        If `emcee` is True, this is an open :py:class:`h5py.File` handle.
+        Otherwise, it is the timestamped default hdf5 filename
+    """
     import os, time
 
     # Try to set up an HDF5 file and write basic info to it
@@ -155,15 +138,14 @@ def setup_h5(emcee=False, outfile=None, model=None, obs=None, **extras):
     hfilename = '{}_mcmc.h5'.format(outroot)
 
     if not emcee:
-        return outroot, hfilename
+        return hfilename
     else:
         import h5py
         hfile = h5py.File(hfilename, "a")
         print("Writing to file {}".format(hfilename))
         writer.write_h5_header(hfile, run_params, model)
         writer.write_obs_to_h5(hfile, obs)
-        return outroot, hfile
-
+        return hfile
 
 
 if __name__=='__main__':
@@ -185,7 +167,7 @@ if __name__=='__main__':
     obs, model, sps, noise = build_all(**run_params)
     run_params["param_file"] = __file__
     
-    outroot, hfile = setup_h5(model=model, obs=obs, **run_params)
+    hfile = setup_h5(model=model, obs=obs, **run_params)
     output = fit_model(obs, model, sps, noise, **run_params)
     
     writer.write_hdf5(hfile, run_params, model, obs,

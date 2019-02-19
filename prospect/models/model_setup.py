@@ -1,13 +1,13 @@
-import sys, os, getopt, json
+import sys, os, getopt, json, warnings
 from copy import deepcopy
 import numpy as np
-from . import parameters, sedmodel
+from . import parameters
 from ..utils.obsutils import fix_obs
 
-"""This module has methods to take a .json or .py file containing run
-parameters, model parameters and other info and return a run_params dictionary,
-an obs dictionary, and a model.  It also has methods to parse command line
-options and return an sps object and a gp object.
+"""This module has methods to take a .py file containing run parameters, model
+parameters and other info and return a run_params dictionary, an obs
+dictionary, and a model.  It also has methods to parse command line options and
+return an sps object and noise objects.
 
 Most of the load_<x> methods are just really shallow wrappers on
 ```import_module_from_file(param_file).load_<x>(**kwargs)``` and could probably
@@ -19,10 +19,14 @@ __all__ = ["parse_args", "import_module_from_file", "get_run_params",
            "load_model", "load_obs", "load_sps", "load_gp", "show_syntax"]
 
 
+deprecation_msg = ("Use argparse based operation; usage via prospector_*.py "
+                   "scripts will be disabled in the future.")
+
 def parse_args(argv, argdict={}):
     """Parse command line arguments, allowing for optional arguments.
     Simple/Fragile.
     """
+    warnings.warn(deprecation_msg, FutureWarning)
     args = [sub for arg in argv[1:] for sub in arg.split('=')]
     for i, a in enumerate(args):
         if (a[:2] == '--'):
@@ -53,6 +57,7 @@ def get_run_params(param_file=None, argv=None, **kwargs):
         * 2. kwargs passsed to this function
         * 3. command line arguments
     """
+    warnings.warn(deprecation_msg, FutureWarning)
     if param_file is None:
         rp = {}
     ext = param_file.split('.')[-1]
@@ -75,12 +80,21 @@ def load_sps(param_file=None, **kwargs):
     """Return an ``sps`` object which is used to hold spectral libraries,
     perform interpolations, convolutions, etc.
     """
+    warnings.warn(deprecation_msg, FutureWarning)
     ext = param_file.split('.')[-1]
-    if ext == 'py':
-        setup_module = import_module_from_file(param_file)
-        sps = setup_module.load_sps(**kwargs)
+    assert ext == 'py'
+    setup_module = import_module_from_file(param_file)
+
+    if hasattr(setup_module, 'load_sps'):
+        builder = setup_module.load_sps
+    elif hasattr(setup_module, 'build_sps'):
+        builder = setup_module.build_sps
     else:
-        sps = None
+        warnings.warn("Could not find load_sps or build_sps methods in param_file")
+        return None
+
+    sps = builder(**kwargs)
+
     return sps
 
 
@@ -94,62 +108,77 @@ def load_gp(param_file=None, **kwargs):
     :returns gp_phot:
         The gaussian process object to use for the photometry.
     """
+    warnings.warn(deprecation_msg, FutureWarning)
     ext = param_file.split('.')[-1]
-    if ext == 'py':
-        setup_module = import_module_from_file(param_file)
-        gp_spec, gp_phot = setup_module.load_gp(**kwargs)
-        try:
-            gp_spec, gp_phot = setup_module.load_gp(**kwargs)
-        except:
-            gp_spec, gp_phot = None, None
+    assert ext == "py"
+    setup_module = import_module_from_file(param_file)
+
+    if hasattr(setup_module, 'load_gp'):
+        builder = setup_module.load_gp
+    elif hasattr(setup_module, 'build_noise'):
+        builder = setup_module.build_noise
     else:
-        gp_spec, gp_phot = None, None
-    return gp_spec, gp_phot
+        warnings.warn("Could not find load_gp or build_noise methods in param_file")
+        return None, None
+
+    spec_noise, phot_noise = builder(**kwargs)
+
+    return spec_noise, phot_noise
 
 
-def load_model(param_file=None, **extras):
+def load_model(param_file=None, **kwargs):
     """Load the model object from a model config list given in the config file.
 
     :returns model:
         An instance of the parameters.ProspectorParams object which has
         been configured
     """
+    warnings.warn(deprecation_msg, FutureWarning)
     ext = param_file.split('.')[-1]
-    if ext == 'py':
-        setup_module = import_module_from_file(param_file)
+    assert ext == 'py'
+    setup_module = import_module_from_file(param_file)
         #mp = deepcopy(setup_module.model_params)
-        model = setup_module.load_model(**extras)
-    elif ext == 'json':
-        rp, mp = parameters.read_plist(param_file)
-        model_type = getattr(sedmodel, rp.get('model_type', 'SedModel'))
-        model = model_type(mp)
+
+    if hasattr(setup_module, 'load_model'):
+        builder = setup_module.load_model
+    elif hasattr(setup_module, 'build_model'):
+        builder = setup_module.build_model
+    else:
+        warnings.warn("Could not find load_model or build_model methods in param_file")
+        return None
+
+    model = builder(**kwargs)
+
     return model
 
 
-def load_obs(param_file=None, data_loading_function_name=None, **kwargs):
-    """Load the obs dictionary using information in ``param_file``.  kwargs are
-    passed to ``fix_obs()`` and, if using a json configuration file, to the
-    data_loading_function.
+def load_obs(param_file=None, **kwargs):
+    """Load the obs dictionary using the `obs` attribute or methods in
+    ``param_file``.  kwargs are passed to these methods and ``fix_obs()``
 
     :returns obs:
         A dictionary of observational data.
     """
+    warnings.warn(deprecation_msg, FutureWarning)
     ext = param_file.split('.')[-1]
     obs = None
-    if ext == 'py':
-        print('reading py script {}'.format(param_file))
-        setup_module = import_module_from_file(param_file)
-        #obs = setup_module.load_obs(**kwargs)
-        try:
-            obs = setup_module.load_obs(**kwargs)
-        except(AttributeError):
-            obs = deepcopy(getattr(setup_module, 'obs', None))
-    if obs is None:
-        funcname = data_loading_function_name
-        obsfunction = getattr(setup_module, funcname)
-        obs = obsfunction(**kwargs)
+    assert ext == 'py'
+    print('reading py script {}'.format(param_file))
+    setup_module = import_module_from_file(param_file)
 
+    if hasattr(setup_module, 'obs'):
+        return fix_obs(deepcopy(setup_module.obs))
+    if hasattr(setup_module, 'load_obs'):
+        builder = setup_module.load_obs
+    elif hasattr(setup_module, 'build_obs'):
+        builder = setup_module.build_obs
+    else:
+        warnings.warn("Could not find load_obs or build_obs methods in param_file")
+        return None
+
+    obs = builder(**kwargs)
     obs = fix_obs(obs, **kwargs)
+
     return obs
 
 

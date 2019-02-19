@@ -111,6 +111,13 @@ def add_dynesty_args(parser):
     parser.add_argument("--nested_maxcall", type=int, default=int(5e7),
                         help="Maximum number of likelihood calls during nested sampling.")
 
+    parser.add_argument("--nested_maxbatch", type=int, default=10,
+                        help="Maximum number of dynamic batches.")
+
+    parser.add_argument("--nested_bootstrap", type=int, default=0,
+                        help=("Number of bootstrap resamplings to use when estimating "
+                              "ellipsoid expansion factor."))
+
     parser.add_argument("--nested_posterior_thresh", type=float, default=0.05,
                         help=("Stop when the fractional scatter in the K-L divergence of the "
                               "posterior estimates reaches this value"))

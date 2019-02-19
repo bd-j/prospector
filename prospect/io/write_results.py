@@ -1,4 +1,4 @@
-import os, time
+import os, time, warnings
 #import subprocess
 import pickle, json, base64
 import numpy as np
@@ -67,7 +67,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     except(AttributeError,TypeError):
         hf = hfile
     except(NameError):
-        print("HDF5 file could not be opened, as h5py could not be imported.")
+        warnings.warn("HDF5 file could not be opened, as h5py could not be imported.")
         return
 
     # ----------------------
@@ -206,7 +206,8 @@ def write_h5_header(hf, run_params, model):
     """Write header information about the run.
     """
     serialize = {'run_params': run_params,
-                 'model_params': [functions_to_names(p.copy()) for p in model.config_list],
+                 'model_params': [functions_to_names(p.copy())
+                                  for p in model.config_list],
                  'paramfile_text': paramfile_string(**run_params)}
     for k, v in list(serialize.items()):
         try:
@@ -214,10 +215,11 @@ def write_h5_header(hf, run_params, model):
         except(TypeError):
             # Should this fall back to pickle.dumps?
             hf.attrs[k] = pick(v)
-            print("Could not JSON serialize {}, pickled instead".format(k))
+            warnings.warn("Could not JSON serialize {}, pickled instead".format(k),
+                          RuntimeWarning)
         except:
             hf.attrs[k] = unserial
-            print("Could not serialize {}".format(k))
+            warnings.warn("Could not serialize {}".format(k), RuntimeWarning)
     hf.flush()
 
 

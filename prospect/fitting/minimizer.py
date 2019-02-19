@@ -78,7 +78,7 @@ def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
         The best_guess with parameters near the edge reset to be at the center
         of the prior.  ndarray of shape (ndim,)
     """
-    warnings.warn("minimizer.reintialize is deprecated", DeprecatedWarning)
+    warnings.warn("minimizer.reintialize is deprecated", DeprecationWarning)
     edge = edge_trunc
     bounds = model.theta_bounds()
     output = np.array(best_guess)

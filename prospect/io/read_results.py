@@ -16,7 +16,7 @@ from ..models.parameters import names_to_functions
 run, including reconstruction of the model for making posterior samples
 """
 
-__all__ = ["results_from",
+__all__ = ["results_from", "emcee_restarter",
            "get_sps", "get_model",
            "traceplot", "subcorner",
            "compare_paramfile"]
@@ -84,6 +84,58 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
     return res, res["obs"], model
 
 
+def emcee_restarter(restart_from="", niter=32, **kwargs):
+    """Get the obs, model, and sps objects from a previous run, as well as the
+    run_params and initial positions (which are determined from the end of the
+    last run, and inserted into the run_params dictionary)
+
+    :param restart_from:
+        Name of the file to restart the sampling from.  An error is raised if
+        this does not include an emcee style chain of shape (nwalker, niter,
+        ndim)
+
+    :param niter: (default: 32)
+        Number of additional iterations to do (added toi run_params)
+
+    :returns obs:
+        The `obs` dictionary used in the last run.
+
+    :returns model:
+        The model object used in the last run.
+
+    :returns sps:
+        The `sps` object used in the last run.
+
+    :returns noise:
+        A tuple of (None, None), since it is assumed the noise model in the
+        last run was trivial.
+
+    :returns run_params:
+        A dictionary of parameters controlling the operation.  This is the same
+        as used in the last run, but with the "niter" key changed, and a new
+        "initial_positions" key that gives the ending positions of the emcee
+        walkers from the last run.  The filename from which the run is
+        restarted is also stored in the "restart_from" key.
+    """
+    result, obs, model = results_from(restart_from)
+    noise = (None, None)
+
+    # check for emcee style outputs
+    is_emcee = (len(result["chain"].shape) == 3) & (result["chain"].shape[0] > 1)
+    msg = "Result file {} does not have a chain of the proper shape."
+    assert is_emcee, msg.format(restart_from)
+
+    sps = get_sps(result)
+    run_params = deepcopy(result["run_params"])
+    run_params["niter"] = niter
+    run_params["restart_from"] = restart_from
+
+    initial_positions = result["chain"][:, -1, :]
+    run_params["initial_positions"] = initial_positions
+
+    return obs, model, sps, noise, run_params
+
+
 def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
     """Read the model pickle.  This can be difficult if there are user defined
     functions that have to be loaded dynamically.  In that case, import the
@@ -120,7 +172,6 @@ def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
             path, filename = os.path.split(param_file[0])
             modname = filename.replace('.py', '')
             if dangerous:
-                from ..models.model_setup import import_module_from_string
                 user_module = import_module_from_string(param_file[1], modname)
             with open(model_file, 'rb') as mf:
                 mod = pickle.load(mf)
@@ -216,7 +267,6 @@ def get_sps(res):
         An sps object (i.e. from prospect.sources)
     """
     import os
-    from ..models.model_setup import import_module_from_string
     param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
     path, filename = os.path.split(param_file[0])
@@ -257,7 +307,6 @@ def get_model(res):
         A prospect.models.SedModel object
     """
     import os
-    from ..models.model_setup import import_module_from_string
     param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
     path, filename = os.path.split(param_file[0])
@@ -268,6 +317,18 @@ def get_model(res):
     except(AttributeError):
         model = user_module.build_model(**res['run_params'])
     return model
+
+
+def import_module_from_string(source, name, add_to_sys_modules=True):
+    """Well this seems dangerous.
+    """
+    import imp
+    user_module = imp.new_module(name)
+    exec(source, user_module.__dict__)
+    if add_to_sys_modules:
+        sys.modules[name] = user_module
+
+    return user_module
 
 
 def traceplot(results, showpars=None, start=0, chains=slice(None),

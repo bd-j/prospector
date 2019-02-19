@@ -189,7 +189,7 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
         optres, topt, best = run_minimize(obs, model, sps, noise,
                                           lnprobfn=lnprobfn, **kwargs)
         # set to the best
-        model.set_parameters(mr[best].x)
+        model.set_parameters(optres[best].x)
         output["optimization"] = (optres, topt)
 
     if emcee:
@@ -408,7 +408,7 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
 
 
 def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
-                pool=None, **kwargs):
+                pool=None, nested_posterior_thresh=0.05, **kwargs):
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_dynesty_sampler`
 
     :param obs:
@@ -435,6 +435,8 @@ def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
         ``nested`` keyword.
 
     """
+    from dynesty.dynamicsampler import stopping_function, weight_function
+    nested_stop_kwargs = {"post_thresh": nested_posterior_thresh}
 
     def prior_transform(u, model=model):
         return model.prior_transform(u)
@@ -446,7 +448,10 @@ def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
 
     t = time.time()
     dynestyout = run_dynesty_sampler(lnp, prior_transform, model.ndim,
-                                     pool=pool,  **kwargs)
+                                     stop_function=stopping_function,
+                                     wt_function=weight_function,
+                                     nested_stop_kwargs=nested_stop_kwargs,
+                                     pool=pool, **kwargs)
     ts = time.time() - t
 
     return dynestyout, ts
