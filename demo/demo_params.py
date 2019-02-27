@@ -1,13 +1,9 @@
-import time
+import time, sys
 
 import numpy as np
 from sedpy.observate import load_filters
 
 from prospect import prospect_args
-
-from prospect.models.templates import TemplateLibrary
-from prospect.models import priors, sedmodel
-from prospect.sources import CSPSpecBasis
 from prospect.fitting import fit_model
 from prospect.io import write_results as writer
 
@@ -78,6 +74,9 @@ def build_model(object_redshift=0.0, fixed_metallicity=None, add_duste=False,
         distance, and fit, e.g., absolute magnitudes (by setting
         luminosity_distance to 1e-5 (10pc))
     """
+    from prospect.models.templates import TemplateLibrary
+    from prospect.models import priors, sedmodel
+
     # --- Get a basic delay-tau SFH parameter set. ---
     # This has 5 free parameters:
     #   "mass", "logzsol", "dust2", "tage", "tau"
@@ -94,7 +93,7 @@ def build_model(object_redshift=0.0, fixed_metallicity=None, add_duste=False,
         model_params["lumdist"] = {"N": 1, "isfree": False,
                                    "init": luminosity_distance, "units":"Mpc"}
 
-    # Adjust model initial values (only important for emcee)
+    # Adjust model initial values (only important for optimization or emcee)
     model_params["dust2"]["init"] = 0.1
     model_params["logzsol"]["init"] = -0.3
     model_params["tage"]["init"] = 13.
@@ -238,6 +237,7 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
 # --------------
 
 def build_sps(zcontinuous=1, compute_vega_mags=False, **extras):
+    from prospect.sources import CSPSpecBasis
     sps = CSPSpecBasis(zcontinuous=zcontinuous,
                        compute_vega_mags=compute_vega_mags)
     return sps
@@ -282,6 +282,9 @@ if __name__=='__main__':
     run_params = vars(args)
     obs, model, sps, noise = build_all(**run_params)
     run_params["param_file"] = __file__
+
+    if args.debug:
+        sys.exit()
 
     #hfile = setup_h5(model=model, obs=obs, **run_params)
     hfile = "{0}_{1}_mcmc.h5".format(args.outfile, int(time.time()))

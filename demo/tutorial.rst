@@ -1,7 +1,7 @@
 Tutorial
 ============
 
-Here is a quick guide to get up and running with |Codename|.
+Here is a guide to getting up and running with |Codename|.
 
 We assume you have installed |Codename| and all its dependencies as laid out in the docs.
 The next thing you need to do is make a temporary work directory, ``<workdir>``
@@ -9,10 +9,9 @@ The next thing you need to do is make a temporary work directory, ``<workdir>``
 .. code-block:: shell
 
 		cd <workdir>
-		cp <codedir>/scripts/prospector*.py .
 		cp <codedir>/demo/demo_* .
 
-We now have some prospector executable scripts, a *parameter file*  or two, and some data.
+We now have a *parameter file*  or two, and some data.
 Take a look at the ``demo_photometry.dat`` file in an editor, you'll see it is a simple ascii file, with a few rows and several columns.
 Each row is a different galaxy, each column is a different piece of information about that galaxy.
 
@@ -24,23 +23,98 @@ The parameter file
 
 Open up ``demo_params.py`` in an editor, preferably one with syntax highlighting.
 You'll see that it's a python file.
-Some things are imported, and then there is the ``run_params`` dictionary.
-This dictionary is where you store variables that control the operation of the code.
-It is passed to each of the other main setup functions in ``param_file.py``
+It includes some imports, a number of methods that build the ingredients for the fitting,
+and then an executable portion.
 
-About those imports.
-Since we are fitting galaxies with a composite stellar population,
-we made sure to import the ``sources.CSPSpecBasis`` class.
-If you were fitting stars or non-parameteric SFHs you would use a different
-object from the ``sources`` module.
 
-The next thing to look at is the ``build_obs()`` function.
+**Executable Script**
+
+The executable portion of the parameter file that comes after the ``if __name__ == "__main__"`` line
+is run when the parameter file is called.
+Here the possible command line arguments and their default values are defined,
+including any custom arguments that you might add.
+In this example we have added several command line arguments that control how the data is read and how the 
+The supplied command line arguments are then parsed and placed in a dictionary.
+This dictionary is passed to all the ingredient building methods (described below), which return the data dictionary and necessary model objects.
+The data dictionary and model objects are passed to a function that runs the prospector fit (:py:method:`fit_model`).
+Finally, the fit results are written to an output file.
+
+
+**Building the fit ingredients: build_model**
+
+Several methods must be defined in the parameter file to build the ingredients for the fit.
+The purpose of these functions and their required output are described here.
+You will want to modify some of these for your specific model and data.
+Note that each of these functions will be passed a dictionary of command line arguments.
+These command line arguments, including any you add to the command line parser in the executable portion of the script,
+can therefore be used to control the behaviour of the ingredient building functions.
+For example, a custom command line argument can be used to control the type of model that is fit,
+or how or from where the data is loaded.
+
+First, the :py:method:`build_model` function is where the model that we will fit will be constructed.
+The specific model that you choose to construct depends on your data and your scientific question.
+
+We have to specify a dictionary or list of model parameter specifications (see :doc:`models`).
+Each specification is a dictionary that describes a single parameter.
+We can build the model by adjusting predefined sets of model parameter specifications,
+stored in the :py:class:`models.templates.TemplateLibrary` dictionary-like object.
+In this example we choose the ``"parametric_sfh"`` set, which has the parameters necessary for a vasic delay-tau SFH fit
+with simple attenuation by a dust screen.
+This parameter set can be inspected in any of the following ways
+
+.. code-block:: python
+
+		from prospect.models.templates import TemplateLibrary, describe
+		# Show basic description of all pre-defined parameter sets
+		TemplateLibrary.show_contents()
+		# method 1: print the whole dictionary of dictionaries
+		model_params = TemplateLibrary["parametric_sfh"]
+		print(model_params)
+		# Method 2: show a prettier summary of the free and fixed parameters
+		print(describe(model_params))
+
+You'll see that this model has 5 free parameters.
+Any parameter with ``"isfree": True`` in its specification will be varied during the fit.
+We have set priors on these parameters, visible as e.g. ``model_params["mass"]["prior"]``.
+You may wish to change the default priors for your particular science case,
+using the prior objects in the :py:module:`models.priors` module.
+An example of adjusting the priors for several parameters is given in the :py:method:`build_model` method in ``demo_params.py``.
+Any free parameter *must* have an associated prior.
+Other parameters have their value set to the value of the ``"init"`` key, but do not vary during the fit.
+They can be made to vary by setting ``"isfree": True`` and specifying a prior.
+Parameters not listed here will be set to their default values.
+Typically this means default values in the ``fsps.StellarPopulation()`` object;
+see `python-fsps <http://dan.iel.fm/python-fsps/current/>`_ for details.
+Once you get a set of parameters from the :py:class:`TemplateLibrary` you can modify or add parameter specifications.
+
+Finally, the :py:method:`build_model` function takes the ``model_params`` dictionary or list that you build and
+uses it to instantiate a :py:class:`SedModel` object.
+
+.. code-block:: python
+
+		from prospect.models import SedModel
+		model_params = TemplateLibrary["parametric_sfh"]
+		model = SedModel(model_params)
+		print(model)
+
+
+If you wanted to change the specification of the model using custom command line arguments,
+you could do it in :py:method:`build_model` by allowing this function to take keyword arguments
+with the same name as the custom command line argument.
+This can be useful for example to set the initial value of the redshift ``"zred"`` on an object-by-object basis.
+Such an example is shown in ``demo_params.py``,
+which also allows command line arguments to control whether nebular and/or dust emission parameters are added to the model.
+
+
+**Building the fit ingredients: build_obs**
+
+The next thing to look at is the :py:method:`build_obs` function.
 This is where you take the data from whatever format you have and
 put it into the dictionary format required by |Codename| for a single object.
 This means you will have to modify this function heavily for your own use.
 But it also means you can use your existing data formats.
 
-Right now, the ``build_obs`` function just reads ascii data from a file,
+Right now, the :py:method:`build_obs` function just reads ascii data from a file,
 picks out a row (corresponding to the photometry of a single galaxy),
 and then makes a dictionary using data in that row.
 You'll note that both the datafile name and the object number are keyword arguments to this function.
@@ -48,89 +122,52 @@ That means they can be set at execution time on the command line,
 by also including those variables in the ``run_params`` dictionary.
 We'll see an example later.
 
-When you write your own ``build_obs`` function, you can add all sorts of keyword arguments that control its output
+When you write your own :py:method:`build_obs` function, you can add all sorts of keyword arguments that control its output
 (for example, an object name or ID number that can be used to choose or find a single object in your data file).
 You can also import helper functions and modules.
 These can be either things like astropy, h5py, and sqlite or your own project specific modules and functions.
 As long as the output dictionary is in the right format (see dataformat.rst), the body of this function can do anything.
 
-Ok, now we go to the ``build_sps`` function.
-This one is pretty straightforward, it simply instantiates our ``CSPSpecBasis`` object.
-For nonparameteric fits one would use the ``FastStepBasis`` object.
-After that is ``build_noise``, which is for complexifying the noise model -- ignore that for now.
+**Building the fit ingredients: the rest**
 
-Now on to the fun part.
-The ``build_model`` function is where the model that we will fit will be constructed.
-The specific model that you choose to construct depends on your data and your scientific question.
-First we have to specify a dictionary or list of model parameter specifications (see :doc:`models`).
-Each specification is a dictionary that describes a single parameter.
-We can build the model from predefined sets of model parameter specifications,
-stored in the ``models.templates.TemplateLibrary`` directory.
-In this example we choose the ``"parametric_sfh"`` set, which has the parameters necessary for a delay-tau SFH fit with simple attenuation by a dust screen.
-This parameter set can be inspected in any of the following ways
+Ok, now we go to the :py:method:`build_sps` function.
+This one is pretty straightforward, it simply instantiates our :py:class:`sources.CSPSpecBasis` object.
+For nonparameteric fits one would use the :py:class:`sources.FastStepBasis` object.
+These objects hold all the spectral libraries and produce an SED given a set of parameters.
+After that is :py:method:`build_noise`, which is for complexifying the noise model -- ignore that for now.
 
-.. code-block:: python
-
-		from prospect.models.templates import TemplateLibrary
-		# Show basic descriptin of all pre-defined parameter sets
-		TemplateLibrary.show_contents()
-		# method 1: print the whole dictionary of dictionaries
-		print(TemplateLibrary["parametric_sfh"])
-		# Method 2: show a summary of the free and fixed parameters
-		print(TemplateLibrary.describe("parametric_sfh")
-
-You'll see that this model has 5 free parameters.
-Any parameters with ``"isfree": True`` in its specification will be varied during the fit.
-We have set priors on these parameters, including prior arguments.
-Any free parameter *must* have an associated prior.
-Other parameters have their value set (to the value of the ``"init"`` key) but do not vary during the fit.
-They can be made to vary by setting ``"isfree": True`` and specifying a prior.
-Parameters not listed here will be set to their default values.
-For ``CSPSpecBasis`` this means the default values in the ``fsps.StellarPopulation()`` object,
-see `python-fsps <http://dan.iel.fm/python-fsps/current/>`_ for details
-Once you get a set of parameters from the ``TemplateLibrary`` you can modify or add parameter specifications.
-
-Finally, the ``build_model()`` function takes the ``model_params`` dictionary or list that you build and
-uses it to instantiate a ``SedModel`` object.
-
-.. code-block:: python
-
-		from prospect.models import SedModel
-		model_params = TemplateLibrary["parametric_sfh"]
-		model = SedModel(model_params)
-
-
-If you wanted to change the specification of the model using command line arguments,
-you could do it in this function using keyword arguments that are also keys of ``run_params``.
-This can be useful for example to set the initial value of the redshift ``"zred"`` on an object-by-object basis.
 
 Running a fit
 ----------------------
 There are two kinds of fitting packages that can be used with |Codename|.
 The first is ``emcee`` which implements ensemble MCMC sampling,
 and the second is ``dynesty``, which implements dynamic nested sampling.
-Choosing which to use involves choosing which script to run
+It is also possible to perform optimization.
+If ``emcee`` is used, the result of the optimization will be used to initalize the ensemble of walkers.
 
-To run this fit on object 0 using ``emcee``, we would do the following at the command line
+The choice of which fitting algorithms to use is based on command line flags
+(``--optimization``, ``--emcee``, and ``--dynesty``.)
+If no flags are set the model and data objects will be generated and stored in the output file, but no fitting will take place.
+To run the fit on object number 0 using ``emcee`` after an initial optimization, we would do the following at the command line
 
 .. code-block:: shell
 
-		python prospector.py --param_file=demo_params.py --objid=0 \
-                --outfile=demo_obj0_emcee
+		python demo_params.py --objid=0 --emcee --optimize \
+		--outfile=demo_obj0_emcee
 
 If we wanted to change something about the MCMC parameters, or fit a different object,
 we could also do that at the command line
 
 .. code-block:: shell
 
-		python prospector.py --param_file=demo_params.py --objid=1 \
+		python demo_params.py --objid=1 --emcee --optimize \
 		--outfile=demo_obj1_emcee --nwalkers=32 --niter=1024
 
 And if we want to use nested sampling with ``dynesty`` we would do the following
 
 .. code-block:: shell
 
-		python prospector_dynesty.py --param_file=demo_params.py --objid=0 \
+		python demo_params.py --objid=0  --dynesty \
 		--outfile=demo_obj0_dynesty
 
 Finally, it is sometimes useful to run the script from the interpreter to do some checks.
@@ -139,9 +176,9 @@ This is best done with the IPython enhanced interactive python.
 .. code-block:: shell
 
 		ipython
-		In [1]: %run prospector.py --param_file=demo_params.py --objid=0 --debug=True
+		In [1]: %run demo_params.py --objid=0 --debug=True
 
-The ``--debug=True`` flag will halt execution just before the fitting starts.
+By not specifying any fitting options
 You can then inspect the ``obsdat`` dictionary, the ``model`` object,
 and the ``run_params`` dictionary to make sure everything is working fine.
 
@@ -159,8 +196,8 @@ methods in ``prospect.io.read_results``.
 
 .. code-block:: python
 
-		import prospect.io.read_results as pread
-		res, obs, mod = pread.results_from("demo_obj_<fitter>_<timestamp>_mcmc.h5")
+		import prospect.io.read_results as reader
+		res, obs, mod = reader.results_from("demo_obj_<fitter>_<timestamp>_mcmc.h5")
 
 The ``res`` object is a dictionary containing various useful results.
 You can look at ``res.keys()`` to see a list of what it contains.
@@ -176,11 +213,11 @@ and the posterior PDFs for the parameters.
 .. code-block:: python
 
 		# Trace plots
-		tfig = pread.traceplot(res)
+		tfig = reader.traceplot(res)
 		# Corner figure of posterior PDFs
-		cfig = pread.subcorner(res)
+		cfig = reader.subcorner(res)
 
-If you want to get the `maximum a. posteriori` values, or percentiles of the posterior pdf,
+If you want to get the *maximum a posteriori* values, or percentiles of the posterior pdf,
 that can be done as follows
 (note that for ``dynesty`` the weights of each posterior sample must be taken into account when calculating quantiles)
 :
@@ -207,7 +244,7 @@ that can be done as follows
 				      for i in range(mod.ndim)]
 
 If necessary, one can regenerate models at any position in the posterior chain.
-This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the ``read_results.get_sps()`` method.
+This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the :py:method:`read_results.get_sps` method.
 
 .. code-block:: python
 

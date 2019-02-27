@@ -1,13 +1,9 @@
-import time
+import time, sys
 from copy import deepcopy
 import numpy as np
 from sedpy.observate import load_filters
 
 from prospect import prospect_args
-
-from prospect.models.templates import TemplateLibrary
-from prospect.models import priors, sedmodel
-from prospect.sources import CSPSpecBasis
 from prospect.fitting import fit_model
 from prospect.io import write_results as writer
 
@@ -82,6 +78,8 @@ def build_model(zred=0.0, add_neb=True, **extras):
         If True, turn on nebular emission and add relevant parameters to the
         model.
     """
+    from prospect.models.templates import TemplateLibrary
+    from prospect.models import priors, sedmodel
     # --- Get a basic delay-tau SFH parameter set. ---
     # This has 5 free parameters:
     #   "mass", "logzsol", "dust2", "tage", "tau"
@@ -199,6 +197,7 @@ def build_sps(zcontinuous=1, **extras):
         * 2: convolve with a metallicity distribution function at each age.
              The MDF is controlled by the parameter "pmetals"
     """
+    from prospect.sources import CSPSpecBasis
     sps = CSPSpecBasis(zcontinuous=zcontinuous,
                        compute_vega_mags=False)
     return sps
@@ -247,8 +246,11 @@ if __name__=='__main__':
 
     args = parser.parse_args()
     run_params = vars(args)
-    obs, model, sps, noise = build_all(**run_params)
     run_params["param_file"] = __file__
+    obs, model, sps, noise = build_all(**run_params)
+
+    if args.debug:
+        sys.exit()
 
     #hfile = setup_h5(model=model, obs=obs, **run_params)
     hfile = "{0}_{1}_mcmc.h5".format(args.outfile, int(time.time()))
