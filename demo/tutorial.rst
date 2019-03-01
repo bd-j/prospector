@@ -14,7 +14,7 @@ The next thing you need to do is make a temporary work directory, ``<workdir>``
 
 We now have some prospector executable scripts, a *parameter file*  or two, and some data.
 Take a look at the ``demo_photometry.dat`` file in an editor, you'll see it is a simple ascii file, with a few rows and several columns.
-Each row is a different galaxay, each column is a different piece of information about that galaxy.
+Each row is a different galaxy, each column is a different piece of information about that galaxy.
 
 This is just an example.
 In practice |Codename| can work with a wide variety of data types.
