@@ -237,11 +237,11 @@ def read_hdf5(filename, **extras):
             res['rstate'] = unpick(res['rstate'])
         except:
             pass
-        try:
-            mp = [names_to_functions(p.copy()) for p in res['model_params']]
-            res['model_params'] = mp
-        except:
-            pass
+        #try:
+        #    mp = [names_to_functions(p.copy()) for p in res['model_params']]
+        #    res['model_params'] = mp
+        #except:
+        #    pass
 
     return res
 

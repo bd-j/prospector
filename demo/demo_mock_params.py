@@ -71,7 +71,7 @@ run_params = {'verbose':True,
 def build_model(zred=0.0, add_neb=True, **extras):
     """Instantiate and return a ProspectorParams model subclass.
 
-    :param zred: (optional, default: 0.1)
+    :param zred: (optional, default: 0.0)
         The redshift of the model
 
     :param add_neb: (optional, default: False)
@@ -243,6 +243,8 @@ if __name__=='__main__':
                         help="Dust attenuation V band optical depth")
     parser.add_argument('--logzsol', type=float, default=-0.5,
                         help="Metallicity of the mock; log(Z/Z_sun)")
+    parser.add_argument('--mass', type=float, default=1e10,
+                        help="Stellar mass of the mock; solar masses formed")
 
     args = parser.parse_args()
     run_params = vars(args)

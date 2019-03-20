@@ -55,7 +55,7 @@ def paramfile_string(param_file=None, **extras):
     return pstr
 
 
-def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
+def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
                tsample=0.0, toptimize=0.0, sampling_initial_center=[],
                **extras):
     """Write output and information to an HDF5 file object (or
@@ -79,12 +79,19 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     except(AttributeError):
         # dynesty or nestle
         if sampler is None:
-            pass
+            sdat = hf.create_group('sampling')
         elif 'eff' in sampler:
             write_dynesty_h5(hf, sampler, model, tsample)
         else:
             write_nestle_h5(hf, sampler, model, tsample)
 
+    # -----------------
+    # Optimizer info
+    if optimize_result_list is not None:
+        out = optresultlist_to_ndarray(optimize_result_list)
+        mdat = hf.create_dataset('optimization', data=out)
+        
+    
     # ----------------------
     # High level parameter and version info
     write_h5_header(hf, run_params, model)
@@ -253,6 +260,17 @@ def write_obs_to_h5(hf, obs):
     hf.flush()
 
 
+def optresultlist_to_ndarray(results):
+    npar, nout = len(results[0].x), len(results[0].fun)
+    dt = [("success", np.bool), ("message", "S50"), ("nfev", np.int), ("x", (np.float, npar)), ("fun", (np.float, nout))]
+    out = np.zeros(len(results), dtype=np.dtype(dt))
+    for i, r in enumerate(results):
+        for f in out.dtype.names:
+            out[i][f] = r[f]
+
+    return out
+
+        
 def write_pickles(run_params, model, obs, sampler, powell_results,
                   outroot=None, tsample=None, toptimize=None,
                   post_burnin_center=None, post_burnin_prob=None,
