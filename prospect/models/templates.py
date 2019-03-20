@@ -324,7 +324,7 @@ TemplateLibrary["spectral_smoothing"] = (_smoothing_,
 # --- Spectral calibration
 # -------------------------
 
-spec_norm = {'N': 10, 'isfree': False,
+spec_norm = {'N': 1, 'isfree': False,
             'init': 1.0, 'units': 'f_true/f_obs',
             'prior': priors.Normal(mean=1.0, sigma=0.1)}
 # What order polynomial?

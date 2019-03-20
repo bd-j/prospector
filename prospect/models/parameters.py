@@ -226,7 +226,7 @@ class ProspectorParams(object):
         """A list of the names of the free model parameters.
         """
         return [k['name'] for k in pdict_to_plist(self.config_list)
-                if k['isfree']]
+                if k.get('isfree', False)]
 
     @property
     def fixed_params(self):
@@ -234,7 +234,7 @@ class ProspectorParams(object):
         ``config_dict``.
         """
         return [k['name'] for k in pdict_to_plist(self.config_list)
-                if (k['isfree'] is False)]
+                if (k.get('isfree', False) is False)]
 
     @property
     def description(self):
