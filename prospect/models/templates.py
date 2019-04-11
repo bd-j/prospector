@@ -220,7 +220,7 @@ duste_qpah  = {"N": 1, "isfree": False,
 
 
 duste_gamma = {"N": 1, "isfree": False,
-               "init": 0.0, "units": 'Mass fraction of dust in high radiation intensity.',
+               "init": 1e-3, "units": 'Mass fraction of dust in high radiation intensity.',
                "prior": priors.LogUniform(mini=1e-3, maxi=0.15)}
 
 _dust_emission_ = {"add_dust_emission": add_duste,
@@ -267,11 +267,11 @@ TemplateLibrary["nebular"] = (_nebular_,
 add_agn =  {"N": 1, "isfree": False, "init": True}
 
 fagn = {'N': 1, 'isfree': False,
-        'init': 0.01, 'units': r'L_{AGN}/L_*',
+        'init': 1e-4, 'units': r'L_{AGN}/L_*',
         'prior': priors.LogUniform(mini=1e-5, maxi=3.0)}
 
 agn_tau = {"N": 1, 'isfree': False,
-           "init": 1.0, 'units': r"optical depth",
+           "init": 5.0, 'units': r"optical depth",
            'prior': priors.LogUniform(mini=5.0, maxi=150.)}
 
 _agn_ = {"fagn": fagn,       # FSPS parameter.
