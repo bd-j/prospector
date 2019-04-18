@@ -10,7 +10,6 @@ try:
 except:
     pass
 
-from ..models.parameters import names_to_functions
 
 """Convenience functions for reading and reconstructing results from a fitting
 run, including reconstruction of the model for making posterior samples
@@ -545,3 +544,23 @@ def compare_paramfile(res, filename):
     bbl = json.loads(b)
     bb = bbl.split('\n')
     pprint([l for l in unified_diff(aa, bb)])
+
+
+def names_to_functions(p):
+    """Replace names of functions (or pickles of objects) in a parameter
+    description with the actual functions (or pickles).
+    """
+    from importlib import import_module
+    for k, v in list(p.items()):
+        try:
+            m = import_module(v[1])
+            f = m.__dict__[v[0]]
+        except:
+            try:
+                f = pickle.loads(v)
+            except:
+                f = v
+
+        p[k] = f
+
+    return p

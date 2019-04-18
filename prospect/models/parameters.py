@@ -4,7 +4,7 @@ import json, pickle
 from . import priors
 from .templates import describe
 
-__all__ = ["ProspectorParams"] #, "plist_to_pdict", "pdict_to_plist"]
+__all__ = ["ProspectorParams"]
 
 
 # A template for what parameter configuration list element should look like
@@ -393,35 +393,3 @@ def pdict_to_plist(pdict, order=None):
         plist += [v]
     return plist
 
-
-def names_to_functions(p):
-    """Replace names of functions (or pickles of objects) in a parameter
-    description with the actual functions (or pickles).
-    """
-    from importlib import import_module
-    for k, v in list(p.items()):
-        try:
-            m = import_module(v[1])
-            f = m.__dict__[v[0]]
-        except:
-            try:
-                f = pickle.loads(v)
-            except:
-                f = v
-
-        p[k] = f
-
-    return p
-
-
-def functions_to_names(p):
-    """Replace prior and dust functions (or objects) with the names of those
-    functions (or pickles).
-    """
-    for k, v in list(p.items()):
-        if callable(v):
-            try:
-                p[k] = [v.__name__, v.__module__]
-            except(AttributeError):
-                p[k] = pickle.dumps(v, protocol=2)
-    return p

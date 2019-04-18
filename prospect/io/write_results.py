@@ -1,8 +1,6 @@
 import os, time, warnings
-#import subprocess
 import pickle, json, base64
 import numpy as np
-from ..models.parameters import functions_to_names, plist_to_pdict
 try:
     import h5py
     _has_h5py_ = True
@@ -25,6 +23,7 @@ def pick(obj):
 #def run_command(cmd):
 #    """Open a child process, and return its exit status and stdout.
 #    """
+#    import subprocess
 #    child = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE,
 #                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 #    out = [s for s in child.stdout]
@@ -337,3 +336,16 @@ def write_model_pickle(outname, model, bgh=None, powell=None, **kwargs):
             pass
     with open(outname, "wb") as out:
         pickle.dump(model_store, out)
+
+
+def functions_to_names(p):
+    """Replace prior and dust functions (or objects) with the names of those
+    functions (or pickles).
+    """
+    for k, v in list(p.items()):
+        if callable(v):
+            try:
+                p[k] = [v.__name__, v.__module__]
+            except(AttributeError):
+                p[k] = pickle.dumps(v, protocol=2)
+    return p
