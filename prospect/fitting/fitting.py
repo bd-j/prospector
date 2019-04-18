@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""fitting.py -- Default posterior probability function and high-level fitting
+methods for prospector
+"""
+
+
 import time
 from functools import partial as argfix
 
@@ -34,27 +42,30 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
 
     :param obs:
         A dictionary of observational data.  The keys should be
-          *``wavelength``
-          *``spectrum``
-          *``unc``
-          *``maggies``
-          *``maggies_unc``
-          *``filters``
-          * and optional spectroscopic ``mask`` and ``phot_mask``.
+          *``wavelength``  (angstroms)
+          *``spectrum``    (maggies)
+          *``unc``         (maggies)
+          *``maggies``     (photometry in maggies)
+          *``maggies_unc`` (photometry uncertainty in maggies)
+          *``filters``     (iterable of :py:class:`sedpy.observate.Filter`)
+          * and optional spectroscopic ``mask`` and ``phot_mask``
+            (same length as `spectrum` and `maggies` respectively,
+             True means use the data points)
 
     :param sps:
-        A prospect.sources.SSPBasis object or subclass thereof, or any object
-        with a ``get_spectrum`` method that will take a dictionary of model
-        parameters and return a spectrum, photometry, and ancillary
+        A :py:class:`prospect.sources.SSPBasis` object or subclass thereof, or
+        any object with a ``get_spectrum`` method that will take a dictionary
+        of model parameters and return a spectrum, photometry, and ancillary
         information.
 
-    :param noise: (optional, default: (None, None)
-        A 2-element tuple of NoiseModel objects.
+    :param noise: (optional, default: (None, None))
+        A 2-element tuple of :py:class:`prospect.likelihood.NoiseModel` objects.
 
     :param residuals: (optional, default: False)
         A switch to allow vectors of :math:`\chi` values to be returned instead
         of a scalar posterior probability.  This can be useful for
-        least-squares optimization methods.
+        least-squares optimization methods. Note that prior probabilities are
+        not included in this calculation.
 
     :param nested: (optional, default: False)
         If ``True``, do not add the ln-prior probability to the ln-likelihood
@@ -154,7 +165,7 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
         * min_opts: dictionary of minimization options passed to the
           scipy.optimize.minimize method.
         
-        See run_minimize() for details.
+        See :py:method:`run_minimize` for details.
 
     :param emcee:  (optional, default: False)
         If ``True``, sample from the posterior using emcee.  Additonal
@@ -163,13 +174,13 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
         * initial_positions: A set of initial positions for the walkers
         * hfile: an open h5py.File file handle for writing result incrementally
         
-        Many additional emcee parameters can be provided here, see run_emcee()
-        for details.
+        Many additional emcee parameters can be provided here, see
+        :py:method:`run_emcee` for details.
 
     :param dynesty:
         If ``True``, sample from the posterior using dynesty.  Additonal
         parameters controlling dynesty can be passed via **kwargs. See
-        run_dynesty() for details.
+        :py:method:`run_dynesty` for details.
 
     :returns output:
         A dictionary with two keays, 'optimization' and 'sampling'.  The value
@@ -373,6 +384,9 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
         The number of stable convergence checks that the chain must pass before
         being declared stable.
 
+    Returns
+    --------
+
     :returns sampler:
         An instance of :py:class:`emcee.EnsembleSampler`.
 
@@ -426,14 +440,38 @@ def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
         be used here. It will be passed to ``lnprobfn``
 
     :param noise:
-        A tuple of :py:class:`NoiseModel` objects passed to ``lnprobfn``.
+        A tuple of :py:class:`prospect.likelihood.NoiseModel` objects passed to
+        ``lnprobfn``.
 
-    :param lnprobfn: (optional, default: lnprobfn)
+    :param lnprobfn: (optional, default: :py:method:`lnprobfn`)
         A posterior probability function that can take ``obs``, ``model``,
-        ``sps``, and ``noise`` as keywords. By default use the
-        :py:method:`lnprobfn` defined above.  This function must also take a
+        ``sps``, and ``noise`` as keywords. This function must also take a
         ``nested`` keyword.
 
+    Extra Parameters
+    --------
+    :param nested_bound: (optional, default: 'multi')
+
+    :param nested_sample: (optional, default: 'unif')
+
+    :param nested_nlive_init: (optional, default: 100)
+
+    :param nested_nlive_batch: (optional, default: 100)
+
+    :param nested_dlogz_init: (optional, default: 0.02)
+
+    :param nested_maxcall: (optional, default: None)
+
+    :param nested_walks: (optional, default: 25)
+
+    Returns
+    --------
+
+    :returns result:
+        An instance of :py:class:`dynesty.results.Results`.
+
+    :returns ts:
+        Duration of sampling in seconds of wall time.
     """
     from dynesty.dynamicsampler import stopping_function, weight_function
     nested_stop_kwargs = {"post_thresh": nested_posterior_thresh}
