@@ -188,6 +188,8 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
     # import astropy.io.fits as pyfits
     # catalog = pyfits.getdata(phottable)
 
+    from prospect.utils.obsutils import fix_obs
+
     # Here we will read in an ascii catalog of magnitudes as a numpy structured
     # array
     with open(phottable, 'r') as f:
@@ -229,6 +231,9 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
     # Add unessential bonus info.  This will be stored in output
     #obs['dmod'] = catalog[ind]['dmod']
     obs['objid'] = objid
+
+    # This ensures all required keys are present and adds some extra useful info
+    obs = fix_obs(obs)
 
     return obs
 
@@ -281,7 +286,11 @@ if __name__=='__main__':
     args = parser.parse_args()
     run_params = vars(args)
     obs, model, sps, noise = build_all(**run_params)
+
+    run_params["sps_libraries"] = sps.ssp.libraries
     run_params["param_file"] = __file__
+
+    print(model)
 
     if args.debug:
         sys.exit()

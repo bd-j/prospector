@@ -139,6 +139,8 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     :param add_noise: (optional, boolean, default: True)
         If True, add a realization of the noise to the mock spectrum
     """
+    from prospect.utils.obsutils import fix_obs
+
     # We'll put the mock data in this dictionary, just as we would for real
     # data.  But we need to know which bands (and wavelengths if doing
     # spectroscopy) in which to generate mock data.
@@ -178,6 +180,9 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
         mock['maggies'] = phot.copy()
     mock['maggies_unc'] = pnoise_sigma
     mock['phot_mask'] = np.ones(len(phot), dtype=bool)
+
+    # This ensures all required keys are present
+    mock = fix_obs(mock)
 
     return mock
 
@@ -248,8 +253,12 @@ if __name__=='__main__':
 
     args = parser.parse_args()
     run_params = vars(args)
-    run_params["param_file"] = __file__
     obs, model, sps, noise = build_all(**run_params)
+
+    run_params["sps_libraries"] = sps.ssp.libraries
+    run_params["param_file"] = __file__
+
+    print(model)
 
     if args.debug:
         sys.exit()

@@ -38,7 +38,7 @@ def githash(**extras):
         from .._version import __version__, __githash__
         bgh = __version__, __githash__
     except(ImportError):
-        warning.warn("Could not obtain prospector version info", RuntimeWarning)
+        warnings.warn("Could not obtain prospector version info", RuntimeWarning)
         bgh = "Can't get version number."
 
     return bgh
@@ -49,7 +49,7 @@ def paramfile_string(param_file=None, **extras):
         with open(param_file, "r") as pfile:
             pstr = pfile.read()
     except:
-        warning.warn("Could not store paramfile text", RuntimeWarning)
+        warnings.warn("Could not store paramfile text", RuntimeWarning)
         pstr = ''
     return pstr
 
@@ -251,10 +251,10 @@ def write_obs_to_h5(hf, obs):
             except(TypeError):
                 # Should this fall back to pickle.dumps?
                 odat.attrs[k] = pick(v)
-                print("Could not JSON serialize {}, pickled instead".format(k))
+                warnings.warn("Could not JSON serialize {}, pickled instead".format(k))
             except:
                 odat.attrs[k] = unserial
-                print("Could not serialize {}".format(k))
+                warnings.warn("Could not serialize {}".format(k))
 
     hf.flush()
 

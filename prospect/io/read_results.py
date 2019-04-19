@@ -1,4 +1,5 @@
 import sys, os
+import warnings
 import pickle, json
 import numpy as np
 try:
@@ -57,7 +58,10 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
     # Read the basic chain, parameter, and run_params info
     if filename.split('.')[-1] == 'h5':
         res = read_hdf5(filename, **kwargs)
-        mf_default = filename.replace('_mcmc.h5', '_model')
+        if "_mcmc.h5" in filename:
+            mf_default = filename.replace('_mcmc.h5', '_model')
+        else:
+            mf_default = "x"
     else:
         with open(filename, 'rb') as rf:
             res = pickle.load(rf)
@@ -283,7 +287,7 @@ def get_sps(res):
     except(AttributeError):
         rlib = None
     if (flib is None) or (rlib is None):
-        print("Could not check SSP library versions.")
+        warnings.warn("Could not check SSP library versions.")
     else:
         liberr = ("The FSPS libraries used in fitting({}) are not the "
                   "same as the FSPS libraries that you are using now ({})".format(flib, rlib))

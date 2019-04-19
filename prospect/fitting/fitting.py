@@ -74,12 +74,19 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         should not be included here.
 
     :returns lnp:
-        Ln posterior probability.
+        Ln posterior probability, unless `residuals=True` in which case a
+        vector of :math:`\chi` values is returned.
     """
+    if residuals:
+        #lnnull = np.zeros(model.ndim) - np.infty
+        lnnull = -np.infty
+    else:
+        lnnull = -np.infty
+
     # --- Calculate prior probability and exit if not within prior ---
     lnp_prior = model.prior_product(theta, nested=nested)
     if not np.isfinite(lnp_prior):
-        return -np.infty
+        return lnnull
 
     # --- Generate mean model ---
     try:
@@ -87,7 +94,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         spec, phot, x = model.mean_model(theta, obs, sps=sps)
         d1 = time.time() - t1
     except(ValueError):
-        return -np.infty
+        return lnnull
 
     # --- Optionally return chi vectors for least-squares ---
     # note this does not include priors!
@@ -114,7 +121,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     lnp_phot = lnlike_phot(phot, obs=obs,
                            phot_noise=phot_noise, **vectors)
     d2 = time.time() - t1
-    if verbose:
+    if verbose > 1:
         write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
 
     return lnp_prior + lnp_phot + lnp_spec
@@ -127,7 +134,7 @@ def wrap_lnp(lnpfn, obs, model, sps, **lnp_kwargs):
 
 def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
               optimize=False, emcee=False, dynesty=True, **kwargs):
-    """Fit a model to observations using a number of differnt methods
+    """Fit a model to observations using a number of different methods
 
     :param obs:
         The ``obs`` dictionary containing the data to fit to, which will be
@@ -183,7 +190,7 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
         :py:method:`run_dynesty` for details.
 
     :returns output:
-        A dictionary with two keays, 'optimization' and 'sampling'.  The value
+        A dictionary with two keys, 'optimization' and 'sampling'.  The value
         of each of these is a 2-tuple with results in the first element and
         durations (in seconds) in the second element.
     """
