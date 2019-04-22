@@ -178,9 +178,15 @@ This is best done with the IPython enhanced interactive python.
 		ipython
 		In [1]: %run demo_params.py --objid=0 --debug=True
 
-By not specifying any fitting options
 You can then inspect the ``obsdat`` dictionary, the ``model`` object,
 and the ``run_params`` dictionary to make sure everything is working fine.
+
+To see the full list of available command-line options, you can run the following
+
+.. code-block:: shell
+
+		python demo_params.py --help
+
 
 Working with the output
 --------------------------------
@@ -197,12 +203,12 @@ methods in ``prospect.io.read_results``.
 .. code-block:: python
 
 		import prospect.io.read_results as reader
-		res, obs, mod = reader.results_from("demo_obj_<fitter>_<timestamp>_mcmc.h5")
+		res, obs, model = reader.results_from("demo_obj_<fitter>_<timestamp>_mcmc.h5")
 
 The ``res`` object is a dictionary containing various useful results.
 You can look at ``res.keys()`` to see a list of what it contains.
 The ``obs`` object is just the ``obs`` dictionary that was used in the fitting.
-The ``mod`` object is the model object that was used in the fitting.
+The ``model`` object is the model object that was used in the fitting.
 
 There are also some methods in this module for basic diagnostic plots.
 The ``subcorner`` method requires that you have the `corner
@@ -241,7 +247,7 @@ that can be done as follows
 		from prospect.utils.plotting import quantile
 		post_pcts = [quantile(flatchain[:, i], percents=[16, 50, 84],
 		                                    weights=res.get("weights", None))
-				      for i in range(mod.ndim)]
+				      for i in range(model.ndim)]
 
 If necessary, one can regenerate models at any position in the posterior chain.
 This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the :py:method:`read_results.get_sps` method.
@@ -249,7 +255,7 @@ This requires that we have the sps object used in the fitting to generate models
 .. code-block:: python
 
 		# We need the correct sps object to generate models
-		sps = pread.get_sps(res)
+		sps = reader.get_sps(res)
 
 Now we will choose a specific parameter value from the chain and plot what the observations and the model look like, as well as the uncertainty normalized residual.  For ``emcee`` results we will use the last iteration of the first walker, while for ``dynesty`` results we will just use the last sample in the chain.
 
@@ -266,7 +272,7 @@ Now we will choose a specific parameter value from the chain and plot what the o
 
 		# Get the modeled spectra and photometry.
 		# These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
-		spec, phot, mfrac = mod.mean_model(theta, obs=res['obs'], sps=sps)
+		spec, phot, mfrac = model.mean_model(theta, obs=res['obs'], sps=sps)
 		# mfrac is the ratio of the surviving stellar mass to the formed mass (the ``"mass"`` parameter).
 
 		# Plot the model SED
