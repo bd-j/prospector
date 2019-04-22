@@ -86,6 +86,7 @@ Parameters not listed here will be set to their default values.
 Typically this means default values in the ``fsps.StellarPopulation()`` object;
 see `python-fsps <http://dan.iel.fm/python-fsps/current/>`_ for details.
 Once you get a set of parameters from the :py:class:`TemplateLibrary` you can modify or add parameter specifications.
+Since ``model_params`` is a dictionary (of dictionaries), you can update it with other parameter set dictionaries from the :py:class:`TemplateLibrary`.
 
 Finally, the :py:method:`build_model` function takes the ``model_params`` dictionary or list that you build and
 uses it to instantiate a :py:class:`SedModel` object.
@@ -94,6 +95,9 @@ uses it to instantiate a :py:class:`SedModel` object.
 
 		from prospect.models import SedModel
 		model_params = TemplateLibrary["parametric_sfh"]
+		# Turn on nebular emission and add associated parameters
+		model_params.update(TemplateLibrary["nebular"])
+		model_params["gas_logu"]["isfree"] = True
 		model = SedModel(model_params)
 		print(model)
 
@@ -103,7 +107,7 @@ you could do it in :py:method:`build_model` by allowing this function to take ke
 with the same name as the custom command line argument.
 This can be useful for example to set the initial value of the redshift ``"zred"`` on an object-by-object basis.
 Such an example is shown in ``demo_params.py``,
-which also allows command line arguments to control whether nebular and/or dust emission parameters are added to the model.
+which also uses command line arguments to control whether nebular and/or dust emission parameters are added to the model.
 
 
 **Building the fit ingredients: build_obs**
