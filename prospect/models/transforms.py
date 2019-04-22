@@ -11,6 +11,8 @@ from ..sources.constants import cosmo
 __all__ = ["stellar_logzsol", "delogify_mass",
            "tburst_from_fage", "tage_from_tuniv", "zred_to_agebins",
            "dustratio_to_dust1",
+           "logsfr_ratios_to_masses", "logsfr_ratios_to_sfrs",
+           "logsfr_ratios_to_masses_flex", "logsfr_ratios_to_agebins",
            "zfrac_to_masses", "zfrac_to_sfrac", "zfrac_to_sfr", "masses_to_zfrac",
            "sfratio_to_sfr", "sfratio_to_mass"]
 
@@ -150,6 +152,20 @@ def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None, **ex
 
     return m1 * coeffs
 
+
+def logsfr_ratios_to_sfrs(logmass=None, logsfr_ratios=None, agebins=None, **extras):
+    """Convenience function
+    """
+    masses = logsfr_ratios_to_masses(logmass=logmass, logsfr_ratios=logsfr_ratios,
+                                     agebins=agebins)
+    dt = (10**agebins[:, 1] - 10**agebins[:, 0])
+
+    return masses / dt
+
+# --------------------------------------
+# --- Transforms for the flexible agebin continuity non-parametric SFHs used in (Leja et al. 2018) ---
+# --------------------------------------
+
 def logsfr_ratios_to_masses_flex(logmass=None, agebins=None,
                                  logsfr_ratio_young=None, logsfr_ratio_old=None,  **extras):
     logsfr_ratio_young = np.clip(logsfr_ratio_young, -100, 100)
@@ -165,6 +181,7 @@ def logsfr_ratios_to_masses_flex(logmass=None, agebins=None,
     n_masses = np.full(nbins, mbin)
 
     return np.array(myoung.tolist() + n_masses.tolist() + mold.tolist())
+
 
 def logsfr_ratios_to_agebins(logsfr_ratios=None, **extras):
     """this transforms from SFR ratios to agebins
@@ -316,13 +333,8 @@ def masses_to_zfrac(mass=None, agebins=None, **extras):
 # --------------------------------------
 
 def sfratio_to_sfr(sfr_ratio=None, sfr0=None, **extras):
-    sfr = np.cumprod(sfr_ratio)
-    all_sfr = np.insert(sfr*sfr0, sfr0, 0)
-    return all_sfr
+    raise(NotImplementedError)
 
 
 def sfratio_to_mass(sfr_ratio=None, sfr0=None, agebins=None, **extras):
-    sfr = sfratio_to_sfr(sfr_ratio=sfr_ratio, sfr0=sfr0)
-    time_per_bin = np.diff(10**agebins, axis=-1)[:, 0]
-    mass = sfr * time_per_bin
-    return mass
+    raise(NotImplementedError)
