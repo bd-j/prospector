@@ -74,7 +74,7 @@ You can inspect the default set of arguments and their default values as follows
 		parser.print_help()
 
 In the typical **parameter file** the arguments are converted to a dictionary and passed as keyword arguments
-to all of the :py:method:`build_*` methods described below.
+to all of the :py:func:`build_*` methods described below.
 
 A user can add custom arguments that will further control the behavior of the model and data building methods.
 This is done by adding arguments to the parser in the executable part of the **parameter file**.

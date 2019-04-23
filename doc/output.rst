@@ -38,7 +38,7 @@ The results dictionary contains the information needed to regenerate the *sps* o
 
 .. code-block:: python
 
-		sps = pread.get_sps(res)
+		sps = reader.get_sps(res)
 
 
 Pickles

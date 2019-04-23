@@ -36,7 +36,7 @@ including any custom arguments that you might add.
 In this example we have added several command line arguments that control how the data is read and how the 
 The supplied command line arguments are then parsed and placed in a dictionary.
 This dictionary is passed to all the ingredient building methods (described below), which return the data dictionary and necessary model objects.
-The data dictionary and model objects are passed to a function that runs the prospector fit (:py:method:`fit_model`).
+The data dictionary and model objects are passed to a function that runs the prospector fit (:py:function:`fit_model`).
 Finally, the fit results are written to an output file.
 
 
@@ -51,7 +51,7 @@ can therefore be used to control the behaviour of the ingredient building functi
 For example, a custom command line argument can be used to control the type of model that is fit,
 or how or from where the data is loaded.
 
-First, the :py:method:`build_model` function is where the model that we will fit will be constructed.
+First, the :py:func:`build_model` function is where the model that we will fit will be constructed.
 The specific model that you choose to construct depends on your data and your scientific question.
 
 We have to specify a dictionary or list of model parameter specifications (see :doc:`models`).
@@ -77,18 +77,18 @@ You'll see that this model has 5 free parameters.
 Any parameter with ``"isfree": True`` in its specification will be varied during the fit.
 We have set priors on these parameters, visible as e.g. ``model_params["mass"]["prior"]``.
 You may wish to change the default priors for your particular science case,
-using the prior objects in the :py:module:`models.priors` module.
-An example of adjusting the priors for several parameters is given in the :py:method:`build_model` method in ``demo_params.py``.
+using the prior objects in the :py:mod:`models.priors` module.
+An example of adjusting the priors for several parameters is given in the :py:func:`build_model` method in ``demo_params.py``.
 Any free parameter *must* have an associated prior.
 Other parameters have their value set to the value of the ``"init"`` key, but do not vary during the fit.
 They can be made to vary by setting ``"isfree": True`` and specifying a prior.
 Parameters not listed here will be set to their default values.
-Typically this means default values in the ``fsps.StellarPopulation()`` object;
+Typically this means default values in the :py:class:`fsps.StellarPopulation` object;
 see `python-fsps <http://dan.iel.fm/python-fsps/current/>`_ for details.
 Once you get a set of parameters from the :py:class:`TemplateLibrary` you can modify or add parameter specifications.
 Since ``model_params`` is a dictionary (of dictionaries), you can update it with other parameter set dictionaries from the :py:class:`TemplateLibrary`.
 
-Finally, the :py:method:`build_model` function takes the ``model_params`` dictionary or list that you build and
+Finally, the :py:func:`build_model` function takes the ``model_params`` dictionary or list that you build and
 uses it to instantiate a :py:class:`SedModel` object.
 
 .. code-block:: python
@@ -103,7 +103,7 @@ uses it to instantiate a :py:class:`SedModel` object.
 
 
 If you wanted to change the specification of the model using custom command line arguments,
-you could do it in :py:method:`build_model` by allowing this function to take keyword arguments
+you could do it in :py:func:`build_model` by allowing this function to take keyword arguments
 with the same name as the custom command line argument.
 This can be useful for example to set the initial value of the redshift ``"zred"`` on an object-by-object basis.
 Such an example is shown in ``demo_params.py``,
@@ -112,13 +112,13 @@ which also uses command line arguments to control whether nebular and/or dust em
 
 **Building the fit ingredients: build_obs**
 
-The next thing to look at is the :py:method:`build_obs` function.
+The next thing to look at is the :py:func:`build_obs` function.
 This is where you take the data from whatever format you have and
 put it into the dictionary format required by |Codename| for a single object.
 This means you will have to modify this function heavily for your own use.
 But it also means you can use your existing data formats.
 
-Right now, the :py:method:`build_obs` function just reads ascii data from a file,
+Right now, the :py:func:`build_obs` function just reads ascii data from a file,
 picks out a row (corresponding to the photometry of a single galaxy),
 and then makes a dictionary using data in that row.
 You'll note that both the datafile name and the object number are keyword arguments to this function.
@@ -126,7 +126,7 @@ That means they can be set at execution time on the command line,
 by also including those variables in the ``run_params`` dictionary.
 We'll see an example later.
 
-When you write your own :py:method:`build_obs` function, you can add all sorts of keyword arguments that control its output
+When you write your own :py:func:`build_obs` function, you can add all sorts of keyword arguments that control its output
 (for example, an object name or ID number that can be used to choose or find a single object in your data file).
 You can also import helper functions and modules.
 These can be either things like astropy, h5py, and sqlite or your own project specific modules and functions.
@@ -134,11 +134,11 @@ As long as the output dictionary is in the right format (see dataformat.rst), th
 
 **Building the fit ingredients: the rest**
 
-Ok, now we go to the :py:method:`build_sps` function.
+Ok, now we go to the :py:func:`build_sps` function.
 This one is pretty straightforward, it simply instantiates our :py:class:`sources.CSPSpecBasis` object.
 For nonparameteric fits one would use the :py:class:`sources.FastStepBasis` object.
 These objects hold all the spectral libraries and produce an SED given a set of parameters.
-After that is :py:method:`build_noise`, which is for complexifying the noise model -- ignore that for now.
+After that is :py:func:`build_noise`, which is for complexifying the noise model -- ignore that for now.
 
 
 Running a fit
@@ -254,7 +254,7 @@ that can be done as follows
 				      for i in range(model.ndim)]
 
 If necessary, one can regenerate models at any position in the posterior chain.
-This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the :py:method:`read_results.get_sps` method.
+This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the :py:func:`read_results.get_sps` method.
 
 .. code-block:: python
 

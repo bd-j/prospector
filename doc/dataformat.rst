@@ -1,6 +1,6 @@
 Data Formats
 ===========
-The :py:meth:`build_obs()` function
+The :py:meth:`build_obs` function
 ---------------------------------------
 
 The :py:meth:`build_obs` function in the parameter file is written by the user.
