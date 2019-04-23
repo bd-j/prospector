@@ -45,8 +45,8 @@ See [installation](doc/installation.rst) for requirements.
 Other files in the [doc/](doc/) directory explain the usage of the code,
 and you can read the documentation [here](http://prospect.readthedocs.io/en/latest/).
 
-See also the [tutorial](demo/tutorial.rst), the [demo notebook](demo/NestedDemo.ipynb),
-or the [deconstructed demo](demo/DeconstructedDemo.ipynb)
+See also the [tutorial](demo/tutorial.rst)
+or the [interactive demo](demo/InteractiveDemo.ipynb)
 for fitting photometric data with composite stellar populations.
 
 
