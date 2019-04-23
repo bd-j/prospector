@@ -1,8 +1,6 @@
-import os, time
-#import subprocess
+import os, time, warnings
 import pickle, json, base64
 import numpy as np
-from ..models.parameters import functions_to_names, plist_to_pdict
 try:
     import h5py
     _has_h5py_ = True
@@ -25,6 +23,7 @@ def pick(obj):
 #def run_command(cmd):
 #    """Open a child process, and return its exit status and stdout.
 #    """
+#    import subprocess
 #    child = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE,
 #                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 #    out = [s for s in child.stdout]
@@ -32,100 +31,17 @@ def pick(obj):
 #    return os.WEXITSTATUS(w), out
 
 
-def githash(nofork=False, **extras):
+def githash(**extras):
     """Pull out the git hash history for Prospector here.
-
-    :param nofork: (optional, default: False)
-        If ``True``, do *not* get the githash, since this involves creating a
-        fork, which can cause a problem on some MPI implementations (in a way
-        that cannot be caught niceley)
     """
     try:
-        from .._version import __version__
-        bgh = __version__
+        from .._version import __version__, __githash__
+        bgh = __version__, __githash__
     except(ImportError):
+        warnings.warn("Could not obtain prospector version info", RuntimeWarning)
         bgh = "Can't get version number."
 
-    if nofork:
-        return bgh
-
-    cmd = 'cd {0}; git log --format="format:%h"'
-    # This doesn't work if prospector is installed via setup.py
-    #try:
-    #    bsfh_dir = os.path.dirname(__file__)
-    #    bgh = run_command(cmd.format(bsfh_dir))[1]
-    #except:
-    #    print("Couldn't get Prospector history")
-
     return bgh
-
-
-def write_pickles(run_params, model, obs, sampler, powell_results,
-                  outroot=None, tsample=None, toptimize=None,
-                  post_burnin_center=None, post_burnin_prob=None,
-                  sampling_initial_center=None, simpleout=False, **extras):
-    """Write results to two different pickle files.  One (``*_mcmc``) contains
-    only lists, dictionaries, and numpy arrays and is therefore robust to
-    changes in object definitions.  The other (``*_model``) contains the actual
-    model object (and minimization result objects) and is therefore more
-    fragile.
-    """
-
-    if outroot is None:
-        tt = int(time.time())
-        outroot = '{1}_{0}'.format(tt, run_params['outfile'])
-    bgh = githash(**run_params)
-    paramfile_text = paramfile_string(**run_params)
-
-    write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results,
-                       paramfile_text=paramfile_text)
-
-    if simpleout and _has_h5py_:
-        return
-
-    # write out a simple chain as a pickle.  This isn't really necessary since
-    # the hd5 usually works
-    results = {}
-
-    # Useful global info and parameters
-    results['run_params'] = run_params
-    results['obs'] = obs
-    results['model_params'] = [functions_to_names(p.copy()) for p in model.config_list]
-    results['theta_labels'] = list(model.theta_labels())
-
-    # Parameter value at variopus phases
-    results['initial_theta'] = model.initial_theta
-    results['sampling_initial_center'] = sampling_initial_center
-    results['post_burnin_center'] = post_burnin_center
-    results['post_burnin_prob'] = post_burnin_prob
-
-    # Chain and ancillary sampling info
-    results['chain'] = sampler.chain
-    results['lnprobability'] = sampler.lnprobability
-    results['acceptance'] = sampler.acceptance_fraction
-    results['rstate'] = sampler.random_state
-    results['sampling_duration'] = tsample
-    results['optimizer_duration'] = toptimize
-
-    results['prospector_version'] = bgh
-    results['paramfile_text'] = paramfile_text
-
-    with open(outroot + '_mcmc', "wb") as out:
-        pickle.dump(results, out)
-
-
-def write_model_pickle(outname, model, bgh=None, powell=None, **kwargs):
-    model_store = {}
-    model_store['powell'] = powell
-    model_store['model'] = model
-    model_store['prospector_version'] = bgh
-    for k, v in kwargs.items():
-        try:
-            model_store[k] = v
-        except:
-            pass
-    with open(outname, "wb") as out:
-        pickle.dump(model_store, out)
 
 
 def paramfile_string(param_file=None, **extras):
@@ -133,11 +49,12 @@ def paramfile_string(param_file=None, **extras):
         with open(param_file, "r") as pfile:
             pstr = pfile.read()
     except:
+        warnings.warn("Could not store paramfile text", RuntimeWarning)
         pstr = ''
     return pstr
 
 
-def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
+def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
                tsample=0.0, toptimize=0.0, sampling_initial_center=[],
                **extras):
     """Write output and information to an HDF5 file object (or
@@ -149,7 +66,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
     except(AttributeError,TypeError):
         hf = hfile
     except(NameError):
-        print("HDF5 file could not be opened, as h5py could not be imported.")
+        warnings.warn("HDF5 file could not be opened, as h5py could not be imported.")
         return
 
     # ----------------------
@@ -160,11 +77,20 @@ def write_hdf5(hfile, run_params, model, obs, sampler, powell_results,
         write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample)
     except(AttributeError):
         # dynesty or nestle
-        if 'eff' in sampler:
+        if sampler is None:
+            sdat = hf.create_group('sampling')
+        elif 'eff' in sampler:
             write_dynesty_h5(hf, sampler, model, tsample)
         else:
             write_nestle_h5(hf, sampler, model, tsample)
 
+    # -----------------
+    # Optimizer info
+    if optimize_result_list is not None:
+        out = optresultlist_to_ndarray(optimize_result_list)
+        mdat = hf.create_dataset('optimization', data=out)
+        
+    
     # ----------------------
     # High level parameter and version info
     write_h5_header(hf, run_params, model)
@@ -281,11 +207,13 @@ def write_dynesty_h5(hf, dynesty_out, model, tsample):
 
     hf.flush()
 
+
 def write_h5_header(hf, run_params, model):
     """Write header information about the run.
     """
     serialize = {'run_params': run_params,
-                 'model_params': [functions_to_names(p.copy()) for p in model.config_list],
+                 'model_params': [functions_to_names(p.copy())
+                                  for p in model.config_list],
                  'paramfile_text': paramfile_string(**run_params)}
     for k, v in list(serialize.items()):
         try:
@@ -293,10 +221,11 @@ def write_h5_header(hf, run_params, model):
         except(TypeError):
             # Should this fall back to pickle.dumps?
             hf.attrs[k] = pick(v)
-            print("Could not JSON serialize {}, pickled instead".format(k))
+            warnings.warn("Could not JSON serialize {}, pickled instead".format(k),
+                          RuntimeWarning)
         except:
             hf.attrs[k] = unserial
-            print("Could not serialize {}".format(k))
+            warnings.warn("Could not serialize {}".format(k), RuntimeWarning)
     hf.flush()
 
 
@@ -322,54 +251,101 @@ def write_obs_to_h5(hf, obs):
             except(TypeError):
                 # Should this fall back to pickle.dumps?
                 odat.attrs[k] = pick(v)
-                print("Could not JSON serialize {}, pickled instead".format(k))
+                warnings.warn("Could not JSON serialize {}, pickled instead".format(k))
             except:
                 odat.attrs[k] = unserial
-                print("Could not serialize {}".format(k))
+                warnings.warn("Could not serialize {}".format(k))
 
     hf.flush()
 
 
-class NumpyEncoder(json.JSONEncoder):
+def optresultlist_to_ndarray(results):
+    npar, nout = len(results[0].x), len(results[0].fun)
+    dt = [("success", np.bool), ("message", "S50"), ("nfev", np.int), ("x", (np.float, npar)), ("fun", (np.float, nout))]
+    out = np.zeros(len(results), dtype=np.dtype(dt))
+    for i, r in enumerate(results):
+        for f in out.dtype.names:
+            out[i][f] = r[f]
 
-    def default(self, obj):
-        """If input object is an ndarray it will be converted into a dict
-        holding dtype, shape and the data, base64 encoded.
-        """
-        if isinstance(obj, np.ndarray):
-            cont_obj = np.ascontiguousarray(obj)
-            assert(cont_obj.flags['C_CONTIGUOUS'])
-            obj_data = cont_obj.data
-            data_b64 = base64.b64encode(obj_data)
-            return dict(__ndarray__=data_b64,
-                        dtype=str(obj.dtype),
-                        shape=obj.shape)
-        #if isinstance(obj, np.ndarray):
-        #    output = io.BytesIO()
-        #    np.savez_compressed(output, obj=obj)
-        #    return {'b64npz' : base64.b64encode(output.getvalue())}
+    return out
 
-        elif isinstance(obj, np.generic):
-            return obj.item()
+        
+def write_pickles(run_params, model, obs, sampler, powell_results,
+                  outroot=None, tsample=None, toptimize=None,
+                  post_burnin_center=None, post_burnin_prob=None,
+                  sampling_initial_center=None, simpleout=False, **extras):
+    """Write results to two different pickle files.  One (``*_mcmc``) contains
+    only lists, dictionaries, and numpy arrays and is therefore robust to
+    changes in object definitions.  The other (``*_model``) contains the actual
+    model object (and minimization result objects) and is therefore more
+    fragile.
+    """
 
-        # Let the base class default method raise the TypeError
-        return json.JSONEncoder(self, obj)
+    if outroot is None:
+        tt = int(time.time())
+        outroot = '{1}_{0}'.format(tt, run_params['outfile'])
+    bgh = githash(**run_params)
+    paramfile_text = paramfile_string(**run_params)
+
+    write_model_pickle(outroot + '_model', model, bgh=bgh, powell=powell_results,
+                       paramfile_text=paramfile_text)
+
+    if simpleout and _has_h5py_:
+        return
+
+    # write out a simple chain as a pickle.  This isn't really necessary since
+    # the hd5 usually works
+    results = {}
+
+    # Useful global info and parameters
+    results['run_params'] = run_params
+    results['obs'] = obs
+    results['model_params'] = [functions_to_names(p.copy()) for p in model.config_list]
+    results['theta_labels'] = list(model.theta_labels())
+
+    # Parameter value at variopus phases
+    results['initial_theta'] = model.initial_theta
+    results['sampling_initial_center'] = sampling_initial_center
+    results['post_burnin_center'] = post_burnin_center
+    results['post_burnin_prob'] = post_burnin_prob
+
+    # Chain and ancillary sampling info
+    results['chain'] = sampler.chain
+    results['lnprobability'] = sampler.lnprobability
+    results['acceptance'] = sampler.acceptance_fraction
+    results['rstate'] = sampler.random_state
+    results['sampling_duration'] = tsample
+    results['optimizer_duration'] = toptimize
+
+    results['prospector_version'] = bgh
+    results['paramfile_text'] = paramfile_text
+
+    with open(outroot + '_mcmc', "wb") as out:
+        pickle.dump(results, out)
 
 
-#def json_numpy_obj_hook(dct):
-#    """Decodes a previously encoded numpy ndarray with proper shape and dtype.
-#
-#    :param dct: (dict) json encoded ndarray
-#    :return: (ndarray) if input was an encoded ndarray
-#    """
-#    if isinstance(dct, dict) and '__ndarray__' in dct:
-#        data = base64.b64decode(dct['__ndarray__'])
-#        return np.frombuffer(data, dct['dtype']).reshape(dct['shape'])
-#    return dct
+def write_model_pickle(outname, model, bgh=None, powell=None, **kwargs):
+    model_store = {}
+    model_store['powell'] = powell
+    model_store['model'] = model
+    model_store['prospector_version'] = bgh
+    for k, v in kwargs.items():
+        try:
+            model_store[k] = v
+        except:
+            pass
+    with open(outname, "wb") as out:
+        pickle.dump(model_store, out)
 
-#def ndarray_decoder(dct):
-#    if isinstance(dct, dict) and 'b64npz' in dct:
-#        output = io.BytesIO(base64.b64decode(dct['b64npz']))
-#        output.seek(0)
-#        return np.load(output)['obj']
-#    return dct
+
+def functions_to_names(p):
+    """Replace prior and dust functions (or objects) with the names of those
+    functions (or pickles).
+    """
+    for k, v in list(p.items()):
+        if callable(v):
+            try:
+                p[k] = [v.__name__, v.__module__]
+            except(AttributeError):
+                p[k] = pickle.dumps(v, protocol=2)
+    return p

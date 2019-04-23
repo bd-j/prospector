@@ -13,9 +13,9 @@ What units?
 ---------
 Prospector natively uses *maggies* for both spectra and photometry,
 and it is easiest if you supply data in these units.
-maggies are an f_nu unit defined as Janskys/3631.
-Wavelengths are vacuum Angstroms by default.
-By default, masses are in solar masses of stars *formed*.
+maggies are a :math:`f_{\nu}` unit defined as Janskys/3631.
+Wavelengths are *vacuum* Angstroms by default.
+By default, masses are in solar masses of stars *formed*, i.e. the integral of the SFH.
 Note that this is different than surviving solar masses (due to stellar mass loss).
 
 Can I fit my spectrum too?

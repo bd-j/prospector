@@ -1,9 +1,10 @@
 Data Formats
 ===========
-The :py:meth:`load_obs()` function
+The :py:meth:`build_obs()` function
 ---------------------------------------
 
-The :py:meth:`load_obs(**kwargs)` function in the parameter file is written by the user and should take the ``run_params`` dictionary (modified by command line arguments) as keyword arguments.
+The :py:meth:`build_obs` function in the parameter file is written by the user.
+It should take a dictionary of command line arguments as keyword arguments.
 It should return an ``obs`` dictionary described below.
 
 Other than that, the contents can be anything.
@@ -11,7 +12,7 @@ Within this function you might open and read FITS files, ascii tables, HDF5 file
 You could, using say an ``objid`` parameter, dynamically load data (including filter sets) for different objects in a table.
 Feel free to import helper functions, modules, and packages (like astropy, h5py, sqlite, etc.)
 
-The point of this function is that you don't have to externally coerce your data format to be what |Codename| expects and keep another version of files lying around: the coercion happens *within* the code itself.
+The point of this function is that you don't have to externally convert your data format to be what |Codename| expects and keep another version of files lying around: the conversion happens *within* the code itself.
 Again, the only requirement is that the function can take a ``run_params`` dictionary as keyword arguments
 and that it return an ``obs`` dictionary as described below.
 
@@ -62,6 +63,7 @@ This dictionary should have (at least) the following keys and values:
 ``"phot_mask"``
     Like ``"mask"``, a boolean array, used to mask the
     photometric data during the likelihood calculation.
+    Elements with ``False`` values are ignored in the likelihood calculation.
 
 If you do not have spectral or photometric data, set ``"wavelength": None`` or ``"maggies": None`` respectively.
 Feel free to add keys that store other metadata, these will be stored on output.

@@ -1,4 +1,5 @@
 import sys, os
+import warnings
 import pickle, json
 import numpy as np
 try:
@@ -10,15 +11,15 @@ try:
 except:
     pass
 
-from ..models.parameters import names_to_functions
 
 """Convenience functions for reading and reconstructing results from a fitting
 run, including reconstruction of the model for making posterior samples
 """
 
-__all__ = ["results_from",
+__all__ = ["results_from", "emcee_restarter",
            "get_sps", "get_model",
-           "traceplot", "subcorner"]
+           "traceplot", "subcorner",
+           "compare_paramfile"]
 
 
 def unpick(pickled):
@@ -31,7 +32,7 @@ def unpick(pickled):
 
     return obj
 
-    
+
 def results_from(filename, model_file=None, dangerous=True, **kwargs):
     """Read a results file with stored model and MCMC chains.
 
@@ -40,7 +41,7 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
         "h5" then it is assumed that this is an HDF5 file, otherwise it is
         assumed to be a pickle.
 
-    :param dangerous: (default, False)
+    :param dangerous: (default, True)
         If True, use the stored paramfile text to import the parameter file and
         reconstitute the model object.  This executes code in the stored paramfile
         text during import, and is therefore dangerous.
@@ -57,7 +58,10 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
     # Read the basic chain, parameter, and run_params info
     if filename.split('.')[-1] == 'h5':
         res = read_hdf5(filename, **kwargs)
-        mf_default = filename.replace('_mcmc.h5', '_model')
+        if "_mcmc.h5" in filename:
+            mf_default = filename.replace('_mcmc.h5', '_model')
+        else:
+            mf_default = "x"
     else:
         with open(filename, 'rb') as rf:
             res = pickle.load(rf)
@@ -81,6 +85,58 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
     res["optimization_results"] = opt_results 
 
     return res, res["obs"], model
+
+
+def emcee_restarter(restart_from="", niter=32, **kwargs):
+    """Get the obs, model, and sps objects from a previous run, as well as the
+    run_params and initial positions (which are determined from the end of the
+    last run, and inserted into the run_params dictionary)
+
+    :param restart_from:
+        Name of the file to restart the sampling from.  An error is raised if
+        this does not include an emcee style chain of shape (nwalker, niter,
+        ndim)
+
+    :param niter: (default: 32)
+        Number of additional iterations to do (added toi run_params)
+
+    :returns obs:
+        The `obs` dictionary used in the last run.
+
+    :returns model:
+        The model object used in the last run.
+
+    :returns sps:
+        The `sps` object used in the last run.
+
+    :returns noise:
+        A tuple of (None, None), since it is assumed the noise model in the
+        last run was trivial.
+
+    :returns run_params:
+        A dictionary of parameters controlling the operation.  This is the same
+        as used in the last run, but with the "niter" key changed, and a new
+        "initial_positions" key that gives the ending positions of the emcee
+        walkers from the last run.  The filename from which the run is
+        restarted is also stored in the "restart_from" key.
+    """
+    result, obs, model = results_from(restart_from)
+    noise = (None, None)
+
+    # check for emcee style outputs
+    is_emcee = (len(result["chain"].shape) == 3) & (result["chain"].shape[0] > 1)
+    msg = "Result file {} does not have a chain of the proper shape."
+    assert is_emcee, msg.format(restart_from)
+
+    sps = get_sps(result)
+    run_params = deepcopy(result["run_params"])
+    run_params["niter"] = niter
+    run_params["restart_from"] = restart_from
+
+    initial_positions = result["chain"][:, -1, :]
+    run_params["initial_positions"] = initial_positions
+
+    return obs, model, sps, noise, run_params
 
 
 def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
@@ -110,7 +166,7 @@ def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
             # Here one can deal with module and class names that changed
             with open(model_file, 'rb') as mf:
                 mod = load(mf)
-        except(ImportError):
+        except(ImportError, KeyError):
             # here we load the parameter file as a module using the stored
             # source string.  Obviously this is dangerous as it will execute
             # whatever is in the stored source string.  But it can be used to
@@ -119,7 +175,6 @@ def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
             path, filename = os.path.split(param_file[0])
             modname = filename.replace('.py', '')
             if dangerous:
-                from ..models.model_setup import import_module_from_string
                 user_module = import_module_from_string(param_file[1], modname)
             with open(model_file, 'rb') as mf:
                 mod = pickle.load(mf)
@@ -185,17 +240,17 @@ def read_hdf5(filename, **extras):
             res['rstate'] = unpick(res['rstate'])
         except:
             pass
-        try:
-            mp = [names_to_functions(p.copy()) for p in res['model_params']]
-            res['model_params'] = mp
-        except:
-            pass
+        #try:
+        #    mp = [names_to_functions(p.copy()) for p in res['model_params']]
+        #    res['model_params'] = mp
+        #except:
+        #    pass
 
     return res
 
 
 def read_pickles(filename, **kwargs):
-    """Alias for backwards compatability. Calls results_from().
+    """Alias for backwards compatability. Calls `results_from()`.
     """
     return results_from(filename, **kwargs)
 
@@ -215,13 +270,15 @@ def get_sps(res):
         An sps object (i.e. from prospect.sources)
     """
     import os
-    from ..models.model_setup import import_module_from_string
     param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
     path, filename = os.path.split(param_file[0])
     modname = filename.replace('.py', '')
     user_module = import_module_from_string(param_file[1], modname)
-    sps = user_module.load_sps(**res['run_params'])
+    try:
+        sps = user_module.load_sps(**res['run_params'])
+    except(AttributeError):
+        sps = user_module.build_sps(**res['run_params'])
 
     # Now check that the SSP libraries are consistent
     flib = res['run_params'].get('sps_libraries', None)
@@ -230,7 +287,7 @@ def get_sps(res):
     except(AttributeError):
         rlib = None
     if (flib is None) or (rlib is None):
-        print("Could not check SSP library versions.")
+        warnings.warn("Could not check SSP library versions.")
     else:
         liberr = ("The FSPS libraries used in fitting({}) are not the "
                   "same as the FSPS libraries that you are using now ({})".format(flib, rlib))
@@ -253,14 +310,28 @@ def get_model(res):
         A prospect.models.SedModel object
     """
     import os
-    from ..models.model_setup import import_module_from_string
     param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
     path, filename = os.path.split(param_file[0])
     modname = filename.replace('.py', '')
     user_module = import_module_from_string(param_file[1], modname)
-    model = user_module.load_model(**res['run_params'])
+    try:
+        model = user_module.load_model(**res['run_params'])
+    except(AttributeError):
+        model = user_module.build_model(**res['run_params'])
     return model
+
+
+def import_module_from_string(source, name, add_to_sys_modules=True):
+    """Well this seems dangerous.
+    """
+    import imp
+    user_module = imp.new_module(name)
+    exec(source, user_module.__dict__)
+    if add_to_sys_modules:
+        sys.modules[name] = user_module
+
+    return user_module
 
 
 def traceplot(results, showpars=None, start=0, chains=slice(None),
@@ -457,6 +528,12 @@ def subcorner(results, showpars=None, truths=None,
     return fig
 
 
+def subtriangle(results, **kwargs):
+    """Backwards compatability
+    """
+    return subcorner(results, **kwargs)
+
+
 def compare_paramfile(res, filename):
     """Compare the runtime parameter file text stored in the `res` dictionary
     to the text of some existing file with fully qualified path `filename`.
@@ -473,35 +550,21 @@ def compare_paramfile(res, filename):
     pprint([l for l in unified_diff(aa, bb)])
 
 
-def subtriangle(results, **kwargs):
-    """Backwards compatability
+def names_to_functions(p):
+    """Replace names of functions (or pickles of objects) in a parameter
+    description with the actual functions (or pickles).
     """
-    return subcorner(results, **kwargs)
+    from importlib import import_module
+    for k, v in list(p.items()):
+        try:
+            m = import_module(v[1])
+            f = m.__dict__[v[0]]
+        except:
+            try:
+                f = pickle.loads(v)
+            except:
+                f = v
 
+        p[k] = f
 
-# --- Deprecated code
-# All this because scipy changed the name of one class, which
-# shouldn't even be a class.
-
-renametable = {
-    'Result': 'OptimizeResult',
-    }
-
-
-def mapname(name):
-    if name in renametable:
-        return renametable[name]
-    return name
-
-
-def mapped_load_global(self):
-    module = mapname(self.readline()[:-1])
-    name = mapname(self.readline()[:-1])
-    klass = self.find_class(module, name)
-    self.append(klass)
-
-
-def load(file):
-    unpickler = pickle.Unpickler(file)
-    unpickler.dispatch[pickle.GLOBAL] = mapped_load_global
-    return unpickler.load()
+    return p

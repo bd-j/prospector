@@ -11,8 +11,6 @@ You will also need:
 
 -  `sedpy <https://github.com/bd-j/sedpy>`_ (for filter projections)
 
-For portable output files, or for modeling stars, you will need:
-
 - `HDF5 <https://www.hdfgroup.org/HDF5/>`_ and `h5py <http://www.h5py.org>`_
   (If you have Enthought or Anaconda one or both of these may already be installed,
   or you can get HDF5 from homebrew or macports)

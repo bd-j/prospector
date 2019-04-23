@@ -6,6 +6,9 @@ Parameter Specification
 ------------------------------
 
 All model parameters require a specification in the **parameter file**.
+A dictionary of parameter specifications, keyed by parameter name,
+is used to instantiate and configure the model objects
+(instances of ProspectorParams or its subclasses.)
 For a single parameter the specification is a dictionary that must at minimum include several keys:
 
 ``"name"``
@@ -96,14 +99,17 @@ a given set, you can do something like
 		print(TemplateLibrary["parametric_sfh"])
 		# Actually get a copy of one of the predefined sets
 		model_params = TemplateLibrary["parametric_sfh"]
+		# Instantiate a model object
+		from prospect.models import SedModel
+		model = SedModel(model_params)
 
 
 
-The ``load_model()`` Method
+The ``build_model()`` Method
 ------------------------------------------
 
 This method in the **parameter file** should take the ``run_params`` dictionary
-as an argument list, and return an instance of the :class:`ProspectorParams`
+as keyword arguments, and return an instance of the :class:`ProspectorParams`
 subclass.
 
 The :class:`ProspectorParams` is initialized with a list or dictionary (keyed
@@ -117,5 +123,7 @@ throughout the optimization and sampling phases (unless the ``"depends_on"``
 key is present, see :doc:`advanced`.)
 
 The ``run_params`` dictionary of arguments (including command line
-modifications) can be used to modify the model parameters within this method
+modifications) can be used to change how the model parameters are specified within this method
 before the :class:`ProspectorParams` model object is instantiated.
+For example, the value of a fixed parameter like ``zred`` can be set based on values in ``run_params``
+or additional parameters related to dust or nebular emission can be optionally added based on switches in ``run_params``.

@@ -4,7 +4,7 @@ import json, pickle
 from . import priors
 from .templates import describe
 
-__all__ = ["ProspectorParams"] #, "plist_to_pdict", "pdict_to_plist"]
+__all__ = ["ProspectorParams"]
 
 
 # A template for what parameter configuration list element should look like
@@ -117,6 +117,8 @@ class ProspectorParams(object):
         for par in self.free_params:
             self.theta_index[par] = slice(count, count+self.config_dict[par]['N'])
             count += self.config_dict[par]['N']
+            good = len(self.config_dict[par]['prior']) == self.config_dict[par]['N']
+            assert good, "{} has wrong length prior".format(par)
         self.ndim = count
 
     def set_parameters(self, theta):
@@ -169,8 +171,7 @@ class ProspectorParams(object):
         for k, inds in list(self.theta_index.items()):
 
             func = self.config_dict[k]['prior']
-            kwargs = self.config_dict[k].get('prior_args', {})
-            this_prior = np.sum(func(theta[..., inds], **kwargs), axis=-1)
+            this_prior = np.sum(func(theta[..., inds]), axis=-1)
             lnp_prior += this_prior
 
         return lnp_prior
@@ -188,8 +189,7 @@ class ProspectorParams(object):
         theta = np.zeros(len(unit_coords))
         for k, inds in list(self.theta_index.items()):
             func = self.config_dict[k]['prior'].unit_transform
-            kwargs = self.config_dict[k].get('prior_args', {})
-            theta[inds] = func(unit_coords[inds], **kwargs)
+            theta[inds] = func(unit_coords[inds])
         return theta
 
     def propagate_parameter_dependencies(self):
@@ -226,7 +226,7 @@ class ProspectorParams(object):
         """A list of the names of the free model parameters.
         """
         return [k['name'] for k in pdict_to_plist(self.config_list)
-                if k['isfree']]
+                if k.get('isfree', False)]
 
     @property
     def fixed_params(self):
@@ -234,7 +234,7 @@ class ProspectorParams(object):
         ``config_dict``.
         """
         return [k['name'] for k in pdict_to_plist(self.config_list)
-                if (k['isfree'] is False)]
+                if (k.get('isfree', False) is False)]
 
     @property
     def description(self):
@@ -277,12 +277,7 @@ class ProspectorParams(object):
         """
         bounds = np.zeros([self.ndim, 2])
         for p, inds in list(self.theta_index.items()):
-            kwargs = self.config_dict[p].get('prior_args', {})
-            try:
-                pb = self.config_dict[p]['prior'].bounds(**kwargs)
-            except(AttributeError):
-                # old style, including for backwards compatibility
-                pb = priors.plotting_range(self.config_dict[p]['prior_args'])
+            pb = self.config_dict[p]['prior'].bounds()
             bounds[inds, :] = np.array(pb).T
         # Force types ?
         bounds = [(np.atleast_1d(a)[0], np.atleast_1d(b)[0])
@@ -398,35 +393,3 @@ def pdict_to_plist(pdict, order=None):
         plist += [v]
     return plist
 
-
-def names_to_functions(p):
-    """Replace names of functions (or pickles of objects) in a parameter
-    description with the actual functions (or pickles).
-    """
-    from importlib import import_module
-    for k, v in list(p.items()):
-        try:
-            m = import_module(v[1])
-            f = m.__dict__[v[0]]
-        except:
-            try:
-                f = pickle.loads(v)
-            except:
-                f = v
-
-        p[k] = f
-
-    return p
-
-
-def functions_to_names(p):
-    """Replace prior and dust functions (or objects) with the names of those
-    functions (or pickles).
-    """
-    for k, v in list(p.items()):
-        if callable(v):
-            try:
-                p[k] = [v.__name__, v.__module__]
-            except(AttributeError):
-                p[k] = pickle.dumps(v, protocol=2)
-    return p

@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 from numpy.random import normal, multivariate_normal
 
@@ -29,7 +30,25 @@ class minimize_wrapper(object):
             traceback.print_exc()
             raise
 
-        
+
+def minimizer_ball(center, nminimizers, model, seed=None):
+    """Draw initial values from the (1d, separable, independent) priors for
+    each parameter.  Requires that priors have the `sample` method available.
+    If priors are old-style, draw randomly between min and max.
+    """
+    rand = np.random.RandomState(seed)
+
+    size = nminimizers
+    pinitial = [center]
+    if size > 1:
+        ginitial = np.zeros([size - 1, model.ndim])
+        for p, inds in list(model.theta_index.items()):
+            for j in range(size-1):
+                ginitial[j, inds] = model._config_dict[p]['prior'].sample()
+        pinitial += ginitial.tolist()
+    return pinitial
+
+
 def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
                  **extras):
     """Check if the Powell minimization found a minimum close to the edge of
@@ -59,6 +78,7 @@ def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
         The best_guess with parameters near the edge reset to be at the center
         of the prior.  ndarray of shape (ndim,)
     """
+    warnings.warn("minimizer.reintialize is deprecated", DeprecationWarning)
     edge = edge_trunc
     bounds = model.theta_bounds()
     output = np.array(best_guess)
@@ -74,28 +94,3 @@ def reinitialize(best_guess, model, edge_trunc=0.1, reinit_params=[],
         if ((g - b[0] < edge) or (b[1] - g < edge)) and (reinit[k]):
             output[k] = b[0] + prange/2
     return output
-
-
-def minimizer_ball(center, nminimizers, model, seed=None):
-    """Draw initial values from the (1d, separable, independent) priors for
-    each parameter.  Requires that priors have the `sample` method available.
-    If priors are old-style, draw randomly between min and max.
-
-    """
-    rand = np.random.RandomState(seed)
-    
-    size = nminimizers
-    pinitial = [center]
-    if size > 1:
-        ginitial = np.zeros([size - 1, model.ndim])
-        for p, inds in list(model.theta_index.items()):
-            try:
-                for j in range(size-1):
-                    kwargs = model._config_dict[p].get('prior_args', {})
-                    ginitial[j, inds] = model._config_dict[p]['prior'].sample(**kwargs)
-            except AttributeError:
-                bounds = model.theta_bounds()
-                for ind in range(inds.start,inds.stop):
-                    ginitial[:, ind] = rand.uniform(bounds[ind][0], bounds[ind][1], size - 1)
-        pinitial += ginitial.tolist()
-    return pinitial

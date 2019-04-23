@@ -324,7 +324,7 @@ TemplateLibrary["spectral_smoothing"] = (_smoothing_,
 # --- Spectral calibration
 # -------------------------
 
-spec_norm = {'N': 10, 'isfree': False,
+spec_norm = {'N': 1, 'isfree': False,
             'init': 1.0, 'units': 'f_true/f_obs',
             'prior': priors.Normal(mean=1.0, sigma=0.1)}
 # What order polynomial?
@@ -461,8 +461,10 @@ _nonpar_continuity_flex_["agebins"]    = {'N': 4, 'isfree': False,
                                           'depends_on': transforms.logsfr_ratios_to_agebins,
                                           'init': [[0.0, 7.5], [7.5, 8.5],[8.5,9.7], [9.7, 10.0]],
                                           'units': 'log(yr)'}
-TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
-                                          "Non-parameteric SFH fitting for mass in flexible time bins with a smoothness prior")
+#TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
+#                                          ("Non-parameteric SFH fitting for mass in flexible time "
+#                                           "bins with a smoothness prior"))
+
 # ----------------------------
 # --- Dirichlet SFH ----
 # ----------------------------

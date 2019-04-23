@@ -6,7 +6,7 @@ __all__ = ["SedModel", "PolySedModel"]
 
 
 class SedModel(ProspectorParams):
-    """A subclass of :py:class:`ProspectorParams` taht passes the models
+    """A subclass of :py:class:`ProspectorParams` that passes the models
     through to an ``sps`` object and returns spectra and photometry, including
     optional spectroscopic calibration and sky emission.
     """
@@ -123,8 +123,7 @@ class SedModel(ProspectorParams):
             mask = obs.get('mask', slice(None))
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
-            x = obs['wavelength'] - (obs['wavelength'][mask]).min()
-            x = 2.0 * (x / (x[mask]).max()) - 1.0
+            x = self.wave_to_x(obs["wavelength"], mask)
             # get coefficients.  Here we are setting the first term to 0 so we
             # can deal with it separately for the exponential and regular
             # multiplicative cases
@@ -139,6 +138,15 @@ class SedModel(ProspectorParams):
                 return np.exp(self.params.get('spec_norm', 0) + poly)
         else:
             return 1.0 * self.params.get('spec_norm', 1.0)
+
+
+    def wave_to_x(self, wavelength=None, mask=slice(None), **extras):
+        """Map unmasked wavelengths to the interval -1, 1
+              masked wavelengths may have x>1, x<-1
+        """
+        x = wavelength - (wavelength[mask]).min()
+        x = 2.0 * (x / (x[mask]).max()) - 1.0
+        return x
 
     def spec_gp_params(self, theta=None, **extras):
         if theta is not None:
@@ -184,8 +192,7 @@ class PolySedModel(SedModel):
             mask = obs.get('mask', slice(None))
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
-            x = obs['wavelength'] - (obs['wavelength'][mask]).min()
-            x = 2.0 * (x / (x[mask]).max()) - 1.0
+            x = self.wave_to_x(obs["wavelength"], mask)
             y = (obs['spectrum'] / self._spec)[mask] / norm - 1.0
             yerr = (obs['unc'] / self._spec)[mask] / norm
             yvar = yerr**2
@@ -198,6 +205,7 @@ class PolySedModel(SedModel):
             c = np.dot(ATAinv, np.dot(A.T, y / yvar))
             Afull = chebvander(x, order)[:, 1:]
             poly = np.dot(Afull, c)
+            self._poly_coeffs = c
         else:
             poly = 0.0
 
