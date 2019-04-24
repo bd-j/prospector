@@ -483,16 +483,13 @@ def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
     from dynesty.dynamicsampler import stopping_function, weight_function
     nested_stop_kwargs = {"post_thresh": nested_posterior_thresh}
 
-    def prior_transform(u, model=model):
-        return model.prior_transform(u)
-
     lnp = wrap_lnp(lnprobfn, obs, model, sps, noise=noise,
                    nested=True)
 
-    # Need to deal with postkwargs
+    # Need to deal with postkwargs...
 
     t = time.time()
-    dynestyout = run_dynesty_sampler(lnp, prior_transform, model.ndim,
+    dynestyout = run_dynesty_sampler(lnp, model.prior_transform, model.ndim,
                                      stop_function=stopping_function,
                                      wt_function=weight_function,
                                      nested_stop_kwargs=nested_stop_kwargs,
