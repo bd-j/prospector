@@ -194,7 +194,7 @@ def logsfr_ratios_to_masses_flex(logmass=None, logsfr_ratios=None,
     return np.array(myoung.tolist() + n_masses.tolist() + mold.tolist())
 
 
-def logsfr_ratios_to_agebins(logsfr_ratios=None, **extras):
+def logsfr_ratios_to_agebins(logsfr_ratios=None, agebins=None, **extras):
     """This transforms from SFR ratios to agebins by assuming a constant amount
     of mass forms in each bin agebins = np.array([NBINS,2])
 
@@ -220,7 +220,8 @@ def logsfr_ratios_to_agebins(logsfr_ratios=None, **extras):
     agelims = [1, lower_time, dt1+lower_time]
     for i in range(n_ratio):
         agelims += [dt1*np.prod(sfr_ratios[:(i+1)]) + agelims[-1]]
-    agelims += [tuniv[0]]
+    #agelims += [tuniv[0]]
+    agelims += [10**agebins[-1, 1]]
     agebins = np.log10([agelims[:-1], agelims[1:]]).T
 
     return agebins

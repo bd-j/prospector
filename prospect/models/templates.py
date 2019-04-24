@@ -442,6 +442,8 @@ _nonpar_continuity_flex_ = TemplateLibrary["ssp"]
 _ = _nonpar_continuity_flex_.pop("tage")
 
 _nonpar_continuity_flex_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+#_nonpar_continuity_flex_["tuniv"]      = {"N": 1, "isfree": False, "init": 13.7, "units": "Gyr"}
+
 # This is the *total*  mass formed
 _nonpar_continuity_flex_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
                                        'prior': priors.TopHat(mini=7, maxi=12)}
@@ -455,14 +457,15 @@ _nonpar_continuity_flex_["logsfr_ratios"] = {'N': 1, 'isfree': True, 'init': 0.0
                                                   'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
 
 # This will be the mass in each bin.  It depends on other free and fixed
-# parameters.  Its length needs to be modified based on the total number of bins
+# parameters.  Its length needs to be modified based on the total number of
+# bins (including fixed young and old bin)
 _nonpar_continuity_flex_["mass"]       = {'N': 4, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
                                           'depends_on': transforms.logsfr_ratios_to_masses_flex}
 # This gives the start and stop of each age bin.  It can be adjusted and its
 # length must match the lenth of "mass"
 _nonpar_continuity_flex_["agebins"]    = {'N': 4, 'isfree': False,
                                           'depends_on': transforms.logsfr_ratios_to_agebins,
-                                          'init': [[0.0, 7.5], [7.5, 8.5],[8.5,9.7], [9.7, 10.0]],
+                                          'init': [[0.0, 7.5], [7.5, 8.5],[8.5,9.7], [9.7, 10.136]],
                                           'units': 'log(yr)'}
 
 TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
