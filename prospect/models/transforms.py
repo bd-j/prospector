@@ -1,6 +1,9 @@
-"""This module contains parameter transformations that may be useful to
-transform from parameters that easier to sample in to the parameters required
-for building SED models.
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""transforms.py -- This module contains parameter transformations that may be
+useful to transform from parameters that are easier to _sample_ in to the
+parameters required for building SED models.
 
 They can be used as ``"depends_on"`` entries in parameter specifications.
 """
@@ -142,7 +145,12 @@ def dustratio_to_dust1(dust2=0.0, dust_ratio=0.0, **extras):
 # --- Transforms for the continuity non-parametric SFHs used in (Leja et al. 2018) ---
 # --------------------------------------
 
-def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None, **extras):
+def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None,
+                            **extras):
+    """This converts from an array of log_10(SFR_j / SFR_{j+1}) and a value of
+    log10(\Sum_i M_i) to values of M_i.  j=0 is the most recent bin in lookback
+    time.
+    """
     nbins = agebins.shape[0]
     sratios = 10**np.clip(logsfr_ratios, -100, 100) # numerical issues...
     dt = (10**agebins[:, 1] - 10**agebins[:, 0])
@@ -166,15 +174,18 @@ def logsfr_ratios_to_sfrs(logmass=None, logsfr_ratios=None, agebins=None, **extr
 # --- Transforms for the flexible agebin continuity non-parametric SFHs used in (Leja et al. 2018) ---
 # --------------------------------------
 
-def logsfr_ratios_to_masses_flex(logmass=None, agebins=None,
-                                 logsfr_ratio_young=None, logsfr_ratio_old=None,  **extras):
+def logsfr_ratios_to_masses_flex(logmass=None, logsfr_ratios=None,
+                                 logsfr_ratio_young=None, logsfr_ratio_old=None,
+                                 **extras):
     logsfr_ratio_young = np.clip(logsfr_ratio_young, -100, 100)
     logsfr_ratio_old = np.clip(logsfr_ratio_old, -100, 100)
 
-    nbins = agebins.shape[0] - 2
+    abins = logsfr_ratios_to_agebins(logsfr_ratios=logsfr_ratios, **extras)
+
+    nbins = abins.shape[0] - 2
     syoung, sold = 10**logsfr_ratio_young, 10**logsfr_ratio_old
-    dtyoung, dt1 = (10**agebins[:2, 1] - 10**agebins[:2, 0])
-    dtn, dtold = (10**agebins[-2:, 1] - 10**agebins[-2:, 0])
+    dtyoung, dt1 = (10**abins[:2, 1] - 10**abins[:2, 0])
+    dtn, dtold = (10**abins[-2:, 1] - 10**abins[-2:, 0])
     mbin = (10**logmass) / (syoung*dtyoung/dt1 + sold*dtold/dtn + nbins)
     myoung = syoung * mbin * dtyoung / dt1
     mold = sold * mbin * dtold/dtn
@@ -184,9 +195,8 @@ def logsfr_ratios_to_masses_flex(logmass=None, agebins=None,
 
 
 def logsfr_ratios_to_agebins(logsfr_ratios=None, **extras):
-    """this transforms from SFR ratios to agebins
-    by assuming a constant amount of mass forms in each bin
-    agebins = np.array([NBINS,2])
+    """This transforms from SFR ratios to agebins by assuming a constant amount
+    of mass forms in each bin agebins = np.array([NBINS,2])
 
     use equation:
         delta(t1) = tuniv  / (1 + SUM(n=1 to n=nbins-1) PROD(j=1 to j=n) Sn)

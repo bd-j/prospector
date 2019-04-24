@@ -1,7 +1,9 @@
-# ---------
-# A set of predefined "base" prospector model specifications that can be used
-# and then altered.
-# ---------
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""templates.py -- A set of predefined "base" prospector model specifications
+that can be used as a starting point and then combined or altered.
+"""
 
 from copy import deepcopy
 import numpy as np
@@ -451,19 +453,21 @@ _nonpar_continuity_flex_["logsfr_ratio_old"] = {'N': 1, 'isfree': True, 'init': 
                                                   'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
 _nonpar_continuity_flex_["logsfr_ratios"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
                                                   'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
+
 # This will be the mass in each bin.  It depends on other free and fixed
-# parameters.  Its length needs to be modified based on the number of bins
+# parameters.  Its length needs to be modified based on the total number of bins
 _nonpar_continuity_flex_["mass"]       = {'N': 4, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
-                                          'transform': transforms.logsfr_ratios_to_masses_flex}
+                                          'depends_on': transforms.logsfr_ratios_to_masses_flex}
 # This gives the start and stop of each age bin.  It can be adjusted and its
 # length must match the lenth of "mass"
 _nonpar_continuity_flex_["agebins"]    = {'N': 4, 'isfree': False,
                                           'depends_on': transforms.logsfr_ratios_to_agebins,
                                           'init': [[0.0, 7.5], [7.5, 8.5],[8.5,9.7], [9.7, 10.0]],
                                           'units': 'log(yr)'}
-#TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
-#                                          ("Non-parameteric SFH fitting for mass in flexible time "
-#                                           "bins with a smoothness prior"))
+
+TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
+                                          ("Non-parameteric SFH fitting for mass in flexible time "
+                                           "bins with a smoothness prior"))
 
 # ----------------------------
 # --- Dirichlet SFH ----
