@@ -307,8 +307,8 @@ def emcee_burn(sampler, initial_center, nburn, model=None, prob0=None,
     disps = np.sqrt(disps**2 + disp_floor**2)
     initial = resample_until_valid(sampler_ball, initial_center, disps, nwalkers,
                                    limits=limits, prior_check=model)
-
     # Start the burn-in
+    epos = initial
     for k, iburn in enumerate(nburn):
         epos, eprob, state = sampler.run_mcmc(initial, iburn, **mc_args)
         # Find best walker position
