@@ -89,11 +89,11 @@ class SedModel(ProspectorParams):
             spec[spec < tiny] = tiny
         except:
             pass
-        spec = (spec + self.sky())
+        spec = (spec + self.sky(obs))
         self._spec = spec.copy()
         return spec, phot, extras
 
-    def sky(self):
+    def sky(self, obs):
         """Model for the *additive* sky emission/absorption"""
         return 0.
 
