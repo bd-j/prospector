@@ -86,7 +86,9 @@ class Prior(object):
             self.update(**kwargs)
         p = self.distribution.pdf(x, *self.args,
                                   loc=self.loc, scale=self.scale)
-        with np.errstate(invalid='ignore'):
+        if p <= 0:
+            lnp = -1e18
+        else:
             lnp = np.log(p)
         return lnp
 
