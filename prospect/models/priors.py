@@ -86,10 +86,10 @@ class Prior(object):
             self.update(**kwargs)
         p = self.distribution.pdf(x, *self.args,
                                   loc=self.loc, scale=self.scale)
-        if p <= 0:
-            lnp = -1e18
-        else:
-            lnp = np.log(p)
+        lnp = np.zeros_like(p)-1e18
+        pos = p > 0
+        if np.any(pos):
+            lnp[pos] = np.log(p)
         return lnp
 
     def sample(self, nsample=None, **kwargs):
