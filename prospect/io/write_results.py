@@ -192,7 +192,7 @@ def write_dynesty_h5(hf, dynesty_out, model, tsample):
                         data=dynesty_out['logl'])
     sdat.create_dataset('lnprobability',
                         data=(dynesty_out['logl'] +
-                              model.prior_product(dynesty_out['samples'])))
+                              model.prior_product(dynesty_out['samples'].flatten())))
     sdat.create_dataset('efficiency',
                         data=np.atleast_1d(dynesty_out['eff']))
     sdat.create_dataset('niter',
