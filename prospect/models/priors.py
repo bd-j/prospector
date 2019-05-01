@@ -89,7 +89,7 @@ class Prior(object):
         lnp = np.zeros_like(p)-1e18
         pos = p > 0
         if np.any(pos):
-            lnp[pos] = np.log(p)
+            lnp[pos] = np.log(p[pos])
         return lnp
 
     def sample(self, nsample=None, **kwargs):
