@@ -1,3 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+""" write_results.py - Methods for writing prospector ingredients and outputs
+to HDF5 files as well as to pickles.
+"""
+
 import os, time, warnings
 import pickle, json, base64
 import numpy as np
@@ -8,7 +15,8 @@ except(ImportError):
     _has_h5py_ = False
 
 
-__all__ = ["run_command", "githash", "write_pickles", "write_hdf5"]
+__all__ = ["githash", "write_pickles", "write_hdf5",
+           "chain_to_struct"]
 
 
 unserial = json.dumps('Unserializable')
@@ -261,7 +269,8 @@ def write_obs_to_h5(hf, obs):
 
 def optresultlist_to_ndarray(results):
     npar, nout = len(results[0].x), len(results[0].fun)
-    dt = [("success", np.bool), ("message", "S50"), ("nfev", np.int), ("x", (np.float, npar)), ("fun", (np.float, nout))]
+    dt = [("success", np.bool), ("message", "S50"), ("nfev", np.int),
+          ("x", (np.float, npar)), ("fun", (np.float, nout))]
     out = np.zeros(len(results), dtype=np.dtype(dt))
     for i, r in enumerate(results):
         for f in out.dtype.names:
@@ -269,7 +278,56 @@ def optresultlist_to_ndarray(results):
 
     return out
 
-        
+
+def chain_to_struct(chain, model=None, names=None):
+    """Given a (flat)chain (or parameter dictionary) and a model, convert the
+    chain to a structured array
+
+    :param chain:
+        A chain, ndarry of shape (nsamples, ndim) or a dictionary of
+        parameters, values of which are numpy datatypes.
+
+    :param model:
+        A ProspectorParams instance
+
+    :returns struct:
+        A structured ndarray of parameter values.
+    """
+    indict = type(chain) == dict
+    if indict:
+        return dict_to_struct(chain)
+    else:
+        n = np.prod(chain.shape[:-1])
+        assert model.ndim == chain.shape[-1]
+
+    if model is not None:
+        model.set_parameters(chain[0])
+        names = model.free_params
+        dt = [(p, model.params[p].dtype, model.params[p].shape)
+              for p in names]
+    else:
+        dt = [(str(p), "<f8", (1,)) for p in names]
+
+    struct = np.zeros(n, dtype=np.dtype(dt))
+    for i, p in enumerate(names):
+        if model is not None:
+            inds = model.theta_index[p]
+        else:
+            inds = slice(i, i+1, None)
+        struct[p] = chain[..., inds].reshape(-1, len(inds))
+
+    return struct
+
+
+def dict_to_struct(indict):
+    dt = [(p, indict[p].dtype, indict[p].shape)
+            for p in indict.keys()]
+    struct = np.zeros(1, dtype=np.dtype(dt))
+    for i, p in enumerate(indict.keys()):
+        struct[p] = chain[p]
+    return struct[p]
+
+
 def write_pickles(run_params, model, obs, sampler, powell_results,
                   outroot=None, tsample=None, toptimize=None,
                   post_burnin_center=None, post_burnin_prob=None,
