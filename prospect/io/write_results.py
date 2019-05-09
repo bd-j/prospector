@@ -127,8 +127,12 @@ def write_emcee_h5(hf, sampler, model, sampling_initial_center, tsample):
     if 'chain' not in sdat:
         sdat.create_dataset('chain',
                             data=sampler.chain)
-        sdat.create_dataset('lnprobability',
-                            data=sampler.lnprobability)
+        lnp = sampler.lnprobability
+        if ((lnp.shape[0] != lnp.shape[1]) &
+            (lnp.T.shape == sampler.chain.shape[:-1])):
+            # hack to deal with emcee3rc lnprob transposition
+            lnp = lnp.T
+        sdat.create_dataset('lnprobability', data=lnp)
     sdat.create_dataset('acceptance',
                         data=sampler.acceptance_fraction)
     sdat.create_dataset('sampling_initial_center',
