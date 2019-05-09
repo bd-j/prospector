@@ -1,4 +1,14 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""parameters.py -- This module contains the prospector base class for
+models, ProspectorParams.  This class is responsible for maintaining model
+parameter state, converting between parameter dictionaries and vectors,
+and computing parameter dependencies and prior probabilities.
+"""
+
 from copy import deepcopy
+import warnings
 import numpy as np
 import json, pickle
 from . import priors
@@ -60,8 +70,8 @@ class ProspectorParams(object):
             self.config_dict = configuration
             self.config_list = pdict_to_plist(self.config_dict, order=param_order)
         else:
-            raise(TypeError, ("Configuration variable not of valid type: "
-                              "{}".format(type(configuration))))
+            raise TypeError("Configuration variable not of valid type: "
+                            "{}".format(type(configuration)))
         self.configure(**kwargs)
         self.verbose = verbose
 
@@ -115,10 +125,13 @@ class ProspectorParams(object):
         self.theta_index = {}
         count = 0
         for par in self.free_params:
-            self.theta_index[par] = slice(count, count+self.config_dict[par]['N'])
-            count += self.config_dict[par]['N']
-            good = len(self.config_dict[par]['prior']) == self.config_dict[par]['N']
-            assert good, "{} has wrong length prior".format(par)
+            n = self.config_dict[par]['N']
+            self.theta_index[par] = slice(count, count + n)
+            count += n
+            good = len(self.config_dict[par]['prior']) == n
+            if not good:
+                msg = "{} has wrong length prior, should be {}"
+                warnings.warn(msg.format(par, n), RuntimeWarning)
         self.ndim = count
 
     def set_parameters(self, theta):
