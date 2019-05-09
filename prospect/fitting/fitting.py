@@ -79,7 +79,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         vector of :math:`\chi` values is returned.
     """
     if residuals:
-        lnnull = np.zeros(obs["ndof"]) - np.infty
+        lnnull = np.zeros(obs["ndof"]) - 1e18 # np.infty
         #lnnull = -np.infty
     else:
         lnnull = -np.infty
