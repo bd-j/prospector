@@ -479,11 +479,13 @@ def subcorner(results, showpars=None, truths=None,
         import corner as triangle
     except(ImportError):
         import triangle
+    except:
+        raise ImportError("Please install the `corner` package.")
 
     # pull out the parameter names and flatten the thinned chains
     # Get parameter names
     try:
-        parnames = np.array(results['theta_labels'], dtype='S20')
+        parnames = np.array(results['theta_labels'], dtype='U20')
     except(KeyError):
         parnames = np.array(sample_results['model'].theta_labels())
     # Restrict to desired parameters

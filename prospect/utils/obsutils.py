@@ -1,3 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+""" obsutils.py - Utilities for manipulating observational data, especially
+ensuring the the required keys are present in the `obs` dictionary.
+"""
+
 import numpy as np
 import warnings
 np.errstate(invalid='ignore')
@@ -40,7 +47,7 @@ def fix_obs(obs, rescale_spectrum=False, normalize_spectrum=False,
     obs = rectify_obs(obs)
     obs['ndof'] = 0
     if obs['spectrum'] is not None:
-        obs['ndof'] += obs['mask'].sum()
+        obs['ndof'] += int(obs['mask'].sum())
         if (rescale_spectrum):
             sc = np.median(obs['spectrum'][obs['mask']])
             obs['rescale'] = sc
@@ -60,7 +67,7 @@ def fix_obs(obs, rescale_spectrum=False, normalize_spectrum=False,
         obs['unc'] = None
 
     if obs['maggies'] is not None:
-        obs['ndof'] += obs['phot_mask'].sum()
+        obs['ndof'] += int(obs['phot_mask'].sum())
         if grid_filters:
             wlo, whi, dlo = [], [], []
             for f in obs['filters']:
@@ -78,7 +85,7 @@ def fix_obs(obs, rescale_spectrum=False, normalize_spectrum=False,
     else:
         obs['maggies_unc'] = None
 
-    assert obs["ndof"] > 0, "No valid data to fit: check the sign of the mask"
+    assert obs["ndof"] > 0, "No valid data to fit: check the sign of the masks."
 
     return obs
 

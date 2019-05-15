@@ -73,7 +73,8 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
         ncall += nc
         niter += 1
 
-        logzerr = np.sqrt(logzvar)
+        with np.errstate(invalid='ignore'):
+            logzerr = np.sqrt(logzvar)
         sys.stderr.write("\riter: {:d} | batch: {:d} | nc: {:d} | "
                          "ncall: {:d} | eff(%): {:6.3f} | "
                          "logz: {:6.3f} +/- {:6.3f} | "

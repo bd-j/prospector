@@ -17,6 +17,7 @@ from .minimizer import minimize_wrapper, minimizer_ball
 from .ensemble import run_emcee_sampler
 from .nested import run_dynesty_sampler
 from ..likelihood import lnlike_spec, lnlike_phot, chi_spec, chi_phot
+from ..utils.obsutils import fix_obs
 
 
 __all__ = ["lnprobfn", "fit_model",
@@ -78,8 +79,8 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         vector of :math:`\chi` values is returned.
     """
     if residuals:
-        #lnnull = np.zeros(model.ndim) - np.infty
-        lnnull = -np.infty
+        lnnull = np.zeros(obs["ndof"]) - 1e18 # np.infty
+        #lnnull = -np.infty
     else:
         lnnull = -np.infty
 
@@ -194,6 +195,8 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
         of each of these is a 2-tuple with results in the first element and
         durations (in seconds) in the second element.
     """
+    # Make sure obs has required keys
+    obs = fix_obs(obs)
 
     if emcee & dynesty:
         msg = ("Cannot run both emcee and dynesty fits "
