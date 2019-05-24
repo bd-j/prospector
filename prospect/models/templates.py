@@ -519,9 +519,13 @@ _alpha_["agn_tau"]["isfree"] = True
 # Complexify the dust attenuation
 _alpha_["dust_type"] = {"N": 1, "isfree": False, "init": 4, "units": "FSPS index"}
 _alpha_["dust2"]["prior"] = priors.TopHat(mini=0.0, maxi=4.0)
-_alpha_["dust1"]      = {"N": 1, "isfree": True,
-                         "init": 0.0, "units": "optical depth towards young stars",
-                         "prior": priors.TopHat(mini=0.0, maxi=4.0)}
+_alpha_["dust1"]      = {"N": 1, "isfree": False, 'depends_on': transforms.dustratio_to_dust1,
+                         "init": 0.0, "units": "optical depth towards young stars"}
+
+_alpha_["dust_ratio"] = {"N": 1, "isfree": True, 
+                         "init": 1.0, "units": "ratio of birth-cloud to diffuse dust",
+                         "prior": priors.ClippedNormal(mini=0.0, maxi=2.0, mean=1.0, sigma=0.3)}
+
 _alpha_["dust_index"] = {"N": 1, "isfree": True,
                          "init": 0.0, "units": "power-law multiplication of Calzetti",
                          "prior": priors.TopHat(mini=-2.0, maxi=0.5)}
