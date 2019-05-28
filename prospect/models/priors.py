@@ -1,5 +1,11 @@
-# Module containg various functions (or objects) to be used as priors.
-# These return the ln-prior-probability
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""priors.py -- This module contains various objects to be used as priors.
+When called these return the ln-prior-probability, and they can also be used to
+construct prior transforms (for nested sampling) and can be sampled from.
+"""
+
 import numpy as np
 import scipy.stats
 
@@ -84,8 +90,16 @@ class Prior(object):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        p = self.distribution.pdf(x, *self.args,
-                                  loc=self.loc, scale=self.scale)
+        pdf = self.distribution.pdf
+        try:
+            p = pdf(x, *self.args, loc=self.loc, scale=self.scale)
+        except(ValueError):
+            # Deal with `x` vectors of shape (nsamples, len(prior))
+            # for pdfs that don't broadcast nicely.
+            p = [pdf(_x, *self.args, loc=self.loc, scale=self.scale)
+                 for _x in x]
+            p = np.array(p)
+
         with np.errstate(invalid='ignore'):
             lnp = np.log(p)
         return lnp
