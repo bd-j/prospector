@@ -57,7 +57,7 @@ def lnlike_spec(spec_mu, obs=None, spec_noise=None, f_outlier_spec=0.0, **vector
                 assert spec_noise.Sigma.ndim == 1
 
                 # redefine errors, scaling sigma_bad by (jittered sigma / original sigma)
-                var_bad = (np.sqrt((spec_noise.Sigma / var)) * vectors['sigma_bad']) ** 2
+                var_bad = spec_noise.Sigma * (vectors["nsigma_bad"]**2)
                 var = spec_noise.Sigma
             except(LinAlgError):
                 return np.nan_to_num(-np.inf)
