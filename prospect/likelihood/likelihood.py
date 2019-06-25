@@ -5,7 +5,7 @@ from scipy.linalg import LinAlgError
 __all__ = ["lnlike_spec", "lnlike_phot", "chi_spec", "chi_phot", "write_log"]
 
 
-def lnlike_spec(spec_mu, obs=None, spec_noise=None, **vectors):
+def lnlike_spec(spec_mu, obs=None, spec_noise=None, f_outlier_spec=0.0, **vectors):
         """Calculate the likelihood of the spectroscopic data given the
         spectroscopic model.  Allows for the use of a gaussian process
         covariance matrix for multiplicative residuals.
@@ -45,19 +45,31 @@ def lnlike_spec(spec_mu, obs=None, spec_noise=None, **vectors):
         vectors['wavelength'] = obs['wavelength']
 
         delta = (obs['spectrum'] - spec_mu)[mask]
+        var = (obs['unc'][mask])**2
 
         if spec_noise is not None:
             try:
                 spec_noise.compute(**vectors)
-                return spec_noise.lnlikelihood(delta)
+                if (f_outlier_spec == 0.0):
+                    return spec_noise.lnlikelihood(delta)
+
+                # disallow (correlated noise model + mixture model)
+                assert spec_noise.Sigma.ndim == 1
+
+                # redefine errors, scaling sigma_bad by (jittered sigma / original sigma)
+                var_bad = (np.sqrt((spec_noise.Sigma / var)) * vectors['sigma_bad']) ** 2
+                var = spec_noise.Sigma
             except(LinAlgError):
                 return np.nan_to_num(-np.inf)
-        else:
-            # simple noise model
-            var = (obs['unc'][mask])**2
-            lnp = -0.5*( (delta**2/var).sum() + np.log(2*np.pi*var).sum() )
-            return lnp
 
+        lnp = -0.5*( (delta**2/var) + np.log(2*np.pi*var) )
+        if (f_outlier_spec == 0.0):
+            return lnp.sum()
+        else:
+            lnp_bad = -0.5*( (delta**2/var_bad) + np.log(2*np.pi*var_bad) )
+            lnp_tot = np.logaddexp(lnp + np.log(1-f_outlier_spec), lnp_bad + np.log(f_outlier_spec))
+
+            return lnp_tot.sum()
 
 def lnlike_phot(phot_mu, obs=None, phot_noise=None, **vectors):
     """Calculate the likelihood of the photometric data given the spectroscopic

@@ -115,9 +115,16 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         phot_noise.update(**model.params)
         vectors.update({'phot': phot, 'phot_unc': obs['maggies_unc']})
 
+    #  --- Mixture Model ---
+    f_outlier_spec = model.params.get('f_outlier_spec',0.00)
+    if (f_outlier_spec != 0.0):
+        sigma_outlier_spec = model.params.get('sigma_outlier_spec',10)
+        vectors.update({'sigma_bad': (obs['unc']*sigma_outlier_spec)})
+
     # --- Calculate likelihoods ---
     t1 = time.time()
     lnp_spec = lnlike_spec(spec, obs=obs,
+                           f_outlier_spec=f_outlier_spec,
                            spec_noise=spec_noise, **vectors)
     lnp_phot = lnlike_phot(phot, obs=obs,
                            phot_noise=phot_noise, **vectors)
