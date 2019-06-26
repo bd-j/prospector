@@ -54,11 +54,10 @@ def lnlike_spec(spec_mu, obs=None, spec_noise=None, f_outlier_spec=0.0, **vector
                     return spec_noise.lnlikelihood(delta)
 
                 # disallow (correlated noise model + mixture model)
+                # and redefine errors
                 assert spec_noise.Sigma.ndim == 1
-
-                # redefine errors, scaling sigma_bad by (jittered sigma / original sigma)
-                var_bad = spec_noise.Sigma * (vectors["nsigma_bad"]**2)
                 var = spec_noise.Sigma
+
             except(LinAlgError):
                 return np.nan_to_num(-np.inf)
 
@@ -66,6 +65,7 @@ def lnlike_spec(spec_mu, obs=None, spec_noise=None, f_outlier_spec=0.0, **vector
         if (f_outlier_spec == 0.0):
             return lnp.sum()
         else:
+            var_bad = var * (vectors["nsigma_bad"]**2)
             lnp_bad = -0.5*( (delta**2/var_bad) + np.log(2*np.pi*var_bad) )
             lnp_tot = np.logaddexp(lnp + np.log(1-f_outlier_spec), lnp_bad + np.log(f_outlier_spec))
 
