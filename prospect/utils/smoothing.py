@@ -152,7 +152,7 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
                 # mask the resolution vector
                 sigma = resolution[mask]
         else:
-            smooth_method = smoooth_lsf
+            smooth_method = smooth_lsf
             if sigma is not None:
                 # convert to resolution on the output wavelength grid
                 sigma = np.interp(outwave, wave, resolution)
