@@ -58,9 +58,11 @@ def get_run_params(param_file=None, argv=None, **kwargs):
         * 3. command line arguments
     """
     warnings.warn(deprecation_msg, FutureWarning)
+    rp = {}
     if param_file is None:
-        rp = {}
-    ext = param_file.split('.')[-1]
+        ext = ""
+    else:
+        ext = param_file.split('.')[-1]
     if ext == 'py':
         setup_module = import_module_from_file(param_file)
         rp = deepcopy(setup_module.run_params)
