@@ -119,7 +119,11 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     f_outlier_spec = model.params.get('f_outlier_spec',0.0)
     if (f_outlier_spec != 0.0):
         sigma_outlier_spec = model.params.get('nsigma_outlier_spec',10)
-        vectors.update({'nsigma_bad': sigma_outlier_spec})
+        vectors.update({'nsigma_outlier_spec': sigma_outlier_spec})
+    f_outlier_phot = model.params.get('f_outlier_phot',0.0)
+    if (f_outlier_phot != 0.0):
+        sigma_outlier_phot = model.params.get('nsigma_outlier_phot',10)
+        vectors.update({'nsigma_outlier_phot': sigma_outlier_phot})
 
     # --- Calculate likelihoods ---
     t1 = time.time()
@@ -127,6 +131,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
                            f_outlier_spec=f_outlier_spec,
                            spec_noise=spec_noise, **vectors)
     lnp_phot = lnlike_phot(phot, obs=obs,
+                           f_outlier_phot=f_outlier_phot,
                            phot_noise=phot_noise, **vectors)
     d2 = time.time() - t1
     if verbose > 1:
