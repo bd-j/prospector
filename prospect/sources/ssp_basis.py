@@ -46,7 +46,7 @@ class SSPBasis(object):
     """
 
     def __init__(self, zcontinuous=1, reserved_params=['tage', 'sigma_smooth'],
-                 interp_type='logarithmic', flux_interp='linear', sfh_type='ssp',
+                 interp_type='logarithmic', flux_interp='linear',
                  mint_log=-3, compute_vega_mags=False,
                  **kwargs):
         """
@@ -74,7 +74,6 @@ class SSPBasis(object):
         """
 
         self.interp_type = interp_type
-        self.sfh_type = sfh_type
         self.mint_log = mint_log
         self.flux_interp = flux_interp
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
@@ -145,6 +144,33 @@ class SSPBasis(object):
         # Get the weighted stellar_mass/mformed ratio
         mass_frac = (self.ssp_stellar_masses * weights).sum() / weights.sum()
         return wave, spectrum, mass_frac
+
+    def get_galaxy_elines(self):
+        """Get the wavelengths and specific emission line luminosity of the nebular emission lines
+        predicted by FSPS. These lines are in units of Lsun/solar mass formed.
+        This assumes that `get_galaxy_spectrum` has already been called.
+
+        :returns ewave: 
+            The *restframe* wavelengths of the emission lines, AA
+
+        :returns elum: 
+            Specific luminosities of the nebular emission lines,
+            Lsun/stellar mass formed
+        """
+        ewave = self.ssp.emline_wavelengths
+        # This allows subclasses to set their own specific emission line
+        # luminosities within other methods, e.g., get_galaxy_spectrum, by
+        # populating the `_specific_line_luminosity` attribute.
+        elum = getattr(self, "_line_specific_luminosity", None)
+
+        if elum is None:
+            elum = self.ssp.emline_luminosity
+            if elum.ndim > 1:
+                # tabular sfh
+                mass = np.sum(self.params.get('mass', 1.0))
+                elum = elum[0] / mass
+        
+        return ewave, elum
 
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
         """Get a spectrum and SED for the given params.

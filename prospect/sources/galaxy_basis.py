@@ -100,7 +100,7 @@ class CSPSpecBasis(SSPBasis):
             Fraction of the formed stellar mass that still exists.
         """
         self.update(**params)
-        spectra = []
+        spectra, linelum = [], []
         mass = np.atleast_1d(self.params['mass']).copy()
         mfrac = np.zeros_like(mass)
         # Loop over mass components
@@ -110,11 +110,13 @@ class CSPSpecBasis(SSPBasis):
                                                peraa=False)
             spectra.append(spec)
             mfrac[i] = (self.ssp.stellar_mass)
+            linelum.append(self.ssp.emline_luminosity)
 
         # Convert normalization units from per stellar mass to per mass formed
         if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
             mass /= mfrac
         spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
+        self._line_specific_luminosity = np.dot(mass, np.array(linelum)) / mass.sum()
         mfrac_sum = np.dot(mass, mfrac) / mass.sum()
 
         return wave, spectrum, mfrac_sum
