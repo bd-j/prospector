@@ -173,7 +173,7 @@ class SpecModel(ProspectorParams):
         self.set_parameters(theta)
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
         self._zred = self.params.get('zred',0)
-        self._eline_wave, self._eline_lum = sps.get_emlines()
+        self._eline_wave, self._eline_lum = sps.get_galaxy_elines()
         self._norm_spec = self._spec * self.flux_norm()
 
         # generate spectrum and photometry for likelihood
@@ -195,8 +195,7 @@ class SpecModel(ProspectorParams):
 
         # analytical emission lines
         # eline luminosities should have same size as eline lum
-        dat = self.get_el(obs, calibrated_spec, eline_wave = eline_wave, eline_lum=eline_lum)
-        self._eline_spectrum, self._eline_penalty = dat
+        # self._nebline_dict = self.get_el(obs, calibrated_spec)
 
         return calibrated_spec
 
@@ -211,7 +210,7 @@ class SpecModel(ProspectorParams):
         phot = np.atleast_1d(10**(-0.4 * mags))
 
         # generate emission-line photometry
-        phot += nebline_photometry(filters)
+        phot += self.nebline_photometry(filters)
 
         return phot
 
@@ -253,6 +252,7 @@ class SpecModel(ProspectorParams):
         # units
         unit_conversion = to_cgs / (3631*jansky_cgs) * (1+self._zred)
 
+        # this is a scalar
         return mass * unit_conversion / dfactor 
     
     def smoothspec(self,wave):
@@ -261,17 +261,76 @@ class SpecModel(ProspectorParams):
 
         return outspec
     
-    def emission_lines(self):
-      
-      pass
-    
-    def distance_norm(self):
-      
-      pass
-    
-    def get_el(self):
+    def get_eline_parameters(self):
+        """ This returns sigma and redshift for the emission lines
+            Can be subclassed to add more sophistication
+            redshift: first looks for ``eline_z``, and defaults to ``zred``
+            sigma: first looks for ``eline_sigma``, defaults to 100 km/s
+        """
 
-        pass
+        # observed wavelengths
+        eline_z = self.params.get('eline_z',self._zred)
+        ewave_obs = np.atleast_2d((1+eline_z) * self._eline_wave)
+
+        # observed linewidths
+        eline_sigma_kms = self.params.get('eline_sigma',100)
+        eline_sigma_lambda = eline_sigma_kms * ewave_obs / ckms
+
+        return ewave_obs, eline_sigma_lambda
+
+    def get_eline_gaussians(self, ewave_obs, eline_sigma):
+
+        # only generate Gaussians for emission lines
+        # whose central wavelengths are within the
+        # observed spectral range
+        wmin, wmax = self._outwave.min(), self._outwave.max()
+        good = (ewave_obs > wmin) & (ewave_obs < wmax)
+
+        # generate gaussians
+        mu = np.atleast_2d(ewave_obs[good])
+        sigma = np.atleast_2d(eline_sigma[good])
+        dx = self._outwave[:,None] - mu
+        eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dx)**2 / (2 * sigma**2)
+        lines_to_model = good
+
+        # eline_gaussians has dimensions (Nwave, N_good_lines)
+        return eline_gaussians, lines_to_model
+
+    def get_el(self, obs, calibrated_spec):
+        """ checkme: time the gaussian generation
+                if slow, consider alternatives (unit gaussian, interpolate to wavelength grid?)
+        """
+
+        # catch fools
+        assert self.params['nebemlineinspec'] == False
+
+        # observed-frame emission line parameters
+        ewave_obs, eline_sigma = get_eline_parameters()
+
+        # generate Gaussians
+        eline_gaussians = get_eline_gaussians(ewave_obs, eline_sigma)
+
+        # generate residuals
+        delta = obs['spectrum'] - calibrated_spec
+
+        # generate line amplitudes
+        unit_factor = self.flux_norm() * (1 + self.params.get('eline_z',self._zred)) / (1 + self._zred)
+        calib_factor = np.interp(obs['wavelengths'], self._speccal, ewave_obs)
+        amplitudes = self._eline_lum * unit_factor * calib_factor
+
+        # fixme: get spectral noise model
+        spec_noise = None
+        if spec_noise is not None:
+            # no multiplicative noise inflation
+            assert not any(x in spec_noise.weight_names for x in ['spec','sed','cal']) 
+
+
+
+        # generate output dictionary
+        nebline_dict = {'gaussians': eline_gaussians,
+                        'delta': delta,
+                        'amplitudes': amplitudes}
+        return nebline_dict
     
     def mean_model(self, theta, obs, sps=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any

@@ -264,6 +264,15 @@ TemplateLibrary["nebular"] = (_nebular_,
                               ("The set of nebular emission parameters, "
                                "with gas_logz tied to stellar logzsol."))
 
+# -----------------------------------------
+# --- Nebular Emission Marginalization ----
+# -----------------------------------------
+include_eline_prior = {'N': 1, 'isfree': False, 'init': True}
+eline_prior = {'N': 1, 'isfree': False,
+              'init': 0.0, 'units': r'log Z/Z_\odot',
+              'depends_on': transforms.stellar_logzsol,
+              'prior': priors.TopHat(mini=-2.0, maxi=0.5)}
+
 # --------------------------
 # --- AGN Torus Emission ---
 # --------------------------

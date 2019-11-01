@@ -125,11 +125,16 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         sigma_outlier_phot = model.params.get('nsigma_outlier_phot',10)
         vectors.update({'nsigma_outlier_phot': sigma_outlier_phot})
 
+    # --- Emission Lines ---
+    eline_info = getattr(model, '_nebline_dict', None)
+
     # --- Calculate likelihoods ---
     t1 = time.time()
     lnp_spec = lnlike_spec(spec, obs=obs,
+                           eline_info=eline_info,
                            f_outlier_spec=f_outlier_spec,
-                           spec_noise=spec_noise, **vectors)
+                           spec_noise=spec_noise, 
+                           **vectors)
     lnp_phot = lnlike_phot(phot, obs=obs,
                            f_outlier_phot=f_outlier_phot,
                            phot_noise=phot_noise, **vectors)
