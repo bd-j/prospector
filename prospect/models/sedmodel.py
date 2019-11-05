@@ -240,6 +240,16 @@ class SpecModel(ProspectorParams):
 
         return flux
 
+    def spec_with_emission_lines(self,spec):
+        """ adds *all* emission lines to the model spectrum
+        only run after calling predict(), as it accesses cached information
+        useful for display purposes
+        """
+        ewave_obs = self._ewave_obs 
+        eline_sigma = self._eline_sigma
+        idx = np.ones_like(ewave_obs,dtype=bool)
+        gaussians = self.get_eline_gaussians(ewave_obs, eline_sigma, idx)
+        return spec + self._eline_lum[:,None] * gaussians
 
     def observed_wave(self, wave, do_wavecal=False):
         # missing wavelength calibration (add later)
@@ -271,7 +281,7 @@ class SpecModel(ProspectorParams):
         return outspec
     
     def get_eline_parameters(self):
-        """ This returns sigma and redshift for the emission lines
+        """ This caches sigma, redshift, indexes for the emission lines
             Can be subclassed to add more sophistication
             redshift: first looks for ``eline_z``, and defaults to ``zred``
             sigma: first looks for ``eline_sigma``, defaults to 100 km/s
@@ -491,19 +501,16 @@ class PolySpecModel(SpecModel):
         if polyopt:
             order = self.params['polyorder']
 
-            # generate masks
-            # also remove emission lines if doing analytical marginalization
+            # generate mask
+            # remove region around emission lines if doing analytical marginalization
             mask = obs.get('mask', slice(None))
             if self.params.get('marginalize_elines', False):
                 idx = self._elines_to_fit
                 ewave_obs = self._ewave_obs[idx]
                 eline_sigma_lambda = self.eline_sigma_lambda[idx]
-
-                # fixme: loop over emission line wavelengths
-                # chop out anything within 3sigma
-                # also need function adding all emission lines --
-                # sum G's over all lines, add to spectrum, weighted by
-                # self.eline_lum
+                for (lam,sig) in zip(ewave_obs,eline_sigma_lambda):
+                    mask_add = np.abs(obs['wavelength']-lam) < 3*sig
+                    mask[mask_add] = 0
 
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
