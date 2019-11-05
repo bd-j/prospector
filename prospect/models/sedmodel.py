@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.polynomial.chebyshev import chebval, chebvander
 from .parameters import ProspectorParams
+from scipy.stats import multivariate_normal
 
 __all__ = ["SedModel", "SpecModel", "PolySedModel"]
 
@@ -195,7 +196,8 @@ class SpecModel(ProspectorParams):
 
         # analytical emission lines
         # eline luminosities should have same size as eline lum
-        # self._nebline_dict = self.get_el(obs, calibrated_spec)
+        if self.params.get('marginalize_elines', False):
+            self.get_el(obs, calibrated_spec)
 
         return calibrated_spec
 
@@ -278,23 +280,26 @@ class SpecModel(ProspectorParams):
 
         return ewave_obs, eline_sigma_lambda
 
-    def get_eline_gaussians(self, ewave_obs, eline_sigma):
-
-        # only generate Gaussians for emission lines
-        # whose central wavelengths are within the
-        # observed spectral range
-        wmin, wmax = self._outwave.min(), self._outwave.max()
-        good = (ewave_obs > wmin) & (ewave_obs < wmax)
+    def get_eline_gaussians(self, ewave_obs, eline_sigma, good):
 
         # generate gaussians
         mu = np.atleast_2d(ewave_obs[good])
         sigma = np.atleast_2d(eline_sigma[good])
         dx = self._outwave[:,None] - mu
         eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dx)**2 / (2 * sigma**2)
-        lines_to_model = good
 
         # eline_gaussians has dimensions (Nwave, N_good_lines)
-        return eline_gaussians, lines_to_model
+        return eline_gaussians
+
+    def check_model(self,spec_noise=None,):
+        """ put all assert checks here
+        """
+
+        # analytical emission lines
+        # eline luminosities should have same size as eline lum
+        if self.params.get('marginalize_elines', False):
+            assert self.params['nebemlineinspec'] == False
+
 
     def get_el(self, obs, calibrated_spec):
         """ checkme: time the gaussian generation
@@ -302,13 +307,22 @@ class SpecModel(ProspectorParams):
         """
 
         # catch fools
-        assert self.params['nebemlineinspec'] == False
 
         # observed-frame emission line parameters
         ewave_obs, eline_sigma = get_eline_parameters()
 
+        # which lines are we marginalizing over?
+        # lines specified by user, but remove any lines whose central
+        # wavelengths are outside the observed spectral range
+        # fixme: oh my god, indexing
+        elines_index = self.params.get('lines_to_fit',slice(None))
+        wmin, wmax = self._outwave.min(), self._outwave.max()
+        mask = (ewave_obs[elines_index] > wmin) & (ewave_obs[elines_index] < wmax)
+        idx = np.zeros(len(ewave_obs), dtype=bool)
+        idx[elines_index][mask] = True
+  
         # generate Gaussians
-        eline_gaussians = get_eline_gaussians(ewave_obs, eline_sigma)
+        eline_gaussians = get_eline_gaussians(ewave_obs, eline_sigma, idx)
 
         # generate residuals
         delta = obs['spectrum'] - calibrated_spec
@@ -316,22 +330,47 @@ class SpecModel(ProspectorParams):
         # generate line amplitudes
         unit_factor = self.flux_norm() * (1 + self.params.get('eline_z',self._zred)) / (1 + self._zred)
         calib_factor = np.interp(obs['wavelengths'], self._speccal, ewave_obs)
-        amplitudes = self._eline_lum * unit_factor * calib_factor
+        alpha_breve = (self._eline_lum * unit_factor * calib_factor)[idx]
 
-        # fixme: get spectral noise model
+        # generate sigma
+        # fixme: get spectral noise model + associated vectors
         spec_noise = None
+        noise_vectors = None
         if spec_noise is not None:
             # no multiplicative noise inflation
             assert not any(x in spec_noise.weight_names for x in ['spec','sed','cal']) 
+            sigma = spec_noise.construct_covariance(**noise_vectors)
+            # no correlated noise model
+            assert sigma.ndim == 1
+        else:
+            sigma = obs['unc'][obs['mask']]**2
+        sigma_inv = np.diag(1./sigma)
 
+        # calculate emission line amplitudes and covariance matrix
+        sigma_alpha_hat = np.linalg.inv(np.dot(eline_gaussians.T, np.dot(sigma_inv,eline_gaussians)))
+        alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv,delta)))
 
+        # if we have a prior, include it
+        if self.params.get('use_eline_prior',False):
+            sigma_alpha_breve = np.diag(self.params['eline_prior'] * alpha_breve)
+            M = np.linalg.inv(sigma_alpha_hat + sigma_alpha_breve)
+            alpha_bar = np.dot(sigma_alpha_breve, np.dot(M,alpha_hat)) + np.dot(sigma_alpha_hat, np.dot(M,alpha_breve))
+            sigma_alpha_bar = np.dot(sigma_alpha_hat, np.dot(M, sigma_alpha_breve))
+            K = multivariate_normal.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) / \
+                multivariate_normal.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_hat + sigma_alpha_breve)
+            self._eline_penalty = K
+        else:
+            self._eline_penalty = multivariate_normal.pdf(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
 
-        # generate output dictionary
-        nebline_dict = {'gaussians': eline_gaussians,
-                        'delta': delta,
-                        'amplitudes': amplitudes}
-        return nebline_dict
-    
+        # TODO
+        # JOEL: function to add all emission lines to model
+        # pass the likelihood penalty term to lnlike_spec
+        # pass spec noise model and associated vectors to here
+        #   -- delete previous passing of emission line information
+        # check emission line luminosities
+        # de-normalize the alpha_hat terms to store for use in the photometry [idx lines only]
+        # calibration polynomial: when optimizing, mask emission lines
+
     def mean_model(self, theta, obs, sps=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
