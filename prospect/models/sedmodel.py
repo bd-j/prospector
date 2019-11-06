@@ -1,9 +1,17 @@
 import numpy as np
 from numpy.polynomial.chebyshev import chebval, chebvander
 from .parameters import ProspectorParams
-from scipy.stats import multivariate_normal
+from scipy.stats import multivariate_normal as mvn
+
+from sedpy.observate import getSED
+
+from ..sources.constants import to_cgs_at_10pc as to_cgs
+from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
+from ..utils.smoothing import smoothspec
+
 
 __all__ = ["SedModel", "SpecModel", "PolySedModel"]
+
 
 class SedModel(ProspectorParams):
     """A subclass of :py:class:`ProspectorParams` that passes the models
@@ -89,7 +97,7 @@ class SedModel(ProspectorParams):
         spec *= obs.get('normalization_guess', 1.0)
         # Remove negative fluxes.
         try:
-            tiny = 1.0/len(spec) * spec[spec > 0].min()
+            tiny = 1.0 / len(spec) * spec[spec > 0].min()
             spec[spec < tiny] = tiny
         except:
             pass
@@ -152,19 +160,6 @@ class SedModel(ProspectorParams):
         x = 2.0 * (x / (x[mask]).max()) - 1.0
         return x
 
-    def spec_gp_params(self, theta=None, **extras):
-        if theta is not None:
-            self.set_parameters(theta)
-        pars = ['gp_jitter', 'gp_amplitude', 'gp_length']
-        defaults = [[0.0], [0.0], [1.0]]
-        vals = [self.params.get(p, d) for p, d in zip(pars, defaults)]
-        return tuple(vals)
-
-    def phot_gp_params(self, theta=None, **extras):
-        if theta is not None:
-            self.set_parameters(theta)
-        s = self.params.get('phot_jitter', 0.0)
-        return s, [0.0], [0]
 
 class SpecModel(ProspectorParams):
     """A subclass of :py:class:`ProspectorParams` that passes the models
@@ -172,50 +167,58 @@ class SpecModel(ProspectorParams):
     optional spectroscopic calibration and sky emission.
     """
 
-    def predict(self, theta, obs, sps=None, sigma=None,**extras):
+    def predict(self, theta, obs, sps=None, sigma_spec=None, **extras):
 
         # generate and cache model spectrum and info
         self.set_parameters(theta)
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
-        self._zred = self.params.get('zred',0)
+        self._zred = self.params.get('zred', 0)
         self._eline_wave, self._eline_lum = sps.get_galaxy_elines()
+
+        # Flux normalize
         self._norm_spec = self._spec * self.flux_norm()
 
         # generate spectrum and photometry for likelihood
-        spec = self.predict_spec(obs, sigma)
+        # predict_spec should be called before predict_phot
+        self.cache_eline_parameters()
+        spec = self.predict_spec(obs, sigma_spec)
         phot = self.predict_phot(obs['filters'])
 
         return spec, phot, self._mfrac
 
-    def predict_spec(self, obs, sigma):
-      
-        # de-redshift wavelength
-        obs_wave = self.observed_wave(self._wave, do_wavecal=True)
-        self._outwave = obs.get('wavelengths',obs_wave)
+    def predict_spec(self, obs, sigma_spec, **extras):
 
-        # smoothing
-        smooth_spec = self.smoothspec(obs_wave)
-      
+        # redshift wavelength
+        obs_wave = self.observed_wave(self._wave, do_wavecal=True)
+        self._outwave = obs.get('wavelengths', obs_wave)
+
+        # smooth and put on output wavelength grid
+        smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+
         # calibration
-        self.get_eline_parameters()
         self._speccal = self.spec_calibration(obs=obs, **extras)
         calibrated_spec = smooth_spec * self._speccal
 
-        # analytical emission lines
-        # eline luminosities should have same size as eline lum
+        # generate (after fitting) the emission line spectrum
         if self.params.get('marginalize_elines', False):
-            self.get_el(obs, calibrated_spec, sigma)
+            self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
+        elif self.params.get("nebemlineinspec", True) is False:
+            # FIXME: Actually do this!
+            self._elinespec = 0
+        else:
+            self._elinespec = 0
 
-        return calibrated_spec
+        return calibrated_spec + self._elinespec
 
-    def predict_phot(self,filters):
+    def predict_phot(self, filters):
 
         if filters is None:
             return 0.0
 
         # generate photometry w/o emission lines
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
-        mags = getSED(obs_wave, self._norm_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs), filters)
+        flambda = self._norm_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
+        mags = getSED(obs_wave, flambda, filters)
         phot = np.atleast_1d(10**(-0.4 * mags))
 
         # generate emission-line photometry
@@ -223,150 +226,159 @@ class SpecModel(ProspectorParams):
 
         return phot
 
-    def nebline_photometry(self,filters):
+    def nebline_photometry(self, filters):
         """analytically calculate emission line contribution to photometry
             fixme: check units of emission line luminosities
         """
-        elams = self._eline_wave * (1 + self.params.get('_eline_zred',self._zred))
-        elums = self._eline_lum * self.flux_norm() / (1+self._zred)
+        elams = self._ewave_obs
+        elums = self._eline_lum * self.flux_norm() / (1 + self._zred)
 
         flux = np.zeros(len(filters))
-        for i,filt in enumerate(filters):
+        for i, filt in enumerate(filters):
             # calculate transmission at nebular emission
-            trans = np.interp(elams, filt.wavelength, filt.transmission, left=0., right=0.)
+            trans = np.interp(elams, filt.wavelength, filt.transmission,
+                              left=0., right=0.)
             idx = (trans > 0)
             if True in idx:
-                flux[i] = (trans[idx]*elams[idx]*elums[idx]).sum()/filt.ab_zero_counts
+                flux[i] = (trans[idx]*elams[idx]*elums[idx]).sum() / filt.ab_zero_counts
 
         return flux
 
-    def spec_with_emission_lines(self,spec):
-        """ adds *all* emission lines to the model spectrum
-        only run after calling predict(), as it accesses cached information
-        useful for display purposes
-        """
-        ewave_obs = self._ewave_obs 
-        eline_sigma = self._eline_sigma
-        idx = np.ones_like(ewave_obs,dtype=bool)
-        gaussians = self.get_eline_gaussians(ewave_obs, eline_sigma, idx)
-        return spec + self._eline_lum[:,None] * gaussians
-
-    def observed_wave(self, wave, do_wavecal=False):
-        # missing wavelength calibration (add later)
-        a = 1 + self._zred
-        return wave*a
-    
     def flux_norm(self):
-      
+        """Compute the scaling required to go from Lsun/Hz to maggies.
+        Note this includes the (1+z) factor required for flux densities.
+        """
         # distance factor
-        if (self._zred == 0) | ('lumdist' in self.params): 
-            lumdist = self.params.get('lumdist',1e-5)
+        if (self._zred == 0) | ('lumdist' in self.params):
+            lumdist = self.params.get('lumdist', 1e-5)
         else:
-            lumdist = cosmo.luminosity_distance(zred).to('Mpc').value
+            lumdist = cosmo.luminosity_distance(self._zred).to('Mpc').value
         dfactor = (lumdist * 1e5)**2
 
         # Mass normalization
         mass = np.sum(self.params.get('mass',1.0))
-      
+
         # units
-        unit_conversion = to_cgs / (3631*jansky_cgs) * (1+self._zred)
+        unit_conversion = to_cgs / (3631*jansky_cgs) * (1 + self._zred)
 
         # this is a scalar
-        return mass * unit_conversion / dfactor 
-    
-    def smoothspec(self,wave):
-        sigma = self.params.get('sigma',100)
-        outspec = smoothspec(wave, self._norm_spec, sigma, outwave=self._outwave)
+        return mass * unit_conversion / dfactor
 
-        return outspec
-    
-    def get_eline_parameters(self):
-        """ This caches sigma, redshift, indexes for the emission lines
-            Can be subclassed to add more sophistication
-            redshift: first looks for ``eline_z``, and defaults to ``zred``
-            sigma: first looks for ``eline_sigma``, defaults to 100 km/s
+    def cache_eline_parameters(self):
+        """ This computes and caches:
+
+        * _ewave_obs - The observed frame wavelengths (AA) of all emission lines
+        * _eline_sigma_lambda - The dispersion (in AA) of all the emission lines
+        * _elines_to_fit - If fitting and marginalizing over emission lines, this
+                           stores indices of the lines to actually fit, as a
+                           boolean array
+
+        Can be subclassed to add more sophistication
+        redshift: first looks for ``eline_z``, and defaults to ``zred``
+        sigma: first looks for ``eline_sigma``, defaults to 100 km/s
         """
 
-        # exit gracefully if not used
+        # observed wavelengths
+        eline_z = self.params.get("eline_zred", self._zred)
+        self._ewave_obs = (1 + eline_z) * self._eline_wave
+
+        # observed linewidths
+        eline_sigma_kms = self.params.get('eline_sigma', 100.0)
+        self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
+
+        # exit gracefully if not fitting lines
         if not self.params.get('marginalize_elines', False):
-            self._ewave_obs = None
-            self._eline_sigma_lambda = None
             self._elines_to_fit = None
             return
 
-        # observed wavelengths
-        eline_z = self.params.get('eline_z',self._zred)
-        self._ewave_obs = np.atleast_2d((1+eline_z) * self._eline_wave)
-
-        # observed linewidths
-        eline_sigma_kms = self.params.get('eline_sigma',100)
-        self._eline_sigma_lambda = eline_sigma_kms * ewave_obs / ckms
-
-        # lines to fit
+        # --- lines to fit ---
         # lines specified by user, but remove any lines whose central
         # wavelengths are outside the observed spectral range
-        # fixme: oh my god, indexing
-        elines_index = self.params.get('lines_to_fit',slice(None))
+        # FIXME: oh my god, indexing
+        elines_index = self.params.get('lines_to_fit', slice(None))
         wmin, wmax = self._outwave.min(), self._outwave.max()
-        mask = (ewave_obs[elines_index] > wmin) & (ewave_obs[elines_index] < wmax)
-        idx = np.zeros(len(ewave_obs), dtype=bool)
+        mask = ((self._ewave_obs[elines_index] > wmin) &
+                (self._ewave_obs[elines_index] < wmax))
+        idx = np.zeros(len(self._ewave_obs), dtype=bool)
         idx[elines_index][mask] = True
         self._elines_to_fit = idx
 
-    def get_eline_gaussians(self, ewave_obs, eline_sigma, good):
+    def get_eline_gaussians(self, lineidx=slice(None), wave=None):
+        """Get a set of unit normals with centers and widths given by the
+        previously cached emission line observed frame wavelengths and emission
+        line widths.
+
+        :param lineidx: (optional)
+            A boolean array or integer array used to subscripot the cached
+            lines.  Gaussian vectors will only be constructed for the lines
+            thus subscripted.
+
+        :param wave: (optional)
+            The wavelength array (in Angstroms) used to construct the gaussian
+            vectors. If not given, the cahced `_outwave` array will be used.
+
+        :returns gaussians:
+            The unit gaussians for each line.  ndarray of shape (nwave, nline)
+        """
+        if wave is None:
+            warr = self._outwave
 
         # generate gaussians
-        mu = np.atleast_2d(ewave_obs[good])
-        sigma = np.atleast_2d(eline_sigma[good])
-        dx = self._outwave[:,None] - mu
-        eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dx)**2 / (2 * sigma**2)
+        mu = np.atleast_2d(self._ewave_obs[lineidx])
+        sigma = np.atleast_2d(self._eline_sigma_lambda[lineidx])
+        dx = warr[:, None] - mu
+        eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dx**2 / (2 * sigma**2))
 
         # eline_gaussians has dimensions (Nwave, N_good_lines)
         return eline_gaussians
 
-    def get_el(self, obs, calibrated_spec, sigma):
+    def get_el(self, obs, calibrated_spec, sigma_spec=None):
         """ checkme: time the gaussian generation
-                if slow, consider alternatives (unit gaussian, interpolate to wavelength grid?)
+        if slow, consider alternatives (unit gaussian, interpolate to wavelength grid?)
         """
 
         # no emission lines in model!
-        assert self.params['nebemlineinspec'] == False
+        assert self.params['nebemlineinspec'] is False
 
         # generate Gaussians
         idx = self._elines_to_fit
-        eline_gaussians = self.get_eline_gaussians(self._ewave_obs, self._eline_sigma, idx)
+        eline_gaussians = self.get_eline_gaussians(lineidx=idx)
 
         # generate residuals
         delta = obs['spectrum'] - calibrated_spec
 
-        # generate line amplitudes
-        unit_factor = self.flux_norm() / (1 + self._zred)
-        calib_factor = np.interp(obs['wavelengths'], self._speccal, self._ewave_obs[idx])
+        # generate line amplitudes in observed flux units
+        units_factor = self.flux_norm() / (1 + self._zred)
+        calib_factor = np.interp(self._ewave_obs[idx], self._outwave, self._speccal)
         linecal = units_factor * calib_factor
         alpha_breve = self._eline_lum[idx] * linecal
 
-        # generate sigma
-        if sigma.ndim == 2:
-            sigma_inv = np.linalg.inv(sigma)
+        # generate inverse of sigma_spec
+        if sigma_spec is None:
+            sigma_spec = obs["unc"]**2
+        if sigma_spec.ndim == 2:
+            sigma_inv = np.linalg.inv(sigma_spec)
         else:
-            sigma_inv = np.diag(1./sigma)
+            sigma_inv = np.diag(1. / sigma_spec)
 
         # calculate emission line amplitudes and covariance matrix
-        sigma_alpha_hat = np.linalg.inv(np.dot(eline_gaussians.T, np.dot(sigma_inv,eline_gaussians)))
-        alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv,delta)))
+        sigma_alpha_hat = np.linalg.inv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
+        alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv, delta)))
 
         # generate likelihood penalty term
         # different if we use a prior
-        if self.params.get('use_eline_prior',False):
+        # FIXME: Cache line amplitude covariance matrices
+        if self.params.get('use_eline_prior', False):
             sigma_alpha_breve = np.diag(self.params['eline_prior'] * alpha_breve)
             M = np.linalg.inv(sigma_alpha_hat + sigma_alpha_breve)
-            alpha_bar = np.dot(sigma_alpha_breve, np.dot(M,alpha_hat)) + np.dot(sigma_alpha_hat, np.dot(M,alpha_breve))
+            alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
+                         np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
             sigma_alpha_bar = np.dot(sigma_alpha_hat, np.dot(M, sigma_alpha_breve))
-            K = multivariate_normal.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) / \
-                multivariate_normal.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_hat + sigma_alpha_breve)
+            K = mvn.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) / \
+                mvn.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_hat + sigma_alpha_breve)
         else:
-            K = multivariate_normal.pdf(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
-            alpha_bar = alpha_hat 
+            K = mvn.pdf(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
+            alpha_bar = alpha_hat
 
         # Cache the ln-penalty
         self._ln_eline_penalty = np.log(K)
@@ -374,47 +386,19 @@ class SpecModel(ProspectorParams):
         # Store fitted emission line luminosities in physical units
         self._eline_lum[idx] = alpha_bar / linecal
 
-    def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """Implements a Chebyshev polynomial calibration model.  This only
-        occurs if ``"poly_coeffs"`` is present in the :py:attr:`params`
-        dictionary, otherwise the value of ``params["spec_norm"]`` is returned.
+        # return the maximum-likelihood line spectrum in observed units
+        return np.dot(alpha_hat, eline_gaussians)
 
-        :param theta: (optional)
-            If given, set :py:attr:`params` using this vector before
-            calculating the calibration polynomial. ndarray of shape
-            ``(ndim,)``
+    def smoothspec(self, wave, spec):
+        sigma = self.params.get("sigma_smooth", 100)
+        outspec = smoothspec(wave, spec, sigma, outwave=self._outwave, **self.params)
 
-        :param obs:
-            A dictionary of observational data, must contain the key
-            ``"wavelength"``
+        return outspec
 
-        :returns cal:
-           If ``params["cal_type"]`` is ``"poly"``, a polynomial given by
-           ``'spec_norm'`` :math:`\times (1 + \Sum_{m=1}^M```'poly_coeffs'[m-1]``:math:` \times T_n(x))`.
-           Otherwise, the exponential of a Chebyshev polynomial.
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        if ('poly_coeffs' in self.params):
-            mask = obs.get('mask', slice(None))
-            # map unmasked wavelengths to the interval -1, 1
-            # masked wavelengths may have x>1, x<-1
-            x = self.wave_to_x(obs["wavelength"], mask)
-            # get coefficients.  Here we are setting the first term to 0 so we
-            # can deal with it separately for the exponential and regular
-            # multiplicative cases
-            c = np.insert(self.params['poly_coeffs'], 0, 0)
-            poly = chebval(x, c)
-            # switch to have spec_norm be multiplicative or additive depending
-            # on whether the calibration model is multiplicative in exp^poly or
-            # just poly
-            if self.params.get('cal_type', 'exp_poly') is 'poly':
-                return (1.0 + poly) * self.params.get('spec_norm', 1.0)
-            else:
-                return np.exp(self.params.get('spec_norm', 0) + poly)
-        else:
-            return 1.0 * self.params.get('spec_norm', 1.0)
+    def observed_wave(self, wave, do_wavecal=False):
+        # missing wavelength calibration (add later)
+        a = 1 + self._zred
+        return wave * a
 
     def wave_to_x(self, wavelength=None, mask=slice(None), **extras):
         """Map unmasked wavelengths to the interval -1, 1
@@ -423,6 +407,17 @@ class SpecModel(ProspectorParams):
         x = wavelength - (wavelength[mask]).min()
         x = 2.0 * (x / (x[mask]).max()) - 1.0
         return x
+
+    def spec_calibration(self, **kwargs):
+        return np.ones_like(self._outwave)
+
+    def spec_with_emission_lines(self, wave, spec):
+        """Adds *all* emission lines to the model spectrum
+        only run after calling predict(), as it accesses cached information
+        useful for display purposes
+        """
+        gaussians = self.get_eline_gaussians(wave=wave)
+        return spec + np.dot(self._eline_lum, gaussians)
 
 
 class PolySedModel(SedModel):
@@ -532,6 +527,51 @@ class PolySpecModel(SpecModel):
             poly = 0.0
 
         return (1.0 + poly) * norm
+
+class PolyFitModel(SedModel):
+
+    def spec_calibration(self, theta=None, obs=None, **kwargs):
+        """Implements a Chebyshev polynomial calibration model.  This only
+        occurs if ``"poly_coeffs"`` is present in the :py:attr:`params`
+        dictionary, otherwise the value of ``params["spec_norm"]`` is returned.
+
+        :param theta: (optional)
+            If given, set :py:attr:`params` using this vector before
+            calculating the calibration polynomial. ndarray of shape
+            ``(ndim,)``
+
+        :param obs:
+            A dictionary of observational data, must contain the key
+            ``"wavelength"``
+
+        :returns cal:
+           If ``params["cal_type"]`` is ``"poly"``, a polynomial given by
+           ``'spec_norm'`` :math:`\times (1 + \Sum_{m=1}^M```'poly_coeffs'[m-1]``:math:` \times T_n(x))`.
+           Otherwise, the exponential of a Chebyshev polynomial.
+        """
+        if theta is not None:
+            self.set_parameters(theta)
+
+        if ('poly_coeffs' in self.params):
+            mask = obs.get('mask', slice(None))
+            # map unmasked wavelengths to the interval -1, 1
+            # masked wavelengths may have x>1, x<-1
+            x = self.wave_to_x(obs["wavelength"], mask)
+            # get coefficients.  Here we are setting the first term to 0 so we
+            # can deal with it separately for the exponential and regular
+            # multiplicative cases
+            c = np.insert(self.params['poly_coeffs'], 0, 0)
+            poly = chebval(x, c)
+            # switch to have spec_norm be multiplicative or additive depending
+            # on whether the calibration model is multiplicative in exp^poly or
+            # just poly
+            if self.params.get('cal_type', 'exp_poly') is 'poly':
+                return (1.0 + poly) * self.params.get('spec_norm', 1.0)
+            else:
+                return np.exp(self.params.get('spec_norm', 0) + poly)
+        else:
+            return 1.0 * self.params.get('spec_norm', 1.0)
+
 
 
 def gauss(x, mu, A, sigma):

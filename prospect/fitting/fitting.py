@@ -91,12 +91,12 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
 
     #  --- Update Noise Model ---
     spec_noise, phot_noise = noise
-    vectors = {}  # These should probably be copies....
+    vectors, sigma_spec = {}, None
     model.set_parameters(theta)
     if spec_noise is not None:
         spec_noise.update(**model.params)
         vectors.update({"unc": obs['unc']})
-        sigma = spec_noise.construct_covariance(**vectors)
+        sigma_spec = spec_noise.construct_covariance(**vectors)
     if phot_noise is not None:
         phot_noise.update(**model.params)
         vectors.update({'phot_unc': obs['maggies_unc']})
@@ -104,7 +104,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     # --- Generate mean model ---
     try:
         t1 = time.time()
-        spec, phot, x = model.predict(theta, obs, sps=sps, sigma=sigma)
+        spec, phot, x = model.predict(theta, obs, sps=sps, sigma_spec=sigma_spec)
         d1 = time.time() - t1
     except(ValueError):
         return lnnull
