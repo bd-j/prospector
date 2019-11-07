@@ -180,7 +180,6 @@ class SpecModel(ProspectorParams):
 
         # generate spectrum and photometry for likelihood
         # predict_spec should be called before predict_phot
-        self.cache_eline_parameters()
         spec = self.predict_spec(obs, sigma_spec)
         phot = self.predict_phot(obs['filters'])
 
@@ -190,19 +189,22 @@ class SpecModel(ProspectorParams):
 
         # redshift wavelength
         obs_wave = self.observed_wave(self._wave, do_wavecal=True)
-        self._outwave = obs.get('wavelengths', obs_wave)
+        self._outwave = obs.get('wavelength', obs_wave)
+
+        # cache eline parameters
+        self.cache_eline_parameters()
 
         # smooth and put on output wavelength grid
         smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
 
         # calibration
-        self._speccal = self.spec_calibration(obs=obs, **extras)
+        self._speccal = self.spec_calibration(obs=obs, spec=smooth_spec, **extras)
         calibrated_spec = smooth_spec * self._speccal
 
         # generate (after fitting) the emission line spectrum
         if self.params.get('marginalize_elines', False):
             self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
-        elif self.params.get("nebemlineinspec", True) is False:
+        elif self.params.get("nebemlineinspec", True) == False:
             # FIXME: Actually do this!
             self._elinespec = 0
         else:
@@ -294,14 +296,11 @@ class SpecModel(ProspectorParams):
         # --- lines to fit ---
         # lines specified by user, but remove any lines whose central
         # wavelengths are outside the observed spectral range
-        # FIXME: oh my god, indexing
-        elines_index = self.params.get('lines_to_fit', slice(None))
+        # fixme: oh my god, indexing
+        elines_index = self.params.get('lines_to_fit',slice(None))
         wmin, wmax = self._outwave.min(), self._outwave.max()
-        mask = ((self._ewave_obs[elines_index] > wmin) &
-                (self._ewave_obs[elines_index] < wmax))
-        idx = np.zeros(len(self._ewave_obs), dtype=bool)
-        idx[elines_index][mask] = True
-        self._elines_to_fit = idx
+        in_range = (self._ewave_obs.squeeze() > wmin) & (self._ewave_obs.squeeze() < wmax)
+        self._elines_to_fit = in_range & elines_index
 
     def get_eline_gaussians(self, lineidx=slice(None), wave=None):
         """Get a set of unit normals with centers and widths given by the
@@ -338,7 +337,7 @@ class SpecModel(ProspectorParams):
         """
 
         # no emission lines in model!
-        assert self.params['nebemlineinspec'] is False
+        assert self.params['nebemlineinspec'] == False
 
         # generate Gaussians
         idx = self._elines_to_fit
@@ -475,7 +474,7 @@ class PolySpecModel(SpecModel):
     between the observed and the model spectrum.
     """
 
-    def spec_calibration(self, theta=None, obs=None, **kwargs):
+    def spec_calibration(self, theta=None, obs=None, spec=None, **kwargs):
         """Implements a Chebyshev polynomial calibration model. This uses
         least-squares to find the maximum-likelihood Chebyshev polynomial of a
         certain order describing the ratio of the observed spectrum to the
@@ -502,7 +501,7 @@ class PolySpecModel(SpecModel):
             if self.params.get('marginalize_elines', False):
                 idx = self._elines_to_fit
                 ewave_obs = self._ewave_obs[idx]
-                eline_sigma_lambda = self.eline_sigma_lambda[idx]
+                eline_sigma_lambda = self._eline_sigma_lambda[idx]
                 for (lam,sig) in zip(ewave_obs,eline_sigma_lambda):
                     mask_add = np.abs(obs['wavelength']-lam) < 3*sig
                     mask[mask_add] = 0
@@ -510,8 +509,8 @@ class PolySpecModel(SpecModel):
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
             x = self.wave_to_x(obs["wavelength"], mask)
-            y = (obs['spectrum'] / self._spec)[mask] / norm - 1.0
-            yerr = (obs['unc'] / self._spec)[mask] / norm
+            y = (obs['spectrum'] / spec)[mask] / norm - 1.0
+            yerr = (obs['unc'] / spec)[mask] / norm
             yvar = yerr**2
             A = chebvander(x[mask], order)[:, 1:]
             ATA = np.dot(A.T, A / yvar[:, None])
