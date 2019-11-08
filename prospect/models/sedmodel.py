@@ -210,7 +210,7 @@ class SpecModel(ProspectorParams):
         else:
             self._elinespec = 0
 
-        return calibrated_spec + self._elinespec
+        return calibrated_spec + self._elinespec.sum(axis=1)
 
     def predict_phot(self, filters):
 
@@ -321,6 +321,8 @@ class SpecModel(ProspectorParams):
         """
         if wave is None:
             warr = self._outwave
+        else:
+            warr = wave
 
         # generate gaussians
         mu = np.atleast_2d(self._ewave_obs[lineidx])
@@ -368,7 +370,7 @@ class SpecModel(ProspectorParams):
         # different if we use a prior
         # FIXME: Cache line amplitude covariance matrices
         if self.params.get('use_eline_prior', False):
-            sigma_alpha_breve = np.diag(self.params['eline_prior'] * alpha_breve)
+            sigma_alpha_breve = np.diag(self.params['eline_prior_width'] * alpha_breve)
             M = np.linalg.inv(sigma_alpha_hat + sigma_alpha_breve)
             alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
                          np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
@@ -386,7 +388,7 @@ class SpecModel(ProspectorParams):
         self._eline_lum[idx] = alpha_bar / linecal
 
         # return the maximum-likelihood line spectrum in observed units
-        return np.dot(alpha_hat, eline_gaussians)
+        return alpha_hat * eline_gaussians
 
     def smoothspec(self, wave, spec):
         sigma = self.params.get("sigma_smooth", 100)

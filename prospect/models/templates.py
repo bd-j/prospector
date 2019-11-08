@@ -272,11 +272,11 @@ use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
 nebemlineinspec = {'N': 1, 'isfree': False, 'init': False} # can't be included w/ marginalization
 lines_to_fit = {'N': 1, 'isfree': False, 'init': np.ones(128,dtype=bool)} # marginalize over which of the 128 FSPS emission lines?
 
-eline_prior = {'N': 1, 'isfree': False,
-              'init': 0.0, 'units': r'fractional line luminosity',
-              'prior': priors.ClippedNormal(mean=0.1, mini=0.0, sigma=0.1)}
+eline_prior_width = {'N': 1, 'isfree': False,
+              'init': 0.2, 'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
+              'prior': None}
 
-eline_z = {'N': 1, 'isfree': False,
+eline_zred = {'N': 1, 'isfree': False,
               'init': 0.0, 'units': r'redshift',
               'prior': priors.TopHat(mini=0, maxi=4)}
 
@@ -288,11 +288,11 @@ _neb_marg_ = {"marginalize_elines": marginalize_elines,
              "use_eline_prior": use_eline_prior,
              "nebemlineinspec": nebemlineinspec,
              "lines_to_fit": lines_to_fit,
-             "eline_prior": eline_prior,
+             "eline_prior_width": eline_prior_width,
              "eline_sigma": eline_sigma
              }
 
-_fit_eline_redshift_ = {'eline_z': eline_z}
+_fit_eline_redshift_ = {'eline_zred': eline_zred}
 
 TemplateLibrary["nebular_marginalization"] = (_neb_marg_,
                                               ("Marginalize over emission amplitudes line contained in" 
