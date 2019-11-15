@@ -166,9 +166,11 @@ class SSPBasis(object):
         if elum is None:
             elum = self.ssp.emline_luminosity
             if elum.ndim > 1:
+                elum = elum[0]
+            if self.ssp.params["sfh"] == 3:
                 # tabular sfh
                 mass = np.sum(self.params.get('mass', 1.0))
-                elum = elum[0] / mass
+                elum /= mass
         
         return ewave, elum
 
