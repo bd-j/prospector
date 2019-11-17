@@ -63,8 +63,8 @@ def paramfile_string(param_file=None, **extras):
 
 
 def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
-               tsample=0.0, toptimize=0.0, sampling_initial_center=[],
-               **extras):
+               tsample=0.0, toptimize=0.0, sampling_initial_center=[], 
+               sps=None, **extras):
     """Write output and information to an HDF5 file object (or
     group).
     """
@@ -108,6 +108,19 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
     # ----------------------
     # Observational data
     write_obs_to_h5(hf, obs)
+    hf.flush()
+
+    # ---------------
+    # Best fitting model in space of data
+    if sps is not None:
+        from ..utils.plotting import get_best
+        _, pbest = get_best(hf["sampling"])
+        spec, phot, mfrac = model.mean_model(pbest, obs=obs, sps=sps)
+        best = hf.create_group("bestfit")
+        best.create_dataset("spectrum", data=spec)
+        best.create_dataset("photometry", data=phot)
+        best.create_dataset("parameter", data=pbest)
+        best.attrs["mfrac"] = mfrac
 
     # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
@@ -328,7 +341,7 @@ def dict_to_struct(indict):
             for p in indict.keys()]
     struct = np.zeros(1, dtype=np.dtype(dt))
     for i, p in enumerate(indict.keys()):
-        struct[p] = chain[p]
+        struct[p] = indict[p]
     return struct[p]
 
 

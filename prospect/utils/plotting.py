@@ -3,7 +3,7 @@ import matplotlib.pyplot as pl
 
 __all__ = ["get_best", "get_truths", "get_percentiles", "get_stats",
            "posterior_samples", "hist_samples", "joint_pdf", "compute_sigma_level",
-           "get_prior", "trim_walkers", "fill_between", "figgrid"]
+           "trim_walkers", "fill_between", "figgrid"]
 
 
 def get_best(res, **kwargs):

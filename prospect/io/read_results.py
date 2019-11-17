@@ -1,4 +1,5 @@
 import sys, os
+from copy import deepcopy
 import warnings
 import pickle, json
 import numpy as np
@@ -204,11 +205,15 @@ def read_hdf5(filename, **extras):
     :param filename:
         Name of the HDF5 file.
     """
-    groups = {'sampling': {}, 'obs': {}}
+    groups = {"sampling": {}, "obs": {}, 
+              "bestfit": {}, "optimization": {}}
     res = {}
     with h5py.File(filename, "r") as hf:
         # loop over the groups
         for group, d in groups.items():
+            # check the group exists
+            if group not in hf:
+                continue
             # read the arrays in that group into the dictionary for that group
             for k, v in hf[group].items():
                 d[k] = np.array(v)
@@ -378,7 +383,7 @@ def traceplot(results, showpars=None, start=0, chains=slice(None),
     try:
         parnames = np.array(results['theta_labels'])
     except(KeyError):
-        parnames = np.array(sample_results['model'].theta_labels())
+        parnames = np.array(results['model'].theta_labels())
     # Restrict to desired parameters
     if showpars is not None:
         ind_show = np.array([p in showpars for p in parnames], dtype=bool)
@@ -493,7 +498,7 @@ def subcorner(results, showpars=None, truths=None,
     try:
         parnames = np.array(results['theta_labels'], dtype='U20')
     except(KeyError):
-        parnames = np.array(sample_results['model'].theta_labels())
+        parnames = np.array(results['model'].theta_labels())
     # Restrict to desired parameters
     if showpars is not None:
         ind_show = np.array([parnames.tolist().index(p) for p in showpars])
