@@ -236,6 +236,8 @@ def read_hdf5(filename, **extras):
                 except:
                     res[k] = v
         res.update(groups['sampling'])
+        res["bestfit"] = groups["bestfit"]
+        res["optimization"] = groups["optimization"]
         res['obs'] = groups['obs']
         try:
             res['obs']['filters'] = load_filters([str(f) for f in res['obs']['filters']])

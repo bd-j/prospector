@@ -121,6 +121,8 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
         best.create_dataset("photometry", data=phot)
         best.create_dataset("parameter", data=pbest)
         best.attrs["mfrac"] = mfrac
+        if obs["wavelength"] is None:
+            best.create_dataset("restframe_wavelengths", data=sps.wavelengths)
 
     # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
