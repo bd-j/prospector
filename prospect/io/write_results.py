@@ -113,18 +113,19 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
     # ---------------
     # Best fitting model in space of data
     if sps is not None:
-        from ..utils.plotting import get_best
-        _, pbest = get_best(hf["sampling"])
-        spec, phot, mfrac = model.mean_model(pbest, obs=obs, sps=sps)
-        best = hf.create_group("bestfit")
-        best.create_dataset("spectrum", data=spec)
-        best.create_dataset("photometry", data=phot)
-        best.create_dataset("parameter", data=pbest)
-        best.attrs["mfrac"] = mfrac
-        if obs["wavelength"] is None:
-            best.create_dataset("restframe_wavelengths", data=sps.wavelengths)
+        if "sampling/chain" in hf:
+            from ..utils.plotting import get_best
+            _, pbest = get_best(hf["sampling"])
+            spec, phot, mfrac = model.mean_model(pbest, obs=obs, sps=sps)
+            best = hf.create_group("bestfit")
+            best.create_dataset("spectrum", data=spec)
+            best.create_dataset("photometry", data=phot)
+            best.create_dataset("parameter", data=pbest)
+            best.attrs["mfrac"] = mfrac
+            if obs["wavelength"] is None:
+                best.create_dataset("restframe_wavelengths", data=sps.wavelengths)
 
-    # Store the githash last after flushing since getting it might cause an
+        # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
     bgh = githash(**run_params)
     hf.attrs['prospector_version'] = json.dumps(bgh)
