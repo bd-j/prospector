@@ -75,15 +75,16 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
         mname = model_file
     param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
-    model, opt_results = read_model(mname, param_file=param_file, dangerous=dangerous,
-                                    **kwargs)
+    model, powell_results = read_model(mname, param_file=param_file, 
+                                       dangerous=dangerous, **kwargs)
     if dangerous:
         try:
             model = get_model(res)
         except:
             model = None
     res['model'] = model
-    res["optimization_results"] = opt_results 
+    if powell_results is not None:
+        res["powell_results"] = powell_results 
 
     return res, res["obs"], model
 
