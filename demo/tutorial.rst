@@ -227,7 +227,7 @@ and the posterior PDFs for the parameters.
 		# Corner figure of posterior PDFs
 		cfig = reader.subcorner(res)
 
-If you want to get the *maximum a posteriori* values, or percentiles of the posterior pdf,
+If you want to get the *maximum a posteriori* sample, or percentiles of the posterior pdf,
 that can be done as follows
 (note that for ``dynesty`` the weights of each posterior sample must be taken into account when calculating quantiles)
 :
@@ -253,6 +253,22 @@ that can be done as follows
 		                                    weights=res.get("weights", None))
 				      for i in range(model.ndim)]
 
+Further, the prediction of the data for the MAP posterior sample may be stored for you.
+
+.. code-block:: python
+
+        # Plot the stored maximum ln-probability sample
+        import matplotlib.pyplot as pl
+
+		best = res["bestfit"]
+        a = model.params["zred"] + 1
+        pl.plot(a * best["restframe_wavelengths"], best['spectrum'], label="MAP spectrum")
+        if obs['filters'] is not None:
+            pwave = [f.wave_effective for f in obs["filters"]]
+            pl.plot(pwave, best['photometry'], label="MAP photometry")
+            pl.set_title(best["parameter"])
+
+
 If necessary, one can regenerate models at any position in the posterior chain.
 This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the :py:func:`read_results.get_sps` method.
 
@@ -265,7 +281,7 @@ Now we will choose a specific parameter value from the chain and plot what the o
 
 .. code-block:: python
 
-		# Choose the walker and iteration number,
+		# Choose the walker and iteration number by hand.
 		walker, iteration = 0, -1
 		if res["chain"].ndim > 2:
  		    # if you used emcee for the inference
@@ -273,6 +289,10 @@ Now we will choose a specific parameter value from the chain and plot what the o
 		else:
 		    # if you used dynesty
 		    theta = res['chain'][iteration, :]
+
+        # Or get a fair sample from the posterior
+        from prospect.utils.plotting import posterior_samples
+        theta = posterior_samples(res, nsample=1)[0,:]
 
 		# Get the modeled spectra and photometry.
 		# These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
