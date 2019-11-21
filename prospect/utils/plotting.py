@@ -153,14 +153,14 @@ def joint_pdf(res, p1, p2, pmap={}, **kwargs):
     return xbins, ybins, sigma.T
 
 
-def posterior_samples(res, samples=[1.0], **kwargs):
+def posterior_samples(res, nsample=None, **kwargs):
     """Pull samples of theta from the MCMC chain
 
     :param res:
         A results dictionary, containing a "chain" and "theta_labels" keys.
 
-    :param samples:
-        Iterable of random numbers between 0 and 1.
+    :param nsample:
+        Number of random samples to draw.
 
     :param **kwargs:
         Extra keywords are passed to ``hist_samples``.
@@ -170,9 +170,12 @@ def posterior_samples(res, samples=[1.0], **kwargs):
         length as ``samples``.
     """
     flatchain, pnames = hist_samples(res, **kwargs)
+    weights = res.get("weights", None)
     ns = flatchain.shape[0]
-    thetas = [flatchain[s, :]
-              for s in np.floor(np.array(samples) * (ns-1)).astype(int)]
+    if nsample is None:
+        nsample = ns
+    s = np.random.choice(ns, p=weights, size=nsample)
+    thetas = flatchain[s, :]
     return thetas
 
 
@@ -197,19 +200,22 @@ def hist_samples(res, showpars=None, start=0, thin=1,
     parnames = np.array(res.get('theta_labels', res['model'].theta_labels()))
     niter = res['chain'].shape[-2]
     start_index = np.floor(start * (niter-1)).astype(int)
-    if res["chain"].ndim > 2:        
+    if res["chain"].ndim > 2:
+        # emcee
         flatchain = res['chain'][:, start_index::thin, :]
         dims = flatchain.shape
         flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
+        flatlnprob = res['lnprobability'][:, start_index::thin].reshape(dims[0]*dims[1])
     elif res["chain"].ndim == 2:
+        # dynesty
         flatchain = res["chain"][start_index::thin, :]
+        flatlnprob = res['lnprobability'][start_index::thin]
     if showpars is None:
         ind_show = slice(None)
     else:
-        ind_show = np.array([p in showpars for p in parnames], dtype= bool)
+        ind_show = np.array([p in showpars for p in parnames], dtype=bool)
     flatchain = flatchain[:, ind_show]
     if return_lnprob:
-        flatlnprob = res['lnprobability'][:, start_index::thin].reshape(dims[0]*dims[1])
         return flatchain, parnames[ind_show], flatlnprob
 
     return flatchain, parnames[ind_show]
