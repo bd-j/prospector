@@ -234,24 +234,24 @@ that can be done as follows
 
 .. code-block:: python
 
-		# Maximum posterior probability sample
-		imax = np.argmax(res['lnprobability'])
-		csz = res["chain"].shape
-		if res["chain"].ndim > 2:
-		    # emcee
-		    i, j = np.unravel_index(imax, res['lnprobability'].shape)
-		    theta_max = res['chain'][i, j, :].copy()
-		    flatchain = res["chain"].reshape(csz[0] * csz[1], csz[2])
+        # Maximum posterior probability sample
+        imax = np.argmax(res['lnprobability'])
+        csz = res["chain"].shape
+        if res["chain"].ndim > 2:
+            # emcee
+            i, j = np.unravel_index(imax, res['lnprobability'].shape)
+            theta_max = res['chain'][i, j, :].copy()
+            flatchain = res["chain"].reshape(csz[0] * csz[1], csz[2])
 		else:
-		    # dynesty
-		    theta_max = res['chain'][imax, :].copy()
-		    flatchain = res["chain"]
+            # dynesty
+            theta_max = res['chain'][imax, :].copy()
+            flatchain = res["chain"]
 
-		# 16th, 50th, and 84th percentiles of the posterior
-		from prospect.utils.plotting import quantile
-		post_pcts = [quantile(flatchain[:, i], percents=[16, 50, 84],
-		                                    weights=res.get("weights", None))
-				      for i in range(model.ndim)]
+        # 16th, 50th, and 84th percentiles of the posterior
+        from prospect.utils.plotting import quantile
+        weights = res.get("weights", None)
+        post_pcts = [quantile(flatchain[:, i], percents=[16, 50, 84], weights=weights)
+                     for i in range(model.ndim)]
 
 Further, the prediction of the data for the MAP posterior sample may be stored for you.
 
@@ -260,7 +260,7 @@ Further, the prediction of the data for the MAP posterior sample may be stored f
         # Plot the stored maximum ln-probability sample
         import matplotlib.pyplot as pl
 
-		best = res["bestfit"]
+        best = res["bestfit"]
         a = model.params["zred"] + 1
         pl.plot(a * best["restframe_wavelengths"], best['spectrum'], label="MAP spectrum")
         if obs['filters'] is not None:
@@ -274,48 +274,49 @@ This requires that we have the sps object used in the fitting to generate models
 
 .. code-block:: python
 
-		# We need the correct sps object to generate models
-		sps = reader.get_sps(res)
+        # We need the correct sps object to generate models
+        sps = reader.get_sps(res)
+
 
 Now we will choose a specific parameter value from the chain and plot what the observations and the model look like, as well as the uncertainty normalized residual.  For ``emcee`` results we will use the last iteration of the first walker, while for ``dynesty`` results we will just use the last sample in the chain.
 
 .. code-block:: python
 
-		# Choose the walker and iteration number by hand.
-		walker, iteration = 0, -1
-		if res["chain"].ndim > 2:
- 		    # if you used emcee for the inference
-		    theta = res['chain'][walker, iteration, :]
-		else:
-		    # if you used dynesty
-		    theta = res['chain'][iteration, :]
+        # Choose the walker and iteration number by hand.
+        walker, iteration = 0, -1
+        if res["chain"].ndim > 2:
+            # if you used emcee for the inference
+            theta = res['chain'][walker, iteration, :]
+        else:
+            # if you used dynesty
+            theta = res['chain'][iteration, :]
 
         # Or get a fair sample from the posterior
         from prospect.utils.plotting import posterior_samples
         theta = posterior_samples(res, nsample=1)[0,:]
 
-		# Get the modeled spectra and photometry.
-		# These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
-		spec, phot, mfrac = model.mean_model(theta, obs=res['obs'], sps=sps)
-		# mfrac is the ratio of the surviving stellar mass to the formed mass (the ``"mass"`` parameter).
+        # Get the modeled spectra and photometry.
+        # These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
+        spec, phot, mfrac = model.mean_model(theta, obs=res['obs'], sps=sps)
+        # mfrac is the ratio of the surviving stellar mass to the formed mass (the ``"mass"`` parameter).
 
-		# Plot the model SED
-		import matplotlib.pyplot as pl
-		wave = [f.wave_effective for f in res['obs']['filters']]
-		sedfig, sedax = pl.subplots()
-		sedax.plot(wave, res['obs']['maggies'], '-o', label='Observations')
-		sedax.plot(wave, phot, '-o', label='Model at {},{}'.format(walker, iteration))
-		sedax.set_ylabel("Maggies")
-		sedax.set_xlabel("wavelength")
-		sedax.set_xscale('log')
+        # Plot the model SED
+        import matplotlib.pyplot as pl
+        wave = [f.wave_effective for f in res['obs']['filters']]
+        sedfig, sedax = pl.subplots()
+        sedax.plot(wave, res['obs']['maggies'], '-o', label='Observations')
+        sedax.plot(wave, phot, '-o', label='Model at {},{}'.format(walker, iteration))
+        sedax.set_ylabel("Maggies")
+        sedax.set_xlabel("wavelength")
+        sedax.set_xscale('log')
 
-		# Plot residuals for this walker and iteration
-		chifig, chiax = pl.subplots()
-		chi = (res['obs']['maggies'] - phot) / res['obs']['maggies_unc']
-		chiax.plot(wave, chi, 'o')
-		chiax.set_ylabel("Chi")
-		chiax.set_xlabel("wavelength")
-		chiax.set_xscale('log')
+        # Plot residuals for this walker and iteration
+        chifig, chiax = pl.subplots()
+        chi = (res['obs']['maggies'] - phot) / res['obs']['maggies_unc']
+        chiax.plot(wave, chi, 'o')
+        chiax.set_ylabel("Chi")
+        chiax.set_xlabel("wavelength")
+        chiax.set_xscale('log')
 
 
 .. |Codename| replace:: Prospector
