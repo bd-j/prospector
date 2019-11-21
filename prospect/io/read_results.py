@@ -44,17 +44,27 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
 
     :param dangerous: (default, True)
         If True, use the stored paramfile text to import the parameter file and
-        reconstitute the model object.  This executes code in the stored paramfile
-        text during import, and is therefore dangerous.
+        reconstitute the model object.  This executes code in the stored
+        paramfile text during import, and is therefore dangerous.
 
-    :returns sample_results:
-        A dictionary of various results including the sampling chain.
+    :returns results:
+        A dictionary of various results including:
+        * `"chain"`  - Samples from the posterior probability (ndarray).
+        * `"lnprobability"` - The posterior probability of each sample.
+        * `"weights"` -  The weight of each sample, if `dynesty` was used.
+        * `"theta_labels"` - List of strings describing free parameters.
+        * `"bestfit"` - The prediction of the data for the posterior sample with
+                        the highest `"lnprobability"`, as a dictionary.
+        * `"run_params"` - A dictionary of arguments supplied to prospector at
+                           the time of the fit.
+        * `"paramfile_text"` - Text of the file used to run prospector, string
 
     :returns obs:
         The obs dictionary
 
     :returns model:
-        The models.sedmodel() object.
+        The models.SedModel() object, if it could be regenerated from the stored
+        `"paramfile_text"`.  Otherwise, `None`.
     """
     # Read the basic chain, parameter, and run_params info
     if filename.split('.')[-1] == 'h5':

@@ -67,6 +67,31 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
                sps=None, **extras):
     """Write output and information to an HDF5 file object (or
     group).
+
+    :param hfile:
+        File to which results will be written.  Can be a string name or an
+        `h5py.File` object handle.
+
+    :param run_params:
+        The dictionary of arguments used to build and fit a model.
+
+    :param model:
+        The `prospect.models.SedModel` object.
+
+    :param obs:
+        The dictionary of observations that were fit.
+
+    :param sampler:
+        The `emcee` or `dynesty` sampler object used to draw posterior samples.
+        Can be `None` if only optimization was performed.
+
+    :param optimize_result_list:
+        A list of `scipy.optimize.OptimizationResult` objects generated during
+        the optimization stage.
+
+    param sps: (optional, default: None)
+        If a `prospect.sources.SSPBasis` object is supplied, it will be used to
+        generate and store
     """
     try:
         # If ``hfile`` is not a file object, assume it is a filename and open

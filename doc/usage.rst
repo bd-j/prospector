@@ -47,15 +47,16 @@ This syntax requires that the end of the parameter file have something like the 
 		    run_params["param_file"] = __file__
 
 		    # Set up an output file name, build fit ingredients, and run the fit
-         	    hfile = "{0}_{1}_mcmc.h5".format(args.outfile, int(time.time()))    
+                hfile = "{0}_{1}_mcmc.h5".format(args.outfile, int(time.time()))
 		    obs, model, sps, noise = build_all(**run_params)
 		    output = fit_model(obs, model, sps, noise, **run_params)
 
 		    # Write results to output file
 		    writer.write_hdf5(hfile, run_params, model, obs,
-                                                 output["sampling"][0], output["optimization"][0],
-                                                 tsample=output["sampling"][1],
-                                                 toptimize=output["optimization"][1])
+                              output["sampling"][0], output["optimization"][0],
+                              tsample=output["sampling"][1],
+                              toptimize=output["optimization"][1],
+                              sps=sps)
 		    
 
 		
