@@ -214,6 +214,8 @@ You can look at ``res.keys()`` to see a list of what it contains.
 The ``obs`` object is just the ``obs`` dictionary that was used in the fitting.
 The ``model`` object is the model object that was used in the fitting.
 
+** Diagnostic plots**
+
 There are also some methods in this module for basic diagnostic plots.
 The ``subcorner`` method requires that you have the `corner
 <http://corner.readthedocs.io/en/latest/>`_ package installed.
@@ -226,6 +228,9 @@ and the posterior PDFs for the parameters.
 		tfig = reader.traceplot(res)
 		# Corner figure of posterior PDFs
 		cfig = reader.subcorner(res)
+
+
+**Working with samples**
 
 If you want to get the *maximum a posteriori* sample, or percentiles of the posterior pdf,
 that can be done as follows
@@ -253,6 +258,9 @@ that can be done as follows
         post_pcts = [quantile(flatchain[:, i], percents=[16, 50, 84], weights=weights)
                      for i in range(model.ndim)]
 
+
+**Stored "best-fit" model**
+
 Further, the prediction of the data for the MAP posterior sample may be stored for you.
 
 .. code-block:: python
@@ -268,6 +276,11 @@ Further, the prediction of the data for the MAP posterior sample may be stored f
             pl.plot(pwave, best['photometry'], label="MAP photometry")
             pl.set_title(best["parameter"])
 
+
+This stored best-fit information is only available if the `sps` object was passed to the :py:func:`write_hdf5` after the fit is run.
+If it isn't available, you can regnerate the model predictions for the highest probability sample using the approach below.
+
+** Regenerating Model predictions**
 
 If necessary, one can regenerate models at any position in the posterior chain.
 This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the :py:func:`read_results.get_sps` method.
