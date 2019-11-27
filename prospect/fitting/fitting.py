@@ -131,7 +131,6 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     # --- Calculate likelihoods ---
     t1 = time.time()
     lnp_spec = lnlike_spec(spec, obs=obs,
-                           eline_info=eline_info,
                            f_outlier_spec=f_outlier_spec,
                            spec_noise=spec_noise, 
                            **vectors)

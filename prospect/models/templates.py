@@ -276,9 +276,9 @@ eline_prior_width = {'N': 1, 'isfree': False,
               'init': 0.2, 'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
               'prior': None}
 
-eline_zred = {'N': 1, 'isfree': False,
+eline_delta_zred = {'N': 1, 'isfree': False,
               'init': 0.0, 'units': r'redshift',
-              'prior': priors.TopHat(mini=0, maxi=4)}
+              'prior': priors.TopHat(mini=-0.3, maxi=0.3)}
 
 eline_sigma = {'N': 1, 'isfree': True,
               'init': 0.0, 'units': r'km/s',
@@ -292,7 +292,7 @@ _neb_marg_ = {"marginalize_elines": marginalize_elines,
              "eline_sigma": eline_sigma
              }
 
-_fit_eline_redshift_ = {'eline_zred': eline_zred}
+_fit_eline_redshift_ = {'eline_delta_zred': eline_delta_zred}
 
 TemplateLibrary["nebular_marginalization"] = (_neb_marg_,
                                               ("Marginalize over emission amplitudes line contained in" 

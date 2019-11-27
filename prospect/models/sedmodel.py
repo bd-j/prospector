@@ -204,11 +204,10 @@ class SpecModel(ProspectorParams):
         # generate (after fitting) the emission line spectrum
         if self.params.get('marginalize_elines', False):
             self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
-        elif self.params.get("nebemlineinspec", True) == False:
-            # FIXME: Actually do this!
-            self._elinespec = 0
+        elif self.params.get("nebemlineinspec", True):
+            self._elinespec = np.zeros_like(calibrated_spec)[:,None]
         else:
-            self._elinespec = 0
+            self._elinespec = self.get_eline_spec(self._outwave)
 
         return calibrated_spec + self._elinespec.sum(axis=1)
 
@@ -247,7 +246,7 @@ class SpecModel(ProspectorParams):
         return flux
 
     def flux_norm(self):
-        """Compute the scaling required to go from Lsun/Hz to maggies.
+        """Compute the scaling required to go from Lsun/Hz/Msun to maggies.
         Note this includes the (1+z) factor required for flux densities.
         """
         # distance factor
@@ -281,12 +280,14 @@ class SpecModel(ProspectorParams):
         """
 
         # observed wavelengths
-        eline_z = self.params.get("eline_zred", self._zred)
-        self._ewave_obs = (1 + eline_z) * self._eline_wave
+        eline_z = self.params.get("eline_delta_zred", 0.0)
+        self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
 
         # observed linewidths
-        eline_sigma_kms = self.params.get('eline_sigma', 100.0)
-        self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
+        nline = self._ewave_obs.shape[0]
+        self._eline_sigma_kms = np.atleast_1d(self.params.get('eline_sigma', 100.0))
+        self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
+        #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
 
         # exit gracefully if not fitting lines
         if not self.params.get('marginalize_elines', False):
@@ -296,7 +297,6 @@ class SpecModel(ProspectorParams):
         # --- lines to fit ---
         # lines specified by user, but remove any lines whose central
         # wavelengths are outside the observed spectral range
-        # fixme: oh my god, indexing
         elines_index = self.params.get('lines_to_fit',slice(None))
         wmin, wmax = self._outwave.min(), self._outwave.max()
         in_range = (self._ewave_obs.squeeze() > wmin) & (self._ewave_obs.squeeze() < wmax)
@@ -308,16 +308,16 @@ class SpecModel(ProspectorParams):
         line widths.
 
         :param lineidx: (optional)
-            A boolean array or integer array used to subscripot the cached
+            A boolean array or integer array used to subscript the cached
             lines.  Gaussian vectors will only be constructed for the lines
             thus subscripted.
 
         :param wave: (optional)
             The wavelength array (in Angstroms) used to construct the gaussian
-            vectors. If not given, the cahced `_outwave` array will be used.
+            vectors. If not given, the cached `_outwave` array will be used.
 
         :returns gaussians:
-            The unit gaussians for each line.  ndarray of shape (nwave, nline)
+            The unit gaussians for each line, in units Lsun/Hz.  ndarray of shape (nwave, nline)
         """
         if wave is None:
             warr = self._outwave
@@ -326,11 +326,13 @@ class SpecModel(ProspectorParams):
 
         # generate gaussians
         mu = np.atleast_2d(self._ewave_obs[lineidx])
-        sigma = np.atleast_2d(self._eline_sigma_lambda[lineidx])
-        dx = warr[:, None] - mu
-        eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dx**2 / (2 * sigma**2))
+        sigma = np.atleast_2d(self._eline_sigma_kms[lineidx])
+        dv = ckms * (warr[:, None]/mu - 1)
+        dv_dnu = ckms * warr[:,None]**2 / (lightspeed * mu)
 
-        # eline_gaussians has dimensions (Nwave, N_good_lines)
+        eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dv**2 / (2 * sigma**2))
+        eline_gaussians *= dv_dnu
+
         return eline_gaussians
 
     def get_el(self, obs, calibrated_spec, sigma_spec=None):
@@ -359,8 +361,8 @@ class SpecModel(ProspectorParams):
             sigma_spec = obs["unc"]**2
         if sigma_spec.ndim == 2:
             sigma_inv = np.linalg.inv(sigma_spec)
-        else:
-            sigma_inv = np.diag(1. / sigma_spec)
+        else: 
+            sigma_inv = np.diag(1. / sigma_spec)  # this line takes forever
 
         # calculate emission line amplitudes and covariance matrix
         sigma_alpha_hat = np.linalg.inv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
@@ -375,14 +377,17 @@ class SpecModel(ProspectorParams):
             alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
                          np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
             sigma_alpha_bar = np.dot(sigma_alpha_hat, np.dot(M, sigma_alpha_breve))
-            K = mvn.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) / \
-                mvn.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_hat + sigma_alpha_breve)
+            K = ln_mvn(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) - \
+                ln_mvn(alpha_hat, mean=alpha_bar, cov=sigma_alpha_bar)
+            #K = mvn.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) / \
+            #    mvn.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_hat + sigma_alpha_breve)
+
         else:
-            K = mvn.pdf(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
+            K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
             alpha_bar = alpha_hat
 
         # Cache the ln-penalty
-        self._ln_eline_penalty = np.log(K)
+        self._ln_eline_penalty = K
 
         # Store fitted emission line luminosities in physical units
         self._eline_lum[idx] = alpha_bar / linecal
@@ -412,13 +417,14 @@ class SpecModel(ProspectorParams):
     def spec_calibration(self, **kwargs):
         return np.ones_like(self._outwave)
 
-    def spec_with_emission_lines(self, wave, spec):
+    def get_eline_spec(self, wave):
         """Adds *all* emission lines to the model spectrum
         only run after calling predict(), as it accesses cached information
         useful for display purposes
         """
         gaussians = self.get_eline_gaussians(wave=wave)
-        return spec + np.dot(self._eline_lum, gaussians)
+        elums = self._eline_lum * self.flux_norm() / (1 + self._zred)
+        return elums * gaussians * self._speccal[:,None]
 
 
 class PolySedModel(SedModel):
@@ -503,7 +509,7 @@ class PolySpecModel(SpecModel):
             if self.params.get('marginalize_elines', False):
                 idx = self._elines_to_fit
                 ewave_obs = self._ewave_obs[idx]
-                eline_sigma_lambda = self._eline_sigma_lambda[idx]
+                eline_sigma_lambda = self._ewave_obs[idx] / ckms * self._eline_sigma_kms[idx]
                 for (lam,sig) in zip(ewave_obs,eline_sigma_lambda):
                     mask_add = np.abs(obs['wavelength']-lam) < 3*sig
                     mask[mask_add] = 0
@@ -525,7 +531,7 @@ class PolySpecModel(SpecModel):
             poly = np.dot(Afull, c)
             self._poly_coeffs = c
         else:
-            poly = 0.0
+            poly = np.zeros_like(self._outwave)
 
         return (1.0 + poly) * norm
 
@@ -573,7 +579,27 @@ class PolyFitModel(SedModel):
         else:
             return 1.0 * self.params.get('spec_norm', 1.0)
 
+def ln_mvn(x,mean=None,cov=None):
+    """  Calculates the natural logarithm of the multivariate normal PDF evaluated at `x`
 
+    :param x:
+        locations where samples are desired.
+
+    :param mean:
+        Center(s) of the gaussians.
+
+    :param cov:
+        Covariances of the gaussians.
+
+    """
+
+    ndim = mean.shape[-1]
+    dev = x - mean
+    log_2pi = np.log( 2 * np.pi)
+    log_det = np.log(np.linalg.det(cov))
+    exp = np.dot(dev.T,np.dot(np.linalg.inv(cov), dev))
+
+    return -0.5 * (ndim * log_2pi + log_det + exp)
 
 def gauss(x, mu, A, sigma):
     """Sample multiple gaussians at positions x.
