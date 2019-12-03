@@ -276,7 +276,7 @@ eline_prior_width = {'N': 1, 'isfree': False,
               'init': 0.2, 'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
               'prior': None}
 
-eline_delta_zred = {'N': 1, 'isfree': False,
+eline_delta_zred = {'N': 1, 'isfree': True,
               'init': 0.0, 'units': r'redshift',
               'prior': priors.TopHat(mini=-0.3, maxi=0.3)}
 
