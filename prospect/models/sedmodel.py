@@ -202,14 +202,16 @@ class SpecModel(ProspectorParams):
         calibrated_spec = smooth_spec * self._speccal
 
         # generate (after fitting) the emission line spectrum
+        emask = self._eline_wavelength_mask
         if self.params.get('marginalize_elines', False):
             self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
         elif self.params.get("nebemlineinspec", True):
-            self._elinespec = np.zeros_like(calibrated_spec)[:,None]
+            self._elinespec = np.zeros_like(emask,dtype=float)[:,None]
         else:
-            self._elinespec = self.get_eline_spec(self._outwave)
+            self._elinespec = self.get_eline_spec()
+        calibrated_spec[emask] += self._elinespec.sum(axis=1)
 
-        return calibrated_spec + self._elinespec.sum(axis=1)
+        return calibrated_spec
 
     def predict_phot(self, filters):
 
@@ -289,11 +291,6 @@ class SpecModel(ProspectorParams):
         self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
 
-        # exit gracefully if not fitting lines
-        if not self.params.get('marginalize_elines', False):
-            self._elines_to_fit = None
-            return
-
         # --- lines to fit ---
         # lines specified by user, but remove any lines whose central
         # wavelengths are outside the observed spectral range
@@ -301,6 +298,15 @@ class SpecModel(ProspectorParams):
         wmin, wmax = self._outwave.min(), self._outwave.max()
         in_range = (self._ewave_obs.squeeze() > wmin) & (self._ewave_obs.squeeze() < wmax)
         self._elines_to_fit = in_range & elines_index
+
+        # --- wavelengths corresponding to those lines ---
+        # within N sigma of the central wavelength
+        nsigma = 4
+        idx = self._elines_to_fit
+        ewave_obs = self._ewave_obs[idx]
+        eline_sigma_lambda = self._ewave_obs[idx] / ckms * self._eline_sigma_kms[idx]
+        new_mask = np.abs(self._outwave-ewave_obs[:,None]) < nsigma*eline_sigma_lambda[:,None]
+        self._eline_wavelength_mask = new_mask.any(axis=0)
 
     def get_eline_gaussians(self, lineidx=slice(None), wave=None):
         """Get a set of unit normals with centers and widths given by the
@@ -340,29 +346,34 @@ class SpecModel(ProspectorParams):
         if slow, consider alternatives (unit gaussian, interpolate to wavelength grid?)
         """
 
-        # no emission lines in model!
+        # ensure we have no emission lines in spectrum
+        # and we definitely want them.
         assert self.params['nebemlineinspec'] == False
+        assert self.params['add_neb_emission'] == True
 
-        # generate Gaussians
+        # generate Gaussians on appropriate wavelength gride
         idx = self._elines_to_fit
-        eline_gaussians = self.get_eline_gaussians(lineidx=idx)
+        emask = self._eline_wavelength_mask
+        nebwave = self._outwave[emask]
+        eline_gaussians = self.get_eline_gaussians(lineidx=idx,wave=nebwave)
 
         # generate residuals
-        delta = obs['spectrum'] - calibrated_spec
+        delta = obs['spectrum'][emask] - calibrated_spec[emask]
 
         # generate line amplitudes in observed flux units
         units_factor = self.flux_norm() / (1 + self._zred)
-        calib_factor = np.interp(self._ewave_obs[idx], self._outwave, self._speccal)
+        calib_factor = np.interp(self._ewave_obs[idx], nebwave, self._speccal[emask])
         linecal = units_factor * calib_factor
         alpha_breve = self._eline_lum[idx] * linecal
 
         # generate inverse of sigma_spec
         if sigma_spec is None:
             sigma_spec = obs["unc"]**2
+        sigma_spec = sigma_spec[emask]
         if sigma_spec.ndim == 2:
             sigma_inv = np.linalg.inv(sigma_spec)
         else: 
-            sigma_inv = np.diag(1. / sigma_spec)  # this line takes forever
+            sigma_inv = np.diag(1. / sigma_spec)
 
         # calculate emission line amplitudes and covariance matrix
         sigma_alpha_hat = np.linalg.inv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
@@ -417,14 +428,17 @@ class SpecModel(ProspectorParams):
     def spec_calibration(self, **kwargs):
         return np.ones_like(self._outwave)
 
-    def get_eline_spec(self, wave):
-        """Adds *all* emission lines to the model spectrum
+    def get_eline_spec(self):
+        """returns model emission line spectrum
         only run after calling predict(), as it accesses cached information
-        useful for display purposes
+        generates an (Nline,Nwave) array
+        relatively slow, useful for display purposes
         """
-        gaussians = self.get_eline_gaussians(wave=wave)
+        wave = self._outwave
+        emask = self._eline_wavelength_mask
+        gaussians = self.get_eline_gaussians(wave=wave[emask])
         elums = self._eline_lum * self.flux_norm() / (1 + self._zred)
-        return elums * gaussians * self._speccal[:,None]
+        return elums * gaussians * self._speccal[emask,None]
 
 
 class PolySedModel(SedModel):
@@ -507,12 +521,7 @@ class PolySpecModel(SpecModel):
             # remove region around emission lines if doing analytical marginalization
             mask = obs.get('mask', slice(None))
             if self.params.get('marginalize_elines', False):
-                idx = self._elines_to_fit
-                ewave_obs = self._ewave_obs[idx]
-                eline_sigma_lambda = self._ewave_obs[idx] / ckms * self._eline_sigma_kms[idx]
-                for (lam,sig) in zip(ewave_obs,eline_sigma_lambda):
-                    mask_add = np.abs(obs['wavelength']-lam) < 3*sig
-                    mask[mask_add] = 0
+                mask[self._eline_wavelength_mask] = 0
 
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1

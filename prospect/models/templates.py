@@ -281,8 +281,8 @@ eline_delta_zred = {'N': 1, 'isfree': False,
               'prior': priors.TopHat(mini=-0.3, maxi=0.3)}
 
 eline_sigma = {'N': 1, 'isfree': True,
-              'init': 0.0, 'units': r'km/s',
-              'prior': priors.TopHat(mini=10, maxi=300)}
+              'init': 100.0, 'units': r'km/s',
+              'prior': priors.TopHat(mini=30, maxi=300)}
 
 _neb_marg_ = {"marginalize_elines": marginalize_elines,
              "use_eline_prior": use_eline_prior,
