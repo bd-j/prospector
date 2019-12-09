@@ -16,7 +16,7 @@ from scipy.optimize import minimize, least_squares
 from .minimizer import minimize_wrapper, minimizer_ball
 from .ensemble import run_emcee_sampler
 from .nested import run_dynesty_sampler
-from ..likelihood import lnlike_spec, lnlike_phot, chi_spec, chi_phot
+from ..likelihood import lnlike_spec, lnlike_phot, chi_spec, chi_phot, write_log
 from ..utils.obsutils import fix_obs
 
 
@@ -134,7 +134,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
                            f_outlier_phot=f_outlier_phot,
                            phot_noise=phot_noise, **vectors)
     d2 = time.time() - t1
-    if verbose > 1:
+    if verbose:
         write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
 
     return lnp_prior + lnp_phot + lnp_spec
