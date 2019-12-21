@@ -270,7 +270,8 @@ if __name__=='__main__':
     writer.write_hdf5(hfile, run_params, model, obs,
                       output["sampling"][0], output["optimization"][0],
                       tsample=output["sampling"][1],
-                      toptimize=output["optimization"][1])
+                      toptimize=output["optimization"][1],
+                      sps=sps)
 
     try:
         hfile.close()

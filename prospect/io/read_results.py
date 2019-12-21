@@ -1,4 +1,5 @@
 import sys, os
+from copy import deepcopy
 import warnings
 import pickle, json
 import numpy as np
@@ -43,17 +44,27 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
 
     :param dangerous: (default, True)
         If True, use the stored paramfile text to import the parameter file and
-        reconstitute the model object.  This executes code in the stored paramfile
-        text during import, and is therefore dangerous.
+        reconstitute the model object.  This executes code in the stored
+        paramfile text during import, and is therefore dangerous.
 
-    :returns sample_results:
-        A dictionary of various results including the sampling chain.
+    :returns results:
+        A dictionary of various results including:
+        * `"chain"`  - Samples from the posterior probability (ndarray).
+        * `"lnprobability"` - The posterior probability of each sample.
+        * `"weights"` -  The weight of each sample, if `dynesty` was used.
+        * `"theta_labels"` - List of strings describing free parameters.
+        * `"bestfit"` - The prediction of the data for the posterior sample with
+                        the highest `"lnprobability"`, as a dictionary.
+        * `"run_params"` - A dictionary of arguments supplied to prospector at
+                           the time of the fit.
+        * `"paramfile_text"` - Text of the file used to run prospector, string
 
     :returns obs:
         The obs dictionary
 
     :returns model:
-        The models.sedmodel() object.
+        The models.SedModel() object, if it could be regenerated from the stored
+        `"paramfile_text"`.  Otherwise, `None`.
     """
     # Read the basic chain, parameter, and run_params info
     if filename.split('.')[-1] == 'h5':
@@ -74,15 +85,16 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
         mname = model_file
     param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
-    model, opt_results = read_model(mname, param_file=param_file, dangerous=dangerous,
-                                    **kwargs)
+    model, powell_results = read_model(mname, param_file=param_file, 
+                                       dangerous=dangerous, **kwargs)
     if dangerous:
         try:
             model = get_model(res)
         except:
             model = None
     res['model'] = model
-    res["optimization_results"] = opt_results 
+    if powell_results is not None:
+        res["powell_results"] = powell_results 
 
     return res, res["obs"], model
 
@@ -204,11 +216,15 @@ def read_hdf5(filename, **extras):
     :param filename:
         Name of the HDF5 file.
     """
-    groups = {'sampling': {}, 'obs': {}}
+    groups = {"sampling": {}, "obs": {}, 
+              "bestfit": {}, "optimization": {}}
     res = {}
     with h5py.File(filename, "r") as hf:
         # loop over the groups
         for group, d in groups.items():
+            # check the group exists
+            if group not in hf:
+                continue
             # read the arrays in that group into the dictionary for that group
             for k, v in hf[group].items():
                 d[k] = np.array(v)
@@ -231,6 +247,8 @@ def read_hdf5(filename, **extras):
                 except:
                     res[k] = v
         res.update(groups['sampling'])
+        res["bestfit"] = groups["bestfit"]
+        res["optimization"] = groups["optimization"]
         res['obs'] = groups['obs']
         try:
             res['obs']['filters'] = load_filters([str(f) for f in res['obs']['filters']])
@@ -378,7 +396,7 @@ def traceplot(results, showpars=None, start=0, chains=slice(None),
     try:
         parnames = np.array(results['theta_labels'])
     except(KeyError):
-        parnames = np.array(sample_results['model'].theta_labels())
+        parnames = np.array(results['model'].theta_labels())
     # Restrict to desired parameters
     if showpars is not None:
         ind_show = np.array([p in showpars for p in parnames], dtype=bool)
@@ -493,7 +511,7 @@ def subcorner(results, showpars=None, truths=None,
     try:
         parnames = np.array(results['theta_labels'], dtype='U20')
     except(KeyError):
-        parnames = np.array(sample_results['model'].theta_labels())
+        parnames = np.array(results['model'].theta_labels())
     # Restrict to desired parameters
     if showpars is not None:
         ind_show = np.array([parnames.tolist().index(p) for p in showpars])

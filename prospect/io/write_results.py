@@ -63,10 +63,35 @@ def paramfile_string(param_file=None, **extras):
 
 
 def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
-               tsample=0.0, toptimize=0.0, sampling_initial_center=[],
-               **extras):
+               tsample=0.0, toptimize=0.0, sampling_initial_center=[], 
+               sps=None, **extras):
     """Write output and information to an HDF5 file object (or
     group).
+
+    :param hfile:
+        File to which results will be written.  Can be a string name or an
+        `h5py.File` object handle.
+
+    :param run_params:
+        The dictionary of arguments used to build and fit a model.
+
+    :param model:
+        The `prospect.models.SedModel` object.
+
+    :param obs:
+        The dictionary of observations that were fit.
+
+    :param sampler:
+        The `emcee` or `dynesty` sampler object used to draw posterior samples.
+        Can be `None` if only optimization was performed.
+
+    :param optimize_result_list:
+        A list of `scipy.optimize.OptimizationResult` objects generated during
+        the optimization stage.
+
+    param sps: (optional, default: None)
+        If a `prospect.sources.SSPBasis` object is supplied, it will be used to
+        generate and store
     """
     try:
         # If ``hfile`` is not a file object, assume it is a filename and open
@@ -108,8 +133,24 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
     # ----------------------
     # Observational data
     write_obs_to_h5(hf, obs)
+    hf.flush()
 
-    # Store the githash last after flushing since getting it might cause an
+    # ---------------
+    # Best fitting model in space of data
+    if sps is not None:
+        if "sampling/chain" in hf:
+            from ..utils.plotting import get_best
+            _, pbest = get_best(hf["sampling"])
+            spec, phot, mfrac = model.mean_model(pbest, obs=obs, sps=sps)
+            best = hf.create_group("bestfit")
+            best.create_dataset("spectrum", data=spec)
+            best.create_dataset("photometry", data=phot)
+            best.create_dataset("parameter", data=pbest)
+            best.attrs["mfrac"] = mfrac
+            if obs["wavelength"] is None:
+                best.create_dataset("restframe_wavelengths", data=sps.wavelengths)
+
+        # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
     bgh = githash(**run_params)
     hf.attrs['prospector_version'] = json.dumps(bgh)
@@ -328,7 +369,7 @@ def dict_to_struct(indict):
             for p in indict.keys()]
     struct = np.zeros(1, dtype=np.dtype(dt))
     for i, p in enumerate(indict.keys()):
-        struct[p] = chain[p]
+        struct[p] = indict[p]
     return struct[p]
 
 

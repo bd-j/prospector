@@ -121,24 +121,49 @@ Taking the MAP as an example, this would be accomplished by
 
 		import np
 
-		# Find the index of the maximum a posteriori sample (for `emcee` results)
-		ind_max = results["lnprobability"].argmax()
-		walker, iteration = np.unravel_index(ind_max, results["lnprobability"].shape)
-		theta_max = results["chain"][walker, iteration, :]
+        # Find the index of the maximum a posteriori sample
+        ind_max = results["lnprobability"].argmax()
+        if res["chain"].ndim > 2:
+            # emcee
+            walker, iteration = np.unravel_index(ind_max, results["lnprobability"].shape)
+		    theta_max = results["chain"][walker, iteration, :]
+        elif res["chain"].ndim == 2:
+            # dynesty
+            theta_max = results["chain"][indmax, :]
 
-		# We need the SPS object to generate a model
-		sps = reader.get_sps(results)
-		# now generate the SED for the max. a post. parameters
-		spec, phot, x = model.mean_model(theta_max, obs=obs, sps=sps)
+        # We need the SPS object to generate a model
+        sps = reader.get_sps(results)
+        # now generate the SED for the max. a post. parameters
+        spec, phot, x = model.mean_model(theta_max, obs=obs, sps=sps)
 
-		# Plot the data and the MAP model on top of each other
-		import matplotlib.pyplot as pl
-		if obs['wave'] is None:
+        # Plot the data and the MAP model on top of each other
+        import matplotlib.pyplot as pl
+        if obs['wave'] is None:
 		    wave = sps.wavelengths
-		else:
-		    wave = obs['wavelength']
-		pl.plot(wave, obs['spectrum'], label="Data")
-		pl.plot(wave, spec, label="MAP model")
+        else:
+            wave = obs['wavelength']
+        pl.plot(wave, obs['spectrum'], label="Spec Data")
+        pl.plot(wave, spec, label="MAP model spectrum")
+        if obs['filters'] is not None:
+            pwave = [f.wave_effective for f in obs["filters"]]
+            pl.plot(pwave, obs['maggies'], label="Phot Data")
+            pl.plot(pwave, phot, label="MAP model photometry")
+
+
+However, if all you want is the MAP model this may be stored for you,
+without the need to regenerate the `sps` object
+
+.. code-block:: python
+
+        import matplotlib.pyplot as pl
+
+		best = res["bestfit"]
+        a = model.params["zred"] + 1
+        pl.plot(a * best["restframe_wavelengths"], best['spectrum'], label="MAP spectrum")
+        if obs['filters'] is not None:
+            pwave = [f.wave_effective for f in obs["filters"]]
+            pl.plot(pwave, best['photometry'], label="MAP photometry")
+
 
 
 .. |Codename| replace:: Prospector
