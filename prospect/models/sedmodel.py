@@ -19,6 +19,11 @@ class SedModel(ProspectorParams):
     optional spectroscopic calibration and sky emission.
     """
 
+    def predict(self, theta, obs, sps=None, sigma_spec=None, **extras):
+        """Legacy wrapper around mean_model()
+        """
+        return self.mean_model(theta,obs,sps=sps,sigma=sigma_spec,**extras)
+
     def mean_model(self, theta, obs, sps=None, sigma=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
@@ -167,6 +172,11 @@ class SpecModel(ProspectorParams):
     optional spectroscopic calibration and sky emission.
     """
 
+    def mean_model(self, theta, obs, sps=None, sigma=None, **extras):
+        """Legacy wrapper around predict()
+        """
+        return self.predict(theta,obs,sps=sps,sigma_spec=sigma,**extras)
+
     def predict(self, theta, obs, sps=None, sigma_spec=None, **extras):
 
         # generate and cache model spectrum and info
@@ -202,14 +212,17 @@ class SpecModel(ProspectorParams):
         calibrated_spec = smooth_spec * self._speccal
 
         # generate (after fitting) the emission line spectrum
+        # FIXME: is this the desired behavior (esp. last one)?
         emask = self._eline_wavelength_mask
-        if self.params.get('marginalize_elines', False):
+        if self.params.get('marginalize_elines', False) & (emask.sum() != 0):
             self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
-        elif self.params.get("nebemlineinspec", True):
-            self._elinespec = np.zeros_like(emask,dtype=float)[:,None]
+            calibrated_spec[emask] += self._elinespec.sum(axis=1)
+        elif self.params.get("nebemlineinspec", True) | (emask.sum() != 0):
+            self._elinespec = np.zeros(emask.sum(),dtype=float)[:,None]
+            calibrated_spec[emask] += self._elinespec.sum(axis=1)
         else:
-            self._elinespec = self.get_eline_spec()
-        calibrated_spec[emask] += self._elinespec.sum(axis=1)
+            self._elinespec = self.get_eline_spec(wave=self._wave)
+            calibrated_spec += self._elinespec.sum(axis=1)
 
         return calibrated_spec
 
@@ -225,16 +238,16 @@ class SpecModel(ProspectorParams):
         phot = np.atleast_1d(10**(-0.4 * mags))
 
         # generate emission-line photometry
-        phot += self.nebline_photometry(filters)
+        if self.params['nebemlineinspec'] == False:
+            phot += self.nebline_photometry(filters)
 
         return phot
 
     def nebline_photometry(self, filters):
         """analytically calculate emission line contribution to photometry
-            fixme: check units of emission line luminosities
         """
         elams = self._ewave_obs
-        elums = self._eline_lum * self.flux_norm() / (1 + self._zred)
+        elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
 
         flux = np.zeros(len(filters))
         for i, filt in enumerate(filters):
@@ -291,6 +304,12 @@ class SpecModel(ProspectorParams):
         self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
 
+        # exit gracefully if not fitting lines
+        if self._outwave is None:
+            self._elines_to_fit = None
+            self._eline_wavelength_mask = None
+            return
+
         # --- lines to fit ---
         # lines specified by user, but remove any lines whose central
         # wavelengths are outside the observed spectral range
@@ -301,7 +320,7 @@ class SpecModel(ProspectorParams):
 
         # --- wavelengths corresponding to those lines ---
         # within N sigma of the central wavelength
-        nsigma = 4
+        nsigma = 5
         idx = self._elines_to_fit
         ewave_obs = self._ewave_obs[idx]
         eline_sigma_lambda = self._ewave_obs[idx] / ckms * self._eline_sigma_kms[idx]
@@ -339,6 +358,11 @@ class SpecModel(ProspectorParams):
         eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dv**2 / (2 * sigma**2))
         eline_gaussians *= dv_dnu
 
+        # FIXME: renormalize such that int(gaussian dHz) == 1 !
+        # current implementation seems to not do this
+        # outside of the wavelengths defined by the spectrum? (why this dependence?)
+        eline_gaussians /= np.trapz(3e18/warr[:,None],eline_gaussians,axis=0)
+
         return eline_gaussians
 
     def get_el(self, obs, calibrated_spec, sigma_spec=None):
@@ -371,29 +395,31 @@ class SpecModel(ProspectorParams):
             sigma_spec = obs["unc"]**2
         sigma_spec = sigma_spec[emask]
         if sigma_spec.ndim == 2:
-            sigma_inv = np.linalg.inv(sigma_spec)
+            sigma_inv = np.linalg.pinv(sigma_spec)
         else: 
             sigma_inv = np.diag(1. / sigma_spec)
 
         # calculate emission line amplitudes and covariance matrix
-        sigma_alpha_hat = np.linalg.inv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
+        sigma_alpha_hat = np.linalg.pinv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
         alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv, delta)))
 
         # generate likelihood penalty term
         # different if we use a prior
         # FIXME: Cache line amplitude covariance matrices
         if self.params.get('use_eline_prior', False):
-            sigma_alpha_breve = np.diag(self.params['eline_prior_width'] * alpha_breve)
-            M = np.linalg.inv(sigma_alpha_hat + sigma_alpha_breve)
+            sigma_alpha_breve = np.diag((self.params['eline_prior_width'] * np.abs(alpha_breve)))**2
+            M = np.linalg.pinv(sigma_alpha_hat + sigma_alpha_breve)
             alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
                          np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
             sigma_alpha_bar = np.dot(sigma_alpha_hat, np.dot(M, sigma_alpha_breve))
             K = ln_mvn(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) - \
                 ln_mvn(alpha_hat, mean=alpha_bar, cov=sigma_alpha_bar)
-            #K = mvn.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) / \
-            #    mvn.pdf(alpha_hat, mean=alpha_breve, cov=sigma_alpha_hat + sigma_alpha_breve)
-
         else:
+            K = 0
+
+        # hack; use ML if the prior has gone wonky
+        # this happens when abs(alpha_bar/alpha_hat) >>> 1
+        if ((not self.params.get('use_eline_prior', False)) | (K >= 0)):
             K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
             alpha_bar = alpha_hat
 
@@ -428,17 +454,20 @@ class SpecModel(ProspectorParams):
     def spec_calibration(self, **kwargs):
         return np.ones_like(self._outwave)
 
-    def get_eline_spec(self):
+    def get_eline_spec(self,wave=None):
         """returns model emission line spectrum
         only run after calling predict(), as it accesses cached information
         generates an (Nline,Nwave) array
         relatively slow, useful for display purposes
         """
-        wave = self._outwave
-        emask = self._eline_wavelength_mask
-        gaussians = self.get_eline_gaussians(wave=wave[emask])
+        #if wave is None:
+        #    wave = self._outwave[self._eline_wavelength_mask]
+
+        # FIXME: check the normalization!
+        # try integrating to make sure L(line) == L(model)
+        gaussians = self.get_eline_gaussians(wave=wave)
         elums = self._eline_lum * self.flux_norm() / (1 + self._zred)
-        return elums * gaussians * self._speccal[emask,None]
+        return elums * gaussians
 
 
 class PolySedModel(SedModel):
@@ -511,7 +540,7 @@ class PolySpecModel(SpecModel):
         if theta is not None:
             self.set_parameters(theta)
 
-        norm = self.params.get('spec_norm', 1.0)
+        # norm = self.params.get('spec_norm', 1.0)
         polyopt = ((self.params.get('polyorder', 0) > 0) &
                    (obs.get('spectrum', None) is not None)) 
         if polyopt:
@@ -519,30 +548,31 @@ class PolySpecModel(SpecModel):
 
             # generate mask
             # remove region around emission lines if doing analytical marginalization
-            mask = obs.get('mask', slice(None))
+            mask = obs.get('mask', np.ones_like(obs['wavelength'],dtype=bool)).copy()
             if self.params.get('marginalize_elines', False):
                 mask[self._eline_wavelength_mask] = 0
 
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
             x = self.wave_to_x(obs["wavelength"], mask)
-            y = (obs['spectrum'] / spec)[mask] / norm - 1.0
-            yerr = (obs['unc'] / spec)[mask] / norm
+            y = (obs['spectrum'] / spec)[mask] - 1.0
+            yerr = (obs['unc'] / spec)[mask]
             yvar = yerr**2
-            A = chebvander(x[mask], order)[:, 1:]
+            A = chebvander(x[mask], order)
             ATA = np.dot(A.T, A / yvar[:, None])
             reg = self.params.get('poly_regularization', 0.)
             if np.any(reg > 0):
                 ATA += reg**2 * np.eye(order)
             ATAinv = np.linalg.inv(ATA)
             c = np.dot(ATAinv, np.dot(A.T, y / yvar))
-            Afull = chebvander(x, order)[:, 1:]
+            Afull = chebvander(x, order)
             poly = np.dot(Afull, c)
             self._poly_coeffs = c
         else:
             poly = np.zeros_like(self._outwave)
 
-        return (1.0 + poly) * norm
+        return (1.0 + poly)
+
 
 class PolyFitModel(SedModel):
 
@@ -605,8 +635,8 @@ def ln_mvn(x,mean=None,cov=None):
     ndim = mean.shape[-1]
     dev = x - mean
     log_2pi = np.log( 2 * np.pi)
-    log_det = np.log(np.linalg.det(cov))
-    exp = np.dot(dev.T,np.dot(np.linalg.inv(cov), dev))
+    sign, log_det = np.linalg.slogdet(cov)
+    exp = np.dot(dev.T,np.dot(np.linalg.pinv(cov,rcond=1e-12), dev))
 
     return -0.5 * (ndim * log_2pi + log_det + exp)
 

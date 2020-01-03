@@ -278,7 +278,7 @@ eline_prior_width = {'N': 1, 'isfree': False,
 
 eline_delta_zred = {'N': 1, 'isfree': True,
               'init': 0.0, 'units': r'redshift',
-              'prior': priors.TopHat(mini=-0.3, maxi=0.3)}
+              'prior': priors.TopHat(mini=-0.01, maxi=0.01)}
 
 eline_sigma = {'N': 1, 'isfree': True,
               'init': 100.0, 'units': r'km/s',
