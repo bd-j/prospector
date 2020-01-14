@@ -412,16 +412,11 @@ class SpecModel(ProspectorParams):
             alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
                          np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
             sigma_alpha_bar = np.dot(sigma_alpha_hat, np.dot(M, sigma_alpha_breve))
-            K = ln_mvn(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve) - \
-                ln_mvn(alpha_hat, mean=alpha_bar, cov=sigma_alpha_bar)
+            K = ln_mvn(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve+sigma_alpha_hat) - \
+                ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
         else:
-            K = 0
-
-        # hack; use ML if the prior has gone wonky
-        # this happens when abs(alpha_bar/alpha_hat) >>> 1
-        if ((not self.params.get('use_eline_prior', False)) | (K >= 0)):
-            K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
             alpha_bar = alpha_hat
+            K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
 
         # Cache the ln-penalty
         self._ln_eline_penalty = K
