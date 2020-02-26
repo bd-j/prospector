@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from numpy.polynomial.chebyshev import chebval, chebvander
 from .parameters import ProspectorParams
 from scipy.stats import multivariate_normal as mvn
@@ -214,10 +215,10 @@ class SpecModel(ProspectorParams):
         # generate (after fitting) the emission line spectrum
         # FIXME: is this the desired behavior (esp. last one)?
         emask = self._eline_wavelength_mask
-        if self.params.get('marginalize_elines', False) & (emask.sum() != 0):
+        if self.params.get('marginalize_elines', False) & (emask.any()):
             self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
             calibrated_spec[emask] += self._elinespec.sum(axis=1)
-        elif self.params.get("nebemlineinspec", True) | (emask.sum() != 0):
+        elif self.params.get("nebemlineinspec", True) | (emask.any()):
             self._elinespec = np.zeros(emask.sum(),dtype=float)[:,None]
             calibrated_spec[emask] += self._elinespec.sum(axis=1)
         else:
@@ -305,7 +306,7 @@ class SpecModel(ProspectorParams):
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
 
         # exit gracefully if not fitting lines
-        if self._outwave is None:
+        if (self._outwave is None):
             self._elines_to_fit = None
             self._eline_wavelength_mask = None
             return
@@ -313,7 +314,13 @@ class SpecModel(ProspectorParams):
         # --- lines to fit ---
         # lines specified by user, but remove any lines whose central
         # wavelengths are outside the observed spectral range
-        elines_index = self.params.get('lines_to_fit',slice(None))
+        eline_names = self.params.get('lines_to_fit',None)
+        SPS_HOME = os.getenv('SPS_HOME')
+        emline_info = np.genfromtxt(SPS_HOME+'/data/emlines_info.dat', dtype=[('wave','f8'),('name','S20')], delimiter=',')
+        if eline_names is None:
+            elines_index = np.ones(emline_info.shape,dtype=bool)
+        else:
+            elines_index = np.array([True if name in eline_names else False for name in emline_info['name']],dtype=bool)
         wmin, wmax = self._outwave.min(), self._outwave.max()
         in_range = (self._ewave_obs.squeeze() > wmin) & (self._ewave_obs.squeeze() < wmax)
         self._elines_to_fit = in_range & elines_index

@@ -270,8 +270,9 @@ TemplateLibrary["nebular"] = (_nebular_,
 marginalize_elines = {'N': 1, 'isfree': False, 'init': True}
 use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
 nebemlineinspec = {'N': 1, 'isfree': False, 'init': False} # can't be included w/ marginalization
-lines_to_fit = {'N': 1, 'isfree': False, 'init': np.ones(128,dtype=bool)} # marginalize over which of the 128 FSPS emission lines?
-
+# marginalize over which of the 128 FSPS emission lines?
+# input is a list of emission line names matching $SPS_HOME/data/emlines_info.dat
+lines_to_fit = {'N': 1, 'isfree': False, 'init': None} 
 eline_prior_width = {'N': 1, 'isfree': False,
               'init': 0.2, 'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
               'prior': None}
@@ -302,6 +303,36 @@ TemplateLibrary["fit_eline_redshift"] = (_fit_eline_redshift_,
                                               ("Fit for the redshift of the emission lines separately" 
                                                "from the stellar redshift"))
 
+# -------------------------
+# --- Outlier Templates ---
+# -------------------------
+
+f_outlier_spec = {"N": 1, 
+                  "isfree": True, 
+                  "init": 0.01,
+                  "prior": priors.TopHat(mini=1e-5, maxi=0.5)}
+
+nsigma_outlier_spec = {"N": 1, 
+                       "isfree": False, 
+                       "init": 50.0}
+
+f_outlier_phot = {"N": 1, 
+                  "isfree": False, 
+                  "init": 0.00,
+                  "prior": priors.TopHat(mini=0.0, maxi=0.5)}
+
+nsigma_outlier_phot = {"N": 1, 
+                       "isfree": False, 
+                       "init": 50.0}
+
+_outlier_modeling_ = {"f_outlier_spec": f_outlier_spec,
+                      "nsigma_outlier_spec": nsigma_outlier_spec, 
+                      "f_outlier_phot": f_outlier_phot,
+                      "nsigma_outlier_phot": nsigma_outlier_phot
+                      }
+
+TemplateLibrary['outlier_model'] = (_outlier_modeling_,
+                                   ("The set of outlier (mixture) models for spectroscopy and photometry"))
 
 # --------------------------
 # --- AGN Torus Emission ---
