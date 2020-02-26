@@ -272,7 +272,7 @@ use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
 nebemlineinspec = {'N': 1, 'isfree': False, 'init': False} # can't be included w/ marginalization
 # marginalize over which of the 128 FSPS emission lines?
 # input is a list of emission line names matching $SPS_HOME/data/emlines_info.dat
-lines_to_fit = {'N': 1, 'isfree': False, 'init': None} 
+lines_to_fit = {'N': 1, 'isfree': False, 'init': []} 
 eline_prior_width = {'N': 1, 'isfree': False,
               'init': 0.2, 'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
               'prior': None}

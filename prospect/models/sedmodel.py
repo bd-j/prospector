@@ -314,17 +314,17 @@ class SpecModel(ProspectorParams):
         # --- lines to fit ---
         # lines specified by user, but remove any lines whose central
         # wavelengths are outside the observed spectral range
-        eline_names = self.params.get('lines_to_fit',None)
+        eline_names = self.params.get('lines_to_fit',[])
         SPS_HOME = os.getenv('SPS_HOME')
         emline_info = np.genfromtxt(SPS_HOME+'/data/emlines_info.dat', dtype=[('wave','f8'),('name','S20')], delimiter=',')
-        if eline_names is None:
+        if (len(eline_names) == 0):
             elines_index = np.ones(emline_info.shape,dtype=bool)
         else:
             elines_index = np.array([True if name in eline_names else False for name in emline_info['name']],dtype=bool)
         wmin, wmax = self._outwave.min(), self._outwave.max()
         in_range = (self._ewave_obs.squeeze() > wmin) & (self._ewave_obs.squeeze() < wmax)
         self._elines_to_fit = in_range & elines_index
-
+        
         # --- wavelengths corresponding to those lines ---
         # within N sigma of the central wavelength
         nsigma = 5
