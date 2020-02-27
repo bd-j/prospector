@@ -308,7 +308,7 @@ class SpecModel(ProspectorParams):
         # exit gracefully if not fitting lines
         if (self._outwave is None):
             self._elines_to_fit = None
-            self._eline_wavelength_mask = None
+            self._eline_wavelength_mask = np.array([])
             return
 
         # --- lines to fit ---
@@ -324,7 +324,7 @@ class SpecModel(ProspectorParams):
         wmin, wmax = self._outwave.min(), self._outwave.max()
         in_range = (self._ewave_obs.squeeze() > wmin) & (self._ewave_obs.squeeze() < wmax)
         self._elines_to_fit = in_range & elines_index
-        
+
         # --- wavelengths corresponding to those lines ---
         # within N sigma of the central wavelength
         nsigma = 5
