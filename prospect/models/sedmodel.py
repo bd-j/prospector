@@ -218,7 +218,7 @@ class SpecModel(ProspectorParams):
         if self.params.get('marginalize_elines', False) & (emask.any()):
             self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
             calibrated_spec[emask] += self._elinespec.sum(axis=1)
-        elif self.params.get("nebemlineinspec", True) | (emask.any()):
+        elif self.params.get("nebemlineinspec", False) | (emask.any()):
             self._elinespec = np.zeros(emask.sum(),dtype=float)[:,None]
             calibrated_spec[emask] += self._elinespec.sum(axis=1)
         else:
@@ -365,8 +365,6 @@ class SpecModel(ProspectorParams):
         eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dv**2 / (2 * sigma**2))
         eline_gaussians *= dv_dnu
 
-        # FIXME: renormalize such that int(gaussian dHz) == 1 !
-        # current implementation seems to not do this
         # outside of the wavelengths defined by the spectrum? (why this dependence?)
         eline_gaussians /= np.trapz(3e18/warr[:,None],eline_gaussians,axis=0)
 
@@ -462,11 +460,6 @@ class SpecModel(ProspectorParams):
         generates an (Nline,Nwave) array
         relatively slow, useful for display purposes
         """
-        #if wave is None:
-        #    wave = self._outwave[self._eline_wavelength_mask]
-
-        # FIXME: check the normalization!
-        # try integrating to make sure L(line) == L(model)
         gaussians = self.get_eline_gaussians(wave=wave)
         elums = self._eline_lum * self.flux_norm() / (1 + self._zred)
         return elums * gaussians
