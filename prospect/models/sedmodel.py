@@ -239,7 +239,7 @@ class SpecModel(ProspectorParams):
         phot = np.atleast_1d(10**(-0.4 * mags))
 
         # generate emission-line photometry
-        if self.params['nebemlineinspec'] == False:
+        if self.params.get('nebemlineinspec',False) == False:
             phot += self.nebline_photometry(filters)
 
         return phot
