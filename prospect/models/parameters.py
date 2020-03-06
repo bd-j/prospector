@@ -251,7 +251,7 @@ class ProspectorParams(object):
 
     @property
     def description(self):
-        return describe(self.config_dict)
+        return describe(self.config_dict, current_params=self.params)
         
     def theta_labels(self, name_map={}):
         """Using the theta_index parameter map, return a list of the model
@@ -272,7 +272,7 @@ class ProspectorParams(object):
                 name = name_map[p]
             except(KeyError):
                 name = p
-            if nt is 1:
+            if nt == 1:
                 label.append(name)
                 index.append(inds.start)
             else:
