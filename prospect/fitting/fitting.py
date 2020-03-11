@@ -108,6 +108,9 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         d1 = time.time() - t1
     except(ValueError):
         return lnnull
+    except:
+        print "There was an error during the likelihood call at parameters {}".format(theta)
+        raise
 
     # --- Optionally return chi vectors for least-squares ---
     # note this does not include priors!
