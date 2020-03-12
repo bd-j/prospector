@@ -312,8 +312,8 @@ class SpecModel(ProspectorParams):
             return
 
         # --- lines to fit ---
-        # lines specified by user, but remove any lines whose central
-        # wavelengths are outside the observed spectral range
+        # lines specified by user, but remove any lines which do not
+        # have an observed pixel within 5sigma of their center
         eline_names = self.params.get('lines_to_fit',[])
         SPS_HOME = os.getenv('SPS_HOME')
         emline_info = np.genfromtxt(SPS_HOME+'/data/emlines_info.dat', dtype=[('wave','f8'),('name','S20')], delimiter=',')
@@ -321,18 +321,14 @@ class SpecModel(ProspectorParams):
             elines_index = np.ones(emline_info.shape,dtype=bool)
         else:
             elines_index = np.array([True if name in eline_names else False for name in emline_info['name']],dtype=bool)
-        wmin, wmax = self._outwave.min(), self._outwave.max()
-        in_range = (self._ewave_obs.squeeze() > wmin) & (self._ewave_obs.squeeze() < wmax)
-        self._elines_to_fit = in_range & elines_index
+        nsigma = 5
+        eline_sigma_lambda = self._ewave_obs / ckms * self._eline_sigma_kms
+        new_mask = np.abs(self._outwave-self._ewave_obs[:,None]) < nsigma*eline_sigma_lambda[:,None]
+        self._elines_to_fit = elines_index & new_mask.any(axis=1)
 
         # --- wavelengths corresponding to those lines ---
         # within N sigma of the central wavelength
-        nsigma = 5
-        idx = self._elines_to_fit
-        ewave_obs = self._ewave_obs[idx]
-        eline_sigma_lambda = self._ewave_obs[idx] / ckms * self._eline_sigma_kms[idx]
-        new_mask = np.abs(self._outwave-ewave_obs[:,None]) < nsigma*eline_sigma_lambda[:,None]
-        self._eline_wavelength_mask = new_mask.any(axis=0)
+        self._eline_wavelength_mask = new_mask[self._elines_to_fit,:].any(axis=0)
 
     def get_eline_gaussians(self, lineidx=slice(None), wave=None):
         """Get a set of unit normals with centers and widths given by the
@@ -366,7 +362,7 @@ class SpecModel(ProspectorParams):
         eline_gaussians *= dv_dnu
 
         # outside of the wavelengths defined by the spectrum? (why this dependence?)
-        eline_gaussians /= np.trapz(3e18/warr[:,None],eline_gaussians,axis=0)
+        eline_gaussians /= -np.trapz(eline_gaussians,3e18/warr[:,None],axis=0)
 
         return eline_gaussians
 
