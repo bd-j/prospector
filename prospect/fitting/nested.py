@@ -46,7 +46,7 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
                         nested_maxcall_batch=None, nested_maxiter=None,
                         stop_function=None, wt_function=None,
                         nested_maxiter_batch=None, nested_stop_kwargs={},
-                        nested_save_bounds=True,**kwargs):
+                        nested_save_bounds=False,**kwargs):
 
     # instantiate sampler
     dsampler = dynesty.DynamicNestedSampler(lnprobfn, prior_transform, ndim,
@@ -102,8 +102,8 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim, verbose=True,
     tstart = time.time()
     for n in range(dsampler.batch, nested_maxbatch):
         # Update stopping criteria.
+        dsampler.sampler.save_bounds = False
         res = dsampler.results
-        res['prop'] = None # so we don't pass this around via pickling
         mcall = min(nested_maxcall - ncall, nested_maxcall_batch)
         miter = min(nested_maxiter - niter, nested_maxiter_batch)
         if nested_use_stop:
