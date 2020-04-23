@@ -109,7 +109,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     except(ValueError):
         return lnnull
     except:
-        print "There was an error during the likelihood call at parameters {}".format(theta)
+        print("There was an error during the likelihood call at parameters {}".format(theta))
         raise
 
     # --- Optionally return chi vectors for least-squares ---

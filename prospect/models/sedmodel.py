@@ -203,7 +203,7 @@ class SpecModel(ProspectorParams):
         self._outwave = obs.get('wavelength', obs_wave)
 
         # cache eline parameters
-        self.cache_eline_parameters()
+        self.cache_eline_parameters(obs)
 
         # smooth and put on output wavelength grid
         smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
@@ -223,7 +223,8 @@ class SpecModel(ProspectorParams):
             calibrated_spec[emask] += self._elinespec.sum(axis=1)
         else:
             self._elinespec = self.get_eline_spec(wave=self._wave)
-            calibrated_spec += self._elinespec.sum(axis=1)
+            if emask.any():
+                calibrated_spec += self._elinespec.sum(axis=1)
 
         return calibrated_spec
 
@@ -278,10 +279,10 @@ class SpecModel(ProspectorParams):
         # units
         unit_conversion = to_cgs / (3631*jansky_cgs) * (1 + self._zred)
 
-        # this is a scalar
+        # this is a scalar 
         return mass * unit_conversion / dfactor
 
-    def cache_eline_parameters(self):
+    def cache_eline_parameters(self,obs):
         """ This computes and caches:
 
         * _ewave_obs - The observed frame wavelengths (AA) of all emission lines
@@ -306,9 +307,9 @@ class SpecModel(ProspectorParams):
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
 
         # exit gracefully if not fitting lines
-        if (self._outwave is None):
+        if (obs.get('spectrum',None) is None):
             self._elines_to_fit = None
-            self._eline_wavelength_mask = np.array([])
+            self._eline_wavelength_mask = np.array([],dtype=bool)
             return
 
         # --- lines to fit ---
