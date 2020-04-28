@@ -213,18 +213,18 @@ class SpecModel(ProspectorParams):
         calibrated_spec = smooth_spec * self._speccal
 
         # generate (after fitting) the emission line spectrum
-        # FIXME: is this the desired behavior (esp. last one)?
         emask = self._eline_wavelength_mask
+        # If we're marginalizing over emission lines, and at least one pixel
+        # has an emission line in it
         if self.params.get('marginalize_elines', False) & (emask.any()):
             self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
             calibrated_spec[emask] += self._elinespec.sum(axis=1)
-        elif self.params.get("nebemlineinspec", False) | (emask.any()):
-            self._elinespec = np.zeros(emask.sum(),dtype=float)[:,None]
-            calibrated_spec[emask] += self._elinespec.sum(axis=1)
-        else:
-            self._elinespec = self.get_eline_spec(wave=self._wave)
+        # Otherwise, if FSPS is not adding emission lines to the spectrum, we 
+        # add emission lines to valid pixels here.
+        elif (self.params.get("nebemlineinspec", True) is False) & (emask.any()):
+            self._elinespec = self.get_eline_spec(wave=self._wave[emask])
             if emask.any():
-                calibrated_spec += self._elinespec.sum(axis=1)
+                calibrated_spec[mask] += self._elinespec.sum(axis=1)
 
         return calibrated_spec
 
