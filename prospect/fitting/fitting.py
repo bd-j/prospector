@@ -79,7 +79,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         vector of :math:`\chi` values is returned.
     """
     if residuals:
-        lnnull = np.zeros(obs["ndof"]) - 1e18 # np.infty
+        lnnull = np.zeros(obs["ndof"]) - 1e18  # np.infty
         #lnnull = -np.infty
     else:
         lnnull = -np.infty
@@ -95,11 +95,11 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     model.set_parameters(theta)
     if spec_noise is not None:
         spec_noise.update(**model.params)
-        vectors.update({"unc": obs.get('unc',None)})
+        vectors.update({"unc": obs.get('unc', None)})
         sigma_spec = spec_noise.construct_covariance(**vectors)
     if phot_noise is not None:
         phot_noise.update(**model.params)
-        vectors.update({'phot_unc': obs.get('maggies_unc',None)})
+        vectors.update({'phot_unc': obs.get('maggies_unc', None)})
 
     # --- Generate mean model ---
     try:
