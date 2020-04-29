@@ -23,6 +23,7 @@ __all__ = ["SpecModel", "PolySpecModel",
 
 
 class SedModel(ProspectorParams):
+
     """A subclass of :py:class:`ProspectorParams` that passes the models
     through to an ``sps`` object and returns spectra and photometry, including
     optional spectroscopic calibration and sky emission.
@@ -164,6 +165,7 @@ class SedModel(ProspectorParams):
 
 
 class SpecModel(ProspectorParams):
+
     """A subclass of :py:class:`ProspectorParams` that passes the models
     through to an ``sps`` object and returns spectra and photometry, including
     optional spectroscopic calibration, and sky emission.
@@ -335,13 +337,16 @@ class SpecModel(ProspectorParams):
         """
         elams = self._ewave_obs
         # We have to remove the extra (1+z) since this is flux, not a flux density
+        # Also we convert to cgs
         elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
 
+        # loop over filters
         flux = np.zeros(len(filters))
         for i, filt in enumerate(filters):
-            # calculate transmission at nebular emission
+            # calculate transmission at line wavelengths
             trans = np.interp(elams, filt.wavelength, filt.transmission,
                               left=0., right=0.)
+            # include all lines where transmission is non-zero
             idx = (trans > 0)
             if True in idx:
                 flux[i] = (trans[idx]*elams[idx]*elums[idx]).sum() / filt.ab_zero_counts
@@ -386,7 +391,7 @@ class SpecModel(ProspectorParams):
         redshift: first looks for ``eline_delta_zred``, and defaults to ``zred``
         sigma: first looks for ``eline_sigma``, defaults to 100 km/s
 
-        :param nsigma: (float, optional, default: 5.0)
+        :param nsigma: (float, optional, default: 5.)
             Number of sigma from a line center to use for defining which lines
             to fit and useful spectral elements for the fitting.  float.
         """
@@ -416,6 +421,7 @@ class SpecModel(ProspectorParams):
         emline_info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
                                     dtype=[('wave', 'f8'), ('name', 'S20')],
                                     delimiter=',')
+        # restrict to specific emission lines?
         if (len(eline_names) == 0):
             elines_index = np.ones(emline_info.shape, dtype=bool)
         else:
@@ -429,45 +435,33 @@ class SpecModel(ProspectorParams):
         # within N sigma of the central wavelength
         self._eline_wavelength_mask = new_mask[self._elines_to_fit, :].any(axis=0)
 
-    def get_eline_gaussians(self, lineidx=slice(None), wave=None):
-        """Generate a set of unit normals with centers and widths given by the
-        previously cached emission line observed-frame wavelengths and emission
-        line widths.
-
-        :param lineidx: (optional)
-            A boolean array or integer array used to subscript the cached
-            lines.  Gaussian vectors will only be constructed for the lines
-            thus subscripted.
-
-        :param wave: (optional)
-            The wavelength array (in Angstroms) used to construct the gaussian
-            vectors. If not given, the cached `_outwave` array will be used.
-
-        :returns gaussians:
-            The unit gaussians for each line, in units Lsun/Hz.  ndarray of shape (nwave, nline)
-        """
-        if wave is None:
-            warr = self._outwave
-        else:
-            warr = wave
-
-        # generate gaussians
-        mu = np.atleast_2d(self._ewave_obs[lineidx])
-        sigma = np.atleast_2d(self._eline_sigma_kms[lineidx])
-        dv = ckms * (warr[:, None]/mu - 1)
-        dv_dnu = ckms * warr[:, None]**2 / (lightspeed * mu)
-
-        eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dv**2 / (2 * sigma**2))
-        eline_gaussians *= dv_dnu
-
-        # outside of the wavelengths defined by the spectrum? (why this dependence?)
-        eline_gaussians /= -np.trapz(eline_gaussians, 3e18/warr[:, None], axis=0)
-
-        return eline_gaussians
-
     def get_el(self, obs, calibrated_spec, sigma_spec=None):
-        """ checkme: time the gaussian generation
-        if slow, consider alternatives (unit gaussian, interpolate to wavelength grid?)
+        """Compute the maximum likelihood and, optionally, MAP emission line
+        amplitudes for lines that fall within the observed spectral range. Also
+        compute and cache the analytic penalty to log-likelihood from
+        marginalizing over the emission line amplitudes.  This is cached as
+        ``_ln_eline_penalty``.  The emission line amplitudes (in maggies) at
+        `_eline_lums` are updated to the ML values for the fitted lines.
+
+        :param obs:
+            A dictionary containing the ``'spectrum'`` and ``'unc'`` keys that
+            are observed fluxes and uncertainties, both ndarrays of shape
+            ``(n_wave,)``
+
+        :param calibrated_spec:
+            The predicted observer-frame spectrum in the same units as the
+            observed spectrum, ndarray of shape ``(n_wave,)``
+
+        :param sigma_spec:
+            Spectral covariance matrix, if using a non-trivial noise model.
+
+        :returns el:
+            The maximum likelihood emission line flux densities.
+            ndarray of shape ``(n_wave_neb, n_fitted_lines)`` where
+            ``n_wave_neb`` is the number of wavelength elements within
+            ``nsigma`` of a line, and ``n_fitted_lines`` is the number of lines
+            that fall within ``nsigma`` of a wavelength pixel.  Units are same
+            as ``calibrated_spec``
         """
         # ensure we have no emission lines in spectrum
         # and we definitely want them.
@@ -498,14 +492,14 @@ class SpecModel(ProspectorParams):
         else:
             sigma_inv = np.diag(1. / sigma_spec)
 
-        # calculate emission line amplitudes and covariance matrix
+        # calculate ML emission line amplitudes and covariance matrix
         sigma_alpha_hat = np.linalg.pinv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
         alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv, delta)))
 
-        # generate likelihood penalty term
-        # different if we use a prior
-        # FIXME: Cache line amplitude covariance matrices
+        # generate likelihood penalty term (and MAP amplitudes)
+        # FIXME: Cache line amplitude covariance matrices?
         if self.params.get('use_eline_prior', False):
+            # Incorporate gaussian priors on the amplitudes
             sigma_alpha_breve = np.diag((self.params['eline_prior_width'] * np.abs(alpha_breve)))**2
             M = np.linalg.pinv(sigma_alpha_hat + sigma_alpha_breve)
             alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
@@ -514,6 +508,7 @@ class SpecModel(ProspectorParams):
             K = ln_mvn(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve+sigma_alpha_hat) - \
                 ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
         else:
+            # simply use the ML values and associated marginaliztion penalty
             alpha_bar = alpha_hat
             K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
 
@@ -527,17 +522,62 @@ class SpecModel(ProspectorParams):
         return alpha_hat * eline_gaussians
 
     def get_eline_spec(self, wave=None):
-        """returns model emission line spectrum
-        only run after calling predict(), as it accesses cached information
-        generates an (Nline,Nwave) array
-        relatively slow, useful for display purposes
+        """Compute a complete model emission line spectrum. This should only
+        be run after calling predict(), as it accesses cached information.
+        Relatively slow, useful for display purposes
+
+        :param wave: (optional, default: ``None``)
+            The wavelength ndarray on which to compute the emission line spectrum.
+            If not supplied, the ``_outwave`` vector is used.
+
+        :returns eline_spec:
+            An (n_line, n_wave) ndarray
         """
         gaussians = self.get_eline_gaussians(wave=wave)
         elums = self._eline_lum * self.flux_norm() / (1 + self._zred)
         return elums * gaussians
 
+    def get_eline_gaussians(self, lineidx=slice(None), wave=None):
+        """Generate a set of unit normals with centers and widths given by the
+        previously cached emission line observed-frame wavelengths and emission
+        line widths.
+
+        :param lineidx: (optional)
+            A boolean array or integer array used to subscript the cached
+            lines.  Gaussian vectors will only be constructed for the lines
+            thus subscripted.
+
+        :param wave: (optional)
+            The wavelength array (in Angstroms) used to construct the gaussian
+            vectors. If not given, the cached `_outwave` array will be used.
+
+        :returns gaussians:
+            The unit gaussians for each line, in units Lsun/Hz.
+            ndarray of shape (n_wave, n_line)
+        """
+        if wave is None:
+            warr = self._outwave
+        else:
+            warr = wave
+
+        # generate gaussians
+        mu = np.atleast_2d(self._ewave_obs[lineidx])
+        sigma = np.atleast_2d(self._eline_sigma_kms[lineidx])
+        dv = ckms * (warr[:, None]/mu - 1)
+        dv_dnu = ckms * warr[:, None]**2 / (lightspeed * mu)
+
+        eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dv**2 / (2 * sigma**2))
+        eline_gaussians *= dv_dnu
+
+        # outside of the wavelengths defined by the spectrum? (why this dependence?)
+        # FIXME what is this?
+        eline_gaussians /= -np.trapz(eline_gaussians, 3e18/warr[:, None], axis=0)
+
+        return eline_gaussians
+
     def smoothspec(self, wave, spec):
-        """Smooth the spectrum.  See :py:method:`utils.smoothing.smoothspec` for details.
+        """Smooth the spectrum.  See :py:method:`utils.smoothing.smoothspec`
+        for details.
         """
         sigma = self.params.get("sigma_smooth", 100)
         outspec = smoothspec(wave, spec, sigma, outwave=self._outwave, **self.params)
@@ -545,13 +585,16 @@ class SpecModel(ProspectorParams):
         return outspec
 
     def observed_wave(self, wave, do_wavecal=False):
-        """Convert the restframe wavelngth grid to the observed frame wavelength grid,
-        optionally including wavelength calibration adjustments.  Requires that the
-        ``_zred`` attribute is already set.
+        """Convert the restframe wavelngth grid to the observed frame wavelength
+        grid, optionally including wavelength calibration adjustments.  Requires
+        that the ``_zred`` attribute is already set.
 
         :param wave:
+            The wavelength array
         """
-        # FIXME: missing wavelength calibration (add later)
+        # FIXME: missing wavelength calibration code
+        if do_wavecal:
+            raise NotImplementedError
         a = 1 + self._zred
         return wave * a
 
@@ -572,7 +615,64 @@ class SpecModel(ProspectorParams):
         return self.predict(theta, obs, sps=sps, sigma_spec=sigma, **extras)
 
 
+class PolySpecModel(SpecModel):
+
+    """This is a subclass of *SpecModel* that generates the multiplicative
+    calibration vector at each model `predict` call as the maximum likelihood
+    chebyshev polynomial describing the ratio between the observed and the model
+    spectrum.
+    """
+
+    def spec_calibration(self, theta=None, obs=None, spec=None, **kwargs):
+        """Implements a Chebyshev polynomial calibration model. This uses
+        least-squares to find the maximum-likelihood Chebyshev polynomial of a
+        certain order describing the ratio of the observed spectrum to the model
+        spectrum, conditional on all other parameters, using least squares. If
+        emission lines are being marginalized out, they are excluded from the
+        least-squares fit.
+
+        :returns cal:
+           A polynomial given by :math:`\Sum_{m=0}^M a_{m} * T_m(x)`.
+        """
+        if theta is not None:
+            self.set_parameters(theta)
+
+        # norm = self.params.get('spec_norm', 1.0)
+        polyopt = ((self.params.get('polyorder', 0) > 0) &
+                   (obs.get('spectrum', None) is not None))
+        if polyopt:
+            order = self.params['polyorder']
+
+            # generate mask
+            # remove region around emission lines if doing analytical marginalization
+            mask = obs.get('mask', np.ones_like(obs['wavelength'], dtype=bool)).copy()
+            if self.params.get('marginalize_elines', False):
+                mask[self._eline_wavelength_mask] = 0
+
+            # map unmasked wavelengths to the interval -1, 1
+            # masked wavelengths may have x>1, x<-1
+            x = self.wave_to_x(obs["wavelength"], mask)
+            y = (obs['spectrum'] / spec)[mask] - 1.0
+            yerr = (obs['unc'] / spec)[mask]
+            yvar = yerr**2
+            A = chebvander(x[mask], order)
+            ATA = np.dot(A.T, A / yvar[:, None])
+            reg = self.params.get('poly_regularization', 0.)
+            if np.any(reg > 0):
+                ATA += reg**2 * np.eye(order)
+            ATAinv = np.linalg.inv(ATA)
+            c = np.dot(ATAinv, np.dot(A.T, y / yvar))
+            Afull = chebvander(x, order)
+            poly = np.dot(Afull, c)
+            self._poly_coeffs = c
+        else:
+            poly = np.zeros_like(self._outwave)
+
+        return (1.0 + poly)
+
+
 class PolySedModel(SedModel):
+
     """This is a subclass of SedModel that replaces the calibration vector with
     the maximum likelihood chebyshev polynomial describing the difference
     between the observed and the model spectrum.
@@ -620,61 +720,12 @@ class PolySedModel(SedModel):
         return (1.0 + poly) * norm
 
 
-class PolySpecModel(SpecModel):
-    """This is a subclass of *SpecModel* that replaces the calibration vector with
-    the maximum likelihood chebyshev polynomial describing the difference
-    between the observed and the model spectrum.
-    """
-
-    def spec_calibration(self, theta=None, obs=None, spec=None, **kwargs):
-        """Implements a Chebyshev polynomial calibration model. This uses
-        least-squares to find the maximum-likelihood Chebyshev polynomial of a
-        certain order describing the ratio of the observed spectrum to the
-        model spectrum, conditional on all other parameters, using least
-        squares.  The first coefficient is always set to 1, as the overall
-        normalization is controlled by ``spec_norm``.
-
-        :returns cal:
-           A polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M a_{m} * T_m(x)).
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        # norm = self.params.get('spec_norm', 1.0)
-        polyopt = ((self.params.get('polyorder', 0) > 0) &
-                   (obs.get('spectrum', None) is not None))
-        if polyopt:
-            order = self.params['polyorder']
-
-            # generate mask
-            # remove region around emission lines if doing analytical marginalization
-            mask = obs.get('mask', np.ones_like(obs['wavelength'], dtype=bool)).copy()
-            if self.params.get('marginalize_elines', False):
-                mask[self._eline_wavelength_mask] = 0
-
-            # map unmasked wavelengths to the interval -1, 1
-            # masked wavelengths may have x>1, x<-1
-            x = self.wave_to_x(obs["wavelength"], mask)
-            y = (obs['spectrum'] / spec)[mask] - 1.0
-            yerr = (obs['unc'] / spec)[mask]
-            yvar = yerr**2
-            A = chebvander(x[mask], order)
-            ATA = np.dot(A.T, A / yvar[:, None])
-            reg = self.params.get('poly_regularization', 0.)
-            if np.any(reg > 0):
-                ATA += reg**2 * np.eye(order)
-            ATAinv = np.linalg.inv(ATA)
-            c = np.dot(ATAinv, np.dot(A.T, y / yvar))
-            Afull = chebvander(x, order)
-            poly = np.dot(Afull, c)
-            self._poly_coeffs = c
-        else:
-            poly = np.zeros_like(self._outwave)
-
-        return (1.0 + poly)
-
-
 class PolyFitModel(SedModel):
+
+    """This is a subclass of *SedModel* that generates the multiplicative
+    calibration vector as a Chebyshev polynomial described by the
+    ``'poly_coeffs'`` parameter of the model, which may be free (fittable)
+    """
 
     def spec_calibration(self, theta=None, obs=None, **kwargs):
         """Implements a Chebyshev polynomial calibration model.  This only
@@ -720,7 +771,8 @@ class PolyFitModel(SedModel):
 
 
 def ln_mvn(x, mean=None, cov=None):
-    """  Calculates the natural logarithm of the multivariate normal PDF evaluated at `x`
+    """Calculates the natural logarithm of the multivariate normal PDF
+    evaluated at `x`
 
     :param x:
         locations where samples are desired.
@@ -730,9 +782,7 @@ def ln_mvn(x, mean=None, cov=None):
 
     :param cov:
         Covariances of the gaussians.
-
     """
-
     ndim = mean.shape[-1]
     dev = x - mean
     log_2pi = np.log(2 * np.pi)
