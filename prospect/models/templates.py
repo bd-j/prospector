@@ -264,6 +264,76 @@ TemplateLibrary["nebular"] = (_nebular_,
                               ("The set of nebular emission parameters, "
                                "with gas_logz tied to stellar logzsol."))
 
+# -----------------------------------------
+# --- Nebular Emission Marginalization ----
+# -----------------------------------------
+marginalize_elines = {'N': 1, 'isfree': False, 'init': True}
+use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
+nebemlineinspec = {'N': 1, 'isfree': False, 'init': False} # can't be included w/ marginalization
+# marginalize over which of the 128 FSPS emission lines?
+# input is a list of emission line names matching $SPS_HOME/data/emlines_info.dat
+lines_to_fit = {'N': 1, 'isfree': False, 'init': []} 
+eline_prior_width = {'N': 1, 'isfree': False,
+              'init': 0.2, 'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
+              'prior': None}
+
+eline_delta_zred = {'N': 1, 'isfree': True,
+              'init': 0.0, 'units': r'redshift',
+              'prior': priors.TopHat(mini=-0.01, maxi=0.01)}
+
+eline_sigma = {'N': 1, 'isfree': True,
+              'init': 100.0, 'units': r'km/s',
+              'prior': priors.TopHat(mini=30, maxi=300)}
+
+_neb_marg_ = {"marginalize_elines": marginalize_elines,
+             "use_eline_prior": use_eline_prior,
+             "nebemlineinspec": nebemlineinspec,
+             "lines_to_fit": lines_to_fit,
+             "eline_prior_width": eline_prior_width,
+             "eline_sigma": eline_sigma
+             }
+
+_fit_eline_redshift_ = {'eline_delta_zred': eline_delta_zred}
+
+TemplateLibrary["nebular_marginalization"] = (_neb_marg_,
+                                              ("Marginalize over emission amplitudes line contained in" 
+                                               "the observed spectrum"))
+
+TemplateLibrary["fit_eline_redshift"] = (_fit_eline_redshift_,
+                                              ("Fit for the redshift of the emission lines separately" 
+                                               "from the stellar redshift"))
+
+# -------------------------
+# --- Outlier Templates ---
+# -------------------------
+
+f_outlier_spec = {"N": 1, 
+                  "isfree": True, 
+                  "init": 0.01,
+                  "prior": priors.TopHat(mini=1e-5, maxi=0.5)}
+
+nsigma_outlier_spec = {"N": 1, 
+                       "isfree": False, 
+                       "init": 50.0}
+
+f_outlier_phot = {"N": 1, 
+                  "isfree": False, 
+                  "init": 0.00,
+                  "prior": priors.TopHat(mini=0.0, maxi=0.5)}
+
+nsigma_outlier_phot = {"N": 1, 
+                       "isfree": False, 
+                       "init": 50.0}
+
+_outlier_modeling_ = {"f_outlier_spec": f_outlier_spec,
+                      "nsigma_outlier_spec": nsigma_outlier_spec, 
+                      "f_outlier_phot": f_outlier_phot,
+                      "nsigma_outlier_phot": nsigma_outlier_phot
+                      }
+
+TemplateLibrary['outlier_model'] = (_outlier_modeling_,
+                                   ("The set of outlier (mixture) models for spectroscopy and photometry"))
+
 # --------------------------
 # --- AGN Torus Emission ---
 # --------------------------

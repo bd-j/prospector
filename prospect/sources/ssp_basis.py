@@ -164,7 +164,7 @@ class SSPBasis(object):
         elum = getattr(self, "_line_specific_luminosity", None)
 
         if elum is None:
-            elum = self.ssp.emline_luminosity
+            elum = self.ssp.emline_luminosity.copy()
             if elum.ndim > 1:
                 elum = elum[0]
             if self.ssp.params["sfh"] == 3:

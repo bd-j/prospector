@@ -89,13 +89,28 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     if not np.isfinite(lnp_prior):
         return lnnull
 
+    #  --- Update Noise Model ---
+    spec_noise, phot_noise = noise
+    vectors, sigma_spec = {}, None
+    model.set_parameters(theta)
+    if spec_noise is not None:
+        spec_noise.update(**model.params)
+        vectors.update({"unc": obs.get('unc',None)})
+        sigma_spec = spec_noise.construct_covariance(**vectors)
+    if phot_noise is not None:
+        phot_noise.update(**model.params)
+        vectors.update({'phot_unc': obs.get('maggies_unc',None)})
+
     # --- Generate mean model ---
     try:
         t1 = time.time()
-        spec, phot, x = model.mean_model(theta, obs, sps=sps)
+        spec, phot, x = model.predict(theta, obs, sps=sps, sigma_spec=sigma_spec)
         d1 = time.time() - t1
     except(ValueError):
         return lnnull
+    except:
+        print("There was an error during the likelihood call at parameters {}".format(theta))
+        raise
 
     # --- Optionally return chi vectors for least-squares ---
     # note this does not include priors!
@@ -103,17 +118,6 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         chispec = chi_spec(spec, obs)
         chiphot = chi_phot(phot, obs)
         return np.concatenate([chispec, chiphot])
-
-    #  --- Update Noise Model ---
-    spec_noise, phot_noise = noise
-    vectors = {}  # These should probably be copies....
-    if spec_noise is not None:
-        spec_noise.update(**model.params)
-        vectors.update({'spec': spec, "unc": obs['unc']})
-        vectors.update({'sed': model._spec, 'cal': model._speccal})
-    if phot_noise is not None:
-        phot_noise.update(**model.params)
-        vectors.update({'phot': phot, 'phot_unc': obs['maggies_unc']})
 
     #  --- Mixture Model ---
     f_outlier_spec = model.params.get('f_outlier_spec',0.0)
@@ -125,19 +129,24 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         sigma_outlier_phot = model.params.get('nsigma_outlier_phot',10)
         vectors.update({'nsigma_outlier_phot': sigma_outlier_phot})
 
+    # --- Emission Lines ---
+
     # --- Calculate likelihoods ---
     t1 = time.time()
     lnp_spec = lnlike_spec(spec, obs=obs,
                            f_outlier_spec=f_outlier_spec,
-                           spec_noise=spec_noise, **vectors)
+                           spec_noise=spec_noise, 
+                           **vectors)
     lnp_phot = lnlike_phot(phot, obs=obs,
                            f_outlier_phot=f_outlier_phot,
                            phot_noise=phot_noise, **vectors)
+    lnp_eline = getattr(model, '_ln_eline_penalty', 0.0)
+
     d2 = time.time() - t1
     if verbose:
         write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
 
-    return lnp_prior + lnp_phot + lnp_spec
+    return lnp_prior + lnp_phot + lnp_spec + lnp_eline
 
 
 def wrap_lnp(lnpfn, obs, model, sps, **lnp_kwargs):
