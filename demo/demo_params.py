@@ -13,24 +13,24 @@ from prospect.io import write_results as writer
 # When running as a script with argparsing, these are ignored.  Kept here for backwards compatibility.
 # --------------
 
-run_params = {'verbose':True,
-              'debug':False,
-              'outfile':'demo_galphot',
+run_params = {'verbose': True,
+              'debug': False,
+              'outfile': 'demo_galphot',
               'output_pickles': False,
               # Optimization parameters
               'do_powell': False,
-              'ftol':0.5e-5, 'maxfev': 5000,
+              'ftol': 0.5e-5, 'maxfev': 5000,
               'do_levenberg': True,
               'nmin': 10,
               # emcee fitting parameters
-              'nwalkers':128,
+              'nwalkers': 128,
               'nburn': [16, 32, 64],
               'niter': 512,
               'interval': 0.25,
               'initial_disp': 0.1,
               # dynesty Fitter parameters
-              'nested_bound': 'multi', # bounding method
-              'nested_sample': 'unif', # sampling method
+              'nested_bound': 'multi',  # bounding method
+              'nested_sample': 'unif',  # sampling method
               'nested_nlive_init': 100,
               'nested_nlive_batch': 100,
               'nested_bootstrap': 0,
@@ -38,7 +38,7 @@ run_params = {'verbose':True,
               'nested_weight_kwargs': {"pfrac": 1.0},
               'nested_stop_kwargs': {"post_thresh": 0.1},
               # Obs data parameters
-              'objid':0,
+              'objid': 0,
               'phottable': 'demo_photometry.dat',
               'luminosity_distance': 1e-5,  # in Mpc
               # Model parameters
@@ -53,7 +53,7 @@ run_params = {'verbose':True,
 # --------------
 
 def build_model(object_redshift=0.0, fixed_metallicity=None, add_duste=False,
-               add_neb=False, luminosity_distance=0.0, **extras):
+                add_neb=False, luminosity_distance=0.0, **extras):
     """Construct a model.  This method defines a number of parameter
     specification dictionaries and uses them to initialize a
     `models.sedmodel.SedModel` object.
@@ -145,9 +145,9 @@ def build_model(object_redshift=0.0, fixed_metallicity=None, add_duste=False,
 
 # Here we are going to put together some filter names
 galex = ['galex_FUV', 'galex_NUV']
-spitzer = ['spitzer_irac_ch'+n for n in ['1','2','3','4']]
-bessell = ['bessell_'+n for n in ['U', 'B', 'V', 'R', 'I']]
-sdss = ['sdss_{0}0'.format(b) for b in ['u','g','r','i','z']]
+spitzer = ['spitzer_irac_ch'+n for n in '1234']
+bessell = ['bessell_'+n for n in 'UBVRI']
+sdss = ['sdss_{0}0'.format(b) for b in 'ugriz']
 
 # The first filter set is Johnson/Cousins, the second is SDSS. We will use a
 # flag in the photometry table to tell us which set to use for each object
@@ -162,7 +162,7 @@ filtersets = (galex + bessell + spitzer,
 
 
 def build_obs(objid=0, phottable='demo_photometry.dat',
-             luminosity_distance=None, **kwargs):
+              luminosity_distance=None, **kwargs):
     """Load photometry from an ascii file.  Assumes the following columns:
     `objid`, `filterset`, [`mag0`,....,`magN`] where N >= 11.  The User should
     modify this function (including adding keyword arguments) to read in their
@@ -264,7 +264,7 @@ def build_all(**kwargs):
             build_sps(**kwargs), build_noise(**kwargs))
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
 
     # - Parser with default arguments -
     parser = prospect_args.get_parser()
@@ -309,4 +309,3 @@ if __name__=='__main__':
         hfile.close()
     except(AttributeError):
         pass
-

@@ -310,7 +310,7 @@ Now we will choose a specific parameter value from the chain and plot what the o
 
         # Get the modeled spectra and photometry.
         # These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
-        spec, phot, mfrac = model.mean_model(theta, obs=res['obs'], sps=sps)
+        spec, phot, mfrac = model.predict(theta, obs=res['obs'], sps=sps)
         # mfrac is the ratio of the surviving stellar mass to the formed mass (the ``"mass"`` parameter).
 
         # Plot the model SED

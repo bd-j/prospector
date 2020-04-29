@@ -38,7 +38,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     :param model:
         SedModel model object, with attributes including ``params``, a
         dictionary of model parameter state.  It must also have
-        :py:method:`prior_product`, and :py:method:`mean_model` methods
+        :py:method:`prior_product`, and :py:method:`predict` methods
         defined.
 
     :param obs:

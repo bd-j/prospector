@@ -134,7 +134,7 @@ Taking the MAP as an example, this would be accomplished by
         # We need the SPS object to generate a model
         sps = reader.get_sps(results)
         # now generate the SED for the max. a post. parameters
-        spec, phot, x = model.mean_model(theta_max, obs=obs, sps=sps)
+        spec, phot, x = model.predict(theta_max, obs=obs, sps=sps)
 
         # Plot the data and the MAP model on top of each other
         import matplotlib.pyplot as pl

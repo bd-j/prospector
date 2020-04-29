@@ -13,9 +13,9 @@ from prospect.io import write_results as writer
 # add their transmission profiles to sedpy/sedpy/data/filters/ with appropriate
 # names (and format).  See sedpy documentation
 galex = ['galex_FUV', 'galex_NUV']
-sdss = ['sdss_{0}0'.format(b) for b in ['u','g','r','i','z']]
+sdss = ['sdss_{0}0'.format(b) for b in 'ugriz']
 twomass = ['twomass_{}'.format(b) for b in ['J', 'H', 'Ks']]
-spitzer = ['spitzer_irac_ch'+n for n in ['1','2','3','4']]
+spitzer = ['spitzer_irac_ch'+n for n in '1234']
 
 
 # --------------
@@ -23,24 +23,24 @@ spitzer = ['spitzer_irac_ch'+n for n in ['1','2','3','4']]
 # When running as a script with argparsing, these are ignored.  Kept here for backwards compatibility.
 # --------------
 
-run_params = {'verbose':True,
-              'debug':False,
-              'outfile':'output/demo_mock',
+run_params = {'verbose': True,
+              'debug': False,
+              'outfile': 'output/demo_mock',
               'output_pickles': False,
               # Optimization parameters
               'do_powell': False,
-              'ftol':0.5e-5, 'maxfev':5000,
+              'ftol': 0.5e-5, 'maxfev': 5000,
               'do_levenberg': True,
               'nmin': 10,
               # emcee Fitter parameters
-              'nwalkers':64,
+              'nwalkers': 64,
               'nburn': [32, 32, 64],
               'niter': 256,
               'interval': 0.25,
-              'initial_disp':0.1,
+              'initial_disp': 0.1,
               # dynesty Fitter parameters
-              'nested_bound': 'multi', # bounding method
-              'nested_sample': 'unif', # sampling method
+              'nested_bound': 'multi',  # bounding method
+              'nested_sample': 'unif',  # sampling method
               'nested_nlive_init': 100,
               'nested_nlive_batch': 100,
               'nested_bootstrap': 0,
@@ -111,7 +111,7 @@ def build_model(zred=0.0, add_neb=True, **extras):
     # that modifies the base Kriek & Conroy/Calzetti shape.
     # I.e. a value of zero is basically calzetti with a 2175AA bump
     model_params["dust_index"] = {'N': 1, 'isfree': False,
-                                 'init': 0.0, 'prior': None}
+                                  'init': 0.0, 'prior': None}
 
     # --- Set initial values ---
     model_params["zred"]["init"] = zred
@@ -123,7 +123,7 @@ def build_model(zred=0.0, add_neb=True, **extras):
 # ------------------
 
 def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
-             add_noise=True, **kwargs):
+              add_noise=True, **kwargs):
     """Make a mock dataset.  Feel free to add more complicated kwargs, and put
     other things in the run_params dictionary to control how the mock is
     generated.
@@ -145,8 +145,8 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     # data.  But we need to know which bands (and wavelengths if doing
     # spectroscopy) in which to generate mock data.
     mock = {}
-    mock['wavelength'] = None # No spectrum
-    mock['spectrum'] = None # No spectrum
+    mock['wavelength'] = None  # No spectrum
+    mock['spectrum'] = None    # No spectrum
     mock['filters'] = load_filters(filterset)
 
     # We need the models to make a mock
@@ -224,7 +224,7 @@ def build_all(**kwargs):
             build_sps(**kwargs), build_noise(**kwargs))
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
 
     # - Parser with default arguments -
     parser = prospect_args.get_parser()
