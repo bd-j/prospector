@@ -2,7 +2,7 @@ prospect.models
 =====
 
 .. automodule:: prospect.models
-   :members: ProspectorParams, SedModel
+   :members: ProspectorParams, SedModel, SpecModel
 
 prospect.models.priors
 ---------

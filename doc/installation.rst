@@ -1,7 +1,7 @@
 Requirements
 ============
 
-|Codename| is developed on Python2.7 but should work with Python3
+|Codename| works with Python3
 
 You will also need:
 
@@ -20,7 +20,7 @@ For modeling galaxies you will need:
 -  `FSPS <https://github.com/cconroy20/fsps>`_ and
    `python-FSPS <https://github.com/dfm/python-FSPS>`_ (Please cite these packages in any publications)
 
-You may also wish to have `AstroPy <https://astropy.readthedocs.org/en/stable/>`_
+You probably also need to have `AstroPy <https://astropy.readthedocs.org/en/stable/>`_
 for FITS file processing and cosmological calculations, please cite this package in any publications.
 
 For parallel processing with emcee you will need:

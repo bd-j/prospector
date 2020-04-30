@@ -33,13 +33,14 @@ This syntax requires that the end of the parameter file have something like the 
 .. code-block:: python
 
         if __name__ == "__main__":
+            import time
             from prospect.fitting import fit_model
             from prospect.io import write_results as writer
 		    from prospect import prospect_args
 
             # Get the default argument parser
             parser = prospect_args.get_parser()
-            # Add cutom arguments that controll the build methods
+            # Add custom arguments that controll the build methods
             parser.add_argument("--custom_argument_1", ...)
             # Parse the supplied arguments, convert to a dictionary, and add this file for logging purposes
             args = parser.parse_args()
@@ -47,7 +48,8 @@ This syntax requires that the end of the parameter file have something like the 
             run_params["param_file"] = __file__
 
             # Set up an output file name, build fit ingredients, and run the fit
-            hfile = "{0}_{1}_mcmc.h5".format(args.outfile, int(time.time()))
+            ts = time.strftime("%y%b%d-%H.%M", time.localtime())
+            hfile = "{0}_{1}_mcmc.h5".format(args.outfile, ts)
             obs, model, sps, noise = build_all(**run_params)
             output = fit_model(obs, model, sps, noise, **run_params)
 
@@ -101,10 +103,10 @@ The required methods in a **parameter file** for building the data and model are
     This function will take the command line arguments dictionary dictionary as keyword arguments
     and return an **sps** object, which must have the method
     :py:meth:`get_spectrum` defined.  This object generally includes all the
-    spectral libraries necessary to build a model, as well as much of the model
+    spectral libraries and isochrones necessary to build a model, as well as much of the model
     building code and as such has a large memory footprint.
 
 5.  :py:meth:`build_noise`:
     This function should return a :py:class:`NoiseModel` object for the spectroscopy and/or
     photometry.  Either or both can be ``None``(the default)  in which case the likelihood
-    will not include covariant noise and is equivalent to basic :math:`\chi^2`.
+    will not include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
