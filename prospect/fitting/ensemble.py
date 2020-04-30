@@ -26,7 +26,7 @@ def run_emcee_sampler(lnprobfn, initial_center, model,
     initialization.  Returns the production sampler.
 
     Parameters
-    -----------
+    ----------
 
     :param lnprobfn:
         The posterior probability function.
@@ -38,7 +38,8 @@ def run_emcee_sampler(lnprobfn, initial_center, model,
         An instance of a models.ProspectorParams object.
 
     Optional Parameters
-    -------------
+    -------------------
+
     :param postargs:
         Positional arguments for ``lnprobfn``.
 
@@ -80,7 +81,7 @@ def run_emcee_sampler(lnprobfn, initial_center, model,
         not `None`, then the KL convergence test is run.
 
     Extra Parameters
-    ----------
+    ----------------
 
     :param convergence_chunks:
         The number of iterations to combine when creating the marginalized

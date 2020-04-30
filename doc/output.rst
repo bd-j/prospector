@@ -40,11 +40,13 @@ The results dictionary contains the information needed to regenerate the *sps* o
 
 		sps = reader.get_sps(res)
 
+It can sometimes be difficult to reconstitute the model object if it is complicated,
+for example if it was built by using or referencing files or data that are no longer available.
+For this reason it is suggested that references to filenames in parameter files be made command-line arguments
 
 Pickles
 ----------------------
-The results pickle is relatively portable file, which is a serialization of a dictionary containing
-
+It is possible to output prospector results as python "pickle" files.
 The results pickle is a serialization of the results dictionary,
 and has ``<timestamp>_mcmc`` appended onto the output file string specified when the code was run,
 where ``timestamp`` is in UT seconds.
@@ -60,8 +62,8 @@ This can be accomplished with
 		    result = pickle.load(f)
 		print(result.keys())
 
-The model pickle has the extension ``<timestamp>_model``.
-It is a direct serialization of the model object used during fitting, and is thus extremely useful for regenerating posterior samples of the SED,
+A second pickle file containing the model object has the extension ``<timestamp>_model``.
+It is a direct serialization of the model object used during fitting, and is thus useful for regenerating posterior samples of the SED,
 or otherwise exploring properties of the model.
 
 However, this requires Python and a working |Codename| installation of a version compatible with the one used to generate the model pickle.
@@ -103,11 +105,11 @@ It can be done easily for both `emcee` and `dynesty` results by
 		tracefig = reader.traceplot(results)
 
 Another useful thing is to look at the "corner plot" of the parmeters.
-If one has the `corner.py (https://github.com/dfm/corner.py)`_ package, then
+If one has the `corner.py <https://github.com/dfm/corner.py>`_ package, then
 
 .. code-block:: python
 
-		cornerfig = reader.subcorner(results, showpars=mod.theta_labels()[:5])
+		cornerfig = reader.subcorner(results, showpars=model.theta_labels()[:5])
 
 will return a corner plot of the first 5 free parameters of the model.
 If ``showpars`` is omitted then all free parameters will be plotted.
@@ -134,7 +136,7 @@ Taking the MAP as an example, this would be accomplished by
         # We need the SPS object to generate a model
         sps = reader.get_sps(results)
         # now generate the SED for the max. a post. parameters
-        spec, phot, x = model.mean_model(theta_max, obs=obs, sps=sps)
+        spec, phot, x = model.predict(theta_max, obs=obs, sps=sps)
 
         # Plot the data and the MAP model on top of each other
         import matplotlib.pyplot as pl
@@ -151,7 +153,7 @@ Taking the MAP as an example, this would be accomplished by
 
 
 However, if all you want is the MAP model this may be stored for you,
-without the need to regenerate the `sps` object
+without the need to regenerate the ``sps`` object
 
 .. code-block:: python
 

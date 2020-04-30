@@ -141,7 +141,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
         if "sampling/chain" in hf:
             from ..utils.plotting import get_best
             _, pbest = get_best(hf["sampling"])
-            spec, phot, mfrac = model.mean_model(pbest, obs=obs, sps=sps)
+            spec, phot, mfrac = model.predict(pbest, obs=obs, sps=sps)
             best = hf.create_group("bestfit")
             best.create_dataset("spectrum", data=spec)
             best.create_dataset("photometry", data=phot)
@@ -220,6 +220,7 @@ def write_nestle_h5(hf, nestle_out, model, tsample):
     sdat.attrs['sampling_duration'] = json.dumps(tsample)
 
     hf.flush()
+
 
 def write_dynesty_h5(hf, dynesty_out, model, tsample):
     """Write nestle results to the provided HDF5 file in the `sampling` group.

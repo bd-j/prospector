@@ -49,15 +49,16 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
 
     :returns results:
         A dictionary of various results including:
-        * `"chain"`  - Samples from the posterior probability (ndarray).
-        * `"lnprobability"` - The posterior probability of each sample.
-        * `"weights"` -  The weight of each sample, if `dynesty` was used.
-        * `"theta_labels"` - List of strings describing free parameters.
-        * `"bestfit"` - The prediction of the data for the posterior sample with
-                        the highest `"lnprobability"`, as a dictionary.
-        * `"run_params"` - A dictionary of arguments supplied to prospector at
-                           the time of the fit.
-        * `"paramfile_text"` - Text of the file used to run prospector, string
+          + `"chain"`  - Samples from the posterior probability (ndarray).
+          + `"lnprobability"` - The posterior probability of each sample.
+          + `"weights"` -  The weight of each sample, if `dynesty` was used.
+          + `"theta_labels"` - List of strings describing free parameters.
+          + `"bestfit"` - The prediction of the data for the posterior sample with
+            the highest `"lnprobability"`, as a dictionary.
+          + `"run_params"` - A dictionary of arguments supplied to prospector at
+            the time of the fit.
+          + `"paramfile_text"` - Text of the file used to run prospector, string
+          
 
     :returns obs:
         The obs dictionary
@@ -65,6 +66,7 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
     :returns model:
         The models.SedModel() object, if it could be regenerated from the stored
         `"paramfile_text"`.  Otherwise, `None`.
+
     """
     # Read the basic chain, parameter, and run_params info
     if filename.split('.')[-1] == 'h5':
@@ -94,7 +96,7 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
             model = None
     res['model'] = model
     if powell_results is not None:
-        res["powell_results"] = powell_results 
+        res["powell_results"] = powell_results
 
     return res, res["obs"], model
 
@@ -216,7 +218,7 @@ def read_hdf5(filename, **extras):
     :param filename:
         Name of the HDF5 file.
     """
-    groups = {"sampling": {}, "obs": {}, 
+    groups = {"sampling": {}, "obs": {},
               "bestfit": {}, "optimization": {}}
     res = {}
     with h5py.File(filename, "r") as hf:
@@ -391,7 +393,6 @@ def traceplot(results, showpars=None, start=0, chains=slice(None),
     """
     import matplotlib.pyplot as pl
 
-
     # Get parameter names
     try:
         parnames = np.array(results['theta_labels'])
@@ -406,7 +407,7 @@ def traceplot(results, showpars=None, start=0, chains=slice(None),
 
     # Get the arrays we need (trace, lnp, wghts)
     trace = results['chain'][..., ind_show]
-    if trace.ndim ==2:
+    if trace.ndim == 2:
         trace = trace[None, :]
     trace = trace[chains, start:, :]
     lnp = np.atleast_2d(results['lnprobability'])[chains, start:]
@@ -449,8 +450,7 @@ def traceplot(results, showpars=None, start=0, chains=slice(None),
         ax.plot(lnp[j, :], **plot_kwargs)
     ax.set_title('lnP', y=1.02)
 
-
-    [ax.set_xlabel("iteration") for ax in axes[-1,:]]
+    [ax.set_xlabel("iteration") for ax in axes[-1, :]]
     #[ax.set_xticklabels('') for ax in axes[:-1, :].flat]
 
     if truths is not None:
@@ -458,7 +458,6 @@ def traceplot(results, showpars=None, start=0, chains=slice(None),
             axes.flat[i].axhline(t, color='k', linestyle=':')
 
     pl.tight_layout()
-    
     return fig
 
 
@@ -538,7 +537,7 @@ def subcorner(results, showpars=None, truths=None,
     for p in logify:
         if p in parnames:
             idx = parnames.tolist().index(p)
-            xx[:, idx] = np.log10(xx[:,idx])
+            xx[:, idx] = np.log10(xx[:, idx])
             parnames[idx] = "log({})".format(parnames[idx])
             if truths is not None:
                 xx_truth[idx] = np.log10(xx_truth[idx])
@@ -547,7 +546,7 @@ def subcorner(results, showpars=None, truths=None,
     corner_kwargs = {"plot_datapoints": False, "plot_density": False,
                      "fill_contours": True, "show_titles": True}
     corner_kwargs.update(kwargs)
-    
+
     fig = triangle.corner(xx, labels=parnames, truths=xx_truth,
                           quantiles=[0.16, 0.5, 0.84], weights=wghts, **corner_kwargs)
 

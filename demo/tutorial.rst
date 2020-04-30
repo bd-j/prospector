@@ -36,7 +36,7 @@ including any custom arguments that you might add.
 In this example we have added several command line arguments that control how the data is read and how the 
 The supplied command line arguments are then parsed and placed in a dictionary.
 This dictionary is passed to all the ingredient building methods (described below), which return the data dictionary and necessary model objects.
-The data dictionary and model objects are passed to a function that runs the prospector fit (:py:function:`fit_model`).
+The data dictionary and model objects are passed to a function that runs the prospector fit (:py:func:`prospect.fitting.fit_model`).
 Finally, the fit results are written to an output file.
 
 
@@ -310,7 +310,7 @@ Now we will choose a specific parameter value from the chain and plot what the o
 
         # Get the modeled spectra and photometry.
         # These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
-        spec, phot, mfrac = model.mean_model(theta, obs=res['obs'], sps=sps)
+        spec, phot, mfrac = model.predict(theta, obs=res['obs'], sps=sps)
         # mfrac is the ratio of the surviving stellar mass to the formed mass (the ``"mass"`` parameter).
 
         # Plot the model SED

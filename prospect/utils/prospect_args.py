@@ -1,6 +1,12 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""prospect_args.py - methods to get a default argument parser for prospector.
+"""
+
 import argparse
 
-__all__ = ["get_parser", "show_args"]
+__all__ = ["get_parser", "show_default_args"]
 
 
 def show_default_args():
@@ -11,7 +17,7 @@ def show_default_args():
 def get_parser(fitters=["optimize", "emcee", "dynesty"]):
     """Get a default prospector argument parser
     """
-    
+
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # --- Basic ---
@@ -69,7 +75,7 @@ def add_emcee_args(parser):
     # --- emcee fitting ----
     parser.add_argument("--emcee", action="store_true",
                         help="If set, do ensemble MCMC sampling with emcee.")
-    
+
     parser.add_argument("--nwalkers", type=int, default=64,
                         help="Number of `emcee` walkers.")
 
@@ -81,7 +87,7 @@ def add_emcee_args(parser):
                               "number of iterations in each round as a list.  "
                               "After each round the walkers are reinitialized based "
                               "on the locations of the best half of the walkers."))
- 
+
     parser.add_argument("--save_interval", dest="interval", type=float, default=0.2,
                         help=("Number between 0 and 1 giving the fraction of the `emcee` "
                               "production run at which to write the current chains to "
@@ -98,7 +104,7 @@ def add_emcee_args(parser):
                         help=("Initial dispersion in parameter value for the `emcee` walkers."
                               " This can be overriden for individual parameters by adding an 'init_disp' "
                               "key to the parameter specification dictionary for that parameter."))
-    
+
     return parser
 
 
@@ -147,7 +153,4 @@ def add_data_args(parser):
     # logify_spectrum
     # normalize_spectrum
 
-
     return parser
-
-                              

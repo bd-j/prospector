@@ -109,21 +109,26 @@ The ``build_model()`` Method
 ------------------------------------------
 
 This method in the **parameter file** should take the ``run_params`` dictionary
-as keyword arguments, and return an instance of the :class:`ProspectorParams`
-subclass.
+as keyword arguments, and return an instance of a subclass of
+:py:class:`prospect.models.ProspectorParams`.
 
-The :class:`ProspectorParams` is initialized with a list or dictionary (keyed
-by parameter name) of each of the model parameter specifications described
-above. If using a list, the order of the list sets the order of the free parameters in
-the parameter vector.  The free parameters will be varied by the code during
-the optimization and sampling phases.  The initial value from which
-optimization is begun is set by the ``"init"`` values of each parameter.  For
-fixed parameters the ``"init"`` value gives the value of that parameter to use
-throughout the optimization and sampling phases (unless the ``"depends_on"``
-key is present, see :doc:`advanced`.)
+The model object, a subclass of :py:class:`prospect.models.ProspectorParams`, is
+initialized with a list or dictionary (keyed by parameter name) of each of the
+model parameter specifications described above. If using a list, the order of
+the list sets the order of the free parameters in the parameter vector.  The
+free parameters will be varied by the code during the optimization and sampling
+phases.  The initial value from which optimization is begun is set by the
+``"init"`` values of each parameter.  For fixed parameters the ``"init"`` value
+gives the value of that parameter to use throughout the optimization and
+sampling phases (unless the ``"depends_on"`` key is present, see
+:doc:`advanced`.)
 
 The ``run_params`` dictionary of arguments (including command line
 modifications) can be used to change how the model parameters are specified within this method
-before the :class:`ProspectorParams` model object is instantiated.
+before the :py:class:`prospect.models.ProspectorParams` model object is instantiated.
 For example, the value of a fixed parameter like ``zred`` can be set based on values in ``run_params``
 or additional parameters related to dust or nebular emission can be optionally added based on switches in ``run_params``.
+
+Useful model objects include :py:class:`prospect.models.SedModel` and
+:py:class:`prospect.models.SpecModel`.  The latter includes tools for emission
+line marginalization for spectroscopic data.

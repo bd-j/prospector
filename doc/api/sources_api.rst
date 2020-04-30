@@ -1,5 +1,5 @@
 prospect.sources
-============
+================
 Classes in the :py:mod:`prospect.sources` module are used to instantiate
 **sps** objects.  They are defined by the presence of a :py:meth:`get_spectrum`
 method that takes a wavelength array, a list of filter objects, and a parameter
@@ -13,4 +13,4 @@ control redshifting, spectral smoothing, wavelength calibration, and other
 aspects of the model.
 
 .. automodule:: prospect.sources
-   :members: SSPBasis, CSPSpecBasis, FastSSPBasis, FastStepBasis, BlackBodyDustBasis
+   :members: SSPBasis, CSPSpecBasis, FastStepBasis, FastSSPBasis,  BlackBodyDustBasis

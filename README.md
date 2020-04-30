@@ -1,30 +1,20 @@
-Prospector
-=====
+<img src="doc/images/logo_name.png" height=75/>  .
+==========
+
 Conduct principled inference of stellar population properties from photometric
 and/or spectroscopic data.  Prospector allows you to:
 
 * Infer high-dimensional stellar population properties using parameteric or nonparametric SFHs
   (with nested or ensemble MCMC sampling)
 
-* Use spectra and/or photometry to constrain the linear combination of stellar population
-  components that are present in a galaxy (i.e. non-parametric SFHs).
-
-* Combine photometric and spectroscopic data rigorously using a flexible
+* Combine photometric and spectroscopic data from the UV to IR rigorously using a flexible
   spectroscopic calibration model.
 
 * Forward model many aspects of spectroscopic data analysis and
-  calibration, including spectrophotometric calibration, sky emission (coming soon),
-  and wavelength solution, thus properly incorporating uncertainties
-  in these components in the final  parameter uncertainties.
+  calibration, including spectrophotometric calibration and wavelength solution,
+  thus properly incorporating uncertainties in these components in the final  parameter uncertainties.
 
 Read the documentation [here](http://prospect.readthedocs.io/en/latest/).
-
-Example
--------
-Inference with mock broadband data, showing the change in posteriors as the
-number of photometric bands is increased.
-![Demonstration of posteriro inference with increasing number of photometric bands](doc/images/animation.gif)
-
 
 Installation
 ------
@@ -50,6 +40,11 @@ or the [interactive demo](demo/InteractiveDemo.ipynb)
 for fitting photometric data with composite stellar populations.
 
 
+Example
+-------
+Inference with mock broadband data, showing the change in posteriors as the
+number of photometric bands is increased.
+![Demonstration of posterior inference with increasing number of photometric bands](doc/images/animation.gif)
 
 
 Citation

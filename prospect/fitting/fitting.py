@@ -28,9 +28,9 @@ __all__ = ["lnprobfn", "fit_model",
 def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
              residuals=False, nested=False, verbose=False):
     """Given a parameter vector and optionally a dictionary of observational
-    ata and a model object, return the ln of the posterior. This requires that
-    an sps object (and if using spectra and gaussian processes, a GP object) be
-    instantiated.
+    ata and a model object, return the matural log of the posterior. This
+    requires that an sps object (and if using spectra and gaussian processes, a
+    NoiseModel) be instantiated.
 
     :param theta:
         Input parameter vector, ndarray of shape (ndim,)
@@ -38,19 +38,19 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     :param model:
         SedModel model object, with attributes including ``params``, a
         dictionary of model parameter state.  It must also have
-        :py:method:`prior_product`, and :py:method:`mean_model` methods
+        :py:func:`prior_product`, and :py:func:`predict` methods
         defined.
 
     :param obs:
         A dictionary of observational data.  The keys should be
-          *``wavelength``  (angstroms)
-          *``spectrum``    (maggies)
-          *``unc``         (maggies)
-          *``maggies``     (photometry in maggies)
-          *``maggies_unc`` (photometry uncertainty in maggies)
-          *``filters``     (iterable of :py:class:`sedpy.observate.Filter`)
-          * and optional spectroscopic ``mask`` and ``phot_mask``
-            (same length as `spectrum` and `maggies` respectively,
+          + ``"wavelength"``  (angstroms)
+          + ``"spectrum"``    (maggies)
+          + ``"unc"``         (maggies)
+          + ``"maggies"``     (photometry in maggies)
+          + ``"maggies_unc"`` (photometry uncertainty in maggies)
+          + ``"filters"``     (iterable of :py:class:`sedpy.observate.Filter`)
+          +  and optional spectroscopic ``"mask"`` and ``"phot_mask"``
+             (same length as ``spectrum`` and ``maggies`` respectively,
              True means use the data points)
 
     :param sps:
@@ -75,11 +75,11 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         should not be included here.
 
     :returns lnp:
-        Ln posterior probability, unless `residuals=True` in which case a
+        Ln posterior probability, unless ``residuals=True`` in which case a
         vector of :math:`\chi` values is returned.
     """
     if residuals:
-        lnnull = np.zeros(obs["ndof"]) - 1e18 # np.infty
+        lnnull = np.zeros(obs["ndof"]) - 1e18  # np.infty
         #lnnull = -np.infty
     else:
         lnnull = -np.infty
@@ -95,11 +95,11 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     model.set_parameters(theta)
     if spec_noise is not None:
         spec_noise.update(**model.params)
-        vectors.update({"unc": obs.get('unc',None)})
+        vectors.update({"unc": obs.get('unc', None)})
         sigma_spec = spec_noise.construct_covariance(**vectors)
     if phot_noise is not None:
         phot_noise.update(**model.params)
-        vectors.update({'phot_unc': obs.get('maggies_unc',None)})
+        vectors.update({'phot_unc': obs.get('maggies_unc', None)})
 
     # --- Generate mean model ---
     try:
@@ -120,13 +120,13 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         return np.concatenate([chispec, chiphot])
 
     #  --- Mixture Model ---
-    f_outlier_spec = model.params.get('f_outlier_spec',0.0)
+    f_outlier_spec = model.params.get('f_outlier_spec', 0.0)
     if (f_outlier_spec != 0.0):
-        sigma_outlier_spec = model.params.get('nsigma_outlier_spec',10)
+        sigma_outlier_spec = model.params.get('nsigma_outlier_spec', 10)
         vectors.update({'nsigma_outlier_spec': sigma_outlier_spec})
-    f_outlier_phot = model.params.get('f_outlier_phot',0.0)
+    f_outlier_phot = model.params.get('f_outlier_phot', 0.0)
     if (f_outlier_phot != 0.0):
-        sigma_outlier_phot = model.params.get('nsigma_outlier_phot',10)
+        sigma_outlier_phot = model.params.get('nsigma_outlier_phot', 10)
         vectors.update({'nsigma_outlier_phot': sigma_outlier_phot})
 
     # --- Emission Lines ---
@@ -135,7 +135,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     t1 = time.time()
     lnp_spec = lnlike_spec(spec, obs=obs,
                            f_outlier_spec=f_outlier_spec,
-                           spec_noise=spec_noise, 
+                           spec_noise=spec_noise,
                            **vectors)
     lnp_phot = lnlike_phot(phot, obs=obs,
                            f_outlier_phot=f_outlier_phot,
@@ -169,7 +169,7 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
 
     :param sps:
         An instance of a :py:class:`prospect.sources.SSPBasis` (sub-)class.
-        Alternatively, anything with a compatible :py:method:`get_spectrum` can
+        Alternatively, anything with a compatible :py:func:`get_spectrum` can
         be used here. It will be passed to ``lnprobfn``
 
     :param noise: (optional, default: (None, None))
@@ -180,7 +180,7 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
     :param lnprobfn: (optional, default: lnprobfn)
         A posterior probability function that can take ``obs``, ``model``,
         ``sps``, and ``noise`` as keywords. By default use the
-        :py:method:`lnprobfn` defined above.
+        :py:func:`lnprobfn` defined above.
 
     :param optimize: (optional, default: False)
         If ``True``, conduct a round of optimization before sampling from the
@@ -188,28 +188,28 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
         optimization before continuing on to sampling or returning.  Parameters
         controlling the optimization can be passed via ``kwargs``, including
 
-        * min_method: 'lm' | 'powell'
-        * nmin: number of minimizations to do.  Beyond the first, minimizations
-          will be started from draws from the prior. 
-        * min_opts: dictionary of minimization options passed to the
+        + ``min_method``: 'lm' | 'powell'
+        + ``nmin``: number of minimizations to do.  Beyond the first, minimizations
+          will be started from draws from the prior.
+        + ``min_opts``: dictionary of minimization options passed to the
           scipy.optimize.minimize method.
-        
-        See :py:method:`run_minimize` for details.
+
+        See :py:func:`run_minimize` for details.
 
     :param emcee:  (optional, default: False)
         If ``True``, sample from the posterior using emcee.  Additonal
-        parameters controlling emcee can be passed via **kwargs.  These include
+        parameters controlling emcee can be passed via ``**kwargs``.  These include
 
-        * initial_positions: A set of initial positions for the walkers
-        * hfile: an open h5py.File file handle for writing result incrementally
-        
+        + ``initial_positions``: A set of initial positions for the walkers
+        + ``hfile``: an open h5py.File file handle for writing result incrementally
+
         Many additional emcee parameters can be provided here, see
-        :py:method:`run_emcee` for details.
+        :py:func:`run_emcee` for details.
 
     :param dynesty:
         If ``True``, sample from the posterior using dynesty.  Additonal
-        parameters controlling dynesty can be passed via **kwargs. See
-        :py:method:`run_dynesty` for details.
+        parameters controlling dynesty can be passed via ``**kwargs``. See
+        :py:func:`run_dynesty` for details.
 
     :returns output:
         A dictionary with two keys, 'optimization' and 'sampling'.  The value
@@ -251,7 +251,7 @@ def run_minimize(obs=None, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
     """Run a minimization.  This wraps the lnprobfn fixing the ``obs``,
     ``model``, ``noise``, and ``sps`` objects, and then runs a minimization of
     -lnP using scipy.optimize methods.
-    
+
     :param obs:
         The ``obs`` dictionary containing the data to fit to, which will be
         passed to ``lnprobfn``.
@@ -263,23 +263,23 @@ def run_minimize(obs=None, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
 
     :param sps:
         An instance of a :py:class:`prospect.sources.SSPBasis` (sub-)class.
-        Alternatively, anything with a compatible :py:method:`get_spectrum` can
+        Alternatively, anything with a compatible :py:func:`get_spectrum` can
         be used here. It will be passed to ``lnprobfn``
 
-    :param noise: (optional) 
+    :param noise: (optional)
         If given, a tuple of :py:class:`NoiseModel` objects passed to
         ``lnprobfn``.
 
     :param lnprobfn: (optional, default: lnprobfn)
         A posterior probability function that can take ``obs``, ``model``,
         ``sps``, and ``noise`` as keywords. By default use the
-        :py:method:`lnprobfn` defined above.
+        :py:func:`lnprobfn` defined above.
 
     :param min_method: (optional, default: 'lm')
         Method to use for minimization
         * 'lm': Levenberg-Marquardt
         * 'powell': Powell line search method
-    
+
     :param nmin: (optional, default: 1)
         Number of minimizations to do.  Beyond the first, minimizations will be
         started from draws from the prior.
@@ -301,7 +301,7 @@ def run_minimize(obs=None, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
         The index of the results list containing the lowest chi-square result.
     """
     initial = model.theta.copy()
-    
+
     lsq = ["lm"]
     scalar = ["powell"]
 
@@ -321,9 +321,9 @@ def run_minimize(obs=None, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
     qinit = minimizer_ball(initial, nmin, model)
 
     if pool is not None:
-            M = pool.map
+        M = pool.map
     else:
-            M = map
+        M = map
 
     t = time.time()
     results = list(M(minimizer, [np.array(q) for q in qinit]))
@@ -355,7 +355,7 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
 
     :param sps:
         An instance of a :py:class:`prospect.sources.SSPBasis` (sub-)class.
-        Alternatively, anything with a compatible :py:method:`get_spectrum` can
+        Alternatively, anything with a compatible :py:func:`get_spectrum` can
         be used here. It will be passed to ``lnprobfn``
 
     :param noise:
@@ -364,7 +364,7 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
     :param lnprobfn: (optional, default: lnprobfn)
         A posterior probability function that can take ``obs``, ``model``,
         ``sps``, and ``noise`` as keywords. By default use the
-        :py:method:`lnprobfn` defined above.
+        :py:func:`lnprobfn` defined above.
 
     :param hfile: (optional, default: None)
         A file handle for a :py:class:`h5py.File` object that will be written
@@ -467,14 +467,14 @@ def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
 
     :param sps:
         An instance of a :py:class:`prospect.sources.SSPBasis` (sub-)class.
-        Alternatively, anything with a compatible :py:method:`get_spectrum` can
+        Alternatively, anything with a compatible :py:func:`get_spectrum` can
         be used here. It will be passed to ``lnprobfn``
 
     :param noise:
         A tuple of :py:class:`prospect.likelihood.NoiseModel` objects passed to
         ``lnprobfn``.
 
-    :param lnprobfn: (optional, default: :py:method:`lnprobfn`)
+    :param lnprobfn: (optional, default: :py:func:`lnprobfn`)
         A posterior probability function that can take ``obs``, ``model``,
         ``sps``, and ``noise`` as keywords. This function must also take a
         ``nested`` keyword.
