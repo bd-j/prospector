@@ -1,4 +1,4 @@
-<img src="doc/images/logo_name.png" height=75/>
+<img src="doc/images/logo_name.png" height=75/>  .
 ==========
 
 Conduct principled inference of stellar population properties from photometric
