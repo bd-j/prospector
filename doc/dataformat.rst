@@ -1,7 +1,7 @@
 Data Formats
-===========
+============
 The :py:meth:`build_obs` function
----------------------------------------
+---------------------------------
 
 The :py:meth:`build_obs` function in the parameter file is written by the user.
 It should take a dictionary of command line arguments as keyword arguments.
@@ -17,7 +17,7 @@ Again, the only requirement is that the function can take a ``run_params`` dicti
 and that it return an ``obs`` dictionary as described below.
 
 The ``obs`` Dictionary & Data Units
---------------------------------
+-----------------------------------
 
 |Codename| expects the data in the form of a dictionary returned by py:meth:`build_obs`.
 This dictionary should have (at least) the following keys and values:

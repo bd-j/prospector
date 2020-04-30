@@ -49,6 +49,7 @@ def delogify_mass(logmass=0.0, **extras):
     """
     return 10**logmass
 
+
 def total_mass(mass=0.0, **extras):
     """Simple function that takes an argument list uncluding a `mass`
     parameter and returns the corresponding total mass.
@@ -152,7 +153,7 @@ def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None,
     time.
     """
     nbins = agebins.shape[0]
-    sratios = 10**np.clip(logsfr_ratios, -100, 100) # numerical issues...
+    sratios = 10**np.clip(logsfr_ratios, -100, 100)  # numerical issues...
     dt = (10**agebins[:, 1] - 10**agebins[:, 0])
     coeffs = np.array([ (1. / np.prod(sratios[:i])) * (np.prod(dt[1: i+1]) / np.prod(dt[: i]))
                         for i in range(nbins)])
@@ -248,7 +249,6 @@ def zfrac_to_sfrac(z_fraction=None, **extras):
         sfr_fraction[i] = np.prod(z_fraction[:i]) * (1.0 - z_fraction[i])
     sfr_fraction[-1] = 1 - np.sum(sfr_fraction[:-1])
 
-
     return sfr_fraction
 
 
@@ -311,13 +311,13 @@ def zfrac_to_sfr(total_mass=None, z_fraction=None, agebins=None, **extras):
     :returns sfrs:
         The SFR in each age bin (msun/yr).
     """
-    time_per_bin = np.diff(10**agebins, axis=-1)[:,0]
+    time_per_bin = np.diff(10**agebins, axis=-1)[:, 0]
     masses = zfrac_to_masses(total_mass, z_fraction, agebins)
     return masses / time_per_bin
 
 
 def masses_to_zfrac(mass=None, agebins=None, **extras):
-    """The inverse of :py:meth:`zfrac_to_masses`, for setting mock parameters
+    """The inverse of :py:func:`zfrac_to_masses`, for setting mock parameters
     based on mock bin masses.
 
     :returns total_mass:

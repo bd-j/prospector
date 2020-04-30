@@ -105,7 +105,7 @@ It can be done easily for both `emcee` and `dynesty` results by
 		tracefig = reader.traceplot(results)
 
 Another useful thing is to look at the "corner plot" of the parmeters.
-If one has the `corner.py (https://github.com/dfm/corner.py)`_ package, then
+If one has the `corner.py <https://github.com/dfm/corner.py>`_ package, then
 
 .. code-block:: python
 
@@ -153,7 +153,7 @@ Taking the MAP as an example, this would be accomplished by
 
 
 However, if all you want is the MAP model this may be stored for you,
-without the need to regenerate the `sps` object
+without the need to regenerate the ``sps`` object
 
 .. code-block:: python
 

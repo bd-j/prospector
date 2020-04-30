@@ -1,8 +1,8 @@
 Frequently Asked Questions
-============
+==========================
 
 How do I add filter transmission curves?
---------
+----------------------------------------
 
 Many projects use particular filter systems that are not general or widely used.
 It is easy to add a set of custom filter curves. Filter projections are handled
@@ -10,8 +10,9 @@ by the `sedpy <https:github.com/bd-j/sedpy>`_ code. See the FAQ there
 <https:github.com/bd-j/sedpy/blob/master/docs/faq.rst> for detailed instructions
 on adding filter cirves.
 
+
 What units?
----------
+-----------
 Prospector natively uses *maggies* for both spectra and photometry, and it is
 easiest if you supply data in these units. maggies are a :math:`f_{\nu}` unit
 defined as Janskys/3631. Wavelengths are *vacuum* Angstroms by default. By
@@ -19,8 +20,9 @@ default, masses are in solar masses of stars *formed*, i.e. the integral of the
 SFH. Note that this is different than surviving solar masses (due to stellar
 mass loss).
 
+
 Can I fit my spectrum too?
-------------
+--------------------------
 There are several extra considerations that come up when fitting spectroscopy
 
    1) Wavelength range and resolution.
@@ -59,15 +61,18 @@ There are several extra considerations that come up when fitting spectroscopy
       and marginalize over the polynomial coefficients (this allows you to place
       priors on the accuracy of the spectrophotometric calibration). Or you can
       just take the spectrum as perfectly calibrated.
+    
 
 
 How long will it take to fit my data?
----------
+-------------------------------------
 That depends.
 Here are some typical timings for each likelihood call in various situations (macbook pro)
-   * 10 band photometry, no nebular emission, no dust emission: 0.004s
-   * photometry, including nebular emission: 0.04s
-   * spectroscopy including FFT smoothing: 0.05s
+
+   + 10 band photometry, no nebular emission, no dust emission: 0.004s
+   + photometry, including nebular emission: 0.04s
+   + spectroscopy including FFT smoothing: 0.05s
+
 
 Note that the initial likelihood calls will be (much) longer than this.  Under
 the hood, the first time it is called python-FSPS computes and caches many
@@ -79,46 +84,51 @@ kind of data that you have.  Hours or even days per fit is not uncommon.
 
 
 How do I use the non-parametric SFHs?
---------
+-------------------------------------
 
 
 So should I use `emcee`, `nestle`, or `dynesty` for posterior sampling?
---------
+-----------------------------------------------------------------------
 We recommend using `dynesty`.
 
 
 How do I know if Prospector is working?
---------
+---------------------------------------
+
 
 What do I do with the chain?  What values should I report?
---------
+----------------------------------------------------------
 This is a general question for MC sampling techniques.
 Please see X, Y, Z for advice.
 
 
 Why isn't the posterior PDF centered on the maximum likelihood value?
---------
+---------------------------------------------------------------------
 
 
 The chains did not converge when using `dynesty`, why?
--------
+------------------------------------------------------
 It is likely that they did converge; note that the convergence for MC sampling
 of a posterior PDF is not defined by the samples all tending toward the a single
 value, but as the *distribution* of samples remaining stable.  The samples for a
 poorly constrained parameter will remain widely dispersed, even if the MC
 sampling has converged to the correct *distribution*
 
+
 How do I interpret the `lnprobability` or `lnp` values? Why do I get `lnp > 0`?
--------
+-------------------------------------------------------------------------------
+
 
 How do I plot the best fit SED?  How do I plot uncertainties on that?
--------
+---------------------------------------------------------------------
+
 
 How do I get the wavelength array for plotting spectra and/or photometry when fitting only photometry?
---------
+------------------------------------------------------------------------------------------------------
+
 
 Should I fit spectra in the restframe or the observed frame?
--------
+------------------------------------------------------------
 You can do either if you are fitting only spectra. If fitting in the restframe
 then the distance has to be specified explicitly, otherwise it is inferred from
 the redshift.
@@ -126,20 +136,23 @@ the redshift.
 If you are fitting photometry and spectroscopy then you should be fitting the
 observed frame spectra.
 
+
 What do I do about upper limits?
---------
+--------------------------------
+
 
 What SFH parameters should I use?
----------
+---------------------------------
 That depends on the scientific question you are trying to answer,
 and to some extent on the data that you have.
 
+
 What priors should I use?
----------
+-------------------------
 
 
 What happens if a parameter is not well constrained?  When should I fix parameters?
--------
+-----------------------------------------------------------------------------------
 If some parameter is completely unconstrained you will get back the prior. There
 are also (often) cases where you are “prior-dominated”, i.e. the posterior is
 mostly set by the prior but with a small perturbation due to small amounts of
@@ -149,8 +162,10 @@ if you have learned anything about that parameter. Or just overplot the prior on
 the marginalized pPDFs
 
 To be fully righteous you should only fix parameters if
- you are very sure of their values;
- or if you don't think changing the parameter will have a noticeable effect on the model;
- or if a parameter is perfectly degenerate (in the space of the data) with another parameter.
+
+  - you are very sure of their values;
+  - or if you don't think changing the parameter will have a noticeable effect on the model;
+  - or if a parameter is perfectly degenerate (in the space of the data) with another parameter.
+
 In practice parameters that have only a small effect but take a great deal of
 time to vary are often fixed.

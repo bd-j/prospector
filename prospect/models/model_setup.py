@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import sys, os, getopt, json, warnings
 from copy import deepcopy
 import numpy as np
@@ -21,6 +24,7 @@ __all__ = ["parse_args", "import_module_from_file", "get_run_params",
 
 deprecation_msg = ("Use argparse based operation; usage via prospector_*.py "
                    "scripts will be disabled in the future.")
+
 
 def parse_args(argv, argdict={}):
     """Parse command line arguments, allowing for optional arguments.

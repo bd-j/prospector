@@ -40,11 +40,11 @@ class SedModel(ProspectorParams):
             An observation dictionary, containing the output wavelength array,
             the photometric filter lists, and the observed fluxes and
             uncertainties thereon.  Assumed to be the result of
-            :py:method:`utils.obsutils.rectify_obs`
+            :py:func:`utils.obsutils.rectify_obs`
 
         :param sps:
             An `sps` object to be used in the model generation.  It must have
-            the :py:method:`get_spectrum` method defined.
+            the :py:func:`get_spectrum` method defined.
 
         :param sigma_spec: (optional, unused)
             The covariance matrix for the spectral noise. It is only used for
@@ -85,11 +85,11 @@ class SedModel(ProspectorParams):
             An observation dictionary, containing the output wavelength array,
             the photometric filter lists, and the observed fluxes and
             uncertainties thereon.  Assumed to be the result of
-            :py:method:`utils.obsutils.rectify_obs`
+            :py:func:`utils.obsutils.rectify_obs`
 
         :param sps:
             An `sps` object to be used in the model generation.  It must have
-            the :py:method:`get_spectrum` method defined.
+            the :py:func:`get_spectrum` method defined.
 
         :returns spec:
             The model spectrum for these parameters, at the wavelengths
@@ -186,11 +186,11 @@ class SpecModel(ProspectorParams):
             An observation dictionary, containing the output wavelength array,
             the photometric filter lists, and the observed fluxes and
             uncertainties thereon.  Assumed to be the result of
-            :py:method:`utils.obsutils.rectify_obs`
+            :py:func:`utils.obsutils.rectify_obs`
 
         :param sps:
             An `sps` object to be used in the model generation.  It must have
-            the :py:method:`get_galaxy_spectrum` method defined.
+            the :py:func:`get_galaxy_spectrum` method defined.
 
         :param sigma_spec: (optional)
             The covariance matrix for the spectral noise. It is only used for
@@ -230,15 +230,17 @@ class SpecModel(ProspectorParams):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct:
-          * ``_wave`` - The SPS restframe wavelength array
-          * ``_zred`` - Redshift
-          * ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies
-          * ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
+          + ``_wave`` - The SPS restframe wavelength array
+          + ``_zred`` - Redshift
+          + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies
+          + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
+          
 
         It generates the following attributes
-          * ``_outwave``
-          * ``_speccal``
-          * ``_elinespec``
+          + ``_outwave``
+          + ``_speccal``
+          + ``_elinespec``
+          
         And if emission line marginalization is being performed, numerous
         quantities related to the emission lines are also cached
         (see ``get_el()`` for details.)
@@ -247,7 +249,7 @@ class SpecModel(ProspectorParams):
             An observation dictionary, containing the output wavelength array,
             the photometric filter lists, and the observed fluxes and
             uncertainties thereon.  Assumed to be the result of
-            :py:method:`utils.obsutils.rectify_obs`
+            :py:meth:`utils.obsutils.rectify_obs`
 
         :param sigma_spec: (optional)
             The covariance matrix for the spectral noise. It is only used for
@@ -293,10 +295,11 @@ class SpecModel(ProspectorParams):
         """Generate a prediction for the observed photometry.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct:
-          * ``_wave`` - The SPS restframe wavelength array
-          * ``_zred`` - Redshift
-          * ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies.
-          * ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
+          + ``_wave`` - The SPS restframe wavelength array
+          + ``_zred`` - Redshift
+          + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies.
+          + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
+          
 
         :param filters:
             List of :py:class:`sedpy.observate.Filter` objects.
@@ -325,8 +328,8 @@ class SpecModel(ProspectorParams):
     def nebline_photometry(self, filters):
         """Compute the emission line contribution to photometry.  This requires
         several cached attributes:
-          * _ewave_obs
-          * _eline_lum
+          + ``_ewave_obs``
+          + ``_eline_lum``
 
         :param filters:
             List of :py:class:`sedpy.observate.Filter` objects
@@ -377,19 +380,19 @@ class SpecModel(ProspectorParams):
         """ This computes and caches a number of quantities that are relevant
         for predicting the emission lines, and computing the MAP values thereof,
         including
-          * _ewave_obs - Observed frame wavelengths (AA) of all emission lines.
-          * _eline_sigma_kms - Dispersion (in km/s) of all the emission lines
-          * _elines_to_fit - If fitting and marginalizing over emission lines,
-                this stores indices of the lines to actually fit, as a boolean
-                array. Only lines that are within ``nsigma`` of an observed
-                wavelength points are included.
-          * _eline_wavelength_mask - A mask of the `_outwave` vector that
-                indicates which pixels to use in the emission line fitting.
-                Only pixels within ``nsigma`` of an emission line are used.
+          + ``_ewave_obs`` - Observed frame wavelengths (AA) of all emission lines.
+          + ``_eline_sigma_kms`` - Dispersion (in km/s) of all the emission lines
+          + ``_elines_to_fit`` - If fitting and marginalizing over emission lines,
+            this stores indices of the lines to actually fit, as a boolean
+            array. Only lines that are within ``nsigma`` of an observed
+            wavelength points are included.
+          + ``_eline_wavelength_mask`` - A mask of the `_outwave` vector that
+            indicates which pixels to use in the emission line fitting.
+            Only pixels within ``nsigma`` of an emission line are used.
 
         Can be subclassed to add more sophistication
-        redshift: first looks for ``eline_delta_zred``, and defaults to ``zred``
-        sigma: first looks for ``eline_sigma``, defaults to 100 km/s
+        redshift - first looks for ``eline_delta_zred``, and defaults to ``zred``
+        sigma - first looks for ``eline_sigma``, defaults to 100 km/s
 
         :param nsigma: (float, optional, default: 5.)
             Number of sigma from a line center to use for defining which lines
@@ -576,7 +579,7 @@ class SpecModel(ProspectorParams):
         return eline_gaussians
 
     def smoothspec(self, wave, spec):
-        """Smooth the spectrum.  See :py:method:`utils.smoothing.smoothspec`
+        """Smooth the spectrum.  See :py:func:`prospect.utils.smoothing.smoothspec`
         for details.
         """
         sigma = self.params.get("sigma_smooth", 100)

@@ -1,5 +1,11 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import numpy as np
-import matplotlib.pyplot as pl
+try:
+    import matplotlib.pyplot as pl
+except(ImportError):
+    pass
 
 __all__ = ["get_best", "get_truths", "get_percentiles", "get_stats",
            "posterior_samples", "hist_samples", "joint_pdf", "compute_sigma_level",

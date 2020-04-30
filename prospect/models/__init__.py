@@ -5,7 +5,7 @@ common parameter transformations, and pre-defined sets of parameter
 specifications.
 """
 
-from .sedmodel import ProspectorParams, SedModel
+from .sedmodel import ProspectorParams, SedModel, SpecModel
 #from .parameters import ProspectorParams
 
-__all__ = ["SedModel", "ProspectorParams"]
+__all__ = ["SpecModel", "SedModel", "ProspectorParams"]

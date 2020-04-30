@@ -29,7 +29,7 @@ For parallel processing with emcee you will need:
    `mpi4py <http://pythonhosted.org/mpi4py/>`_
 
 Installation
-==========
+============
 
 |Codename| is pure python.
 

@@ -63,7 +63,7 @@ This syntax requires that the end of the parameter file have something like the 
 
 		
 Command Line Options and Custom Arguments
---------------------------
+-----------------------------------------
 A number of default command line options are included with prospector.
 These options can control the output filenames and format and some details of how the model is built and run.
 However, most of the default parameters control the fitting backends.
@@ -81,7 +81,7 @@ to all of the :py:func:`build_*` methods described below.
 
 A user can add custom arguments that will further control the behavior of the model and data building methods.
 This is done by adding arguments to the parser in the executable part of the **parameter file**.
-See the argparse `documentation<https://docs.python.org/2/library/argparse.html#adding-arguments>`_
+See the argparse `documentation <https://docs.python.org/2/library/argparse.html#adding-arguments>`_
 for details on adding custom arguments.
 
 Build methods
@@ -90,23 +90,23 @@ Build methods
 The required methods in a **parameter file** for building the data and model are:
 
 
-2. :py:meth:`build_obs`: 
+1. :py:meth:`build_obs`: 
    This function will take the command line arguments dictionary as keyword arguments
    and returns on obs dictionary (see :doc:`dataformat` .)
 
-3. :py:meth:`build_model`:
+2. :py:meth:`build_model`:
    This function will take the command line arguments dictionary dictionary as keyword arguments
    and return an instance of a :class:`ProspectorParams` subclass, containing
    information about the parameters of the model (see :doc:`models` .)
 
-4.  :py:meth:`build_sps`:
+3.  :py:meth:`build_sps`:
     This function will take the command line arguments dictionary dictionary as keyword arguments
     and return an **sps** object, which must have the method
     :py:meth:`get_spectrum` defined.  This object generally includes all the
     spectral libraries and isochrones necessary to build a model, as well as much of the model
     building code and as such has a large memory footprint.
 
-5.  :py:meth:`build_noise`:
+4.  :py:meth:`build_noise`:
     This function should return a :py:class:`NoiseModel` object for the spectroscopy and/or
     photometry.  Either or both can be ``None``(the default)  in which case the likelihood
     will not include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
