@@ -57,7 +57,7 @@ This code is available under the `MIT License
 
 If you use this code, please reference
 
-.. code-block::
+.. code-block:: none
 
         @MISC{2019ascl.soft05025J,
             author = {{Johnson}, Benjamin D. and {Leja}, Joel L. and {Conroy}, Charlie and
