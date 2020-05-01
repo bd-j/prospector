@@ -50,7 +50,27 @@ Prospector allows you to:
 License and Attribution
 ------------------------------
 
-*Copyright 2014-2018 Benjamin D. Johnson and contributors.*
+*Copyright 2014-2020 Benjamin D. Johnson and contributors.*
 
 This code is available under the `MIT License
 <https://raw.github.com/bdj/prospector/master/LICENSE.rst>`_.
+
+If you use this code, please reference
+
+.. code-block::
+
+        @MISC{2019ascl.soft05025J,
+            author = {{Johnson}, Benjamin D. and {Leja}, Joel L. and {Conroy}, Charlie and
+                {Speagle}, Joshua S.},
+                title = "{Prospector: Stellar population inference from spectra and SEDs}",
+            keywords = {Software},
+                year = 2019,
+                month = may,
+                eid = {ascl:1905.025},
+                pages = {ascl:1905.025},
+        archivePrefix = {ascl},
+            eprint = {1905.025},
+            adsurl = {https://ui.adsabs.harvard.edu/abs/2019ascl.soft05025J},
+            adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+        }
+

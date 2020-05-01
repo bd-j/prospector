@@ -49,9 +49,25 @@ number of photometric bands is increased.
 
 Citation
 ------
-If you use this code, please reference the doi below,
+If you use this code, please reference
+```
+@MISC{2019ascl.soft05025J,
+       author = {{Johnson}, Benjamin D. and {Leja}, Joel L. and {Conroy}, Charlie and
+         {Speagle}, Joshua S.},
+        title = "{Prospector: Stellar population inference from spectra and SEDs}",
+     keywords = {Software},
+         year = 2019,
+        month = may,
+          eid = {ascl:1905.025},
+        pages = {ascl:1905.025},
+archivePrefix = {ascl},
+       eprint = {1905.025},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2019ascl.soft05025J},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
+
 and make sure to cite the dependencies as listed in [installation](doc/installation.rst)
-[![DOI](https://zenodo.org/badge/10490445.svg)](https://zenodo.org/badge/latestdoi/10490445)
 
 You should also cite:
 ```

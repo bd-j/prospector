@@ -122,8 +122,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
     if optimize_result_list is not None:
         out = optresultlist_to_ndarray(optimize_result_list)
         mdat = hf.create_dataset('optimization', data=out)
-        
-    
+
     # ----------------------
     # High level parameter and version info
     write_h5_header(hf, run_params, model)

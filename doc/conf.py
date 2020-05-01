@@ -68,6 +68,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # unit titles (such as .. function::).
 # add_module_names = True
 
+autodoc_mock_imports = ["sedpy", "h5py"]
+
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 

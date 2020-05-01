@@ -16,7 +16,7 @@ try:
 except(ImportError):
     pass
 
-    
+
 __all__ = ["StarBasis", "BigStarBasis"]
 
 
@@ -394,7 +394,7 @@ class StarBasis(object):
 class BigStarBasis(StarBasis):
 
     def __init__(self, libname='', verbose=False, log_interp=True,
-                 n_neighbors=0,  driver=None, in_memory=False,
+                 n_neighbors=0, driver=None, in_memory=False,
                  use_params=None, strictness=0.0, **kwargs):
         """An object which holds the stellar spectral library, performs linear
         interpolations of that library, and has methods to return attenuated,
