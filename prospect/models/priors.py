@@ -492,9 +492,7 @@ class StudentT(Prior):
 
     @property
     def range(self):
-        nsig = 4
-        return (self.params['location'] - nsig * self.params['scale'],
-                self.params['location'] + nsig * self.params['scale'])
+        return scipy.stats.t.interval(0.995, self.params['df'], self.params['mean'], self.params['scale'])
 
     def bounds(self, **kwargs):
         return (-np.inf, np.inf)
