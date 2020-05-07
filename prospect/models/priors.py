@@ -226,7 +226,7 @@ class Normal(Prior):
     def range(self):
         nsig = 4
         return (self.params['mean'] - nsig * self.params['sigma'],
-                self.params['mean'] + self.params['sigma'])
+                self.params['mean'] + nsig * self.params['sigma'])
 
     def bounds(self, **kwargs):
         #if len(kwargs) > 0:
