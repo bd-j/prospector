@@ -7,7 +7,7 @@ You will also need:
 
 -  `numpy <http://www.numpy.org>`_ and `SciPy <http://www.scipy.org>`_
 
--  `emcee <http://dan.iel.fm/emcee/current/>`_ and/or `dynesty <https://dynesty.readthedocs.io/en/latest/>`_ for inference (Please cite these packages in any publications)
+-  `emcee <https://emcee.readthedocs.io/en/stable/>`_ and/or `dynesty <https://dynesty.readthedocs.io/en/latest/>`_ for inference (Please cite these packages in any publications)
 
 -  `sedpy <https://github.com/bd-j/sedpy>`_ (for filter projections)
 
