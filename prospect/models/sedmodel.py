@@ -262,7 +262,7 @@ class SpecModel(ProspectorParams):
             ndarray of shape ``(nwave,)`` in units of maggies.
         """
         # redshift wavelength
-        obs_wave = self.observed_wave(self._wave, do_wavecal=True)
+        obs_wave = self.observed_wave(self._wave, do_wavecal=False)
         self._outwave = obs.get('wavelength', obs_wave)
 
         # cache eline parameters
