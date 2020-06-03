@@ -599,7 +599,7 @@ def resample_wave(wavelength, spectrum, linear=False):
     """
     wmin, wmax = wavelength.min(), wavelength.max()
     nw = len(wavelength)
-    nnew = 2.0**(np.ceil(np.log2(nw)))
+    nnew = int(2.0**(np.ceil(np.log2(nw))))
     if linear:
         Rgrid = np.diff(wavelength)  # in same units as ``wavelength``
         w = np.linspace(wmin, wmax, nnew)
