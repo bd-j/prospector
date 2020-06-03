@@ -1,6 +1,6 @@
 import numpy as np
 
-__all__ = ["Kernel", "Uncorrelated", "ExpSquared", "Matern"]
+__all__ = ["Kernel", "Uncorrelated", "ExpSquared", "Matern", "PhotoCal"]
 
 
 class Kernel(object):
@@ -94,8 +94,16 @@ class Matern(Kernel):
         return Sigma
 
 
-class Outliers(Kernel):
-    kernel_params = ['amplitude', 'location']
+class PhotoCal(Kernel):
 
+    ndim = 2
+    npars = 2
+    kernel_params = ['amplitude', 'filter_names']
+    
     def construct_kernel(self, metric):
-        raise(NotImplementedError)
+        """ This adds correlated noise in specified bands of photometry
+        """
+        k = np.array([f in self.params["filter_names"] for f in metric])
+        K = k[:, None] * k[None, :]     # select off-diagonal elements
+        return K * self.params["amplitude"]**2
+

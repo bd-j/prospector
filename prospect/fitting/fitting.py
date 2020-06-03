@@ -99,7 +99,8 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         sigma_spec = spec_noise.construct_covariance(**vectors)
     if phot_noise is not None:
         phot_noise.update(**model.params)
-        vectors.update({'phot_unc': obs.get('maggies_unc', None)})
+        vectors.update({'phot_unc': obs.get('maggies_unc', None),
+                        'phot': obs.get('maggies', None)})
 
     # --- Generate mean model ---
     try:
