@@ -22,7 +22,7 @@ class Prior(object):
     and the object should return the ln-prior-probability of that value.
 
     .. code-block:: python
-        
+
         ln_prior_prob = Prior()(value)
 
     Should be able to sample from the prior, and to get the gradient of the
@@ -53,7 +53,7 @@ class Prior(object):
         self.update(**kwargs)
 
     def __repr__(self):
-        argstring = ['{}={}'.format(k, v) for k, v in list(self.params.items())] 
+        argstring = ['{}={}'.format(k, v) for k, v in list(self.params.items())]
         return '{}({})'.format(self.__class__, ",".join(argstring))
 
     def update(self, **kwargs):
@@ -429,7 +429,7 @@ class SkewNormal(Prior):
     """A normal distribution including a skew parameter
 
     :param location:
-        Center (*not* mean, mode, or median) of the distribution. 
+        Center (*not* mean, mode, or median) of the distribution.
         The center will approach the mean as skew approaches zero.
 
     :param sigma:

@@ -234,13 +234,12 @@ class SpecModel(ProspectorParams):
           + ``_zred`` - Redshift
           + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies
           + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
-          
 
         It generates the following attributes
           + ``_outwave``
           + ``_speccal``
           + ``_elinespec``
-          
+
         And if emission line marginalization is being performed, numerous
         quantities related to the emission lines are also cached
         (see ``get_el()`` for details.)
@@ -289,6 +288,8 @@ class SpecModel(ProspectorParams):
             if emask.any():
                 calibrated_spec[emask] += self._elinespec.sum(axis=1)
 
+        self._sed = calibrated_spec / self._speccal
+
         return calibrated_spec
 
     def predict_phot(self, filters):
@@ -299,7 +300,7 @@ class SpecModel(ProspectorParams):
           + ``_zred`` - Redshift
           + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies.
           + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
-          
+
 
         :param filters:
             List of :py:class:`sedpy.observate.Filter` objects.

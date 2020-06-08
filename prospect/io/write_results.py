@@ -62,9 +62,9 @@ def paramfile_string(param_file=None, **extras):
     return pstr
 
 
-def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
-               tsample=0.0, toptimize=0.0, sampling_initial_center=[], 
-               sps=None, **extras):
+def write_hdf5(hfile, run_params, model, obs, sampler=None,
+               optimize_result_list=None, tsample=0.0, toptimize=0.0,
+               sampling_initial_center=[], sps=None, **extras):
     """Write output and information to an HDF5 file object (or
     group).
 
@@ -87,7 +87,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
 
     :param optimize_result_list:
         A list of `scipy.optimize.OptimizationResult` objects generated during
-        the optimization stage.
+        the optimization stage.  Can be `None` if no optimization is performed
 
     param sps: (optional, default: None)
         If a `prospect.sources.SSPBasis` object is supplied, it will be used to
@@ -96,7 +96,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler, optimize_result_list,
     try:
         # If ``hfile`` is not a file object, assume it is a filename and open
         hf = h5py.File(hfile, "a")
-    except(AttributeError,TypeError):
+    except(AttributeError, TypeError):
         hf = hfile
     except(NameError):
         warnings.warn("HDF5 file could not be opened, as h5py could not be imported.")
