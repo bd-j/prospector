@@ -283,7 +283,7 @@ class SpecModel(ProspectorParams):
             calibrated_spec[emask] += self._elinespec.sum(axis=1)
         # Otherwise, if FSPS is not adding emission lines to the spectrum, we
         # add emission lines to valid pixels here.
-        elif (self.params.get("nebemlineinspec", True) is False) & (emask.any()):
+        elif (self.params.get("nebemlineinspec", True) == False) & (emask.any()):
             self._elinespec = self.get_eline_spec(wave=self._wave[emask])
             if emask.any():
                 calibrated_spec[emask] += self._elinespec.sum(axis=1)
@@ -321,7 +321,7 @@ class SpecModel(ProspectorParams):
         phot = np.atleast_1d(10**(-0.4 * mags))
 
         # generate emission-line photometry
-        if self.params.get('nebemlineinspec', False) is False:
+        if self.params.get('nebemlineinspec', False) == False:
             phot += self.nebline_photometry(filters)
 
         return phot
@@ -469,8 +469,8 @@ class SpecModel(ProspectorParams):
         """
         # ensure we have no emission lines in spectrum
         # and we definitely want them.
-        assert self.params['nebemlineinspec'] is False
-        assert self.params['add_neb_emission'] is True
+        assert self.params['nebemlineinspec'] == False
+        assert self.params['add_neb_emission'] == True
 
         # generate Gaussians on appropriate wavelength gride
         idx = self._elines_to_fit
