@@ -28,7 +28,7 @@ class CSPSpecBasis(SSPBasis):
     length as ``"mass"`` if they are independent for each component.
     """
 
-    def __init__(self, zcontinuous=1, reserved_params=['zred', 'sigma_smooth'],
+    def __init__(self, zcontinuous=1, reserved_params=['sigma_smooth'],
                  vactoair_flag=False, compute_vega_mags=False, **kwargs):
 
         # This is a StellarPopulation object from fsps
