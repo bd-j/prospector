@@ -210,7 +210,7 @@ class ProspectorParams(object):
         value depends on another parameter, calculate those values and store
         them in the :py:attr:`self.params` dictionary.
         """
-        if self._has_parameter_dependencies is False:
+        if self._has_parameter_dependencies == False:
             return
         for p, info in list(self.config_dict.items()):
             if 'depends_on' in info:
@@ -247,7 +247,7 @@ class ProspectorParams(object):
         ``config_dict``.
         """
         return [k['name'] for k in pdict_to_plist(self.config_list)
-                if (k.get('isfree', False) is False)]
+                if (k.get('isfree', False) == False)]
 
     @property
     def description(self):
