@@ -2,7 +2,7 @@ Demonstrations
 ===============
 You can check out the Jupyter notebook demo at
 
-  * `InteractiveDemo <https://github.com/bd-j/prospector/blob/master/demo/InteractiveDemo.ipynb>`_
+  * `InteractiveDemo <https://github.com/bd-j/prospector/blob/main/demo/InteractiveDemo.ipynb>`_
  
 Also, below is an example of inference from an increasing number of photometric bands.
 Model parameters and SEDs are inferred (in grey) from a changing number of mock

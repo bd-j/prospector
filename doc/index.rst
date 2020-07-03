@@ -53,7 +53,7 @@ License and Attribution
 *Copyright 2014-2020 Benjamin D. Johnson and contributors.*
 
 This code is available under the `MIT License
-<https://raw.github.com/bdj/prospector/master/LICENSE.rst>`_.
+<https://raw.github.com/bdj/prospector/blob/main/LICENSE>`_.
 
 If you use this code, please reference
 
