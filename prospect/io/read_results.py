@@ -5,11 +5,11 @@ import pickle, json
 import numpy as np
 try:
     import h5py
-except:
+except(ImportError):
     pass
 try:
     from sedpy.observate import load_filters
-except:
+except(ImportError):
     pass
 
 
@@ -58,7 +58,7 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
           + `"run_params"` - A dictionary of arguments supplied to prospector at
             the time of the fit.
           + `"paramfile_text"` - Text of the file used to run prospector, string
-          
+
 
     :returns obs:
         The obs dictionary
@@ -87,7 +87,7 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
         mname = model_file
     param_file = (res['run_params'].get('param_file', ''),
                   res.get("paramfile_text", ''))
-    model, powell_results = read_model(mname, param_file=param_file, 
+    model, powell_results = read_model(mname, param_file=param_file,
                                        dangerous=dangerous, **kwargs)
     if dangerous:
         try:
