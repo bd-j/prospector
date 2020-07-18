@@ -77,7 +77,7 @@ class ProspectorParams(object):
 
     def __repr__(self):
         return ":::::::\n{}\n\n{}".format(self.__class__, self.description)
-        
+
     def configure(self, reset=False, **kwargs):
         """Use the :py:attr:`config_dict` to generate a :py:attr:`theta_index`
         mapping, and propogate the initial parameters into the
@@ -125,7 +125,7 @@ class ProspectorParams(object):
         self.theta_index = {}
         count = 0
         for par in self.free_params:
-            n = self.config_dict[par]['N']
+            n = self.config_dict[par].get("N", 1)
             self.theta_index[par] = slice(count, count + n)
             count += n
             good = len(self.config_dict[par]['prior']) == n
@@ -194,7 +194,7 @@ class ProspectorParams(object):
 
         :param unit_coords:
             Coordinates in the unit hyper-cube. ndarray of shape ``(ndim,)``.
-            
+
         :returns theta:
             The parameter vector corresponding to the location in prior CDF
             corresponding to ``unit_coords``. ndarray of shape ``(ndim,)``
@@ -252,7 +252,7 @@ class ProspectorParams(object):
     @property
     def description(self):
         return describe(self.config_dict, current_params=self.params)
-        
+
     def theta_labels(self, name_map={}):
         """Using the theta_index parameter map, return a list of the model
         parameter names that has the same order as the sampling chain array.
