@@ -360,7 +360,7 @@ def chain_to_struct(chain, model=None, names=None):
             inds = model.theta_index[p]
         else:
             inds = slice(i, i+1, None)
-        struct[p] = chain[..., inds].reshape(-1, len(inds))
+        struct[p] = chain[..., inds].reshape(-1, model.params[p].shape[0])
 
     return struct
 
