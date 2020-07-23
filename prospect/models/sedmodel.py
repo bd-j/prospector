@@ -236,9 +236,10 @@ class SpecModel(ProspectorParams):
           + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
 
         It generates the following attributes
-          + ``_outwave``
-          + ``_speccal``
-          + ``_elinespec``
+          + ``_outwave`` - Wavelength grid (observed frame)
+          + ``_speccal`` - Calibration vector
+          + ``_elinespec`` - emission line spectrum
+          + ``_sed`` - Intrinsic spectrum (before cilbration vector applied)
 
         And if emission line marginalization is being performed, numerous
         quantities related to the emission lines are also cached
@@ -263,6 +264,8 @@ class SpecModel(ProspectorParams):
         # redshift wavelength
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
         self._outwave = obs.get('wavelength', obs_wave)
+        if self._outwave is None:
+            self._outwave = obs_wave
 
         # cache eline parameters
         self.cache_eline_parameters(obs)
