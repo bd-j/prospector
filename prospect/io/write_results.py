@@ -93,14 +93,26 @@ def write_hdf5(hfile, run_params, model, obs, sampler=None,
         If a `prospect.sources.SSPBasis` object is supplied, it will be used to
         generate and store
     """
-    try:
-        # If ``hfile`` is not a file object, assume it is a filename and open
-        hf = h5py.File(hfile, "a")
-    except(AttributeError, TypeError):
-        hf = hfile
-    except(NameError):
+
+    if not _has_h5py:
         warnings.warn("HDF5 file could not be opened, as h5py could not be imported.")
         return
+
+    # If ``hfile`` is not a file object, assume it is a filename and open
+    if type(hfile) is str:
+        # Check for existence of file, modify name if it already exists
+        if os.path.exists(hfile):
+            import time
+            time_string = time.strftime("%y%b%d-%H.%M", time.localtime())
+            print("Appending current time ({0}) to output file ".format(time_string) + \
+                  "in order to guarantee a unique name.")
+            name, ext = os.path.splitext(hfile)
+            hfile = name+'_{0}'.format(time_string)+ext
+            print("New output filename: {0}".format(hfile))
+
+        hf = h5py.File(hfile, "a")
+    else:
+        hf = hfile
 
     # ----------------------
     # Sampling info
