@@ -94,7 +94,7 @@ def write_hdf5(hfile, run_params, model, obs, sampler=None,
         generate and store
     """
 
-    if not _has_h5py:
+    if not _has_h5py_:
         warnings.warn("HDF5 file could not be opened, as h5py could not be imported.")
         return
 

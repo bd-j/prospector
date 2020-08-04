@@ -132,7 +132,12 @@ def add_dynesty_args(parser):
                               "to be less than this."))
 
     parser.add_argument("--nested_maxcall", type=int, default=int(5e7),
-                        help="Maximum number of likelihood calls during nested sampling.")
+                        help=("Maximum number of likelihood calls during nested sampling. "
+                              "This will only be enforced after the initial pass"))
+
+    parser.add_argument("--nested_maxiter", type=int, default=int(1e6),
+                        help=("Maximum number of iterations during nested sampling. "
+                              "This will only be enforced after the initial pass"))
 
     parser.add_argument("--nested_maxbatch", type=int, default=10,
                         help="Maximum number of dynamic batches.")
