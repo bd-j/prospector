@@ -9,6 +9,21 @@ from prospect.likelihood import lnlike_spec, lnlike_phot, write_log
 from dynesty.dynamicsampler import stopping_function, weight_function, _kld_error
 from dynesty.utils import *
 
+try:
+    import mpi4py
+    from mpi4py import MPI
+    from schwimmbad import MPIPool
+
+    mpi4py.rc.threads = False
+    mpi4py.rc.recv_mprobe = False
+
+    comm = MPI.COMM_WORLD
+    size = comm.Get_size()
+
+    withmpi = comm.Get_size() > 1
+except ImportError:
+    withmpi = False
+
 # --------------
 # Read command line arguments
 # --------------
@@ -28,6 +43,19 @@ global_model = model_setup.load_model(**run_params)
 global_obs = model_setup.load_obs(**run_params)
 # SPS Model instance as global
 sps = model_setup.load_sps(**run_params)
+
+if withmpi:
+    # Run SPS over logzsol in order to get necessary data in cache/memory
+    # for each MPI process. Otherwise, you risk creating a lag between the MPI tasks
+    # cahcing data depending on where that task is in parameter space
+    # which can slow down the parallelization
+    initial_theta_grid = np.around(np.arange(global_model.config_dict["logzsol"]['prior'].range[0], global_model.config_dict["logzsol"]['prior'].range[1], step=0.01), decimals=2)
+
+    for theta_init in initial_theta_grid:
+        sps.ssp.params["sfh"] = global_model.params['sfh'][0]
+        sps.ssp.params["imf_type"] = global_model.params['imf_type'][0]
+        sps.ssp.params["logzsol"] = theta_init
+        sps.ssp._compute_csp()
 
 # -----------------
 # LnP function as global
@@ -98,10 +126,6 @@ def prior_transform(u, model=None):
     return model.prior_transform(u)
 
 
-pool = None
-nprocs = 1
-
-
 def halt(message):
     """Exit, closing pool safely.
     """
@@ -143,11 +167,27 @@ if __name__ == "__main__":
     if rp['verbose']:
         print('dynesty sampling...')
     tstart = time.time()  # time it
-    dynestyout = fitting.run_dynesty_sampler(lnprobfn, prior_transform, model.ndim,
-                                             pool=pool, queue_size=nprocs, 
-                                             stop_function=stopping_function,
-                                             wt_function=weight_function,
-                                             **rp)
+
+    if withmpi:
+        with MPIPool() as pool:
+            if not pool.is_master():
+                pool.wait()
+                sys.exit(0)
+            nprocs = pool.size
+
+            dynestyout = fitting.run_dynesty_sampler(lnprobfn, prior_transform, model.ndim,
+                                                     pool=pool, queue_size=nprocs,
+                                                     stop_function=stopping_function,
+                                                     wt_function=weight_function,
+                                                     **rp)
+    else:
+        pool = None
+        nprocs = 1
+        dynestyout = fitting.run_dynesty_sampler(lnprobfn, prior_transform, model.ndim,
+                                                 pool=pool, queue_size=nprocs, 
+                                                 stop_function=stopping_function,
+                                                 wt_function=weight_function,
+                                                 **rp)
     ndur = time.time() - tstart
     print('done dynesty in {0}s'.format(ndur))
 
