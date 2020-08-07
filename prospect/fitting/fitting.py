@@ -11,7 +11,7 @@ from functools import partial as argfix
 
 import numpy as np
 from scipy.optimize import minimize, least_squares
-
+import warnings
 
 from .minimizer import minimize_wrapper, minimizer_ball
 from .ensemble import run_emcee_sampler
@@ -224,6 +224,10 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
         msg = ("Cannot run both emcee and dynesty fits "
                "in a single call to fit_model")
         raise(ValueError, msg)
+    if (not emcee) & (not dynesty) & (not optimize):
+        msg = ("No sampling or optimization routine "
+               "specified by user; returning empty results")
+        warnings.warn(msg)
 
     output = {"optimization": (None, 0.),
               "sampling": (None, 0.)}
