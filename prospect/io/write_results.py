@@ -379,7 +379,7 @@ def chain_to_struct(chain, model=None, names=None):
 
 def dict_to_struct(indict):
     dt = [(p, indict[p].dtype.descr[0][1], indict[p].shape)
-           for p in indict.keys()]
+          for p in indict.keys()]
     struct = np.zeros(1, dtype=np.dtype(dt))
     for i, p in enumerate(indict.keys()):
         struct[p] = indict[p]

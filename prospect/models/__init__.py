@@ -6,6 +6,5 @@ specifications.
 """
 
 from .sedmodel import ProspectorParams, SedModel, SpecModel
-#from .parameters import ProspectorParams
 
 __all__ = ["SpecModel", "SedModel", "ProspectorParams"]

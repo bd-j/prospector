@@ -32,6 +32,7 @@ setup(
               "prospect.fitting",
               "prospect.sources",
               "prospect.io",
+              "prospect.plotting",
               "prospect.utils"],
 
     license="LICENSE",
