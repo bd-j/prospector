@@ -24,6 +24,11 @@ def allcorner(samples, labels, axes, weights=None, span=None,
               label_kwargs={"fontsize": 12}, tick_kwargs={"labelsize": 8},
               psamples=None, samples_kwargs={"marker": "o", "color": "k"}):
     """
+    Make a pretty corner plot from (weighted) posterior samples, with KDE smoothing.
+    Adapted from dyensty.plotting
+
+    Parameters
+    ----------
     samples : ndarry of shape (ndim, nsamples)
         The samples of the posterior to plot
 
@@ -112,8 +117,6 @@ def show_extras(samples, labels, paxes, weights=None,
         A list of fractional quantiles to overplot on the 1-D marginalized
         posteriors as vertical dashed lines. Default is `[0.16, 0.5, 0.84]`
         (spanning the 68%/1-sigma credible interval).
-
-
     """
     for i, xx in enumerate(samples):
         x = xx.flatten()
@@ -164,7 +167,7 @@ def show_extras(samples, labels, paxes, weights=None,
 
 def prettify_axes(paxes, labels=None, label_kwargs={}, tick_kwargs={},
                   max_n_ticks=3, top_ticks=False, use_math_text=True):
-    """Set up cornerplot axis labels and ticks
+    """Set up cornerplot axis labels and ticks to look nice.
 
     labels : iterable with shape (ndim,), optional
         A list of names for each parameter. If not provided, the default name
@@ -274,7 +277,6 @@ def corner(samples, paxes, weights=None, span=None, smooth=0.02,
 
     hist2d_kwargs : dict, optional
         Extra keyword arguments to send to the 2-D (smoothed) histograms.
-
     """
     assert samples.ndim > 1
     assert np.product(samples.shape[1:]) > samples.shape[0]
@@ -305,8 +307,8 @@ def corner(samples, paxes, weights=None, span=None, smooth=0.02,
 
             sy = smooth[j]
             twodhist(y, x, weights=weights, ax=ax,
-                    span=[span[j], span[i]], smooth=[sy, sx],
-                    color=color, **hist2d_kwargs)
+                     span=[span[j], span[i]], smooth=[sy, sx],
+                     color=color, **hist2d_kwargs)
 
     return paxes
 
@@ -477,9 +479,6 @@ def marginal(x, ax=None, weights=None, span=None, smooth=0.02,
     # Generate distribution.
     if smooth > 1:
         # If `sx` > 1, plot a weighted histogram
-        #n, b, _ = ax.hist(x, bins=smooth, weights=weights, range=np.sort(span),
-        #                  color=color, **hist_kwargs)
-        #n, b = np.histogram(x, bins=smooth, weights=weights, range=np.sort(span))
         xx, bins, wght = x, int(round(smooth)), weights
     else:
         # If `sx` < 1, oversample the data relative to the
@@ -490,9 +489,6 @@ def marginal(x, ax=None, weights=None, span=None, smooth=0.02,
                             range=np.sort(span))
         n = norm_kde(n, 10.)
         b0 = 0.5 * (b[1:] + b[:-1])
-        #n, b, _ = ax.hist(b0, bins=b, weights=n, range=np.sort(span),
-        #                  color=color, **hist_kwargs)
-        #n, b = np.histogram(b0, bins=b, weights=n, range=np.sort(span))
         xx, bins, wght = b0, b, n
 
     n, b = np.histogram(xx, bins=bins, weights=wght, range=np.sort(span))
@@ -520,6 +516,7 @@ def scatter(samples, paxes, **scatter_kwargs):
 
 def get_spans(span, samples, weights=None):
     """Get ranges from percentiles of samples
+
     Parameters
     ----------
     samples : iterable of arrays
@@ -546,6 +543,13 @@ def get_spans(span, samples, weights=None):
 
 
 def quantile(xarr, q, weights=None):
+    """
+    x : `~numpy.darray` with shape (nvar, nsamples)
+
+    q : list of quantiles, from [0., 1.]
+
+    weights : shape (nsamples)
+    """
     qq = [_quantile(x, q, weights=weights) for x in xarr]
     return np.array(qq)
 
@@ -622,4 +626,3 @@ def demo(ndim=3, nsample=int(1e4)):
                      psamples=means[:, None])
     pl.show()
     return axes
-
