@@ -287,7 +287,7 @@ class SpecModel(ProspectorParams):
         # Otherwise, if FSPS is not adding emission lines to the spectrum, we
         # add emission lines to valid pixels here.
         elif (self.params.get("nebemlineinspec", True) == False) & (emask.any()):
-            self._elinespec = self.get_eline_spec(wave=self._wave[emask])
+            self._elinespec = self.get_eline_spec(wave=self._outwave[emask])
             if emask.any():
                 calibrated_spec[emask] += self._elinespec.sum(axis=1)
 
