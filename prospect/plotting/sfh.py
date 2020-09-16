@@ -70,21 +70,37 @@ def parametric_sfr(tau=4, tage=13.7, power=1, mass=None, logmass=None,
     delayed exponential SFH. Does not account for burst, constant components,
     or truncations.
 
+    :param tau: float
+        Exponential timescale, Gyr
+
+    :param tage: float
+        Lookback time of the earliest SF
+
+    :param mass: float
+        The total *formed* mass of the SFH up to `tage`.
+
     :param power: (optional, default: 1)
         Use 0 for exponential decline, and 1 for te^{-t} (delayed exponential decline)
 
     :param times: (optional, ndarray)
-        If given, a set up times where you want to calculate the sfr
+        If given, a set of *lookback* times where you want to calculate the sfr,
+        same units as `tau` and `tage`
+
+    :returns sfr:
+        SFR in M_sun/year either for the lookback times given by `times`
+        or at lookback time 0 if no times are given
     """
     if (mass is None) and (logmass is not None):
         mass = 10**logmass
     if times is None:
-        times = tage
+        tt = tage
     else:
         assert len(np.atleast_1d(tage)) == 1
         assert len(np.atleast_1d(tau)) == 1
+        tt = tage - times
     p = power + 1
-    psi = mass * (times/tau)**power * np.exp(-times/tau) / (tau * gamma(p) * gammainc(p, tage/tau))
+    psi = mass * (tt/tau)**power * np.exp(-tt/tau) / (tau * gamma(p) * gammainc(p, tage/tau))
+    psi[tt < 0] = 0
     return psi * 1e-9
 
 
