@@ -312,6 +312,7 @@ if __name__ == '__main__':
 
         withmpi = comm.Get_size() > 1
     except ImportError:
+        print('Failed to start MPI; are mpi4py and schwimmbad installed? Proceeding without MPI.')
         withmpi = False
 
     # Evaluate SPS over logzsol grid in order to get necessary data in cache/memory
