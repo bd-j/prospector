@@ -318,6 +318,7 @@ if __name__ == '__main__':
     # for each MPI process. Otherwise, you risk creating a lag between the MPI tasks
     # caching data depending which can slow down the parallelization
     if (withmpi) & ('logzsol' in model.free_params):
+        dummy_obs = dict(filters=None, wavelength=None)
 
         logzsol_prior = model.config_dict["logzsol"]['prior']
         lo, hi = logzsol_prior.range
@@ -325,14 +326,14 @@ if __name__ == '__main__':
 
         sps.update(**model.params)  # make sure we are caching the correct IMF / SFH / etc
         for logzsol in logzsol_grid:
-            sps.ssp.params["logzsol"] = logzsol
-            sps.ssp._compute_csp()
+            model.params["logzsol"] = np.array([logzsol])
+            _ = model.predict(model.theta, obs=dummy_obs, sps=sps)
 
     # ensure that each processor runs its own version of FSPS
     # this ensures no cross-over memory usage
     from prospect.fitting import lnprobfn
     from functools import partial
-    lnprobfn_fixed = partial(lnprobfn,sps=sps)
+    lnprobfn_fixed = partial(lnprobfn, sps=sps)
 
     if withmpi:
         with MPIPool() as pool:
