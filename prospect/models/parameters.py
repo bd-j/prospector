@@ -124,11 +124,14 @@ class ProspectorParams(object):
         """
         self.theta_index = {}
         count = 0
-        for par in self.free_params:
-            n = self.config_dict[par].get("N", 1)
-            self.theta_index[par] = slice(count, count + n)
+        for p in self.free_params:
+            n = self.config_dict[p].get("N", 1)
+            self.theta_index[p] = slice(count, count + n)
             count += n
-            good = len(self.config_dict[par]['prior']) == n
+            try:
+                good = len(self.config_dict[p]['prior']) == n
+            except(KeyError):
+                raise KeyError("No prior for {}".format(p))
             if not good:
                 msg = "{} has wrong length prior, should be {}"
                 warnings.warn(msg.format(par, n), RuntimeWarning)

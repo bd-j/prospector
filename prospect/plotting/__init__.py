@@ -313,7 +313,7 @@ class FigureMaker(object):
 
     # --- AXES, STYLES, LEGENDS ---
 
-    def restframe_axis(self, ax, microns=True):
+    def restframe_axis(self, ax, microns=True, fontsize=16, ticksize=12):
         """Add a second (top) x-axis with rest-frame wavelength
         """
         if "zred" in self.model.free_params:
@@ -325,7 +325,7 @@ class FigureMaker(object):
         ax2 = ax.twiny()
         ax2.set_xlim(x1 / (1 + zred), x2 / (1 + zred))
         unit = microns*r"$\mu$m" + (not microns)*r"$\AA$"
-        ax2.set_xlabel(r'$\lambda_{{\rm rest}}$ ({})'.format(unit), fontsize=fs)
+        ax2.set_xlabel(r'$\lambda_{{\rm rest}}$ ({})'.format(unit), fontsize=fontsize)
         ax2.set_ylim(y1, y2)
         ax2.tick_params('both', pad=2.5, size=3.5, width=1.0, which='both', labelsize=ticksize)
 
