@@ -29,6 +29,7 @@ Prospector allows you to:
    dataformat
    models
    output
+   faq
 
 .. toctree::
    :maxdepth: 1

@@ -1,60 +1,16 @@
 Advanced Usage
 ==============
 
-Parameter transfomations
----------------------------------
-
-Problem: But I don't want to sample in ``dumb_parameter``!
-Solution: Transform to parameters that are easier to sample in.
-
-This can be done by making ``dumb_parameter`` fixed (``"isfree" = False``) and
-adding another key to the parameter description, ``"depends_on"``. The value of
-``"depends_on"`` is a function which takes as arguments all the model parameters
-and returns the value of ``dumb_parameter``. For example:
-
-.. code-block:: python
-
-		def delogify(logtau=0, **extras):
-		    return 10**logtau
-
-could be used to set the value of ``tau`` using the free parameter ``logtau``
-(i.e., sample in the log of a parameter, though setting a logarithmic prior is
-equivalent in terms of the posterior).
-
-This dependency function must take optional extra keywords (``**extras``)
-because the entire parameter dictionary will be passed to it. Then add another
-parameter ``smart_parameter`` to ``model_list`` that can vary (and upon which
-``dumb_parameter`` depends). In this example that new free parameter would be
-``logtau``.
-
-This pattern can also be used to tie arbitrary parameters together (e.g.
-gas-phase and stellar metallicity) while still allowing them to vary. A
-parameter may depend on multiple other (free or fixed) parameters, and multiple
-parameters may depend on a single other (free or fixed) parameter.
-
-**Note.**
-It is important that any parameter with the ``"depends_on"`` key present is a
-fixed parameter. For portability and easy reconstruction of the model it is
-important that the ``depends_on`` function be defined within the parameter file.
-
 Spectral line marginalization
 ------------------------------
 
-Accurately predicting nebular line fluxes can be challenging. 
+Accurately predicting nebular line fluxes can be challenging.
 The :py:class:`prospect.models.sedmodel.SpecModel` class can be used to
 determine the maximum-likelihood line amplitudes for each predicition, and to
 compute a likelihood penalty for marginalizing over all possible line
 amplitudes. It is even possible to incorporate priors based on the FSPS nebular
 line model.  Note that line velocity offsets and widths must still be explicitly
-fit for (or specified) as model parameters. 
-
-
-Multiple Spectra
-----------------------
-
-We are working on this.
-It will involve a new ProspectorParameters subclass that can loop over
-``obs['spectra']`` and apportion vectors of parameters correctly.
+fit for (or specified) as model parameters.
 
 
 Noise Modeling
@@ -71,33 +27,6 @@ Really this should not be advanced.
 Everyone should do mock data tests.
 So we are trying to make it easy.
 See demo/demo_mock_params.py for a suggestion, especially the ``load_obs()`` function.
-
-
-User defined models
---------------------------
-
-Problem: The pre-packaged models suck! You can do better.
-Or, you have stars instead of stellar populations. Or spectra of the IGM or
-planets or AGN or something. What to do?
-
-Solution:  Make a new ``sources`` object. Thats it.
-Your new subclass should have a ``get_spectrum(outwave=[], filters=[],
-**params)`` method that converts a dictionary of parameters, a list of filters,
-and a wavelength grid into a model SED and spectrum, and returns the spectrum,
-the photometry, and any ancillary info. You will have to write that.
-
-See any of the ``sources`` classes for the appropriate ``get_spectrum`` API.
-
-
-Linear Algebra
---------------------
-
-This code is slow! Get better math.
-
-If you are fitting spectra with a flexible noise model, this code does lots of
-matrix inversions as part of the gaussian process. This is very computationally
-intensive, and massive gains can be made by using optimized linear algebra
-libraries.
 
 
 MPI
@@ -120,3 +49,42 @@ may require that python-mpi be called instead of just python.  We have included
 a small script (``demo/mpi_hello_world.py``) to test your MPI installation
 using same general pattern as in Prospector.  Run this with
 ``mpirun -np <N> python mpi_hello_world.py``.
+
+
+User defined models
+--------------------------
+
+Problem: The pre-packaged models suck! You can do better.
+Or, you have stars instead of stellar populations. Or spectra of the IGM or
+planets or AGN or something. What to do?
+
+Solution:  Make a new ``sources`` object. Thats it.
+Your new subclass should have a ``get_spectrum(outwave=[], filters=[],
+**params)`` method that converts a dictionary of parameters, a list of filters,
+and a wavelength grid into a model SED and spectrum, and returns the spectrum,
+the photometry, and any ancillary info. You will have to write that.
+
+See any of the ``sources`` classes for the appropriate ``get_spectrum`` API.
+
+
+Multiple Spectra
+----------------------
+
+We are working on this.
+It will involve a new ProspectorParameters subclass that can loop over
+``obs['spectra']`` and apportion vectors of parameters correctly.
+
+
+Linear Algebra
+--------------------
+
+This code is slow! Get better math.
+
+If you are fitting spectra with a flexible noise model, this code does lots of
+matrix inversions as part of the gaussian process. This is very computationally
+intensive, and massive gains can be made by using optimized linear algebra
+libraries.
+
+
+
+.. |Codename| replace:: Prospector

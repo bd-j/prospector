@@ -1,6 +1,30 @@
 Models
 ======
 
+The modular nature of |Codename| allows it to be applied to a variety of data
+types and different scientific questions.  However, this flexibility requires
+the user to take care in defining the model, including prior distributions,
+which may be specific to a particular scientific question or to the data to be
+fit. Different models and prior beliefs may be more or less appropriate for
+different kinds of galaxies.  Certain kinds of data may require particular model
+components in order to be described well. |Codename| strives to make this model
+building process as straightforward as possible, but it is a step that cannot be
+skipped.
+
+
+The choice of which parameters to include, which to let vary, and what prior
+distributions to use will depend on the data being fit (including the types of
+objects) and the goal of the inference.  As examples, if no infrared data is
+available then it is not necessary to fit  -- or even include in the model
+at all -- the dust emission parameters controlling the shape of the infrared
+SED.  For globular clusters or completely quenched galaxies it may not be
+necessary to include nebular emission in the model, and one may wish to adjust
+the priors on population age or star formation history to be more appropriate
+for such objects.  If spectroscopic data is being fit then it may be necessary
+to include velocity dispersion as a free parameter.  Generating and fitting mock
+data can be an extremely useful tool for exploring the sensitivity of a given
+type of data to various parameters.
+
 
 Parameter Specification
 ------------------------------
@@ -20,9 +44,13 @@ For a single parameter the specification is a dictionary that must at minimum in
 
 ``"init"``
     The initial value of the parameter.
-    If the parameter is free to vary, this is where optimization or will start from, or, if no optimization happens, this will be the center of the initial ball of `emcee` walkers.
-    If using nested sampling then the value of ``"init"`` is not important (though a value must still be given.)
-    If the parameter is not free, then this is the value that will be used throughout optimization and sampling.
+    If the parameter is free to vary, this is where optimization or will start
+    from, or, if no optimization happens, this will be the center of the initial
+    ball of `emcee` walkers.
+    If using nested sampling then the value of ``"init"`` is not important
+    (though a value must still be given.)
+    If the parameter is not free, then this is the value that will be used
+    throughout optimization and sampling.
 
 ``"isfree"``
     Boolean specifying whether a parameter is free to vary during
@@ -35,7 +63,7 @@ For parameters with ``"isfree": True`` the following additional key is required:
     (e.g. ``priors.TopHat(mini=10, maxi=12)``).
 
 If using ``emcee``, the following key can be useful to have:
-    
+
 ``"init_disp"``
     The dispersion in this parameter to use when generating an ``emcee`` sampler ball.
     This is not technically required, as it defaults to 10% of the initial value.
@@ -66,7 +94,7 @@ and if that parameter is free it will simply result in a posterior PDF that is t
 
 
 Priors
----------
+------
 
 Prior objects can be found in the :py:mod:`prospect.models.priors` module.
 It is recommended to use the objects instead of the functions,
@@ -76,7 +104,67 @@ When specifying a prior using an object, you can and should specify the paramete
 
 .. code-block:: python
 
-		mass["prior"] = priors.ClippedNormal(mean=0.0, sigma=1.0, mini=0.0, maxi=3.0)``
+		mass["prior"] = priors.ClippedNormal(mean=0.0, sigma=1.0, mini=0.0, maxi=3.0)
+
+
+Transformations
+---------------
+
+Sometimes the native parameterization of stellar population models is not the
+most useful.  In these cases parameter *transformations* can prove useful.
+
+Transformations are useful to impose parameter limits that are a function of
+other parameters; for example, when fitting for redshift it can be useful to
+reparameterize the age of a population (say, in Gyr) into its age as a fraction
+of the age of the universe at that redshift.  This avoids the problem of
+populations that are older than the age of the universe, or complicated joint
+priors on the population age and the redshift.  A number of useful
+transformation functions are provided in |Codename| and these may be easily
+supplemented with user defined functions.
+
+This parameter transformation and dependency mechanism can be used to tie any
+number of parameters to any number of other parameters in the model, as long as
+the latter parameters are not *also* dependent on some parameter transformation.
+This mechanism may also be used to avoid joint priors.  For example, if one
+wishes to place a prior on the ratio of two parameters (say, that it be less
+than one) then the ratio itself can be introduced as a new parameter, and one of
+the original parameters can be "fixed" but have its value at each parameter
+location depend on the other original parameter and the new ratio parameter.
+
+As a simple example, we consider sampling in the log of the SF timescale instead
+of the timescale itself.  The follwing code
+
+.. code-block:: python
+
+		def delogify(logtau=0, **extras):
+		    return 10**logtau
+
+        model_params["tau"]["isfree"] = False
+        model_params["tau"]["depends_on"] = delogify
+        model_params["logtau"] = dict(N=1, init=0, isfree=True, prior=priors.TopHat(mini=-1, maxi=1))
+
+
+could be used to set the value of ``tau`` using the free parameter ``logtau``
+(i.e., sample in the log of a parameter, though setting a ``LogUnifrom`` prior is
+equivalent in terms of the posterior).
+
+This dependency function must take optional extra keywords (``**extras``)
+because the entire parameter dictionary will be passed to it. Then add the new
+parameter specification to the ``model_params`` dictionary for the parameter
+that can vary (and upon which the fixed parameter depends). In this example that
+new free parameter would be ``logtau``.
+
+This pattern can also be used to tie arbitrary parameters together (e.g.
+gas-phase and stellar metallicity) while still allowing them to vary. A
+parameter may depend on multiple other (free or fixed) parameters, and multiple
+parameters may depend on a single other (free or fixed) parameter.  This
+mechanism is used extensively for the non-parametric SFHs, and is recommended
+for complex dust attenuation models.
+
+**Note.**
+It is important that any parameter with the ``"depends_on"`` key present is a
+fixed parameter. For portability and easy reconstruction of the model it is
+important that the ``depends_on`` function be defined within the parameter file.
 
 
 Parameter Set Templates
@@ -89,7 +177,7 @@ To see the available parameter sets to inspect the free and fixed parameters in
 a given set, you can do something like
 
 .. code-block:: python
-		
+
 		from prospect.models.templates import TemplateLibrary
 		# Show all pre-defined parameter sets
 		TemplateLibrary.show_contents()
@@ -124,11 +212,17 @@ sampling phases (unless the ``"depends_on"`` key is present, see
 :doc:`advanced`.)
 
 The ``run_params`` dictionary of arguments (including command line
-modifications) can be used to change how the model parameters are specified within this method
-before the :py:class:`prospect.models.ProspectorParams` model object is instantiated.
-For example, the value of a fixed parameter like ``zred`` can be set based on values in ``run_params``
-or additional parameters related to dust or nebular emission can be optionally added based on switches in ``run_params``.
+modifications) can be used to change how the model parameters are specified
+within this method before the :py:class:`prospect.models.ProspectorParams` model
+object is instantiated. For example, the value of a fixed parameter like
+``zred`` can be set based on values in ``run_params`` or additional parameters
+related to dust or nebular emission can be optionally added based on switches in
+``run_params``.
 
-Useful model objects include :py:class:`prospect.models.SedModel` and
-:py:class:`prospect.models.SpecModel`.  The latter includes tools for emission
-line marginalization for spectroscopic data.
+Useful model objects include :py:class:`prospect.models.SpecModel` and
+:py:class:`prospect.models.PolySpecModel`. The latter includes tools for
+optimization of spectrophotometric calibration.
+
+
+
+.. |Codename| replace:: Prospector
