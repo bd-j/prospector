@@ -22,148 +22,6 @@ __all__ = ["SpecModel", "PolySpecModel",
            "SedModel", "PolySedModel", "PolyFitModel"]
 
 
-class SedModel(ProspectorParams):
-
-    """A subclass of :py:class:`ProspectorParams` that passes the models
-    through to an ``sps`` object and returns spectra and photometry, including
-    optional spectroscopic calibration and sky emission.
-    """
-
-    def predict(self, theta, obs=None, sps=None, **extras):
-        """Given a ``theta`` vector, generate a spectrum, photometry, and any
-        extras (e.g. stellar mass), including any calibration effects.
-
-        :param theta:
-            ndarray of parameter values, of shape ``(ndim,)``
-
-        :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:func:`utils.obsutils.rectify_obs`
-
-        :param sps:
-            An `sps` object to be used in the model generation.  It must have
-            the :py:func:`get_spectrum` method defined.
-
-        :param sigma_spec: (optional, unused)
-            The covariance matrix for the spectral noise. It is only used for
-            emission line marginalization.
-
-        :returns spec:
-            The model spectrum for these parameters, at the wavelengths
-            specified by ``obs['wavelength']``, including multiplication by the
-            calibration vector.  Units of maggies
-
-        :returns phot:
-            The model photometry for these parameters, for the filters
-            specified in ``obs['filters']``.  Units of maggies.
-
-        :returns extras:
-            Any extra aspects of the model that are returned.  Typically this
-            will be `mfrac` the ratio of the surviving stellar mass to the
-            stellar mass formed.
-        """
-        s, p, x = self.sed(theta, obs, sps=sps, **extras)
-        self._speccal = self.spec_calibration(obs=obs, **extras)
-        if obs.get('logify_spectrum', False):
-            s = np.log(s) + np.log(self._speccal)
-        else:
-            s *= self._speccal
-        return s, p, x
-
-    def sed(self, theta, obs=None, sps=None, **kwargs):
-        """Given a vector of parameters ``theta``, generate a spectrum, photometry,
-        and any extras (e.g. surviving mass fraction), ***not** including any
-        instrument calibration effects.  The intrinsic spectrum thus produced is
-        cached in `_spec` attribute
-
-        :param theta:
-            ndarray of parameter values.
-
-        :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:func:`utils.obsutils.rectify_obs`
-
-        :param sps:
-            An `sps` object to be used in the model generation.  It must have
-            the :py:func:`get_spectrum` method defined.
-
-        :returns spec:
-            The model spectrum for these parameters, at the wavelengths
-            specified by ``obs['wavelength']``.  Default units are maggies, and
-            the calibration vector is **not** applied.
-
-        :returns phot:
-            The model photometry for these parameters, for the filters
-            specified in ``obs['filters']``. Units are maggies.
-
-        :returns extras:
-            Any extra aspects of the model that are returned.  Typically this
-            will be `mfrac` the ratio of the surviving stellar mass to the
-            steallr mass formed.
-        """
-        self.set_parameters(theta)
-        spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
-                                              filters=obs['filters'],
-                                              component=obs.get('component', -1),
-                                              lnwavegrid=obs.get('lnwavegrid', None),
-                                              **self.params)
-
-        spec *= obs.get('normalization_guess', 1.0)
-        # Remove negative fluxes.
-        try:
-            tiny = 1.0 / len(spec) * spec[spec > 0].min()
-            spec[spec < tiny] = tiny
-        except:
-            pass
-        spec = (spec + self.sky(obs))
-        self._spec = spec.copy()
-        return spec, phot, extras
-
-    def sky(self, obs):
-        """Model for the *additive* sky emission/absorption"""
-        return 0.
-
-    def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """Implements an overall scaling of the spectrum, given by the
-        parameter ``'spec_norm'``
-
-        :returns cal: (float)
-          A scalar multiplicative factor that gives the ratio between the true
-          spectrum and the observed spectrum
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        return 1.0 * self.params.get('spec_norm', 1.0)
-
-    def wave_to_x(self, wavelength=None, mask=slice(None), **extras):
-        """Map unmasked wavelengths to the interval (-1, 1). Masked wavelengths may have x>1, x<-1
-
-        :param wavelength:
-            The input wavelengths.  ndarray of shape ``(nwave,)``
-
-        :param mask: optional
-            The mask.  slice or boolean array with ``True`` for unmasked elements.
-            The interval (-1, 1) will be defined only by unmasked wavelength points
-
-        :returns x:
-            The wavelength vector, remapped to the interval (-1, 1).
-            ndarray of same shape as  ``wavelength``
-        """
-        x = wavelength - (wavelength[mask]).min()
-        x = 2.0 * (x / (x[mask]).max()) - 1.0
-        return x
-
-    def mean_model(self, theta, obs, sps=None, sigma_spec=None, **extras):
-        """Legacy wrapper around predict()
-        """
-        return self.predict(theta, obs, sps=sps, sigma=sigma_spec, **extras)
-
-
 class SpecModel(ProspectorParams):
 
     """A subclass of :py:class:`ProspectorParams` that passes the models
@@ -676,6 +534,148 @@ class PolySpecModel(SpecModel):
             poly = np.zeros_like(self._outwave)
 
         return (1.0 + poly)
+
+
+class SedModel(ProspectorParams):
+
+    """A subclass of :py:class:`ProspectorParams` that passes the models
+    through to an ``sps`` object and returns spectra and photometry, including
+    optional spectroscopic calibration and sky emission.
+    """
+
+    def predict(self, theta, obs=None, sps=None, **extras):
+        """Given a ``theta`` vector, generate a spectrum, photometry, and any
+        extras (e.g. stellar mass), including any calibration effects.
+
+        :param theta:
+            ndarray of parameter values, of shape ``(ndim,)``
+
+        :param obs:
+            An observation dictionary, containing the output wavelength array,
+            the photometric filter lists, and the observed fluxes and
+            uncertainties thereon.  Assumed to be the result of
+            :py:func:`utils.obsutils.rectify_obs`
+
+        :param sps:
+            An `sps` object to be used in the model generation.  It must have
+            the :py:func:`get_spectrum` method defined.
+
+        :param sigma_spec: (optional, unused)
+            The covariance matrix for the spectral noise. It is only used for
+            emission line marginalization.
+
+        :returns spec:
+            The model spectrum for these parameters, at the wavelengths
+            specified by ``obs['wavelength']``, including multiplication by the
+            calibration vector.  Units of maggies
+
+        :returns phot:
+            The model photometry for these parameters, for the filters
+            specified in ``obs['filters']``.  Units of maggies.
+
+        :returns extras:
+            Any extra aspects of the model that are returned.  Typically this
+            will be `mfrac` the ratio of the surviving stellar mass to the
+            stellar mass formed.
+        """
+        s, p, x = self.sed(theta, obs, sps=sps, **extras)
+        self._speccal = self.spec_calibration(obs=obs, **extras)
+        if obs.get('logify_spectrum', False):
+            s = np.log(s) + np.log(self._speccal)
+        else:
+            s *= self._speccal
+        return s, p, x
+
+    def sed(self, theta, obs=None, sps=None, **kwargs):
+        """Given a vector of parameters ``theta``, generate a spectrum, photometry,
+        and any extras (e.g. surviving mass fraction), ***not** including any
+        instrument calibration effects.  The intrinsic spectrum thus produced is
+        cached in `_spec` attribute
+
+        :param theta:
+            ndarray of parameter values.
+
+        :param obs:
+            An observation dictionary, containing the output wavelength array,
+            the photometric filter lists, and the observed fluxes and
+            uncertainties thereon.  Assumed to be the result of
+            :py:func:`utils.obsutils.rectify_obs`
+
+        :param sps:
+            An `sps` object to be used in the model generation.  It must have
+            the :py:func:`get_spectrum` method defined.
+
+        :returns spec:
+            The model spectrum for these parameters, at the wavelengths
+            specified by ``obs['wavelength']``.  Default units are maggies, and
+            the calibration vector is **not** applied.
+
+        :returns phot:
+            The model photometry for these parameters, for the filters
+            specified in ``obs['filters']``. Units are maggies.
+
+        :returns extras:
+            Any extra aspects of the model that are returned.  Typically this
+            will be `mfrac` the ratio of the surviving stellar mass to the
+            steallr mass formed.
+        """
+        self.set_parameters(theta)
+        spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
+                                              filters=obs['filters'],
+                                              component=obs.get('component', -1),
+                                              lnwavegrid=obs.get('lnwavegrid', None),
+                                              **self.params)
+
+        spec *= obs.get('normalization_guess', 1.0)
+        # Remove negative fluxes.
+        try:
+            tiny = 1.0 / len(spec) * spec[spec > 0].min()
+            spec[spec < tiny] = tiny
+        except:
+            pass
+        spec = (spec + self.sky(obs))
+        self._spec = spec.copy()
+        return spec, phot, extras
+
+    def sky(self, obs):
+        """Model for the *additive* sky emission/absorption"""
+        return 0.
+
+    def spec_calibration(self, theta=None, obs=None, **kwargs):
+        """Implements an overall scaling of the spectrum, given by the
+        parameter ``'spec_norm'``
+
+        :returns cal: (float)
+          A scalar multiplicative factor that gives the ratio between the true
+          spectrum and the observed spectrum
+        """
+        if theta is not None:
+            self.set_parameters(theta)
+
+        return 1.0 * self.params.get('spec_norm', 1.0)
+
+    def wave_to_x(self, wavelength=None, mask=slice(None), **extras):
+        """Map unmasked wavelengths to the interval (-1, 1). Masked wavelengths may have x>1, x<-1
+
+        :param wavelength:
+            The input wavelengths.  ndarray of shape ``(nwave,)``
+
+        :param mask: optional
+            The mask.  slice or boolean array with ``True`` for unmasked elements.
+            The interval (-1, 1) will be defined only by unmasked wavelength points
+
+        :returns x:
+            The wavelength vector, remapped to the interval (-1, 1).
+            ndarray of same shape as  ``wavelength``
+        """
+        x = wavelength - (wavelength[mask]).min()
+        x = 2.0 * (x / (x[mask]).max()) - 1.0
+        return x
+
+    def mean_model(self, theta, obs, sps=None, sigma_spec=None, **extras):
+        """Legacy wrapper around predict()
+        """
+        return self.predict(theta, obs, sps=sps, sigma=sigma_spec, **extras)
 
 
 class PolySedModel(SedModel):
