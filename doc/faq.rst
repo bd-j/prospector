@@ -3,7 +3,6 @@ Frequently Asked Questions
 
 How do I add filter transmission curves?
 ----------------------------------------
-
 Many projects use particular filter systems that are not general or widely used.
 It is easy to add a set of custom filter curves. Filter projections are handled
 by the `sedpy <https:github.com/bd-j/sedpy>`_ code. See the FAQ there
@@ -92,7 +91,6 @@ and to some extent on the data that you have.
 
 How do I use the non-parametric SFHs?
 -------------------------------------
-
 |Codename| is packaged with four families of non-parametric star formation
 histories.  The simplest model fits for the (log or linear) mass formed in fixed
 time bins.  This is the most flexible model but typically results in unphysical
@@ -112,15 +110,13 @@ discretization effect of the time bins in exchange for imposing a minimum mass
 resolution in the recovered SFH parameters.  The performance of these different
 nonparametric models is compared and contrasted in detail in `leja18`_.
 
-In order to use these models, select the appropriate *parameter set template*
-(see below) to use in the ``model_params`` dictionary.  You will also need to
-make sure to use the appropriate *source* object,
-:py:class:`prospect.sources.FastStepBasis`
+In order to use these models, select the appropriate *parameter set template* to
+use in the ``model_params`` dictionary.  You will also need to make sure to use
+the appropriate *source* object, :py:class:`prospect.sources.FastStepBasis`
 
 
 What bins should I use for the non-parametric SFH?
 -------------------------------------------------
-
 Deciding on the "optimal" number of bins to use in such non-parametric SFHs is a
 difficult question.  The pioneering work of `ocvirk06a <>`_ suggests
 approximately 10 independent components can be recovered from extremely high S/N
@@ -144,10 +140,82 @@ How do I fit for redshift as well as other parameters?
 
 So should I use `emcee`, `nestle`, or `dynesty` for posterior sampling?
 -----------------------------------------------------------------------
-We recommend using `dynesty`.
+We recommend using the `dynesty` nested sampling package.
+
+In addition to the standard sampling phase which terminates based on the quality
+of the estimation of the Bayesian evidence, `dyensty` includes a subsequent
+dynamic sampling phase which, as implemented in |Codename|, instead terminates
+based the quality of the posterior estimation. This permits the user to specify
+stopping criteria based directly on the quality of the posterior sampling with
+the ```nested_posterior_thresh``` keyword, providing direct control over the
+trade-off between posterior quality and computational time. A value of 0.02 for
+this keyword specifies high-quality posteriors, whereas a value of 0.05 will
+produce reasonable but approximate posteriors. Additionally, `dyensty` sampling
+can be parallelized in |Codename|: this produces faster convergence time at the
+cost of lower computational efficiency (i.e., fewer model evaluations per unit
+computational time). It is best suited for fast evaluation of small samples of
+objects, whereas single-core fits produce more computationally efficient fits to
+large samples of objects.
+
+What settings should I use for `dynesty`?
+--------------------------------------
+The default \dynesty{} settings in |Codename| are optimized for a
+low-dimensional ($N=4-7$) model. Higher-dimensional models with more complex
+likelihood spaces will likely require more advanced `dynesty` settings to
+ensure efficient and timely convergence. This often entails increasing the
+number of live points, changing to more robust sampling methodology (e.g., from
+uniform to a random walk), setting a maximum number of function calls, or
+altering the target evidence and posterior thresholds. More details can be found
+in `speagle20 <>`_ and the `dynesty online documentation
+<https://dynesty.readthedocs.io/en/latest/faq.html>`_.  The list of options and
+their default values can be seen with
+
+.. code-block:: python
+
+        from prospect.utils import prospect_args
+        prospect_args.show_default_args()
 
 
-How do I know if Prospector is working?
+The chains did not converge when using `dynesty`, why?
+------------------------------------------------------
+It is likely that they did converge; note that the convergence for MC sampling
+of a posterior PDF is not defined by the samples all tending toward the a single
+value, but as the *distribution* of samples remaining stable.  The samples for a
+poorly constrained parameter will remain widely dispersed, even if the MC
+sampling has converged to the correct *distribution*
+
+
+How do I use `emcee` in |Codename|?
+-------------------------------------
+For each parameter, an initial value must be given.  The ensemble of walkers is
+initialized around this value, with a Gaussian spread that can be specified
+separately for each parameter.  Each walker position is evolved at each
+iteration using parameter proposals derived from an ensemble of the other
+walkers. In order to speed up initial movement of the cloud of walkers to the
+region of parameter space containing most of the probability mass, multiple user
+defined rounds of burn-in may be performed. After each round the walker
+distribution in parameter space is re-initialized to a multivariate Gaussian
+derived from the best 50% of the walkers (where best is defined in terms of
+posterior probability at the last iteration).  The iterations in these burn-in
+rounds are discarded before a final production run. It is important to ensure
+that the chain of walkers has converged to a stable *distribution* of
+parameter values. Diagnosing convergence is fraught; a number of indicators have
+been proposed `sharma17 <>`_ including the
+auto-correlation time of the chain `goodman10 <>`_.  Comparing the
+results of separate chains can also provide a sanity check.
+
+
+When should I use optimization?
+-------------------------------
+Optimization can be performed before ensemble MCMC sampling, to decrease the
+burn-in time of the MCMC algorithm. |Codename| currently supports
+Levenburg-Marquardt least-squares optimization and Powell's method, as
+implemented in `SciPy <>`_. It is possible to start optimizations from a number
+of different parameter values, drawn from the prior parameter distribution, in
+order to mitigate the problems posed by local maxima.
+
+
+How do I know if Prospector is "working"?
 ---------------------------------------
 
 
@@ -161,21 +229,18 @@ Why isn't the posterior PDF centered on the highest posterior probability sample
 ---------------------------------------------------------------------
 
 
-The chains did not converge when using `dynesty`, why?
-------------------------------------------------------
-It is likely that they did converge; note that the convergence for MC sampling
-of a posterior PDF is not defined by the samples all tending toward the a single
-value, but as the *distribution* of samples remaining stable.  The samples for a
-poorly constrained parameter will remain widely dispersed, even if the MC
-sampling has converged to the correct *distribution*
-
-
 How do I interpret the `lnprobability` or `lnp` values? Why do I get `lnp > 0`?
 -------------------------------------------------------------------------------
 
 
 How do I plot the best fit SED?  How do I plot uncertainties on that?
 ---------------------------------------------------------------------
+Note that the highest probability sample is *not* the same as the maximum a
+posteriori (MAP) solution.  The MAP solution inhabits a vanishingly small region
+of the prior parameter space; it is exceedingly unlikely that the MCMC sampler
+would visit exactly that location.  Furthermore, when large degeneracies are
+present, the maximum a posteriori parameters may be only very slightly more
+likely than many solutions with very different parameters.
 
 
 How do I get the wavelength array for plotting spectra and/or photometry when fitting only photometry?
