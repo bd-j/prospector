@@ -7,17 +7,20 @@ and/or spectroscopic data.  Prospector allows you to:
 * Infer high-dimensional stellar population properties using parameteric or nonparametric SFHs
   (with nested or ensemble MCMC sampling)
 
-* Combine photometric and spectroscopic data from the UV to IR rigorously using a flexible
+* Combine photometric and spectroscopic data from the UV to Far-IR rigorously using a flexible
   spectroscopic calibration model.
 
 * Forward model many aspects of spectroscopic data analysis and
   calibration, including spectrophotometric calibration and wavelength solution,
-  thus properly incorporating uncertainties in these components in the final  parameter uncertainties.
+  thus properly incorporating uncertainties in these components in the final parameter uncertainties.
 
 Read the documentation [here](http://prospect.readthedocs.io/en/latest/).
 
 Installation
 ------
+To install to a conda environment with dependencies, see `conda_install.sh`.
+
+To install just Prospector:
 ```
 cd <install_dir>
 git clone https://github.com/bd-j/prospector
@@ -30,7 +33,6 @@ Then in Python
 import prospect
 ```
 
-Prospector is pure python.
 See [installation](doc/installation.rst) for requirements.
 Other files in the [doc/](doc/) directory explain the usage of the code,
 and you can read the documentation [here](http://prospect.readthedocs.io/en/latest/).
