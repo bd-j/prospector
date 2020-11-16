@@ -1,0 +1,19 @@
+name: prospector
+dependencies:
+  - python
+  # infrastructure
+  - ipython
+  # scientific computing
+  - numpy >= 1.14.2
+  - scipy >= 1.1.0
+  - matplotlib
+  - h5py
+  # astro
+  - astropy
+  # inference
+  - corner
+  - emcee
+  - dynesty
+
+# --- from source via setup.py ---
+# prospector, sedpy, python-fsps

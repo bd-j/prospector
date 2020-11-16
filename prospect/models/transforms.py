@@ -75,7 +75,7 @@ def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
         The age of the host galaxy (Gyr)
 
     :param fage_burst:
-        The fraction of the host age at which the burst occurred
+        The fraction of the host age at which the burst occurred.
 
     :returns tburst:
         The age of the host when the burst occurred (i.e. the FSPS ``tburst``
@@ -85,7 +85,7 @@ def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
 
 
 def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
-    """This function calculates a galaxy age from the age of the univers at
+    """This function calculates a galaxy age from the age of the universe at
     ``zred`` and the age given as a fraction of the age of the universe.  This
     allows for both ``zred`` and ``tage`` parameters without ``tage`` exceeding
     the age of the universe.

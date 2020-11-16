@@ -9,7 +9,7 @@ construct prior transforms (for nested sampling) and can be sampled from.
 import numpy as np
 import scipy.stats
 
-__all__ = ["Prior", "TopHat", "Normal", "ClippedNormal",
+__all__ = ["Prior", "Uniform", "TopHat", "Normal", "ClippedNormal",
            "LogNormal", "LogUniform", "Beta",
            "StudentT", "SkewNormal"]
 
@@ -171,7 +171,7 @@ class Prior(object):
         raise(NotImplementedError)
 
 
-class TopHat(Prior):
+class Uniform(Prior):
     """A simple uniform prior, described by two parameters
 
     :param mini:
@@ -199,6 +199,16 @@ class TopHat(Prior):
         if len(kwargs) > 0:
             self.update(**kwargs)
         return self.range
+
+
+class TopHat(Uniform):
+    """Uniform distribution between two bounds, renamed for backwards compatibility
+    :param mini:
+        Minimum of the distribution
+
+    :param maxi:
+        Maximum of the distribution
+    """
 
 
 class Normal(Prior):

@@ -61,7 +61,7 @@ This syntax requires that the end of the parameter file have something like the 
                               sps=sps)
 
 
-		
+
 Command Line Options and Custom Arguments
 -----------------------------------------
 A number of default command line options are included with prospector.
@@ -90,7 +90,7 @@ Build methods
 The required methods in a **parameter file** for building the data and model are:
 
 
-1. :py:meth:`build_obs`: 
+1. :py:meth:`build_obs`:
    This function will take the command line arguments dictionary as keyword arguments
    and returns on obs dictionary (see :doc:`dataformat` .)
 
