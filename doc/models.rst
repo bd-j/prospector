@@ -145,8 +145,8 @@ of the timescale itself.  The follwing code
 
 
 could be used to set the value of ``tau`` using the free parameter ``logtau``
-(i.e., sample in the log of a parameter, though setting a ``LogUnifrom`` prior is
-equivalent in terms of the posterior).
+(i.e., sample in the log of a parameter, though setting a :py:class:`prospect.models.priors.LogUnifrom`
+prior is equivalent in terms of the posterior).
 
 This dependency function must take optional extra keywords (``**extras``)
 because the entire parameter dictionary will be passed to it. Then add the new
@@ -171,7 +171,7 @@ Parameter Set Templates
 --------------------------------
 
 A number of predefined sets of parameters (with priors) are available as
-dictionaries of model specifications from ``models.templates.TemplateLibrary``,
+dictionaries of model specifications from `prospect.models.templates.TemplateLibrary`,
 these can be a good starting place for building your model.
 To see the available parameter sets to inspect the free and fixed parameters in
 a given set, you can do something like

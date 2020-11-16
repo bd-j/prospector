@@ -83,8 +83,8 @@ If Powell optimization was performed, this pickle also contains the optimization
 
 Basic diagnostic plots
 -----------------------------
-For detailed plotting, see the :py:module:`prospect.fitting` module.
-Several methods for basic visualization of the results are also included in the :py:module:`prospect.io.read_results` module.
+For detailed plotting, see the :py:mod:`prospect.plotting` module.
+Several methods for basic visualization of the results are also included in the :py:mod:`prospect.io.read_results` module.
 
 First, the results file can be read into useful dictionaries and objects using :py:meth:prospect.io.read_results.results_from``
 

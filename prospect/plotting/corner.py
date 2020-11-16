@@ -249,7 +249,16 @@ def corner(samples, paxes, weights=None, span=None, smooth=0.02,
            color='black', hist_kwargs={}, hist2d_kwargs={}):
     """Make a smoothed cornerplot.
 
-    span : iterable with shape (ndim,), optional
+    :param samples: `~numpy.ndarray` of shape (ndim, nsample)
+        The samples from which to construct histograms.
+
+    :param paxes: ndarray of pyplot.Axes of shape(ndim, ndim)
+        Axes into which to plot the histograms.
+
+    :param weights: ndarray of shape (nsample,), optional
+        Weights associated with each sample.
+
+    :param span: iterable with shape (ndim,), optional
         A list where each element is either a length-2 tuple containing
         lower and upper bounds or a float from `(0., 1.]` giving the
         fraction of (weighted) samples to include. If a fraction is provided,
@@ -259,7 +268,7 @@ def corner(samples, paxes, weights=None, span=None, smooth=0.02,
 
         Default is `0.999999426697` (5-sigma credible interval).
 
-    smooth : float or iterable with shape (ndim,), optional
+    :param smooth : float or iterable with shape (ndim,), optional
         The standard deviation (either a single value or a different value for
         each subplot) for the Gaussian kernel used to smooth the 1-D and 2-D
         marginalized posteriors, expressed as a fraction of the span.
@@ -267,16 +276,18 @@ def corner(samples, paxes, weights=None, span=None, smooth=0.02,
         this will instead default to a simple (weighted) histogram with
         `bins=smooth`.
 
-    color : str or iterable with shape (ndim,), optional
+    :param color: str or iterable with shape (ndim,), optional
         A `~matplotlib`-style color (either a single color or a different
         value for each subplot) used when plotting the histograms.
         Default is `'black'`.
 
-    hist_kwargs : dict, optional
+    :param hist_kwargs: dict, optional
         Extra keyword arguments to send to the 1-D (smoothed) histograms.
 
-    hist2d_kwargs : dict, optional
+    :param hist2d_kwargs: dict, optional
         Extra keyword arguments to send to the 2-D (smoothed) histograms.
+
+    :returns paxes:
     """
     assert samples.ndim > 1
     assert np.product(samples.shape[1:]) > samples.shape[0]
@@ -471,6 +482,8 @@ def twodhist(x, y, ax=None, span=None, weights=None,
 
 def marginal(x, ax=None, weights=None, span=None, smooth=0.02,
              color='black', peak=None, **hist_kwargs):
+    """Compute a marginalized (weighted) histogram, with smoothing.
+    """
 
     if span is None:
         span = get_spans(span, np.atleast_2d(x), weights=weights)[0]
@@ -543,12 +556,17 @@ def get_spans(span, samples, weights=None):
 
 
 def quantile(xarr, q, weights=None):
-    """
-    x : `~numpy.darray` with shape (nvar, nsamples)
+    """Compute (weighted) quantiles from an input set of samples.
 
-    q : list of quantiles, from [0., 1.]
+    :param x: `~numpy.darray` with shape (nvar, nsamples)
+        The input array to compute quantiles of.
 
-    weights : shape (nsamples)
+    :param q: list of quantiles, from [0., 1.]
+
+    :param weights: shape (nsamples)
+
+    :returns quants: ndarray of shape (nvar, nq)
+        The quantiles of each varaible.
     """
     qq = [_quantile(x, q, weights=weights) for x in xarr]
     return np.array(qq)

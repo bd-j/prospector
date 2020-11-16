@@ -3,11 +3,17 @@
 
 import numpy as np
 
+from . import utils
+from . import sfh
+from . import corner
+from . import sed
+
 from ..io.write_results import chain_to_struct, dict_to_struct
 from .figuremaker import FigureMaker, colorcycle
 
 
-__all__ = ["pretty", "FigureMaker", "chain_to_struct"]
+__all__ = ["FigureMaker", "utils", "sfh", "corner", "sed",
+           "pretty", "chain_to_struct"]
 
 
 # nice labels for things

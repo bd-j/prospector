@@ -24,6 +24,12 @@ def sample_prior(model, nsample=1e6):
 
     :param nsample: (int, optional, default: 1000000)
         Number of samples to take
+
+    :returns samples: ndarray of shape(nsample, ndim)
+        Samples from the prior
+
+    :returns labels: list of strings
+        The names of the free parameters.
     """
     labels = model.free_params
     chain = np.zeros([nsample, model.ndim])
@@ -83,6 +89,24 @@ def sample_posterior(chain, weights=None, nsample=int(1e4),
         return flatchain[inds, :]
     else:
         return flatchain[inds, :], extra[inds, ...]
+
+
+def get_best(res, **kwargs):
+    """Get the maximum a posteriori parameters.
+    """
+    imax = np.argmax(res['lnprobability'])
+    # there must be a more elegant way to deal with differnt shapes
+    try:
+        i, j = np.unravel_index(imax, res['lnprobability'].shape)
+        theta_best = res['chain'][i, j, :].copy()
+    except(ValueError):
+        theta_best = res['chain'][imax, :].copy()
+
+    try:
+        theta_names = res.get('theta_labels', res['model'].theta_labels())
+    except(KeyError):
+        theta_names = None
+    return theta_names, theta_best
 
 
 def violinplot(data, pos, widths, ax=None,
