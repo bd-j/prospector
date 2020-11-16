@@ -253,10 +253,9 @@ that can be done as follows
             flatchain = res["chain"]
 
         # 16th, 50th, and 84th percentiles of the posterior
-        from prospect.utils.plotting import quantile
+        from prospect.plotting.corner import quantile
         weights = res.get("weights", None)
-        post_pcts = [quantile(flatchain[:, i], percents=[16, 50, 84], weights=weights)
-                     for i in range(model.ndim)]
+        post_pcts = quantile(flatchain.T, q=[16, 50, 84], weights=weights)
 
 
 **Stored "best-fit" model**
@@ -280,7 +279,7 @@ Further, the prediction of the data for the MAP posterior sample may be stored f
 This stored best-fit information is only available if the `sps` object was passed to the :py:func:`write_hdf5` after the fit is run.
 If it isn't available, you can regnerate the model predictions for the highest probability sample using the approach below.
 
-** Regenerating Model predictions**
+**Regenerating Model predictions**
 
 If necessary, one can regenerate models at any position in the posterior chain.
 This requires that we have the sps object used in the fitting to generate models, which we can regenerate using the :py:func:`read_results.get_sps` method.
@@ -291,7 +290,11 @@ This requires that we have the sps object used in the fitting to generate models
         sps = reader.get_sps(res)
 
 
-Now we will choose a specific parameter value from the chain and plot what the observations and the model look like, as well as the uncertainty normalized residual.  For ``emcee`` results we will use the last iteration of the first walker, while for ``dynesty`` results we will just use the last sample in the chain.
+Now we will choose a specific parameter value from the chain and plot what the
+observations and the model look like, as well as the uncertainty normalized
+residual.  For ``emcee`` results we will use the last iteration of the first
+walker, while for ``dynesty`` results we will just use the last sample in the
+chain.
 
 .. code-block:: python
 
@@ -305,8 +308,8 @@ Now we will choose a specific parameter value from the chain and plot what the o
             theta = res['chain'][iteration, :]
 
         # Or get a fair sample from the posterior
-        from prospect.utils.plotting import posterior_samples
-        theta = posterior_samples(res, nsample=1)[0,:]
+        from prospect.plotting.utils import sample_posterior
+        theta = sample_posterior(res["chain"], weights=res.get("weights", None), nsample=1)[0,:]
 
         # Get the modeled spectra and photometry.
         # These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
