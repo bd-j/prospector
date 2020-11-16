@@ -85,7 +85,7 @@ class FigureMaker(object):
         """
         self.result, self.obs, self.model = reader.results_from(results_file)
         if self.model is None:
-            raise(ValueError, "Could not build model from results file.")
+            self.model = reader.get_model(self.results)
         self.sps = None
         self.chain = chain_to_struct(self.result["chain"], self.model)
         self.weights = self.result.get("weights", None)

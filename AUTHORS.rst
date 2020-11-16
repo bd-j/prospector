@@ -16,7 +16,11 @@ Comments, corrections & suggestions:
 - Kevin Bundy
 - Phill Cargile
 - Charlie Conroy
+- Johnny Greco
 - Song Huang
+- Gourav Khullar
+- Sidney Lower
 - Dylan Nelson
 - Imad Pasha
 - Dan Weisz
+- Tom Zick
