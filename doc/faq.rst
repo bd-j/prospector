@@ -139,10 +139,6 @@ suggest that ~5 bins are adequate to model covariances in basic parameters from
 photometry, but more bins are better to explore detailed constraints on SFHs.
 
 
-How do I fit for redshift as well as other parameters?
-------------------------------------------------------
-
-
 So should I use `emcee`, `nestle`, or `dynesty` for posterior sampling?
 -----------------------------------------------------------------------
 We recommend using the `dynesty` nested sampling package.
@@ -152,20 +148,21 @@ of the estimation of the Bayesian evidence, `dyensty` includes a subsequent
 dynamic sampling phase which, as implemented in |Codename|, instead terminates
 based the quality of the posterior estimation. This permits the user to specify
 stopping criteria based directly on the quality of the posterior sampling with
-the ```nested_posterior_thresh``` keyword, providing direct control over the
+the ``nested_posterior_thresh`` keyword, providing direct control over the
 trade-off between posterior quality and computational time. A value of 0.02 for
 this keyword specifies high-quality posteriors, whereas a value of 0.05 will
-produce reasonable but approximate posteriors. Additionally, `dyensty` sampling
+produce reasonable but approximate posteriors. Additionally, `dynesty` sampling
 can be parallelized in |Codename|: this produces faster convergence time at the
 cost of lower computational efficiency (i.e., fewer model evaluations per unit
 computational time). It is best suited for fast evaluation of small samples of
 objects, whereas single-core fits produce more computationally efficient fits to
 large samples of objects.
 
+
 What settings should I use for `dynesty`?
 --------------------------------------
-The default \dynesty{} settings in |Codename| are optimized for a
-low-dimensional ($N=4-7$) model. Higher-dimensional models with more complex
+The default `dynesty` settings in |Codename| are optimized for a
+low-dimensional (N=4-7) model. Higher-dimensional models with more complex
 likelihood spaces will likely require more advanced `dynesty` settings to
 ensure efficient and timely convergence. This often entails increasing the
 number of live points, changing to more robust sampling methodology (e.g., from
@@ -221,26 +218,11 @@ optimizations from a number of different parameter values, drawn from the prior
 parameter distribution, in order to mitigate the problems posed by local maxima.
 
 
-How do I know if Prospector is "working"?
----------------------------------------
-
-
-What do I do with the chain?  What values should I report?
-----------------------------------------------------------
-This is a general question for MC sampling techniques.
-Please see X, Y, Z for advice.
-
-
-Why isn't the posterior PDF centered on the highest posterior probability sample?
----------------------------------------------------------------------
-
-
-How do I interpret the `lnprobability` or `lnp` values? Why do I get `lnp > 0`?
--------------------------------------------------------------------------------
-
-
 How do I plot the best fit SED?  How do I plot uncertainties on that?
 ---------------------------------------------------------------------
+|Codename| can compute and store the SED prediction for the highest probability
+sample, in the ``"bestfit"`` group of the output HDF5 file.
+
 Note that the highest probability sample is *not* the same as the maximum a
 posteriori (MAP) solution.  The MAP solution inhabits a vanishingly small region
 of the prior parameter space; it is exceedingly unlikely that the MCMC sampler
@@ -248,10 +230,17 @@ would visit exactly that location.  Furthermore, when large degeneracies are
 present, the maximum a posteriori parameters may be only very slightly more
 likely than many solutions with very different parameters.
 
+To plot uncertainties we recommend regenerating SED predictions for a fair
+sample from the posterior PDF and estimating quantiles of the flux at each
+wavelength.
 
 How do I get the wavelength array for plotting spectra and/or photometry when fitting only photometry?
 ------------------------------------------------------------------------------------------------------
-
+When fitting only photometry, the *restframe* wavelength array for the predicted
+spectrum can be found in the ``wavelengths`` attribute of
+:py:class:`prospect.sources.SSPBasis`.  The wavelengths of the filters can be
+obtained from the ``wave_effective`` attribute of each filter in the
+``obs["filters"]`` list.
 
 Should I fit spectra in the restframe or the observed frame?
 ------------------------------------------------------------
@@ -261,10 +250,6 @@ the redshift.
 
 If you are fitting photometry and spectroscopy then you should be fitting the
 observed frame spectra.
-
-
-What do I do about upper limits?
---------------------------------
 
 
 What priors should I use?
@@ -292,6 +277,27 @@ To be fully righteous you should only fix parameters if
 
 In practice parameters that have only a small effect but take a great deal of
 time to vary are often fixed.
+
+
+How do I fit for redshift as well as other parameters?
+------------------------------------------------------
+
+What do I do about upper limits?
+--------------------------------
+
+What do I do with the chain?  What values should I report?
+----------------------------------------------------------
+This is a general question for MC sampling techniques.
+
+
+Why isn't the posterior PDF centered on the highest posterior probability sample?
+---------------------------------------------------------------------
+
+How do I interpret the `lnprobability` or `lnp` values? Why do I get `lnp > 0`?
+-------------------------------------------------------------------------------
+
+How do I know if Prospector is "working"?
+---------------------------------------
 
 
 
