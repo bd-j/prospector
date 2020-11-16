@@ -83,9 +83,10 @@ If Powell optimization was performed, this pickle also contains the optimization
 
 Basic diagnostic plots
 -----------------------------
-Several methods for visualization of the results are included in the |Codename|.io.read_results module.
+For detailed plotting, see the :py:module:`prospect.fitting` module.
+Several methods for basic visualization of the results are also included in the :py:module:`prospect.io.read_results` module.
 
-First, the results file can be read into useful dictionaries and objects using
+First, the results file can be read into useful dictionaries and objects using :py:meth:prospect.io.read_results.results_from``
 
 .. code-block:: python
 
@@ -93,11 +94,9 @@ First, the results file can be read into useful dictionaries and objects using
 		filename = "<outfilestring>_<timestamp>_mcmc"
 		results, obs, model = reader.results_from(filename)
 
-See the help for ``prospect.io.read_results.results_from()`` for a description of the returned objects.
-
 It is often desirable to plot the parameter traces for the MCMC chains.
 That is, one wants to see the evolution of the parameter values as a function of MCMC iteration.
-This is useful to check for convergence.
+This can be useful to check for convergence.
 It can be done easily for both `emcee` and `dynesty` results by
 
 .. code-block:: python
@@ -113,8 +112,7 @@ If one has the `corner.py <https://github.com/dfm/corner.py>`_ package, then
 
 will return a corner plot of the first 5 free parameters of the model.
 If ``showpars`` is omitted then all free parameters will be plotted.
-There are numerous other options to the ``subcorner`` method, which is a thin wrapper on `corner.py`,
-but they are documented (``help(reader.subcorner)``)
+There are numerous other options to the :py:meth:`prospect.io.read_results.subcorner` method, which is a thin wrapper on `corner.py`.
 
 Finally, one often wants to look at posterior samples in the space of the data, or perhaps the maximum a posteriori parameter values.
 Taking the MAP as an example, this would be accomplished by

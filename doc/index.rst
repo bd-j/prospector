@@ -46,6 +46,7 @@ Prospector allows you to:
    api/sources_api
    api/fitting_api
    api/io_api
+   api/plotting_api
    api/utils_api
 
 License and Attribution

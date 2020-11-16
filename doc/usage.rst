@@ -12,7 +12,7 @@ Command line syntax calls the parameter file and is as follows for single thread
 
 .. code-block:: shell
 
-		python parameter_file.py
+		python parameter_file.py --dynesty
 
 Additional command line options can be given (see below) e.g.
 

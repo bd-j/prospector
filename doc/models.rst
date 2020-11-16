@@ -136,12 +136,12 @@ of the timescale itself.  The follwing code
 
 .. code-block:: python
 
-		def delogify(logtau=0, **extras):
-		    return 10**logtau
+    def delogify(logtau=0, **extras):
+    	return 10**logtau
 
-        model_params["tau"]["isfree"] = False
-        model_params["tau"]["depends_on"] = delogify
-        model_params["logtau"] = dict(N=1, init=0, isfree=True, prior=priors.TopHat(mini=-1, maxi=1))
+    model_params["tau"]["isfree"] = False
+    model_params["tau"]["depends_on"] = delogify
+    model_params["logtau"] = dict(N=1, init=0, isfree=True, prior=priors.TopHat(mini=-1, maxi=1))
 
 
 could be used to set the value of ``tau`` using the free parameter ``logtau``

@@ -5,7 +5,7 @@ How do I add filter transmission curves?
 ----------------------------------------
 Many projects use particular filter systems that are not general or widely used.
 It is easy to add a set of custom filter curves. Filter projections are handled
-by the `sedpy <https:github.com/bd-j/sedpy>`_ code. See the FAQ there
+by the `sedpy <https://github.com/bd-j/sedpy>`_ code. See the FAQ there
 <https:github.com/bd-j/sedpy/blob/main/docs/faq.rst> for detailed instructions
 on adding filter cirves.
 
@@ -95,20 +95,23 @@ How do I use the non-parametric SFHs?
 histories.  The simplest model fits for the (log or linear) mass formed in fixed
 time bins.  This is the most flexible model but typically results in unphysical
 priors on age and specific star formation rates.  Another model is the Dirichlet
-parameterization introduced in `leja17 <>`_, in which the fractional specific
-star formation rate for fixed each time bin follows a Dirichlet distribution.
-This model is moderately flexible and produces reasonable age and sSFR priors,
-but it still allows unphysical SFHs with sharp quenching and rejuvenation
-events.  A third model, the continuity prior, trades some flexibility for
-accuracy by explicitly weighting against these (typically considered unphysical)
-sharply quenching and rejuvenating SFHs. This is done by placing a prior on the
-ratio of SFRs in adjacent time bins to ensure a smooth evolution of SFR(t).
-Finally, the flexible continuity prior retains this smoothness weighting but
-instead of fitting for the mass forms in fixed bins, fits for the size of time
-bins in which a fixed amount of mass is formed.  This prior removes the
-discretization effect of the time bins in exchange for imposing a minimum mass
-resolution in the recovered SFH parameters.  The performance of these different
-nonparametric models is compared and contrasted in detail in `leja18`_.
+parameterization introduced in
+`leja17 <https://ui.adsabs.harvard.edu/abs/2017ApJ...837..170L/abstract>`_,
+in which the fractional specific star formation rate for fixed each time bin
+follows a Dirichlet distribution. This model is moderately flexible and produces
+reasonable age and sSFR priors, but it still allows unphysical SFHs with sharp
+quenching and rejuvenation events.  A third model, the continuity prior, trades
+some flexibility for accuracy by explicitly weighting against these (typically
+considered unphysical) sharply quenching and rejuvenating SFHs. This is done by
+placing a prior on the ratio of SFRs in adjacent time bins to ensure a smooth
+evolution of SFR(t). Finally, the flexible continuity prior retains this
+smoothness weighting but instead of fitting for the mass forms in fixed bins,
+fits for the size of time bins in which a fixed amount of mass is formed.  This
+prior removes the discretization effect of the time bins in exchange for
+imposing a minimum mass resolution in the recovered SFH parameters.  The
+performance of these different nonparametric models is compared and contrasted
+in detail in
+`leja19 <https://ui.adsabs.harvard.edu/abs/2019ApJ...873...44C/abstract>`_.
 
 In order to use these models, select the appropriate *parameter set template* to
 use in the ``model_params`` dictionary.  You will also need to make sure to use
@@ -118,19 +121,21 @@ the appropriate *source* object, :py:class:`prospect.sources.FastStepBasis`
 What bins should I use for the non-parametric SFH?
 -------------------------------------------------
 Deciding on the "optimal" number of bins to use in such non-parametric SFHs is a
-difficult question.  The pioneering work of `ocvirk06a <>`_ suggests
-approximately 10 independent components can be recovered from extremely high S/N
-$R=10000$ spectra (and perfect models). The fundamental problem is that the
-spectra of single age populations change slowly with age (or metallicity), so
-the contributions of each SSP to a composite spectrum are very highly degenerate
-and some degree of regularization or prior information is required. However, the
-ideal regularization depends on the (*a priori* unknown) SFH of the galaxy.  For
-example, for a narrow burst one would want many narrow bins near the burst and
-wide bins away from it. Reducing the number of bins effectively amounts to
-collapsing the prior for the ratio of the SFR in two sub-bins to a
+difficult question.  The pioneering work of
+`ocvirk06 <https://ui.adsabs.harvard.edu/abs/2006MNRAS.365...46O/abstract>`_
+suggests approximately 10 independent components can be recovered from extremely
+high S/N R=10000 spectra (and perfect models). The fundamental problem is that
+the spectra of single age populations change slowly with age (or metallicity),
+so the contributions of each SSP to a composite spectrum are very highly
+degenerate and some degree of regularization or prior information is required.
+However, the ideal regularization depends on the (*a priori* unknown) SFH of the
+galaxy.  For example, for a narrow burst one would want many narrow bins near
+the burst and wide bins away from it. Reducing the number of bins effectively
+amounts to collapsing the prior for the ratio of the SFR in two sub-bins to a
 delta-function at 1.  Using too few bins can result in biases in the same way as
-the strong priors imposed by parametric models. Tests in `leja19a <>`_ suggest
-that ~5 bins are adequate to model covariances in basic parameters from
+the strong priors imposed by parametric models. Tests in
+`leja19 <<https://ui.adsabs.harvard.edu/abs/2019ApJ...873...44C/abstract>>`_
+suggest that ~5 bins are adequate to model covariances in basic parameters from
 photometry, but more bins are better to explore detailed constraints on SFHs.
 
 
@@ -166,9 +171,9 @@ ensure efficient and timely convergence. This often entails increasing the
 number of live points, changing to more robust sampling methodology (e.g., from
 uniform to a random walk), setting a maximum number of function calls, or
 altering the target evidence and posterior thresholds. More details can be found
-in `speagle20 <>`_ and the `dynesty online documentation
-<https://dynesty.readthedocs.io/en/latest/faq.html>`_.  The list of options and
-their default values can be seen with
+in `speagle20 <https://ui.adsabs.harvard.edu/abs/2020MNRAS.493.3132S/abstract>`_
+and the `dynesty online documentation <https://dynesty.readthedocs.io/en/latest/faq.html>`_.
+The list of options and their default values can be seen with
 
 .. code-block:: python
 
@@ -200,9 +205,10 @@ posterior probability at the last iteration).  The iterations in these burn-in
 rounds are discarded before a final production run. It is important to ensure
 that the chain of walkers has converged to a stable *distribution* of
 parameter values. Diagnosing convergence is fraught; a number of indicators have
-been proposed `sharma17 <>`_ including the
-auto-correlation time of the chain `goodman10 <>`_.  Comparing the
-results of separate chains can also provide a sanity check.
+been proposed `sharma17 <https://ui.adsabs.harvard.edu/abs/2017ARA%26A..55..213S/abstract>`_
+including the auto-correlation time of the chain
+`goodman10 <https://ui.adsabs.harvard.edu/abs/2010CAMCS...5...65G/abstract>`_.
+Comparing the results of separate chains can also provide a sanity check.
 
 
 When should I use optimization?
@@ -210,9 +216,9 @@ When should I use optimization?
 Optimization can be performed before ensemble MCMC sampling, to decrease the
 burn-in time of the MCMC algorithm. |Codename| currently supports
 Levenburg-Marquardt least-squares optimization and Powell's method, as
-implemented in `SciPy <>`_. It is possible to start optimizations from a number
-of different parameter values, drawn from the prior parameter distribution, in
-order to mitigate the problems posed by local maxima.
+implemented in `SciPy <https://www.scipy.org>`_. It is possible to start
+optimizations from a number of different parameter values, drawn from the prior
+parameter distribution, in order to mitigate the problems posed by local maxima.
 
 
 How do I know if Prospector is "working"?
