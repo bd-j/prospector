@@ -161,10 +161,12 @@ parameters may depend on a single other (free or fixed) parameter.  This
 mechanism is used extensively for the non-parametric SFHs, and is recommended
 for complex dust attenuation models.
 
-**Note.**
+.. note::
 It is important that any parameter with the ``"depends_on"`` key present is a
 fixed parameter. For portability and easy reconstruction of the model it is
-important that the ``depends_on`` function be defined within the parameter file.
+important that the ``depends_on`` function either be importable (e.g. one of the
+functions supplied in :py:mod:`prospect.models.transforms`) or defined within
+the parameter file.
 
 
 Parameter Set Templates

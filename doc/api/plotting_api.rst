@@ -1,7 +1,7 @@
 prospect.plotting
 =================
 
-.. automodule:: prospect.plotting
+.. automodule:: prospect.plotting.figuremaker
    :members: FigureMaker
 
 
