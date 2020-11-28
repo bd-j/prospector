@@ -19,6 +19,7 @@ cd $SPS_HOME/src
 make clean; make all
 
 # Install other repos from source
+cd $CODEDIR
 repos=( dfm/python-fsps bd-j/sedpy )
 for r in "${repos[@]}"; do
     git clone git@github.com:$r

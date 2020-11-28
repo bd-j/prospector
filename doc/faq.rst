@@ -83,6 +83,24 @@ There are several extra considerations that come up when fitting spectroscopy
       just take the spectrum as perfectly calibrated.
 
 
+How do I fit for redshift as well as other parameters?
+------------------------------------------------------
+The simplest way is to just let the parameter specification for ``"zred"``
+indicate that it is free and specify a prior for it (see :doc:`models`). If you don't
+include the ``"lumdist"`` parameter at all in the ``model_params`` dictionary,
+then the luminosity distance will be computed directly from the redshift
+assuming a WMAP9 cosmology.
+
+The other thing to keep in mind when the redshift is free is that the SFH might
+be constrained by the age of the universe at that redshift (e.g. ``"tage"``
+should always be less than ``t_univ(zred)``). If this is a concern, you can use
+parameter transformations (again, see :doc:`models`). Specifically for
+parametric SFHs one would make the ``"tage"`` parameter fixed but *depend on*
+:py:meth:`prospect.models.transforms.tage_from_tuniv` and add a new
+``"tage_tuniv"`` parameter that corresponds to ``"tage"`` as a fraction of the
+age of the universe (with values from 0-1).
+
+
 What SFH parameters should I use?
 ---------------------------------
 That depends on the scientific question you are trying to answer,
@@ -115,7 +133,15 @@ in detail in
 
 In order to use these models, select the appropriate *parameter set template* to
 use in the ``model_params`` dictionary.  You will also need to make sure to use
-the appropriate *source* object, :py:class:`prospect.sources.FastStepBasis`
+the appropriate *source* object, :py:class:`prospect.sources.FastStepBasis`.
+
+The parameter templates are set up to transform from the sampling parameters
+(e.g. ``logsfr_ratios``) to the fundamental parameters of the non-parametric
+SFH, the temporal bins and  vector of masses formed in each bin.  To change the
+bin widths or number of bins, several related aspects of the parameter set
+including the length of several parameters and the priors must be changed
+simultaneously.  See
+:py:meth`prospect.models.templates.adjust_continuity_agebins` for an example.
 
 
 What bins should I use for the non-parametric SFH?
@@ -189,20 +215,21 @@ sampling has converged to the correct *distribution*
 
 How do I use `emcee` in |Codename|?
 -------------------------------------
-For each parameter, an initial value must be given.  The ensemble of walkers is
-initialized around this value, with a Gaussian spread that can be specified
-separately for each parameter.  Each walker position is evolved at each
-iteration using parameter proposals derived from an ensemble of the other
-walkers. In order to speed up initial movement of the cloud of walkers to the
-region of parameter space containing most of the probability mass, multiple user
-defined rounds of burn-in may be performed. After each round the walker
-distribution in parameter space is re-initialized to a multivariate Gaussian
-derived from the best 50% of the walkers (where best is defined in terms of
-posterior probability at the last iteration).  The iterations in these burn-in
-rounds are discarded before a final production run. It is important to ensure
-that the chain of walkers has converged to a stable *distribution* of
-parameter values. Diagnosing convergence is fraught; a number of indicators have
-been proposed `sharma17 <https://ui.adsabs.harvard.edu/abs/2017ARA%26A..55..213S/abstract>`_
+For each parameter, an initial value (``"init"`` in the parameter specification)
+must be given.  The ensemble of walkers is initialized around this value, with a
+Gaussian spread that can be specified separately for each parameter.  Each
+walker position is evolved at each iteration using parameter proposals derived
+from an ensemble of the other walkers. In order to speed up initial movement of
+the cloud of walkers to the region of parameter space containing most of the
+probability mass, multiple user defined rounds of burn-in may be performed.
+After each round the walker distribution in parameter space is re-initialized to
+a multivariate Gaussian derived from the best 50% of the walkers (where best is
+defined in terms of posterior probability at the last iteration).  The
+iterations in these burn-in rounds are discarded before a final production run.
+It is important to ensure that the chain of walkers has converged to a stable
+*distribution* of parameter values. Diagnosing convergence is fraught; a number
+of indicators have been proposed
+`sharma17 <https://ui.adsabs.harvard.edu/abs/2017ARA%26A..55..213S/abstract>`_
 including the auto-correlation time of the chain
 `goodman10 <https://ui.adsabs.harvard.edu/abs/2010CAMCS...5...65G/abstract>`_.
 Comparing the results of separate chains can also provide a sanity check.
@@ -278,9 +305,6 @@ To be fully righteous you should only fix parameters if
 In practice parameters that have only a small effect but take a great deal of
 time to vary are often fixed.
 
-
-How do I fit for redshift as well as other parameters?
-------------------------------------------------------
 
 What do I do about upper limits?
 --------------------------------
