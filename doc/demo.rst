@@ -4,12 +4,18 @@ You can check out the Jupyter notebook demo at
 
   * `InteractiveDemo <https://github.com/bd-j/prospector/blob/main/demo/InteractiveDemo.ipynb>`_
 
-Also, below is an example of inference from an increasing number of photometric bands.
-Model parameters and SEDs are inferred (in grey) from a changing number of mock
-photometric bands. The mock is generated at the parameters marked in blue.  This
-shows how with a small amount of data most posteriors are determined by the
-prior (dashed red) but that as the number of bands increases, the data are more
-infomative and the posterior distributions are narrower than the prior.
+Interactive Figure
+------------------
 
-.. image:: images/animation.gif
-   :align: center
+Also, below is an example of inference from an increasing number of photometric
+bands. Model parameters and SEDs are inferred (in blue) from a changing number
+of mock photometric bands (grey points). The mock is generated at the parameters
+and with the SED marked in black.  This shows how with a small amount of data
+most posteriors are determined by the prior (dotted green) but that as the
+number of bands increases, the data are more infomative and the posterior
+distributions are narrower than the prior.
+
+Click the buttons show the inference for different filter sets:
+
+.. raw:: html
+    :file: animate_nbands.html

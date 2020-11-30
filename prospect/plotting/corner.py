@@ -6,10 +6,13 @@
 import numpy as np
 from scipy.ndimage import gaussian_filter as norm_kde
 
-import matplotlib.pyplot as pl
-from matplotlib.ticker import MaxNLocator, NullLocator
-from matplotlib.ticker import ScalarFormatter
-from matplotlib.colors import LinearSegmentedColormap, colorConverter
+try:
+    import matplotlib.pyplot as pl
+    from matplotlib.ticker import MaxNLocator, NullLocator
+    from matplotlib.ticker import ScalarFormatter
+    from matplotlib.colors import LinearSegmentedColormap, colorConverter
+except(ImportError):
+    pass
 
 
 __all__ = ["allcorner", "show_extras", "prettify_axes", "corner",

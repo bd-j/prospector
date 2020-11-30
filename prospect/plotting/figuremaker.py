@@ -5,7 +5,10 @@ and convenience methods for prospector results files.
 """
 
 import numpy as np
-import matplotlib.pyplot as pl
+try:
+    import matplotlib.pyplot as pl
+except(ImportError):
+    pass
 
 from ..io import read_results as reader
 from ..io.write_results import chain_to_struct, dict_to_struct

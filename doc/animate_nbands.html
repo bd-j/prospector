@@ -1,0 +1,65 @@
+
+
+
+    <div style="margin:auto;">
+        <p>
+        <h2 align="center">
+         <br> &rarr;
+        <button type="button" style="background-color: #9e9a9a;" id ="button1" href="javascript:alert('t');return false"
+          alt="n1" onclick="myFunction('1');">One band</button>
+        <button type="button" style="background-color: #9e9a9a;" id ="button2" href="javascript:alert('t');return false"
+          alt="n2" onclick="myFunction('2');">Two bands</button>
+        <button type="button" style="background-color: #9e9a9a;" id ="button3" href="javascript:alert('t');return false"
+          alt="n3" onclick="myFunction('3');">Optical</button>
+        <button type="button" style="background-color: #9e9a9a;" id ="button4" href="javascript:alert('t');return false"
+          alt="n4" onclick="myFunction('4');">Opt/NIR</button>
+        <button type="button" style="background-color: #9e9a9a;" id ="button5" href="javascript:alert('t');return false"
+          alt="n5" onclick="myFunction('5');">UV/Opt/NIR</button>
+        <button type="button" style="background-color: #9e9a9a;" id ="button6" href="javascript:alert('t');return false"
+          alt="n6" onclick="myFunction('6');">UV/Opt/NIR/MIR</button>
+        <button type="button" style="background-color: #9e9a9a;" id ="button7" href="javascript:alert('t');return false"
+          alt="n7" onclick="myFunction('7');">All Bands</button>
+        <button type="button" style="background-color: #228B22;" id ="button0" href="javascript:alert('t');return false"
+          alt="mov" onclick="myFunction('0');">Movie</button>
+        <h2> </div>
+        </p>
+
+        <div class="initial" id="item0" align='center'>
+            <img src="_static/images/animation.gif" alt="First example image" class="item_image" />
+        </div>
+        <div class="itemBox" id="fig1" align='center'>
+            <img src="_static/images/nband1.png" alt="Second example image" class="item_image" id="extra"/>
+        </div>
+
+    </div>
+
+    <script type="text/javascript">
+        function myFunction(itemNo) {
+
+            var item = "item" + itemNo;
+            var buttonName = "button" + itemNo;
+
+            // turn everything off
+            var elements = document.getElementsByTagName("button");
+            for (var i = 0; i < elements.length; i++) {
+                elements[i].style.backgroundColor = "#9e9a9a";
+            }
+            var x = document.getElementsByClassName("initial")[0];
+            x.style.display = "none";
+
+            // Turn the requested thing on
+            var x = document.getElementById(buttonName);
+            x.style.backgroundColor = "#228B22";
+
+            // Change the image source
+            var element = document.getElementsByClassName("itemBox")[0];
+            var image = element.getElementsByClassName("item_image")[0];
+            if (itemNo == "0"){
+                image.src = "_static/images/animation.gif";
+            } else {
+                image.src = "_static/images/nband"+itemNo+".png";
+            }
+            element.style.display = "block";
+
+        }
+    </script>

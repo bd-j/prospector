@@ -1,0 +1,17 @@
+div.initial {}
+
+div.itemBox {
+    display: none;
+
+}
+
+.item_image {
+    width: 70vw;
+    height: auto;
+}
+
+button {
+    font-size: 1.5vw;
+    border-radius: 0.25vw;
+    color: white;
+}

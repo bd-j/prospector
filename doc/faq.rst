@@ -145,7 +145,7 @@ simultaneously.  See
 
 
 What bins should I use for the non-parametric SFH?
--------------------------------------------------
+--------------------------------------------------
 Deciding on the "optimal" number of bins to use in such non-parametric SFHs is a
 difficult question.  The pioneering work of
 `ocvirk06 <https://ui.adsabs.harvard.edu/abs/2006MNRAS.365...46O/abstract>`_
@@ -186,7 +186,7 @@ large samples of objects.
 
 
 What settings should I use for `dynesty`?
---------------------------------------
+-----------------------------------------
 The default `dynesty` settings in |Codename| are optimized for a
 low-dimensional (N=4-7) model. Higher-dimensional models with more complex
 likelihood spaces will likely require more advanced `dynesty` settings to
@@ -214,7 +214,7 @@ sampling has converged to the correct *distribution*
 
 
 How do I use `emcee` in |Codename|?
--------------------------------------
+-----------------------------------
 For each parameter, an initial value (``"init"`` in the parameter specification)
 must be given.  The ensemble of walkers is initialized around this value, with a
 Gaussian spread that can be specified separately for each parameter.  Each
@@ -315,13 +315,13 @@ This is a general question for MC sampling techniques.
 
 
 Why isn't the posterior PDF centered on the highest posterior probability sample?
----------------------------------------------------------------------
+---------------------------------------------------------------------------------
 
 How do I interpret the `lnprobability` or `lnp` values? Why do I get `lnp > 0`?
 -------------------------------------------------------------------------------
 
 How do I know if Prospector is "working"?
----------------------------------------
+-----------------------------------------
 
 
 

@@ -100,6 +100,7 @@ html_theme_options = {"logo_only": True}
 # html_short_title = None
 
 html_static_path = ["_static"]
+html_css_files = ['css/custom.css']
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
