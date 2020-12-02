@@ -43,9 +43,9 @@ author = 'Benjamin Johnson'
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 # The short X.Y version.
-version = '0.4'
+version = '1.0'
 # The full version, including alpha/beta/rc tags.
-release = '0.4'
+release = '1.0'
 
 language = None
 
