@@ -5,8 +5,8 @@ How do I add filter transmission curves?
 ----------------------------------------
 Many projects use particular filter systems that are not general or widely used.
 It is easy to add a set of custom filter curves. Filter projections are handled
-by the `sedpy <https://github.com/bd-j/sedpy>`_ code. See the FAQ there
-<https:github.com/bd-j/sedpy/blob/main/docs/faq.rst> for detailed instructions
+by the `sedpy <https://github.com/bd-j/sedpy>`_ code. See the FAQ `there
+<https:github.com/bd-j/sedpy/blob/main/docs/faq.rst>`_ for detailed instructions
 on adding filter cirves.
 
 
@@ -141,7 +141,7 @@ SFH, the temporal bins and  vector of masses formed in each bin.  To change the
 bin widths or number of bins, several related aspects of the parameter set
 including the length of several parameters and the priors must be changed
 simultaneously.  See
-:py:meth`prospect.models.templates.adjust_continuity_agebins` for an example.
+:py:meth:`prospect.models.templates.adjust_continuity_agebins` for an example.
 
 
 What bins should I use for the non-parametric SFH?
@@ -160,7 +160,7 @@ the burst and wide bins away from it. Reducing the number of bins effectively
 amounts to collapsing the prior for the ratio of the SFR in two sub-bins to a
 delta-function at 1.  Using too few bins can result in biases in the same way as
 the strong priors imposed by parametric models. Tests in
-`leja19 <<https://ui.adsabs.harvard.edu/abs/2019ApJ...873...44C/abstract>>`_
+`leja19 <https://ui.adsabs.harvard.edu/abs/2019ApJ...873...44C/abstract>`_
 suggest that ~5 bins are adequate to model covariances in basic parameters from
 photometry, but more bins are better to explore detailed constraints on SFHs.
 
@@ -308,6 +308,13 @@ time to vary are often fixed.
 
 What do I do about upper limits?
 --------------------------------
+Ideally you will have flux measurements and associated Gaussian uncertainty for
+every filter or wavelength, even if the measurement is of a negative value.
+Properly accounting for upper limits involves a somewhat complicated adjustement
+to the likelihood function (see Appendix A `here
+<https://ui.adsabs.harvard.edu/abs/2012PASP..124.1208S/abstract>`_), but a
+reasonable approximation can be made by setting the flux to zero and the
+uncertainty to the 1-sigma upper limit.
 
 What do I do with the chain?  What values should I report?
 ----------------------------------------------------------
