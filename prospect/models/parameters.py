@@ -134,7 +134,7 @@ class ProspectorParams(object):
                 raise KeyError("No prior for {}".format(p))
             if not good:
                 msg = "{} has wrong length prior, should be {}"
-                warnings.warn(msg.format(par, n), RuntimeWarning)
+                warnings.warn(msg.format(p, n), RuntimeWarning)
         self.ndim = count
 
     def set_parameters(self, theta):

@@ -66,7 +66,7 @@ def adjust_dirichlet_agebins(parset, agelims=[0., 8., 9., 10.]):
     specifications to work for those limits.
 
     :param parset:
-        The parameter specification dictionary to adjust.  Must have entries (keys) for 
+        The parameter specification dictionary to adjust.  Must have entries (keys) for
         "mass", "agebins", "zfraction"
 
     :param agelims:
@@ -108,7 +108,9 @@ def adjust_continuity_agebins(parset, tuniv=13.7, nbins=7):
 
     tbinmax = (tuniv * 0.85) * 1e9
     lim1, lim2 = 7.4772, 8.0
-    agelims = [0,lim1] + np.linspace(lim2,np.log10(tbinmax),nbins-2).tolist() + [np.log10(tuniv*1e9)]
+    agelims = ([0, lim1] +
+               np.linspace(lim2, np.log10(tbinmax), nbins-2).tolist() +
+               [np.log10(tuniv*1e9)])
     agebins = np.array([agelims[:-1], agelims[1:]])
 
     ncomp = nbins
@@ -135,7 +137,7 @@ par_name = {"N": 1,
             "init": 0.5,
             "prior": priors.TopHat(mini=0, maxi=1.0),
             "depends_on": None,
-            "units": "",}
+            "units": ""}
 
 # ---------------------
 # --- Explicit defaults
@@ -176,12 +178,12 @@ dust2 = {"N": 1, "isfree": True,
          "prior": priors.TopHat(mini=0.0, maxi=2.0)}
 
 sfh = {"N": 1, "isfree": False, "init": 0, "units": "FSPS index"}
-    
+
 tage = {"N": 1, "isfree": True,
         "init": 1, "units": "Gyr",
         "prior": priors.TopHat(mini=0.001, maxi=13.8)}
 
-_basic_ = {"zred":zred,
+_basic_ = {"zred": zred,
            "mass": mass,
            "logzsol": logzsol,  # FSPS parameter
            "dust2": dust2,      # FSPS parameter
@@ -200,9 +202,9 @@ TemplateLibrary["ssp"] = (_basic_,
 # ----------------------------
 _parametric_ = TemplateLibrary["ssp"]
 _parametric_["sfh"]["init"] = 4   # Delay-tau
-_parametric_["tau"]  = {"N": 1, "isfree": True,
-                        "init": 1, "units": "Gyr^{-1}",
-                        "prior": priors.LogUniform(mini=0.1, maxi=30)}
+_parametric_["tau"] = {"N": 1, "isfree": True,
+                       "init": 1, "units": "Gyr^{-1}",
+                       "prior": priors.LogUniform(mini=0.1, maxi=30)}
 
 TemplateLibrary["parametric_sfh"] = (_parametric_,
                                      ("Basic set of (free) parameters for a delay-tau SFH."))
@@ -213,13 +215,13 @@ TemplateLibrary["parametric_sfh"] = (_parametric_,
 # --------------------------
 add_duste = {"N": 1, "isfree": False, "init": True}
 
-duste_umin  = {"N": 1, "isfree": False,
-               "init": 1.0, "units": 'MMP83 local MW intensity',
-               "prior": priors.TopHat(mini=0.1, maxi=25)}
+duste_umin = {"N": 1, "isfree": False,
+              "init": 1.0, "units": 'MMP83 local MW intensity',
+              "prior": priors.TopHat(mini=0.1, maxi=25)}
 
-duste_qpah  = {"N": 1, "isfree": False,
-               'init': 4.0, "units": 'Percent mass fraction of PAHs in dust.',
-               "prior": priors.TopHat(mini=0.5, maxi=7.0)}
+duste_qpah = {"N": 1, "isfree": False,
+              "init": 4.0, "units": 'Percent mass fraction of PAHs in dust.',
+              "prior": priors.TopHat(mini=0.5, maxi=7.0)}
 
 
 duste_gamma = {"N": 1, "isfree": False,
@@ -269,64 +271,65 @@ TemplateLibrary["nebular"] = (_nebular_,
 # -----------------------------------------
 marginalize_elines = {'N': 1, 'isfree': False, 'init': True}
 use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
-nebemlineinspec = {'N': 1, 'isfree': False, 'init': False} # can't be included w/ marginalization
+nebemlineinspec = {'N': 1, 'isfree': False, 'init': False}  # can't be included w/ marginalization
 # marginalize over which of the 128 FSPS emission lines?
 # input is a list of emission line names matching $SPS_HOME/data/emlines_info.dat
-lines_to_fit = {'N': 1, 'isfree': False, 'init': []} 
+lines_to_fit = {'N': 1, 'isfree': False, 'init': []}
 eline_prior_width = {'N': 1, 'isfree': False,
-              'init': 0.2, 'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
-              'prior': None}
+                     'init': 0.2,
+                     'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
+                     'prior': None}
 
 eline_delta_zred = {'N': 1, 'isfree': True,
-              'init': 0.0, 'units': r'redshift',
-              'prior': priors.TopHat(mini=-0.01, maxi=0.01)}
+                    'init': 0.0, 'units': r'redshift',
+                    'prior': priors.TopHat(mini=-0.01, maxi=0.01)}
 
 eline_sigma = {'N': 1, 'isfree': True,
-              'init': 100.0, 'units': r'km/s',
-              'prior': priors.TopHat(mini=30, maxi=300)}
+               'init': 100.0, 'units': r'km/s',
+               'prior': priors.TopHat(mini=30, maxi=300)}
 
 _neb_marg_ = {"marginalize_elines": marginalize_elines,
-             "use_eline_prior": use_eline_prior,
-             "nebemlineinspec": nebemlineinspec,
-             "lines_to_fit": lines_to_fit,
-             "eline_prior_width": eline_prior_width,
-             "eline_sigma": eline_sigma
-             }
+              "use_eline_prior": use_eline_prior,
+              "nebemlineinspec": nebemlineinspec,
+              "lines_to_fit": lines_to_fit,
+              "eline_prior_width": eline_prior_width,
+              "eline_sigma": eline_sigma
+              }
 
 _fit_eline_redshift_ = {'eline_delta_zred': eline_delta_zred}
 
 TemplateLibrary["nebular_marginalization"] = (_neb_marg_,
-                                              ("Marginalize over emission amplitudes line contained in" 
+                                              ("Marginalize over emission amplitudes line contained in"
                                                "the observed spectrum"))
 
 TemplateLibrary["fit_eline_redshift"] = (_fit_eline_redshift_,
-                                              ("Fit for the redshift of the emission lines separately" 
+                                              ("Fit for the redshift of the emission lines separately"
                                                "from the stellar redshift"))
 
 # -------------------------
 # --- Outlier Templates ---
 # -------------------------
 
-f_outlier_spec = {"N": 1, 
-                  "isfree": True, 
+f_outlier_spec = {"N": 1,
+                  "isfree": True,
                   "init": 0.01,
                   "prior": priors.TopHat(mini=1e-5, maxi=0.5)}
 
-nsigma_outlier_spec = {"N": 1, 
-                       "isfree": False, 
+nsigma_outlier_spec = {"N": 1,
+                       "isfree": False,
                        "init": 50.0}
 
-f_outlier_phot = {"N": 1, 
-                  "isfree": False, 
+f_outlier_phot = {"N": 1,
+                  "isfree": False,
                   "init": 0.00,
                   "prior": priors.TopHat(mini=0.0, maxi=0.5)}
 
-nsigma_outlier_phot = {"N": 1, 
-                       "isfree": False, 
+nsigma_outlier_phot = {"N": 1,
+                       "isfree": False,
                        "init": 50.0}
 
 _outlier_modeling_ = {"f_outlier_spec": f_outlier_spec,
-                      "nsigma_outlier_spec": nsigma_outlier_spec, 
+                      "nsigma_outlier_spec": nsigma_outlier_spec,
                       "f_outlier_phot": f_outlier_phot,
                       "nsigma_outlier_phot": nsigma_outlier_phot
                       }
@@ -337,7 +340,7 @@ TemplateLibrary['outlier_model'] = (_outlier_modeling_,
 # --------------------------
 # --- AGN Torus Emission ---
 # --------------------------
-add_agn =  {"N": 1, "isfree": False, "init": True}
+add_agn = {"N": 1, "isfree": False, "init": True}
 
 fagn = {'N': 1, 'isfree': False,
         'init': 1e-4, 'units': r'L_{AGN}/L_*',
@@ -360,9 +363,9 @@ TemplateLibrary["agn"] = (_agn_,
 # --------------------------
 add_igm = {'N': 1, 'isfree': False, 'init': True}
 
-igm_fact ={'N': 1, 'isfree': False, 'init': 1.0,
-           'units': 'factor by which to scale the Madau attenuation',
-           'prior': priors.ClippedNormal(mean=1.0, sigma=0.1, mini=0.0, maxi=2.0)}
+igm_fact = {'N': 1, 'isfree': False, 'init': 1.0,
+            'units': 'factor by which to scale the Madau attenuation',
+            'prior': priors.ClippedNormal(mean=1.0, sigma=0.1, mini=0.0, maxi=2.0)}
 
 _igm_ = {"add_igm_absorption": add_igm,  # FSPS Parameter.
          "igm_factor": igm_fact,   # FSPS Parameter.
@@ -386,7 +389,7 @@ sigma_smooth = {'N': 1, 'isfree': True,
 
 _smoothing_ = {"smoothtype": smooth, "fftsmooth": fft,   # prospecter `smoothspec` parameter
                #"min_wave_smooth": wlo, "max_wave_smooth": whi,
-               "sigma_smooth": sigma_smooth # prospecter `smoothspec` parameter
+               "sigma_smooth": sigma_smooth  # prospecter `smoothspec` parameter
                }
 
 TemplateLibrary["spectral_smoothing"] = (_smoothing_,
@@ -398,8 +401,8 @@ TemplateLibrary["spectral_smoothing"] = (_smoothing_,
 # -------------------------
 
 spec_norm = {'N': 1, 'isfree': False,
-            'init': 1.0, 'units': 'f_true/f_obs',
-            'prior': priors.Normal(mean=1.0, sigma=0.1)}
+             'init': 1.0, 'units': 'f_true/f_obs',
+             'prior': priors.Normal(mean=1.0, sigma=0.1)}
 # What order polynomial?
 npoly = 12
 porder = {'N': 1, 'isfree': False, 'init': npoly}
@@ -446,9 +449,9 @@ _burst_ = {"tburst": tburst,
            "fage_burst": fage_burst}
 
 TemplateLibrary["burst_sfh"] = (_burst_,
-                               ("The set of (fixed) parameters for an SF burst "
-                                "added to a parameteric SFH, with the burst time "
-                                "controlled by `fage_burst`."))
+                                ("The set of (fixed) parameters for an SF burst "
+                                 "added to a parameteric SFH, with the burst time "
+                                 "controlled by `fage_burst`."))
 
 # -----------------------------------
 # --- Nonparametric-logmass SFH ----
@@ -459,15 +462,17 @@ _nonpar_lm_ = TemplateLibrary["ssp"]
 _ = _nonpar_lm_.pop("tage")
 
 _nonpar_lm_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+nbin = 3
 # This will be the mass in each bin.  It depends on other free and fixed
 # parameters.  Its length needs to be modified based on the number of bins
-_nonpar_lm_["mass"]       = {'N': 3, 'isfree': True, 'init': 1e6, 'units': r'M$_\odot$',
-                          'prior': priors.LogUniform(mini=1e5, maxi=1e12)}
+_nonpar_lm_["mass"]       = {'N': nbin, 'isfree': True, 'units': r'M$_\odot$',
+                             'init': np.zeros(nbin) + 1e6,
+                             'prior': priors.LogUniform(mini=np.zeros(nbin)+1e5, maxi=np.zeros(nbin)+1e12)}
 # This gives the start and stop of each age bin.  It can be adjusted and its
 # length must match the lenth of "mass"
-_nonpar_lm_["agebins"]    = {'N': 3, 'isfree': False,
-                          'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
-                          'units': 'log(yr)'}
+_nonpar_lm_["agebins"]    = {'N': nbin, 'isfree': False,
+                             'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
+                             'units': 'log(yr)'}
 # This is the *total* stellar mass formed
 _nonpar_lm_["total_mass"] = {"N": 1, "isfree": False, "init": 1e10, "units": "Solar masses formed",
                              "depends_on": transforms.total_mass}
@@ -512,7 +517,7 @@ TemplateLibrary["continuity_sfh"] = (_nonpar_continuity_,
 _nonpar_continuity_flex_ = TemplateLibrary["ssp"]
 _ = _nonpar_continuity_flex_.pop("tage")
 
-_nonpar_continuity_flex_["sfh"]        = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+_nonpar_continuity_flex_["sfh"] = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
 #_nonpar_continuity_flex_["tuniv"]      = {"N": 1, "isfree": False, "init": 13.7, "units": "Gyr"}
 
 # This is the *total*  mass formed
@@ -523,20 +528,20 @@ _nonpar_continuity_flex_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'unit
 _nonpar_continuity_flex_["logsfr_ratio_young"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
                                                   'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
 _nonpar_continuity_flex_["logsfr_ratio_old"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
-                                                  'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
+                                                'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
 _nonpar_continuity_flex_["logsfr_ratios"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
-                                                  'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
+                                             'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
 
 # This will be the mass in each bin.  It depends on other free and fixed
 # parameters.  Its length needs to be modified based on the total number of
 # bins (including fixed young and old bin)
-_nonpar_continuity_flex_["mass"]       = {'N': 4, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
-                                          'depends_on': transforms.logsfr_ratios_to_masses_flex}
+_nonpar_continuity_flex_["mass"] = {'N': 4, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+                                    'depends_on': transforms.logsfr_ratios_to_masses_flex}
 # This gives the start and stop of each age bin.  It can be adjusted and its
 # length must match the lenth of "mass"
 _nonpar_continuity_flex_["agebins"]    = {'N': 4, 'isfree': False,
                                           'depends_on': transforms.logsfr_ratios_to_agebins,
-                                          'init': [[0.0, 7.5], [7.5, 8.5],[8.5,9.7], [9.7, 10.136]],
+                                          'init': [[0.0, 7.5], [7.5, 8.5], [8.5, 9.7], [9.7, 10.136]],
                                           'units': 'log(yr)'}
 
 TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
@@ -559,12 +564,12 @@ _dirichlet_["mass"]       = {'N': 3, 'isfree': False, 'init': 1., 'units': r'M$_
 # This gives the start and stop of each age bin.  It can be adjusted and its
 # length must match the lenth of "mass"
 _dirichlet_["agebins"]    = {'N': 3, 'isfree': False,
-                          'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
-                          'units': 'log(yr)'}
+                             'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
+                             'units': 'log(yr)'}
 # Auxiliary variable used for sampling sfr_fractions from dirichlet. This
 # *must* be adjusted depending on the number of bins
 _dirichlet_["z_fraction"] = {"N": 2, 'isfree': True, 'init': [0, 0], 'units': None,
-                          'prior': priors.Beta(alpha=1.0, beta=1.0, mini=0.0, maxi=1.0)}
+                             "prior": priors.Beta(alpha=1.0, beta=1.0, mini=0.0, maxi=1.0)}
 # This is the *total* stellar mass formed
 _dirichlet_["total_mass"] = mass
 
@@ -593,7 +598,7 @@ _alpha_["dust2"]["prior"] = priors.TopHat(mini=0.0, maxi=4.0)
 _alpha_["dust1"]      = {"N": 1, "isfree": False, 'depends_on': transforms.dustratio_to_dust1,
                          "init": 0.0, "units": "optical depth towards young stars"}
 
-_alpha_["dust_ratio"] = {"N": 1, "isfree": True, 
+_alpha_["dust_ratio"] = {"N": 1, "isfree": True,
                          "init": 1.0, "units": "ratio of birth-cloud to diffuse dust",
                          "prior": priors.ClippedNormal(mini=0.0, maxi=2.0, mean=1.0, sigma=0.3)}
 
