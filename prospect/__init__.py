@@ -9,4 +9,5 @@ from . import io
 from . import sources
 from . import utils
 from . import likelihood
+from . import plotting
 from .utils import prospect_args
