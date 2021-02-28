@@ -1,4 +1,4 @@
-<img src="doc/images/logo_name.png" height=75/>  .
+<img src="doc/images/logo_name.png" height=75/>  <!-- . -->
 ==========
 
 Conduct principled inference of stellar population properties from photometric
@@ -17,7 +17,8 @@ and/or spectroscopic data.  Prospector allows you to:
 Read the documentation [here](http://prospect.readthedocs.io/en/latest/).
 
 Installation
-------
+------------
+
 To install to a conda environment with dependencies, see `conda_install.sh`.
 
 To install just Prospector:
@@ -41,16 +42,16 @@ See also the [tutorial](demo/tutorial.rst)
 or the [interactive demo](demo/InteractiveDemo.ipynb)
 for fitting photometric data with composite stellar populations.
 
-
 Example
 -------
+
 Inference with mock broadband data, showing the change in posteriors as the
 number of photometric bands is increased.
 ![Demonstration of posterior inference with increasing number of photometric bands](doc/images/animation.gif)
 
-
 Citation
 ------
+
 If you use this code, please reference
 ```
 @MISC{2019ascl.soft05025J,
@@ -72,6 +73,7 @@ archivePrefix = {ascl},
 and make sure to cite the dependencies as listed in [installation](doc/installation.rst)
 
 You should also cite:
+
 ```
 @article{2017ApJ...837..170L,
    author = {{Leja}, J. and {Johnson}, B.~D. and {Conroy}, C. and {van Dokkum}, P.~G. and {Byler}, N.},
