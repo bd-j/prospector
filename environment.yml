@@ -17,6 +17,4 @@ dependencies:
   - dynesty
   - pip:
     - fsps
-
-# --- from source via setup.py ---
-# prospector, sedpy, python-fsps
+    - astro-sedpy

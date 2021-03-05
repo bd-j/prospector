@@ -14,19 +14,6 @@ git clone git@github.com:bd-j/prospector.git
 cd prospector
 conda env create -f environment.yml
 conda activate prospector
-cd ..
-
-# Install other repos from source
-cd $CODEDIR
-repos=( bd-j/sedpy )
-for r in "${repos[@]}"; do
-    git clone git@github.com:$r
-    cd ${r##*/}
-    python setup.py install
-    cd ..
-done
-
-cd prospector
-python setup.py install
+python -m pip install .
 
 echo "Add 'export SPS_HOME=$SPS_HOME' to your .bashrc"

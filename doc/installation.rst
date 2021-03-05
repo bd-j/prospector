@@ -50,18 +50,7 @@ To install |Codename| and its dependencies to a conda environment, use the follo
         cd prospector
         conda env create -f environment.yml
         conda activate prospector
-        cd ..
-
-        # Install other repos from source
-        repos=( bd-j/sedpy )
-        for r in "${repos[@]}"; do
-            git clone git@github.com:$r
-            cd ${r##*/}
-            python setup.py install
-            cd ..
-        done
-
-        cd prospector
+        # Install prospector
         python setup.py install
 
         echo "Add 'export SPS_HOME=$SPS_HOME' to your .bashrc"
