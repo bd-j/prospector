@@ -34,10 +34,10 @@ setup(
               "prospect.io",
               "prospect.plotting",
               "prospect.utils"],
-
     license="LICENSE",
     description="Stellar Population Inference",
     long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
     package_data={"": ["README.md", "LICENSE"]},
     scripts=glob.glob("scripts/*.py"),
     include_package_data=True,
