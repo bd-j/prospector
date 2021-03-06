@@ -23,7 +23,7 @@ with open('prospect/_version.py', "w") as f:
 setup(
     name="astro-prospector",
     version=vers,
-    project_urls={"Source repo": "https://github.com/bd-j/prospect",
+    project_urls={"Source repo": "https://github.com/bd-j/prospector",
                   "Documentation": "https://prospect.readthedocs.io"},
     author="Ben Johnson",
     author_email="benjamin.johnson@cfa.harvard.edu",
