@@ -23,6 +23,11 @@ To install to a conda environment with dependencies, see `conda_install.sh`.
 
 To install just Prospector:
 ```
+python -m pip install astro-prospector
+```
+
+To install the latest development version:
+```
 cd <install_dir>
 git clone https://github.com/bd-j/prospector
 cd prospector
