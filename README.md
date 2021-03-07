@@ -31,7 +31,7 @@ To install the latest development version:
 cd <install_dir>
 git clone https://github.com/bd-j/prospector
 cd prospector
-python setup.py install
+python -m pip install .
 ```
 
 Then in Python
