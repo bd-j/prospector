@@ -143,7 +143,7 @@ class StarBasis(object):
         if self.logify_Z:
             from numpy.lib import recfunctions as rfn
             self._libparams['Z'] = np.log10(self._libparams['Z'])
-            rfn.rename_fields(self._libparams, {'Z': 'logZ'})
+            self._libparams = rfn.rename_fields(self._libparams, {'Z': 'logZ'})
 
     def update(self, **kwargs):
         """Update the `params` dictionary, turning length 1 arrays into scalars
