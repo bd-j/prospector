@@ -182,7 +182,7 @@ class SpecModel(ProspectorParams):
         phot = np.atleast_1d(10**(-0.4 * mags))
 
         # generate emission-line photometry
-        if self.params.get('nebemlineinspec', False) == False:
+        if bool(self.params.get('nebemlineinspec', False)) is False:
             phot += self.nebline_photometry(filters)
 
         return phot
@@ -330,8 +330,8 @@ class SpecModel(ProspectorParams):
         """
         # ensure we have no emission lines in spectrum
         # and we definitely want them.
-        assert self.params['nebemlineinspec'] == False
-        assert self.params['add_neb_emission'] == True
+        assert bool(self.params['nebemlineinspec']) is False
+        assert bool(self.params['add_neb_emission']) is True
 
         # generate Gaussians on appropriate wavelength gride
         idx = self._elines_to_fit
@@ -473,6 +473,47 @@ class SpecModel(ProspectorParams):
 
     def spec_calibration(self, **kwargs):
         return np.ones_like(self._outwave)
+
+    def absolute_rest_maggies(self, filters):
+        """Return absolute rest-frame maggies (=10**(-0.4*M)) of the last
+        computed spectrum.
+
+        Parameters
+        ----------
+        filters : list of ``sedpy.observate.Filter()`` instances
+            The filters through which you wish to compute the absolute mags
+
+        Returns
+        -------
+        maggies : ndarray of shape (nbands,)
+            The absolute restframe maggies of the model through the supplied
+            filters, including emission lines.  Convert to absolute rest-frame
+            magnitudes as M = -2.5 * log10(maggies)
+        """
+        # --- convert spectrum ---
+        ld = cosmo.luminosity_distance(self._zred).to("pc").value
+        # convert to maggies if the source was at 10 parsec, accounting for the (1+z) applied during predict()
+        fmaggies = self._norm_spec / (1 + self._zred) * (ld / 10)**2
+        # convert to erg/s/cm^2/AA for sedpy and get absolute magnitudes
+        flambda = fmaggies * lightspeed / self._wave**2 * (3631*jansky_cgs)
+        abs_rest_maggies = np.atleast_1d(10**(-0.4 * getSED(self._wave, flambda, filters)))
+
+        # add emission lines
+        if bool(self.params.get('nebemlineinspec', False)) is False:
+            eline_z = self.params.get("eline_delta_zred", 0.0)
+            elams = (1 + eline_z) * self._eline_wave
+            elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs) * (ld / 10)**2
+            flux = np.zeros(len(filters))
+            for i, filt in enumerate(filters):
+                # calculate transmission at line wavelengths
+                trans = np.interp(elams, filt.wavelength, filt.transmission,
+                                  left=0., right=0.)
+                # include all lines where transmission is non-zero
+                idx = (trans > 0)
+                if True in idx:
+                    abs_rest_maggies[i] += (trans[idx]*elams[idx]*elums[idx]).sum() / filt.ab_zero_counts
+
+        return abs_rest_maggies
 
     def mean_model(self, theta, obs, sps=None, sigma=None, **extras):
         """Legacy wrapper around predict()
