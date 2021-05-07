@@ -114,10 +114,12 @@ def add_dynesty_args(parser):
                         help="If set, do nested sampling with dynesty.")
 
     parser.add_argument("--nested_bound", type=str, default="multi",
+                        choices=["single", "multi", "balls", "cubes"],
                         help=("Method for bounding the prior volume when drawing new points. "
                               "One of single | multi | balls | cubes"))
 
-    parser.add_argument("--nested_method", type=str, default="slice",
+    parser.add_argument("--nested_sample", "--nested_method", type=str, dest="nested_sample",
+                        default="slice", choices=["unif", "rwalk", "slice"],
                         help=("Method for drawing new points during sampling.  "
                               "One of unif | rwalk | slice"))
 

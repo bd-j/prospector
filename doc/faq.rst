@@ -170,7 +170,7 @@ So should I use `emcee`, `nestle`, or `dynesty` for posterior sampling?
 We recommend using the `dynesty` nested sampling package.
 
 In addition to the standard sampling phase which terminates based on the quality
-of the estimation of the Bayesian evidence, `dyensty` includes a subsequent
+of the estimation of the Bayesian evidence, `dynesty` includes a subsequent
 dynamic sampling phase which, as implemented in |Codename|, instead terminates
 based the quality of the posterior estimation. This permits the user to specify
 stopping criteria based directly on the quality of the posterior sampling with
@@ -244,6 +244,9 @@ implemented in `SciPy <https://www.scipy.org>`_. It is possible to start
 optimizations from a number of different parameter values, drawn from the prior
 parameter distribution, in order to mitigate the problems posed by local maxima.
 
+Note that this optimization method requires that the number of data points
+(photometry or spectroscpy) be larger than the number of free model parameters.
+
 
 How do I plot the best fit SED?  How do I plot uncertainties on that?
 ---------------------------------------------------------------------
@@ -272,8 +275,9 @@ obtained from the ``wave_effective`` attribute of each filter in the
 Should I fit spectra in the restframe or the observed frame?
 ------------------------------------------------------------
 You can do either if you are fitting only spectra. If fitting in the restframe
-then the distance has to be specified explicitly, otherwise it is inferred from
-the redshift.
+then the distance has to be specified explicitly via a ``lumdist`` model
+parameter because otherwise it is inferred from the redshift which for restframe
+spectra is 0.
 
 If you are fitting photometry and spectroscopy then you should be fitting the
 observed frame spectra.
