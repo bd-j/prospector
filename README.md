@@ -4,24 +4,24 @@
 Conduct principled inference of stellar population properties from photometric
 and/or spectroscopic data.  Prospector allows you to:
 
-* Infer high-dimensional stellar population properties using parameteric or nonparametric SFHs
-  (with nested or ensemble MCMC sampling)
+* Infer high-dimensional stellar population properties using parameteric or
+  highly flexible SFHs (with nested or ensemble Monte Carlo sampling)
 
-* Combine photometric and spectroscopic data from the UV to Far-IR rigorously using a flexible
-  spectroscopic calibration model.
+* Combine photometric and spectroscopic data from the UV to Far-IR rigorously
+  using a flexible spectroscopic calibration model and forward modeling many
+  aspects of spectroscopic data analysis.
 
-* Forward model many aspects of spectroscopic data analysis and
-  calibration, including spectrophotometric calibration and wavelength solution,
-  thus properly incorporating uncertainties in these components in the final parameter uncertainties.
-
-Read the documentation [here](http://prospect.readthedocs.io/en/latest/).
+Read the [documentation](http://prospect.readthedocs.io/en/latest/) and the
+code [paper](https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract).
 
 Installation
 ------------
 
-To install to a conda environment with dependencies, see `conda_install.sh`.
+See [installation](doc/installation.rst) for requirements and dependencies.
+The [documentation](http://prospect.readthedocs.io/en/latest/) includes a tutorial and demos.
 
-To install just Prospector:
+To install to a conda environment with dependencies, see `conda_install.sh`.
+To install just Prospector (stable release):
 ```
 python -m pip install astro-prospector
 ```
@@ -34,18 +34,38 @@ cd prospector
 python -m pip install .
 ```
 
-Then in Python
+Then, in Python
 ```python
 import prospect
 ```
 
-See [installation](doc/installation.rst) for requirements.
-Other files in the [doc/](doc/) directory explain the usage of the code,
-and you can read the documentation [here](http://prospect.readthedocs.io/en/latest/).
 
-See also the [tutorial](demo/tutorial.rst)
-or the [interactive demo](demo/InteractiveDemo.ipynb)
-for fitting photometric data with composite stellar populations.
+Citation
+------
+
+If you use this code, please reference [this paper](https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract):
+```
+@ARTICLE{2021ApJS..254...22J,
+       author = {{Johnson}, Benjamin D. and {Leja}, Joel and {Conroy}, Charlie and {Speagle}, Joshua S.},
+        title = "{Stellar Population Inference with Prospector}",
+      journal = {\apjs},
+     keywords = {Galaxy evolution, Spectral energy distribution, Astronomy data modeling, 594, 2129, 1859, Astrophysics - Astrophysics of Galaxies, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2021,
+        month = jun,
+       volume = {254},
+       number = {2},
+          eid = {22},
+        pages = {22},
+          doi = {10.3847/1538-4365/abef67},
+archivePrefix = {arXiv},
+       eprint = {2012.01426},
+ primaryClass = {astro-ph.GA},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
+
+and make sure to cite the dependencies as listed in [installation](doc/installation.rst)
 
 Example
 -------
@@ -53,42 +73,3 @@ Example
 Inference with mock broadband data, showing the change in posteriors as the
 number of photometric bands is increased.
 ![Demonstration of posterior inference with increasing number of photometric bands](doc/images/animation.gif)
-
-Citation
-------
-
-If you use this code, please reference
-```
-@MISC{2019ascl.soft05025J,
-       author = {{Johnson}, Benjamin D. and {Leja}, Joel L. and {Conroy}, Charlie and
-         {Speagle}, Joshua S.},
-        title = "{Prospector: Stellar population inference from spectra and SEDs}",
-     keywords = {Software},
-         year = 2019,
-        month = may,
-          eid = {ascl:1905.025},
-        pages = {ascl:1905.025},
-archivePrefix = {ascl},
-       eprint = {1905.025},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2019ascl.soft05025J},
-      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-}
-```
-
-and make sure to cite the dependencies as listed in [installation](doc/installation.rst)
-
-You should also cite:
-
-```
-@article{2017ApJ...837..170L,
-   author = {{Leja}, J. and {Johnson}, B.~D. and {Conroy}, C. and {van Dokkum}, P.~G. and {Byler}, N.},
-   title = "{Deriving Physical Properties from Broadband Photometry with Prospector: Description of the Model and a Demonstration of its Accuracy Using 129 Galaxies in the Local Universe}",
-   journal = {\apj},
-   year = 2017,
-   volume = 837,
-   pages = {170},
-   eprint = {1609.09073},
-   doi = {10.3847/1538-4357/aa5ffe},
-  adsurl = {http://adsabs.harvard.edu/abs/2017ApJ...837..170L},
-}
-```
