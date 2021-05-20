@@ -15,9 +15,9 @@ Prospector allows you to:
   SFHs).
 
 * Forward model many aspects of spectroscopic data analysis and calibration,
-  including spectral resolution, spectrophotometric calibration, sky emission
-  (coming soon), and wavelength solution, thus properly incorporating
-  uncertainties in these components in the final parameter uncertainties.
+  including spectral resolution, spectrophotometric calibration and wavelength
+  solution, thus properly incorporating uncertainties in these components in the
+  final parameter uncertainties.
 
 
 .. toctree::
@@ -52,27 +52,27 @@ Prospector allows you to:
 License and Attribution
 ------------------------------
 
-*Copyright 2014-2020 Benjamin D. Johnson and contributors.*
+*Copyright 2014-2021 Benjamin D. Johnson and contributors.*
 
 This code is available under the `MIT License
 <https://raw.github.com/bdj/prospector/blob/main/LICENSE>`_.
 
-If you use this code, please reference
+If you use this code, please reference `this paper <https://ui.adsabs.harvard.edu/abs/2020arXiv201201426J/abstract>`_:
 
 .. code-block:: none
 
-        @MISC{2019ascl.soft05025J,
-            author = {{Johnson}, Benjamin D. and {Leja}, Joel L. and {Conroy}, Charlie and
-                {Speagle}, Joshua S.},
-                title = "{Prospector: Stellar population inference from spectra and SEDs}",
-            keywords = {Software},
-                year = 2019,
-                month = may,
-                eid = {ascl:1905.025},
-                pages = {ascl:1905.025},
-        archivePrefix = {ascl},
-            eprint = {1905.025},
-            adsurl = {https://ui.adsabs.harvard.edu/abs/2019ascl.soft05025J},
-            adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-        }
-
+    @ARTICLE{2020arXiv201201426J,
+        author = {{Johnson}, Benjamin D. and {Leja}, Joel and {Conroy}, Charlie and {Speagle}, Joshua S.},
+            title = "{Stellar Population Inference with Prospector}",
+        journal = {arXiv e-prints},
+        keywords = {Astrophysics - Astrophysics of Galaxies, Astrophysics - Instrumentation and Methods for Astrophysics},
+            year = 2020,
+            month = dec,
+            eid = {arXiv:2012.01426},
+            pages = {arXiv:2012.01426},
+    archivePrefix = {arXiv},
+        eprint = {2012.01426},
+    primaryClass = {astro-ph.GA},
+        adsurl = {https://ui.adsabs.harvard.edu/abs/2020arXiv201201426J},
+        adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+    }
