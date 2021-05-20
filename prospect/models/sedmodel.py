@@ -164,8 +164,9 @@ class SpecModel(ProspectorParams):
 
 
         :param filters:
-            List of :py:class:`sedpy.observate.Filter` objects.
-            If there is no photometry, ``None`` should be supplied
+            Instance of :py:class:`sedpy.observate.FilterSet` or list of
+            :py:class:`sedpy.observate.Filter` objects. If there is no
+            photometry, ``None`` should be supplied.
 
         :returns phot:
             Observed frame photometry of the model SED through the given filters.
@@ -178,8 +179,7 @@ class SpecModel(ProspectorParams):
         # generate photometry w/o emission lines
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
         flambda = self._norm_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
-        mags = getSED(obs_wave, flambda, filters)
-        phot = np.atleast_1d(10**(-0.4 * mags))
+        phot = np.atleast_1d(getSED(obs_wave, flambda, filters, linear_flux=True))
 
         # generate emission-line photometry
         if bool(self.params.get('nebemlineinspec', False)) is False:
@@ -187,27 +187,44 @@ class SpecModel(ProspectorParams):
 
         return phot
 
-    def nebline_photometry(self, filters):
+    def nebline_photometry(self, filters, elams=None, elums=None):
         """Compute the emission line contribution to photometry.  This requires
         several cached attributes:
           + ``_ewave_obs``
           + ``_eline_lum``
 
         :param filters:
-            List of :py:class:`sedpy.observate.Filter` objects
+            Instance of :py:class:`sedpy.observate.FilterSet` or list of
+            :py:class:`sedpy.observate.Filter` objects
+
+        :param elams: (optional)
+            The emission line wavelength in angstroms.  If not supplied uses the
+            cached ``_ewave_obs`` attribute.
+
+        :param elums: (optional)
+            The emission line flux in erg/s/cm^2.  If not supplied uses  the
+            cached ``_eline_lum`` attribute and applies appropriate distance
+            dimming and unit conversion 
 
         :returns nebflux:
             The flux of the emission line through the filters, in units of
             maggies. ndarray of shape ``(len(filters),)``
         """
-        elams = self._ewave_obs
-        # We have to remove the extra (1+z) since this is flux, not a flux density
-        # Also we convert to cgs
-        elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
+        if (elams is None) or (elums is None):
+            elams = self._ewave_obs
+            # We have to remove the extra (1+z) since this is flux, not a flux density
+            # Also we convert to cgs
+            elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
 
         # loop over filters
         flux = np.zeros(len(filters))
-        for i, filt in enumerate(filters):
+        try:
+            # TODO: Since in this case filters are on a grid, there should be a
+            # faster way to look up the transmission than the later loop
+            flist = filters.filters:
+        except(AttributeError):
+            flist = filters
+        for i, filt in enumerate(flist):
             # calculate transmission at line wavelengths
             trans = np.interp(elams, filt.wavelength, filt.transmission,
                               left=0., right=0.)
@@ -496,22 +513,15 @@ class SpecModel(ProspectorParams):
         fmaggies = self._norm_spec / (1 + self._zred) * (ld / 10)**2
         # convert to erg/s/cm^2/AA for sedpy and get absolute magnitudes
         flambda = fmaggies * lightspeed / self._wave**2 * (3631*jansky_cgs)
-        abs_rest_maggies = np.atleast_1d(10**(-0.4 * getSED(self._wave, flambda, filters)))
+        abs_rest_maggies = np.atleast_1d(getSED(self._wave, flambda, filters, linear_flux=True)))
 
         # add emission lines
         if bool(self.params.get('nebemlineinspec', False)) is False:
             eline_z = self.params.get("eline_delta_zred", 0.0)
             elams = (1 + eline_z) * self._eline_wave
             elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs) * (ld / 10)**2
-            flux = np.zeros(len(filters))
-            for i, filt in enumerate(filters):
-                # calculate transmission at line wavelengths
-                trans = np.interp(elams, filt.wavelength, filt.transmission,
-                                  left=0., right=0.)
-                # include all lines where transmission is non-zero
-                idx = (trans > 0)
-                if True in idx:
-                    abs_rest_maggies[i] += (trans[idx]*elams[idx]*elums[idx]).sum() / filt.ab_zero_counts
+            emaggies = self.nebline_photometry(filters, elams=elams, elums=elums)
+            abs_rest_maggies += emaggies
 
         return abs_rest_maggies
 

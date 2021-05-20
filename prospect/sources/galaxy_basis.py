@@ -132,7 +132,7 @@ class MultiComponentCSPBasis(CSPSpecBasis):
     tracked, and in get_spectrum() photometry can be drawn from a given
     component or from the sum.
     """
-    
+
     def get_galaxy_spectrum(self, **params):
         """Update parameters, then loop over each component getting a spectrum
         for each.  Return all the component spectra, plus the sum.
@@ -233,14 +233,7 @@ class MultiComponentCSPBasis(CSPSpecBasis):
 
         # Observed frame photometry, as absolute maggies
         if filters is not None:
-            # Magic to only do filter projections for unique filters, and get a
-            # mapping back into this list of unique filters
-            # note that this may scramble order of unique_filters
-            fnames = [f.name for f in filters]
-            unique_names, uinds, filter_ind = np.unique(fnames, return_index=True, return_inverse=True)
-            unique_filters = np.array(filters)[uinds]
-            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, unique_filters)
-            phot = np.atleast_1d(10**(-0.4 * mags))
+            phot = np.atleast_1d(getSED(wa, lightspeed/wa**2 * sa * to_cgs, filters), linear_flux=True)
         else:
             phot = 0.0
             filter_ind = 0
@@ -266,7 +259,7 @@ class MultiComponentCSPBasis(CSPSpecBasis):
         mass = np.squeeze(mass.tolist() + [mass.sum()])
 
         sa = (sa * mass[:, None])
-        phot = (phot * mass[:, None])[component, filter_ind]
+        phot = (phot * mass[:, None])[component, :]
 
         return sa, phot, mfrac
 
