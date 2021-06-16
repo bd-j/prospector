@@ -144,7 +144,7 @@ class SpecModel(ProspectorParams):
             calibrated_spec[emask] += self._elinespec.sum(axis=1)
         # Otherwise, if FSPS is not adding emission lines to the spectrum, we
         # add emission lines to valid pixels here.
-        elif (self.params.get("nebemlineinspec", True) == False) & (emask.any()):
+        elif (bool(self.params.get("nebemlineinspec", True)) is False) & (emask.any()):
             self._elinespec = self.get_eline_spec(wave=self._outwave[emask])
             if emask.any():
                 calibrated_spec[emask] += self._elinespec.sum(axis=1)
@@ -204,7 +204,7 @@ class SpecModel(ProspectorParams):
         :param elums: (optional)
             The emission line flux in erg/s/cm^2.  If not supplied uses  the
             cached ``_eline_lum`` attribute and applies appropriate distance
-            dimming and unit conversion 
+            dimming and unit conversion.
 
         :returns nebflux:
             The flux of the emission line through the filters, in units of
@@ -221,7 +221,7 @@ class SpecModel(ProspectorParams):
         try:
             # TODO: Since in this case filters are on a grid, there should be a
             # faster way to look up the transmission than the later loop
-            flist = filters.filters:
+            flist = filters.filters
         except(AttributeError):
             flist = filters
         for i, filt in enumerate(flist):
@@ -513,7 +513,7 @@ class SpecModel(ProspectorParams):
         fmaggies = self._norm_spec / (1 + self._zred) * (ld / 10)**2
         # convert to erg/s/cm^2/AA for sedpy and get absolute magnitudes
         flambda = fmaggies * lightspeed / self._wave**2 * (3631*jansky_cgs)
-        abs_rest_maggies = np.atleast_1d(getSED(self._wave, flambda, filters, linear_flux=True)))
+        abs_rest_maggies = np.atleast_1d(getSED(self._wave, flambda, filters, linear_flux=True))
 
         # add emission lines
         if bool(self.params.get('nebemlineinspec', False)) is False:
