@@ -119,11 +119,13 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, f_outlier_phot=0.0, **vector
     mask = obs.get('phot_mask', slice(None))
     delta = (obs['maggies'] - phot_mu)[mask]
     var = (obs['maggies_unc'][mask])**2
+    psamples = obs.get('phot_samples', None)
 
     if phot_noise is not None:
         filternames = [f.name for f in obs['filters']]
         vectors['mask'] = mask
         vectors['filternames'] = np.array(filternames)
+        vectors['phot_samples'] = psamples
         try:
             phot_noise.compute(**vectors)
             if (f_outlier_phot == 0.0):

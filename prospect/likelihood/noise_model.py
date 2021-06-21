@@ -86,7 +86,7 @@ class NoiseModel_photsamples(object):
 
     def __init__(self, metric_name='', mask_name='mask', kernel=None):
 #                 weight_by=None):
-        self.kernel = kernels
+        self.kernel = kernel
 #        self.weight_names = weight_by
         self.metric_name = metric_name
         self.mask_name = mask_name
@@ -102,19 +102,10 @@ class NoiseModel_photsamples(object):
         metric = vectors[self.metric_name]
         mask = vectors.get('mask', slice(None))
 
-#        # 1 = uncorrelated errors, 2 = covariance matrix, >2 undefined
-#        ndmax = np.array([k.ndim for k in self.kernels]).max()
-#        Sigma = np.zeros(ndmax * [metric[mask].shape[0]])
-
-#        weight_vectors = self.get_weights(**vectors)
-#        for i, (kernel, wght) in enumerate(zip(self.kernels, weight_vectors)):
-#            Sigma += kernel(metric[mask], weights=wght, ndim=ndmax)
-#        return Sigma
-
 ### CURRENTLY UNUSED - DO I NEED IT?
-#         weight_vector = self.get_weights(**vectors)
-         logpdf = kernel(metric[:, mask], weights=weight_by)
-         return logpdf
+#        weight_vector = self.get_weights(**vectors)
+        pdf = self.kernel(metric[:, mask]) #, weights=weight_by)
+        return pdf
  
     def get_weights(self, **vectors):
         """From a dictionary of vectors that give weights, pull the vectors
@@ -135,7 +126,7 @@ class NoiseModel_photsamples(object):
     def compute(self, **vectors):
         """Identify and cache the probability density function
         """
-        self.logpdf = self.get_logpdf_function(**vectors)
+        self.pdf = self.get_pdf_function(**vectors)
 
     def lnlikelihood(self, phot_mu, phot_obs=None, **extras):
         """Compute the ln of the likelihood, using the current 
@@ -146,6 +137,6 @@ class NoiseModel_photsamples(object):
         :param phot_obs:
             Observed photometry, in linear flux units (i.e. maggies).
         """
-        return self.logpdf(phot_mu)
+        return np.log(self.pdf(phot_mu))
 
 

@@ -23,15 +23,15 @@ class Kernel_photsamples(object):
                 in the update method that correspond to the ``kernel_params`` 
                 lists in each subclass below
         """
-        if len(parnames) == 0:
-            parnames = self.kernel_params
-        assert len(parnames) == len(self.kernel_params)
-        self.param_alias = dict(zip(self.kernel_params, parnames))
+#        if len(parnames) == 0:
+#            parnames = self.kernel_params
+#        assert len(parnames) == len(self.kernel_params)
+#        self.param_alias = dict(zip(self.kernel_params, parnames))
         self.params = {}
         self.name = name
 
-    def __repr__(self):
-        return '{}({})'.format(self.__class__, self.param_alias.items())
+#    def __repr__(self):
+#        return '{}({})'.format(self.__class__, self.param_alias.items())
 
     def update(self, **kwargs):
         """Take a dictionary of parameters, pick out the properly named
@@ -66,7 +66,7 @@ class Uncorrelated_photsamples(Kernel_photsamples):
         mu = np.mean(metric, axis=0)
         std = np.std(metric, axis=0)
         cov = np.diag( std**2. )
-        pdf_function = multivariate_normal(mean=mu, cov=cov).logpdf
+        pdf_function = multivariate_normal(mean=mu, cov=cov).pdf
         return pdf_function 
 
 class Correlated_photsamples(Kernel_photsamples):
@@ -78,7 +78,7 @@ class Correlated_photsamples(Kernel_photsamples):
     def get_pdf_function(self, metric):
         mu = np.mean(metric, axis=0)
         cov = np.cov(metric, rowvar=0)
-        pdf_function = multivariate_normal(mean=mu, cov=cov).logpdf
+        pdf_function = multivariate_normal(mean=mu, cov=cov).pdf
         return pdf_function
 
 class KDE_photsamples(Kernel_photsamples):
@@ -86,6 +86,6 @@ class KDE_photsamples(Kernel_photsamples):
 #    kernel_params = ['phot_samples']
 
     def get_pdf_function(self, metric):
-        pdf_function = KDEMultivariate(data=metric, var_type='c'*arr.shape[1]).logpdf
+        pdf_function = KDEMultivariate(data=metric, var_type='c'*metric.shape[1]).pdf
         return pdf_function
 
