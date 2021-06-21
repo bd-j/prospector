@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-__all__ = ["NoiseModel"]
+__all__ = ["NoiseModel", "NoiseModel_photsamples"]
 
 
 class NoiseModel(object):
@@ -60,13 +60,16 @@ class NoiseModel(object):
         else:
             self.log_det = np.sum(np.log(self.Sigma))
 
-    def lnlikelihood(self, residual, check_finite=False, **extras):
+    def lnlikelihood(self, phot_mu, phot_obs, check_finite=False, **extras):
         """Compute the ln of the likelihood, using the current factorized
         covariance matrix.
 
-        :param residual: ndarray, shape (nwave,)
-            Vector of residuals (y_data - mean_model).
+        :param phot_mu:
+            Model photometry, same units as the photometry in `phot_obs`.
+        :param phot_obs:
+            Observed photometry, in linear flux units (i.e. maggies).
         """
+        residual = phot_obs - phot_mu
         n = len(residual)
         assert n == self.Sigma.shape[0]
         if self.Sigma.ndim > 1:
@@ -78,3 +81,71 @@ class NoiseModel(object):
         lnlike = -0.5 * (first_term + self.log_det + n * np.log(2.*np.pi))
 
         return lnlike
+
+class NoiseModel_photsamples(object):
+
+    def __init__(self, metric_name='', mask_name='mask', kernel=None):
+#                 weight_by=None):
+        self.kernel = kernels
+#        self.weight_names = weight_by
+        self.metric_name = metric_name
+        self.mask_name = mask_name
+
+    def update(self, **params):
+        self.kernel.update(**params)
+
+    def get_pdf_function(self, **vectors):
+        """Get the appropriate probability distribution function from a metric
+        and kernel. vectors[self.metric_name] is intended to be a 2d array
+        of photometry samples (e.g., from forcepho)
+        """
+        metric = vectors[self.metric_name]
+        mask = vectors.get('mask', slice(None))
+
+#        # 1 = uncorrelated errors, 2 = covariance matrix, >2 undefined
+#        ndmax = np.array([k.ndim for k in self.kernels]).max()
+#        Sigma = np.zeros(ndmax * [metric[mask].shape[0]])
+
+#        weight_vectors = self.get_weights(**vectors)
+#        for i, (kernel, wght) in enumerate(zip(self.kernels, weight_vectors)):
+#            Sigma += kernel(metric[mask], weights=wght, ndim=ndmax)
+#        return Sigma
+
+### CURRENTLY UNUSED - DO I NEED IT?
+#         weight_vector = self.get_weights(**vectors)
+         logpdf = kernel(metric[:, mask], weights=weight_by)
+         return logpdf
+ 
+    def get_weights(self, **vectors):
+        """From a dictionary of vectors that give weights, pull the vectors
+        that correspond to each kernel, as stored in the `weight_names`
+        attribute.  A None vector will result in None weights
+        """
+
+### CURRENTLY UNUSED - DO I NEED IT?
+        mask = vectors.get(self.mask_name, slice(None))
+        wghts = []
+        for w in self.weight_names:
+            if vectors[w] is None:
+                wghts += [None]
+            else:
+                wghts.append(vectors[w][mask])
+        return wghts
+
+    def compute(self, **vectors):
+        """Identify and cache the probability density function
+        """
+        self.logpdf = self.get_logpdf_function(**vectors)
+
+    def lnlikelihood(self, phot_mu, phot_obs=None, **extras):
+        """Compute the ln of the likelihood, using the current 
+        probability density function for the photometry
+
+        :param phot_mu:
+            Model photometry, same units as the photometry in `phot_obs`.
+        :param phot_obs:
+            Observed photometry, in linear flux units (i.e. maggies).
+        """
+        return self.logpdf(phot_mu)
+
+
