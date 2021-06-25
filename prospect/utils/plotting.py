@@ -24,9 +24,10 @@ def get_best(res, **kwargs):
         theta_best = res['chain'][imax, :].copy()
 
     try:
-        theta_names = res.get('theta_labels', res['model'].theta_labels())
+        theta_names = res["theta_labels"]
     except(KeyError):
-        theta_names = None
+        theta_names = res["model"].theta_labels()
+
     return theta_names, theta_best
 
 
