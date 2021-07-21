@@ -48,7 +48,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
           + ``"unc"``         (maggies)
           + ``"maggies"``     (photometry in maggies)
           + ``"maggies_unc"`` (photometry uncertainty in maggies)
-          + ``"filters"``     (iterable of :py:class:`sedpy.observate.Filter`)
+          + ``"filters"``     (:py:class:`sedpy.observate.FilterSet` or iterable of :py:class:`sedpy.observate.Filter`)
           +  and optional spectroscopic ``"mask"`` and ``"phot_mask"``
              (same length as ``spectrum`` and ``maggies`` respectively,
              True means use the data points)
