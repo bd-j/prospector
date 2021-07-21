@@ -33,6 +33,20 @@ class SpecModel(ProspectorParams):
     and penalties for marginalization over emission line amplitudes.
     """
 
+    def __init__(self, *args, **kwargs):
+
+        try:
+            SPS_HOME = os.getenv('SPS_HOME')
+            info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
+                                 dtype=[('wave', 'f8'), ('name', 'S20')],
+                                 delimiter=',')
+            self.emline_info = info
+        except(OSError, KeyError, ValueError) as e:
+            print("Could not read and cache emission line info from $SPS_HOME/data/emlines_info.dat")
+            self.emline_info = e
+
+        super().__init__(*args, **kwargs)
+
     def predict(self, theta, obs=None, sps=None, sigma_spec=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
@@ -300,17 +314,12 @@ class SpecModel(ProspectorParams):
         # have an observed pixel within 5sigma of their center
         eline_names = self.params.get('lines_to_fit', [])
 
-        # FIXME: this should be moved to instantiation and only done once
-        SPS_HOME = os.getenv('SPS_HOME')
-        emline_info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
-                                    dtype=[('wave', 'f8'), ('name', 'S20')],
-                                    delimiter=',')
         # restrict to specific emission lines?
         if (len(eline_names) == 0):
-            elines_index = np.ones(emline_info.shape, dtype=bool)
+            elines_index = np.ones(self.emline_info.shape, dtype=bool)
         else:
             elines_index = np.array([True if name in eline_names else False
-                                     for name in emline_info['name']], dtype=bool)
+                                     for name in self.emline_info['name']], dtype=bool)
         eline_sigma_lambda = self._ewave_obs / ckms * self._eline_sigma_kms
         new_mask = np.abs(self._outwave-self._ewave_obs[:, None]) < nsigma*eline_sigma_lambda[:, None]
         self._elines_to_fit = elines_index & new_mask.any(axis=1)
