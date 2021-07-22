@@ -35,6 +35,7 @@ class SpecModel(ProspectorParams):
 
     def __init__(self, *args, **kwargs):
 
+        # get the emission line info
         try:
             SPS_HOME = os.getenv('SPS_HOME')
             info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
@@ -44,6 +45,12 @@ class SpecModel(ProspectorParams):
         except(OSError, KeyError, ValueError) as e:
             print("Could not read and cache emission line info from $SPS_HOME/data/emlines_info.dat")
             self.emline_info = e
+
+        # Remove emission lines from consideration
+        if self.params.get("elines_to_ignore", None):
+            inds = np.isin(self.emline_info["name"],
+                           self.params["elines_to_ignore"]).nonzero()[0]
+            self.emline_info = np.delete(self.emline_info, inds)
 
         super().__init__(*args, **kwargs)
 
@@ -271,6 +278,24 @@ class SpecModel(ProspectorParams):
 
         return mass * unit_conversion / dfactor
 
+    def parse_elines(self):
+
+        all_lines = self.emline_info['name']
+
+        if self.params.get('marginalize_elines', False):
+            # if marginalizing, default to fitting all lines
+            # unless some are explicitly set
+            lnames_to_fit = self.params.get('lines_to_fit', all_lines)
+            lnames_to_fix = self.params.get('lines_to_fix', np.array([]))
+            self._fix_eline = np.isin(all_lines, lnames_to_fix)
+            self._fit_eline = np.isin(all_lines, lnames_to_fit) & ~self.elines_to_fix
+        else:
+            self._fit_eline = np.zeros(len(all_lines), dtype=bool)
+            self._fix_eline = np.ones(len(all_lines), dtype=bool)
+
+        # could add logic here for ignoring some lines, but we've moved
+        # that to instantiation (also removes them from photometry)
+
     def cache_eline_parameters(self, obs, nsigma=5):
         """ This computes and caches a number of quantities that are relevant
         for predicting the emission lines, and computing the MAP values thereof,
@@ -312,21 +337,15 @@ class SpecModel(ProspectorParams):
         # --- lines to fit ---
         # lines specified by user, but remove any lines which do not
         # have an observed pixel within 5sigma of their center
-        eline_names = self.params.get('lines_to_fit', [])
-
-        # restrict to specific emission lines?
-        if (len(eline_names) == 0):
-            elines_index = np.ones(self.emline_info.shape, dtype=bool)
-        else:
-            elines_index = np.array([True if name in eline_names else False
-                                     for name in self.emline_info['name']], dtype=bool)
-        eline_sigma_lambda = self._ewave_obs / ckms * self._eline_sigma_kms
-        new_mask = np.abs(self._outwave-self._ewave_obs[:, None]) < nsigma*eline_sigma_lambda[:, None]
-        self._elines_to_fit = elines_index & new_mask.any(axis=1)
+        self.parse_elines()
+        linewidth = nsigma * self._ewave_obs / ckms * self._eline_sigma_kms
+        pixel_mask = (np.abs(self._outwave - self._ewave_obs[:, None]) < linewidth[:, None])
+        is_valid = pixel_mask.any(axis=1)
+        self._elines_to_fit = self._fit_eline & is_valid
 
         # --- wavelengths corresponding to those lines ---
         # within N sigma of the central wavelength
-        self._eline_wavelength_mask = new_mask[self._elines_to_fit, :].any(axis=0)
+        self._eline_wavelength_mask = pixel_mask[self._elines_to_fit, :].any(axis=0)
 
     def get_el(self, obs, calibrated_spec, sigma_spec=None):
         """Compute the maximum likelihood and, optionally, MAP emission line
@@ -361,7 +380,7 @@ class SpecModel(ProspectorParams):
         assert bool(self.params['nebemlineinspec']) is False
         assert bool(self.params['add_neb_emission']) is True
 
-        # generate Gaussians on appropriate wavelength gride
+        # generate Gaussians on appropriate wavelength grid
         idx = self._elines_to_fit
         emask = self._eline_wavelength_mask
         nebwave = self._outwave[emask]
@@ -376,6 +395,7 @@ class SpecModel(ProspectorParams):
         linecal = units_factor * calib_factor
         alpha_breve = self._eline_lum[idx] * linecal
 
+        # FIXME: nebopt: be careful with inverses
         # generate inverse of sigma_spec
         if sigma_spec is None:
             sigma_spec = obs["unc"]**2
@@ -386,6 +406,7 @@ class SpecModel(ProspectorParams):
             sigma_inv = np.diag(1. / sigma_spec)
 
         # calculate ML emission line amplitudes and covariance matrix
+        # FIXME: nebopt: do this with a solve
         sigma_alpha_hat = np.linalg.pinv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
         alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv, delta)))
 
@@ -398,6 +419,7 @@ class SpecModel(ProspectorParams):
             alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
                          np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
             sigma_alpha_bar = np.dot(sigma_alpha_hat, np.dot(M, sigma_alpha_breve))
+            # FIXME: nebopt: can we avoid a scipy call here
             K = ln_mvn(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve+sigma_alpha_hat) - \
                 ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
         else:
