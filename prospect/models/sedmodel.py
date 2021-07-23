@@ -35,24 +35,29 @@ class SpecModel(ProspectorParams):
 
     def __init__(self, *args, **kwargs):
 
+        super().__init__(*args, **kwargs)
+
         # get the emission line info
         try:
             SPS_HOME = os.getenv('SPS_HOME')
             info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
-                                 dtype=[('wave', 'f8'), ('name', 'S20')],
+                                 dtype=[('wave', 'f8'), ('name', '<U20')],
                                  delimiter=',')
             self.emline_info = info
+            self.use_emline = slice(None)
         except(OSError, KeyError, ValueError) as e:
             print("Could not read and cache emission line info from $SPS_HOME/data/emlines_info.dat")
             self.emline_info = e
 
         # Remove emission lines from consideration
         if self.params.get("elines_to_ignore", None):
+            self.use_emline = np.ones(len(self.emline_info), dtype=bool)
             inds = np.isin(self.emline_info["name"],
                            self.params["elines_to_ignore"]).nonzero()[0]
+            self.use_emline[inds] = False
             self.emline_info = np.delete(self.emline_info, inds)
 
-        super().__init__(*args, **kwargs)
+        self._eline_wave = self.emline_info["wave"]
 
     def predict(self, theta, obs=None, sps=None, sigma_spec=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
@@ -93,13 +98,14 @@ class SpecModel(ProspectorParams):
         self.set_parameters(theta)
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
         self._zred = self.params.get('zred', 0)
-        self._eline_wave, self._eline_lum = sps.get_galaxy_elines()
+        self._eline_lum = sps.get_galaxy_elines()[1][self.use_emline]
 
         # Flux normalize
         self._norm_spec = self._spec * self.flux_norm()
 
         # generate spectrum and photometry for likelihood
         # predict_spec should be called before predict_phot
+        # because in principle it can modify the emission line parameters
         spec = self.predict_spec(obs, sigma_spec)
         phot = self.predict_phot(obs['filters'])
 
@@ -117,8 +123,8 @@ class SpecModel(ProspectorParams):
         It generates the following attributes
           + ``_outwave`` - Wavelength grid (observed frame)
           + ``_speccal`` - Calibration vector
-          + ``_elinespec`` - emission line spectrum
-          + ``_sed`` - Intrinsic spectrum (before cilbration vector applied)
+          + ``_sed`` - Intrinsic spectrum (before cilbration vector applied but including emission lines)
+          + ``_fix_elinespec`` - emission line spectrum
 
         And if emission line marginalization is being performed, numerous
         quantities related to the emission lines are also cached
@@ -146,30 +152,32 @@ class SpecModel(ProspectorParams):
         if self._outwave is None:
             self._outwave = obs_wave
 
-        # cache eline parameters
+        # --- cache eline parameters ---
         self.cache_eline_parameters(obs)
 
-        # smooth and put on output wavelength grid
+        # --- smooth and put on output wavelength grid ---
         smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
 
-        # calibration
+        # --- add fixed lines if necessary ---
+        emask = self._fix_eline_pixelmask
+        if emask.any():
+            inds = self._fix_eline & self._valid_eline
+            espec = self.predict_eline_spec(line_indices=inds,
+                                            wave=self._outwave[emask])
+            self._fix_eline_spec = espec
+            smooth_spec[emask] += self._fix_eline_spec.sum(axis=1)
+
+        # --- calibration ---
         self._speccal = self.spec_calibration(obs=obs, spec=smooth_spec, **extras)
         calibrated_spec = smooth_spec * self._speccal
 
-        # generate (after fitting) the emission line spectrum
-        emask = self._eline_wavelength_mask
-        # If we're marginalizing over emission lines, and at least one pixel
-        # has an emission line in it
-        if self.params.get('marginalize_elines', False) & (emask.any()):
-            self._elinespec = self.get_el(obs, calibrated_spec, sigma_spec)
-            calibrated_spec[emask] += self._elinespec.sum(axis=1)
-        # Otherwise, if FSPS is not adding emission lines to the spectrum, we
-        # add emission lines to valid pixels here.
-        elif (bool(self.params.get("nebemlineinspec", True)) is False) & (emask.any()):
-            self._elinespec = self.get_eline_spec(wave=self._outwave[emask])
-            if emask.any():
-                calibrated_spec[emask] += self._elinespec.sum(axis=1)
+        # --- fit and add lines if necessary ---
+        emask = self._fit_eline_pixelmask
+        if emask.any():
+            self._fit_eline_spec = self.get_el(obs, calibrated_spec, sigma_spec)
+            calibrated_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
+        # --- cache intrinsic spectrum ---
         self._sed = calibrated_spec / self._speccal
 
         return calibrated_spec
@@ -205,10 +213,38 @@ class SpecModel(ProspectorParams):
         #phot = np.atleast_1d(getSED(obs_wave, flambda, filters, linear_flux=True))
 
         # generate emission-line photometry
-        if bool(self.params.get('nebemlineinspec', False)) is False:
+        if (self._want_lines & self._need_lines):
             phot += self.nebline_photometry(filters)
 
         return phot
+
+    def flux_norm(self):
+        """Compute the scaling required to go from Lsun/Hz/Msun to maggies.
+        Note this includes the (1+z) factor required for flux densities.
+
+        :returns norm: (float)
+            The normalization factor, scalar float.
+        """
+        # distance factor
+        if (self._zred == 0) | ('lumdist' in self.params):
+            lumdist = self.params.get('lumdist', 1e-5)
+        else:
+            lumdist = cosmo.luminosity_distance(self._zred).to('Mpc').value
+        dfactor = (lumdist * 1e5)**2
+        # Mass normalization
+        mass = np.sum(self.params.get('mass', 1.0))
+        # units
+        unit_conversion = to_cgs / (3631*jansky_cgs) * (1 + self._zred)
+
+        return mass * unit_conversion / dfactor
+
+    @property
+    def _need_lines(self):
+        return (not (bool(self.params.get("nebemlineinspec", True))))
+
+    @property
+    def _want_lines(self):
+        return bool(self.params.get('add_neb_emission', False))
 
     def nebline_photometry(self, filters, elams=None, elums=None):
         """Compute the emission line contribution to photometry.  This requires
@@ -258,55 +294,20 @@ class SpecModel(ProspectorParams):
 
         return flux
 
-    def flux_norm(self):
-        """Compute the scaling required to go from Lsun/Hz/Msun to maggies.
-        Note this includes the (1+z) factor required for flux densities.
-
-        :returns norm: (float)
-            The normalization factor, scalar float.
-        """
-        # distance factor
-        if (self._zred == 0) | ('lumdist' in self.params):
-            lumdist = self.params.get('lumdist', 1e-5)
-        else:
-            lumdist = cosmo.luminosity_distance(self._zred).to('Mpc').value
-        dfactor = (lumdist * 1e5)**2
-        # Mass normalization
-        mass = np.sum(self.params.get('mass', 1.0))
-        # units
-        unit_conversion = to_cgs / (3631*jansky_cgs) * (1 + self._zred)
-
-        return mass * unit_conversion / dfactor
-
-    def parse_elines(self):
-
-        all_lines = self.emline_info['name']
-
-        if self.params.get('marginalize_elines', False):
-            # if marginalizing, default to fitting all lines
-            # unless some are explicitly set
-            lnames_to_fit = self.params.get('lines_to_fit', all_lines)
-            lnames_to_fix = self.params.get('lines_to_fix', np.array([]))
-            self._fix_eline = np.isin(all_lines, lnames_to_fix)
-            self._fit_eline = np.isin(all_lines, lnames_to_fit) & ~self.elines_to_fix
-        else:
-            self._fit_eline = np.zeros(len(all_lines), dtype=bool)
-            self._fix_eline = np.ones(len(all_lines), dtype=bool)
-
-        # could add logic here for ignoring some lines, but we've moved
-        # that to instantiation (also removes them from photometry)
-
     def cache_eline_parameters(self, obs, nsigma=5):
         """ This computes and caches a number of quantities that are relevant
         for predicting the emission lines, and computing the MAP values thereof,
         including
           + ``_ewave_obs`` - Observed frame wavelengths (AA) of all emission lines.
           + ``_eline_sigma_kms`` - Dispersion (in km/s) of all the emission lines
-          + ``_elines_to_fit`` - If fitting and marginalizing over emission lines,
-            this stores indices of the lines to actually fit, as a boolean
-            array. Only lines that are within ``nsigma`` of an observed
-            wavelength points are included.
-          + ``_eline_wavelength_mask`` - A mask of the `_outwave` vector that
+          + ``_fit_eline`` - If fitting and marginalizing over emission lines,
+            this stores a boolean mask of the lines to actually fit. Only lines
+            that are within ``nsigma`` of an observed wavelength points are
+            included.
+          + ``_fix_eline`` - this stores a boolean mask of the lines that are
+            to be added with the cloudy amplitudes Only lines that are within
+            ``nsigma`` of an observed wavelength points are included.
+          + ``_fit_eline_pixelmask`` - A mask of the `_outwave` vector that
             indicates which pixels to use in the emission line fitting.
             Only pixels within ``nsigma`` of an emission line are used.
 
@@ -318,34 +319,66 @@ class SpecModel(ProspectorParams):
             Number of sigma from a line center to use for defining which lines
             to fit and useful spectral elements for the fitting.  float.
         """
+
         # observed wavelengths
         eline_z = self.params.get("eline_delta_zred", 0.0)
         self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
 
+        # exit gracefully if not adding lines
+        if not (self._want_lines & self._need_lines):
+            self._fit_eline = None
+            self._fix_eline = None
+            self._fix_eline_pixelmask = np.array([], dtype=bool)
+            self._fit_eline_pixelmask = np.array([], dtype=bool)
+            return
+
         # observed linewidths
         nline = self._ewave_obs.shape[0]
         self._eline_sigma_kms = np.atleast_1d(self.params.get('eline_sigma', 100.0))
+        # what is this wierd construction for?
         self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
 
-        # exit gracefully if not fitting lines
-        if (obs.get('spectrum', None) is None):
-            self._elines_to_fit = None
-            self._eline_wavelength_mask = np.array([], dtype=bool)
-            return
-
-        # --- lines to fit ---
-        # lines specified by user, but remove any lines which do not
-        # have an observed pixel within 5sigma of their center
+        # --- get valid lines ---
+        # fixed and fit lines specified by user, but remove any lines which do
+        # not have an observed pixel within 5sigma of their center
+        # FIXME: call this just once at instantiation? It takes about 8microsec
         self.parse_elines()
+        # This part has to go in every call
         linewidth = nsigma * self._ewave_obs / ckms * self._eline_sigma_kms
         pixel_mask = (np.abs(self._outwave - self._ewave_obs[:, None]) < linewidth[:, None])
-        is_valid = pixel_mask.any(axis=1)
-        self._elines_to_fit = self._fit_eline & is_valid
+        self._valid_eline = pixel_mask.any(axis=1)
 
-        # --- wavelengths corresponding to those lines ---
+        # --- wavelengths corresponding to valid lines ---
         # within N sigma of the central wavelength
-        self._eline_wavelength_mask = pixel_mask[self._elines_to_fit, :].any(axis=0)
+        self._fit_eline_pixelmask = pixel_mask[self._valid_eline & self._fit_eline, :].any(axis=0)
+        self._fix_eline_pixelmask = pixel_mask[self._valid_eline & self._fix_eline, :].any(axis=0)
+        # --- lines to fit ---
+        self._elines_to_fit = self._fit_eline & self._valid_eline
+
+    def parse_elines(self):
+        """Create mask arrays to identify the lines that should be fit and the
+        lines that should be fixed based on the content of `params["lines_to_fix"]`
+        and `params["lines_to_fit"]`
+
+        This can probably be cached just once unless you want to change between fits
+        """
+
+        all_lines = self.emline_info['name']
+
+        if self.params.get('marginalize_elines', False):
+            # if marginalizing, default to fitting all lines
+            # unless some are explicitly fixed
+            lnames_to_fit = self.params.get('elines_to_fit', all_lines)
+            lnames_to_fix = self.params.get('elines_to_fix', np.array([]))
+            self._fix_eline = np.isin(all_lines, lnames_to_fix)
+            self._fit_eline = np.isin(all_lines, lnames_to_fit) & ~self._fix_eline
+        else:
+            self._fit_eline = np.zeros(len(all_lines), dtype=bool)
+            self._fix_eline = np.ones(len(all_lines), dtype=bool)
+
+        # could add logic here for ignoring some lines, but we've moved
+        # that to instantiation (also removes them from photometry)
 
     def get_el(self, obs, calibrated_spec, sigma_spec=None):
         """Compute the maximum likelihood and, optionally, MAP emission line
@@ -361,8 +394,9 @@ class SpecModel(ProspectorParams):
             ``(n_wave,)``
 
         :param calibrated_spec:
-            The predicted observer-frame spectrum in the same units as the
-            observed spectrum, ndarray of shape ``(n_wave,)``
+            The predicted (so far) observer-frame spectrum in the same units as
+            the observed spectrum, ndarray of shape ``(n_wave,)``  Should
+            include pixed lines but not lines to be fit
 
         :param sigma_spec:
             Spectral covariance matrix, if using a non-trivial noise model.
@@ -382,7 +416,7 @@ class SpecModel(ProspectorParams):
 
         # generate Gaussians on appropriate wavelength grid
         idx = self._elines_to_fit
-        emask = self._eline_wavelength_mask
+        emask = self._fit_eline_pixelmask
         nebwave = self._outwave[emask]
         eline_gaussians = self.get_eline_gaussians(lineidx=idx, wave=nebwave)
 
@@ -436,7 +470,7 @@ class SpecModel(ProspectorParams):
         # return the maximum-likelihood line spectrum in observed units
         return alpha_hat * eline_gaussians
 
-    def get_eline_spec(self, wave=None):
+    def predict_eline_spec(self, line_indices=slice(None), wave=None):
         """Compute a complete model emission line spectrum. This should only
         be run after calling predict(), as it accesses cached information.
         Relatively slow, useful for display purposes
@@ -446,10 +480,11 @@ class SpecModel(ProspectorParams):
             If not supplied, the ``_outwave`` vector is used.
 
         :returns eline_spec:
-            An (n_line, n_wave) ndarray
+            An (n_line, n_wave) ndarray, units of Lsun/Hz intrinsic (no
+            calibration vector applied)
         """
-        gaussians = self.get_eline_gaussians(wave=wave)
-        elums = self._eline_lum * self.flux_norm() / (1 + self._zred)
+        gaussians = self.get_eline_gaussians(lineidx=line_indices, wave=wave)
+        elums = self._eline_lum[line_indices] * self.flux_norm() / (1 + self._zred)
         return elums * gaussians
 
     def get_eline_gaussians(self, lineidx=slice(None), wave=None):
@@ -598,7 +633,7 @@ class PolySpecModel(SpecModel):
             # remove region around emission lines if doing analytical marginalization
             mask = obs.get('mask', np.ones_like(obs['wavelength'], dtype=bool)).copy()
             if self.params.get('marginalize_elines', False):
-                mask[self._eline_wavelength_mask] = 0
+                mask[self._fit_eline_pixelmask] = 0
 
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
