@@ -1,4 +1,7 @@
 name: prospector
+channels:
+  - conda-forge
+  - astropy
 dependencies:
   - python==3.8
   # infrastructure
