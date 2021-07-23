@@ -268,8 +268,8 @@ class SpecModel(ProspectorParams):
             elams = self._ewave_obs[self._use_eline]
             # We have to remove the extra (1+z) since this is flux, not a flux density
             # Also we convert to cgs
-            norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
-            elums = self._eline_lum[self._use_eline] * norm
+            self.line_norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
+            elums = self._eline_lum[self._use_eline] * self.line_norm
 
         # loop over filters
         flux = np.zeros(len(filters))
