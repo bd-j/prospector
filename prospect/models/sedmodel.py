@@ -322,7 +322,9 @@ class SpecModel(ProspectorParams):
         eline_z = self.params.get("eline_delta_zred", 0.0)
         self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
 
-        # masks for lines to be treated in various ways
+        # masks for lines to be treated in various ways.
+        # always run this becuase it's need for spec *and* phot if adding lines
+        # by hand
         self.parse_elines()
 
         # exit gracefully if not adding lines.  We also exit if only fitting
@@ -373,11 +375,11 @@ class SpecModel(ProspectorParams):
             # unless some are explicitly fixed
             lnames_to_fit = self.params.get('elines_to_fit', all_lines)
             lnames_to_fix = self.params.get('elines_to_fix', np.array([]))
-            self._fix_eline = np.isin(all_lines, lnames_to_fix)
-            self._fit_eline = np.isin(all_lines, lnames_to_fit) & ~self._fix_eline
+            self._fit_eline = np.isin(all_lines, lnames_to_fit) & ~np.isin(all_lines, lnames_to_fix)
         else:
             self._fit_eline = np.zeros(len(all_lines), dtype=bool)
-            self._fix_eline = np.ones(len(all_lines), dtype=bool)
+
+        self._fix_eline = ~self._fit_eline
 
         if self.params.get("elines_to_ignore", []):
             self._use_eline = ~np.isin(self.emline_info["name"],
