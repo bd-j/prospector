@@ -50,13 +50,13 @@ class Directory(object):
 def describe(parset, current_params={}):
     ttext = "Free Parameters: (name: prior) \n-----------\n"
     free = ["{}: {}".format(k, v["prior"])
-            for k, v in list(parset.items()) if v["isfree"]]
+            for k, v in list(parset.items()) if v.get("isfree", False)]
     ttext += "  " + "\n  ".join(free)
 
     ftext = "Fixed Parameters: (name: value [, depends_on]) \n-----------\n"
     fixed = ["{}: {} {}".format(k, current_params.get(k, v["init"]),
                                 v.get("depends_on", ""))
-            for k, v in list(parset.items()) if not v["isfree"]]
+             for k, v in list(parset.items()) if not v.get("isfree", False)]
     ftext += "  " + "\n  ".join(fixed)
     return ttext + "\n\n" + ftext
 
