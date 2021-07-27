@@ -448,51 +448,80 @@ class SpecModel(ProspectorParams):
         # generate residuals
         delta = obs['spectrum'][emask] - calibrated_spec[emask]
 
-        # generate line amplitudes in observed flux units
+        # generate cloudy line amplitudes in observed flux units
         units_factor = self.flux_norm() / (1 + self._zred)
         calib_factor = np.interp(self._ewave_obs[idx], nebwave, self._speccal[emask])
         linecal = units_factor * calib_factor
         alpha_breve = self._eline_lum[idx] * linecal
 
-        # FIXME: nebopt: be careful with inverses
         # generate inverse of sigma_spec
         if sigma_spec is None:
             sigma_spec = obs["unc"]**2
-        sigma_spec = sigma_spec[emask]
         if sigma_spec.ndim == 2:
-            sigma_inv = np.linalg.pinv(sigma_spec)
+            S_data = sigma_spec[np.ix_(emask, emask)]
+            # FIXME: can we avoid the inverse?
+            S_data_inv = np.linalg.pinv(S_data)
+            y = np.linalg.solve(sigma_spec, delta)
         else:
-            sigma_inv = np.diag(1. / sigma_spec)
+            y = delta  / sigma_spec[emask]
+            S_data_inv = np.diag(1 / sigma_spec[emask])
 
+        # ------ NEW CODE -----
+
+        # maximum likelihood and penalty K
+        S_hat_inv = np.dot(eline_gaussians.T, np.dot(S_data_inv, eline_gaussians))
+        Gy = np.dot(eline_gaussians.T, y)
+        alpha_hat = np.linalg.solve(S_hat_inv, Gy)
+        K = ln_mvn_icov(alpha_hat, mean=alpha_hat, icov=S_hat_inv)
+
+        # Incorporate priors
+        if self.params.get('use_eline_prior', False):
+            sigma_prior = (self.params['eline_prior_width'] * np.abs(alpha_breve)))**2
+            S_breve_inv = np.diag(1 / sigma_prior)
+            S_bar_inv = S_breve_inv + S_hat_inv
+            # FIXME: wait is this right?  S_of_interest = S_hat + S_breve, not S_bar=(S_hat^(-1) + S_breve^(-1))^(-1)
+            K = ln_mvn_icov(alpha_hat, mean=alpha_breve, icov=S_bar_inv) - K
+            Smu_Gy = np.dot(S_breve_inv, alpha_breve) + Gy
+            alpha_bar = np.linalg.solve(S_bar_inv, Smu_My)
+        else:
+            alpha_bar = alpha_hat
+            S_bar_inv = S_hat_inv
+
+        # ------ OLD CODE ---------
+
+        # sigma_inv = S_data_inv
         # calculate ML emission line amplitudes and covariance matrix
         # FIXME: nebopt: do this with a solve
-        sigma_alpha_hat = np.linalg.pinv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
-        alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv, delta)))
+        #sigma_alpha_hat_inv = np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians))
+        #sigma_alpha_hat = np.linalg.pinv(sigma_alpha_hat_inv)
+        #alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv, delta)))
 
         # generate likelihood penalty term (and MAP amplitudes)
         # FIXME: Cache line amplitude covariance matrices?
-        if self.params.get('use_eline_prior', False):
+        #if self.params.get('use_eline_prior', False):
             # Incorporate gaussian priors on the amplitudes
-            sigma_alpha_breve = np.diag((self.params['eline_prior_width'] * np.abs(alpha_breve)))**2
-            M = np.linalg.pinv(sigma_alpha_hat + sigma_alpha_breve)
-            alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
-                         np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
-            sigma_alpha_bar = np.dot(sigma_alpha_hat, np.dot(M, sigma_alpha_breve))
-            # FIXME: nebopt: can we avoid a scipy call here
-            K = ln_mvn(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve+sigma_alpha_hat) - \
-                ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
-        else:
-            # simply use the ML values and associated marginaliztion penalty
-            alpha_bar = alpha_hat
-            K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
+        #    sigma_alpha_breve = np.diag((self.params['eline_prior_width'] * np.abs(alpha_breve)))**2
+        #    M = np.linalg.pinv(sigma_alpha_hat + sigma_alpha_breve)
+        #    alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
+        #                 np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
+        #    sigma_alpha_bar = np.dot(sigma_alpha_hat, np.dot(M, sigma_alpha_breve))
+        #    # FIXME: nebopt: can we avoid inverses here
+        #    K = ln_mvn(alpha_hat, mean=alpha_breve, cov=sigma_alpha_breve+sigma_alpha_hat) - \
+        #        ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
+        #else:
+        #    # simply use the ML values and associated marginaliztion penalty
+        #   alpha_bar = alpha_hat
+        #    K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
+
+        # ---------------------
 
         # Cache the ln-penalty
         self._ln_eline_penalty = K
 
-        # Store fitted emission line luminosities in physical units
+        # Store MAP emission line luminosities in physical units
         self._eline_lum[idx] = alpha_bar / linecal
 
-        # return the maximum-likelihood line spectrum in observed units
+        # return the MLE line spectrum in observed units
         return alpha_hat * eline_gaussians
 
     def predict_eline_spec(self, line_indices=slice(None), wave=None):
@@ -1014,10 +1043,10 @@ def ln_mvn(x, mean=None, cov=None):
         locations where samples are desired.
 
     :param mean:
-        Center(s) of the gaussians.
+        Center of the gaussians.
 
     :param cov:
-        Covariances of the gaussians.
+        Covariance of the gaussian.
     """
     ndim = mean.shape[-1]
     dev = x - mean
@@ -1026,6 +1055,27 @@ def ln_mvn(x, mean=None, cov=None):
     exp = np.dot(dev.T, np.dot(np.linalg.pinv(cov, rcond=1e-12), dev))
 
     return -0.5 * (ndim * log_2pi + log_det + exp)
+
+
+def ln_mvn_icov(x, mean=None, icov=None):
+    """Calculates the natural logarithm of the multivariate normal PDF
+    evaluated at `x` using the *inverse* covariance matrix
+
+    :param x:
+        locations where samples are desired.
+
+    :param mean:
+        Center(s) of the gaussians.
+
+    :param icov:
+        Inverse covariance of the multivariate gaussian.
+    """
+    ndim = mean.shape[-1]
+    dev = x - mean
+    log_2pi = np.log(2 * np.pi)
+    sign, neg_log_det = np.linalg.slogdet(icov)
+    exp = np.dot(dev.T, np.dot(icov, dev))
+    return -0.5 * (ndim * log_2pi - neg_log_det + exp)
 
 
 def gauss(x, mu, A, sigma):
