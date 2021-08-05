@@ -196,7 +196,7 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
         # drop the comment hash
         header = f.readline().split()[1:]
     catalog = np.genfromtxt(phottable, comments='#',
-                            dtype=np.dtype([(n, np.float) for n in header]))
+                            dtype=np.dtype([(n, float) for n in header]))
 
     # Find the right row
     ind = catalog['objid'] == float(objid)
@@ -296,9 +296,12 @@ if __name__ == '__main__':
         sys.exit()
 
     #hfile = setup_h5(model=model, obs=obs, **run_params)
-    hfile = "{0}_{1}_mcmc.h5".format(args.outfile, int(time.time()))
+    ts = time.strftime("%y%b%d-%H.%M", time.localtime())
+    hfile = "{0}_{1}_result.h5".format(args.outfile, ts)
+
     output = fit_model(obs, model, sps, noise, **run_params)
 
+    print("writing to {}".format(hfile))
     writer.write_hdf5(hfile, run_params, model, obs,
                       output["sampling"][0], output["optimization"][0],
                       tsample=output["sampling"][1],
