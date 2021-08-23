@@ -112,11 +112,9 @@ class Correlated_photsamples(Kernel_photsamples):
 class KDE_photsamples(Kernel_photsamples):
 
     kernel_type = 'kde'
-    metric_lims = None
 
     def initialize(self, metric):
-        if self.metric_lims is None:
-            self.metric_lims = np.percentile(metric, [0, 100], axis=0)
+        self.metric_lims = np.percentile(metric, [0, 100], axis=0)
         pdf = {}
         # KDE
         pdf['inbounds'] = KDEMultivariate(data=metric, var_type='c'*metric.shape[1]).pdf

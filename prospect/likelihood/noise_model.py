@@ -120,7 +120,7 @@ class NoiseModel_photsamples(object):
             mask = vectors.get('mask', slice(None))
             self.lnl = self.kernel(metric[:,mask])
 
-    def lnlikelihood(self, phot_mu, phot_obs, **extras):
+    def lnlikelihood(self, phot_mu, phot_obs=None, **extras):
         """Compute the ln of the likelihood
 
         :param phot_mu:
@@ -128,4 +128,4 @@ class NoiseModel_photsamples(object):
         :param phot_obs:
             Observed photometry, in linear flux units (i.e. maggies).
         """
-        return self.lnl(phot_mu, phot_obs)
+        return self.lnl(phot_mu)
