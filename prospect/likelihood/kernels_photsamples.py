@@ -3,11 +3,12 @@ testing intermediary product to build flexible NoiseModel objects
 """
 
 import numpy as np
-from scipy.stats import multivariate_normal
+from scipy.linalg import cho_factor, cho_solve
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 
-__all__ = ["Kernel_photsamples", "Uncorrelated_photsamples", 
-           "Correlated_photsamples", "KDE_photsamples"]
+__all__ = ["Kernel_photsamples", 
+           "Uncorrelated_photsamples", "Correlated_photsamples", 
+           "KDE_photsamples"] 
 
 class Kernel_photsamples(object):
 
@@ -29,6 +30,7 @@ class Kernel_photsamples(object):
 #        self.param_alias = dict(zip(self.kernel_params, parnames))
         self.params = {}
         self.name = name
+###        self.setup_complete = False
 
 #    def __repr__(self):
 #        return '{}({})'.format(self.__class__, self.param_alias.items())
@@ -49,7 +51,7 @@ class Kernel_photsamples(object):
         """
         ### SHOULD I ISSUE ``update`` method here???
         # how to implement weights?
-        return self.get_pdf_function(metric)
+        return self.get_lnlike_function(metric)
 
 class Uncorrelated_photsamples(Kernel_photsamples):
     """
@@ -60,32 +62,78 @@ class Uncorrelated_photsamples(Kernel_photsamples):
     FUTURE: need to handle masking appropriately... and weighting?
     """
 
-#    kernel_params = ['phot_samples']
+    kernel_type = 'uncorrelated_normal'
 
-    def get_pdf_function(self, metric):
-        mu = np.mean(metric, axis=0)
-        std = np.std(metric, axis=0)
-        cov = np.diag( std**2. )
-        pdf_function = multivariate_normal(mean=mu, cov=cov).pdf
-        return pdf_function 
+    def initialize(self, metric):
+        """ compute and cache items needed for lnlikelihood function"""
+        self.mu = np.mean(metric, axis=0)
+        self.cov = np.std(metric, axis=0)**2.
+        self.log_det = np.sum(np.log(self.cov))
+        self.n = metric.shape[1]
+
+    def eval_lnlike(self, phot_mu):
+        residual = phot_mu - self.mu
+        first_term = np.dot(residual**2., 1.0 / self.cov)
+        lnlike = -0.5 * (first_term + self.log_det + self.n * np.log(2.*np.pi))
+        return lnlike
+
+    def get_lnlike_function(self, metric):
+        self.initialize(metric)
+        return self.eval_lnlike
+
 
 class Correlated_photsamples(Kernel_photsamples):
     """
     """
 
-#    kernel_params = ['phot_samples']
+    kernel_type = 'correlated_normal'
 
-    def get_pdf_function(self, metric):
-        mu = np.mean(metric, axis=0)
-        cov = np.cov(metric, rowvar=0)
-        pdf_function = multivariate_normal(mean=mu, cov=cov).pdf
-        return pdf_function
+    def initialize(self, metric, check_finite=False):
+        """ compute and cache items needed for lnlikelihood function"""
+        self.mu = np.mean(metric, axis=0)
+        self.cov = np.cov(metric, rowvar=0) 
+        self.factorized_Sigma = cho_factor(self.cov, overwrite_a=True,
+                                           check_finite=check_finite)
+        self.log_det = 2 * np.sum(np.log(np.diag(self.factorized_Sigma[0])))
+        assert np.isfinite(self.log_det)
+        self.n = metric.shape[1]
+
+    def eval_lnlike(self, phot_mu, check_finite=False):
+        residual = phot_mu - self.mu
+        first_term = np.dot(residual, cho_solve(self.factorized_Sigma,
+                            residual, check_finite=check_finite))
+        lnlike = -0.5 * (first_term + self.log_det + self.n * np.log(2.*np.pi))
+        return lnlike
+
+    def get_lnlike_function(self, metric):
+        self.initialize(metric)
+        return self.eval_lnlike
 
 class KDE_photsamples(Kernel_photsamples):
 
-#    kernel_params = ['phot_samples']
+    kernel_type = 'kde'
+    metric_lims = None
 
-    def get_pdf_function(self, metric):
-        pdf_function = KDEMultivariate(data=metric, var_type='c'*metric.shape[1]).pdf
-        return pdf_function
+    def initialize(self, metric):
+        if self.metric_lims is None:
+            self.metric_lims = np.percentile(metric, [0, 100], axis=0)
+        pdf = {}
+        # KDE
+        pdf['inbounds'] = KDEMultivariate(data=metric, var_type='c'*metric.shape[1]).pdf
+        # Correlated normals (use if trial point is out of bounds)
+        pdf['outbounds'] = Correlated_photsamples().get_lnlike_function(metric) 
+        self.pdf = pdf
 
+    def eval_lnlike(self, phot_mu):
+        # self.pdf must already be set (call beforehand)
+        lo_check = np.min( phot_mu - self.metric_lims[0] ) >= 0
+        hi_check = np.max( phot_mu - self.metric_lims[1] ) <= 0
+        if lo_check * hi_check:
+            return np.log(self.pdf['inbounds'](phot_mu))
+        else:
+            return self.pdf['outbounds'](phot_mu)
+
+    def get_lnlike_function(self, metric):
+        self.initialize(metric)
+        return self.eval_lnlike
+ 

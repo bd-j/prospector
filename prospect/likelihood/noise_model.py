@@ -90,23 +90,11 @@ class NoiseModel_photsamples(object):
 #        self.weight_names = weight_by
         self.metric_name = metric_name
         self.mask_name = mask_name
+        self.lnl = None
 
     def update(self, **params):
         self.kernel.update(**params)
 
-    def get_pdf_function(self, **vectors):
-        """Get the appropriate probability distribution function from a metric
-        and kernel. vectors[self.metric_name] is intended to be a 2d array
-        of photometry samples (e.g., from forcepho)
-        """
-        metric = vectors[self.metric_name]
-        mask = vectors.get('mask', slice(None))
-
-### CURRENTLY UNUSED - DO I NEED IT?
-#        weight_vector = self.get_weights(**vectors)
-        pdf = self.kernel(metric[:, mask]) #, weights=weight_by)
-        return pdf
- 
     def get_weights(self, **vectors):
         """From a dictionary of vectors that give weights, pull the vectors
         that correspond to each kernel, as stored in the `weight_names`
@@ -124,19 +112,20 @@ class NoiseModel_photsamples(object):
         return wghts
 
     def compute(self, **vectors):
-        """Identify and cache the probability density function
+        """Identify and cache the lnlikelihood function
+        using the photometry posterior samples
         """
-        self.pdf = self.get_pdf_function(**vectors)
+        if self.lnl is None:
+            metric = vectors[self.metric_name]
+            mask = vectors.get('mask', slice(None))
+            self.lnl = self.kernel(metric[:,mask])
 
-    def lnlikelihood(self, phot_mu, phot_obs=None, **extras):
-        """Compute the ln of the likelihood, using the current 
-        probability density function for the photometry
+    def lnlikelihood(self, phot_mu, phot_obs, **extras):
+        """Compute the ln of the likelihood
 
         :param phot_mu:
             Model photometry, same units as the photometry in `phot_obs`.
         :param phot_obs:
             Observed photometry, in linear flux units (i.e. maggies).
         """
-        return np.log(self.pdf(phot_mu))
-
-
+        return self.lnl(phot_mu, phot_obs)
