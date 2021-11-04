@@ -320,9 +320,13 @@ to the likelihood function (see Appendix A `here
 reasonable approximation can be made by setting the flux to zero and the
 uncertainty to the 1-sigma upper limit.
 
+
 What do I do with the chain?  What values should I report?
 ----------------------------------------------------------
-This is a general question for MC sampling techniques.
+This is a general question for MC sampling techniques.  See `sharma17
+<https://ui.adsabs.harvard.edu/abs/2017ARA%26A..55..213S/abstract>` or
+`speagle19 <https://ui.adsabs.harvard.edu/abs/2019arXiv190912313S/abstract>` for
+advice.
 
 
 Why isn't the posterior PDF centered on the highest posterior probability sample?
