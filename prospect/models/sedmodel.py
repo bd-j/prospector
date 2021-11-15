@@ -7,18 +7,20 @@ observed spectra and photometry from them, given a Source object.
 
 import numpy as np
 import os
+
 from numpy.polynomial.chebyshev import chebval, chebvander
-from .parameters import ProspectorParams
+from scipy.interpolate import splrep, BSpline
 from scipy.stats import multivariate_normal as mvn
 
 from sedpy.observate import getSED
 
+from .parameters import ProspectorParams
 from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 from ..utils.smoothing import smoothspec
 
 
-__all__ = ["SpecModel", "PolySpecModel",
+__all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",
            "SedModel", "PolySedModel", "PolyFitModel"]
 
 
@@ -48,6 +50,24 @@ class SpecModel(ProspectorParams):
         except(OSError, KeyError, ValueError) as e:
             print("Could not read and cache emission line info from $SPS_HOME/data/emlines_info.dat")
             self.emline_info = e
+
+    def _available_parameters(self):
+        new_pars = [("sigma_smooth", ""),
+                    ("marginalize_elines", ""),
+                    ("elines_to_fit", ""),
+                    ("elines_to_fix", ""),
+                    ("elines_to_ignore", ""),
+                    ("eline_delta_zred", ""),
+                    ("eline_sigma", ""),
+                    ("use_eline_priors", "")
+                    ("eline_prior_width", "")]
+        relevant_pars = [("mass", ""),
+                         ("lumdist", ""),
+                         ("zred", ""),
+                         ("nebemlineinspec", ""),
+                         ("add_neb_emission")]
+
+        return new_pars
 
     def predict(self, theta, obs=None, sps=None, sigma_spec=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
@@ -99,7 +119,7 @@ class SpecModel(ProspectorParams):
         # and also needs some things done in 'cache_eline_parameters`
         # especially _ewave_obs and _use_elines
         spec = self.predict_spec(obs, sigma_spec)
-        phot = self.predict_phot(obs['filters'])
+        phot = self.predict_phot(obs.get('filters', None))
 
         return spec, phot, self._mfrac
 
@@ -617,6 +637,13 @@ class PolySpecModel(SpecModel):
     spectrum.
     """
 
+    def _available_parameters(self):
+        pars = [("polyorder", "order of the polynomial to fit"),
+                ("poly_regularization", "vector of length `polyorder` providing regularization for each polynomial term")
+                ]
+
+        return pars
+
     def spec_calibration(self, theta=None, obs=None, spec=None, **kwargs):
         """Implements a Chebyshev polynomial calibration model. This uses
         least-squares to find the maximum-likelihood Chebyshev polynomial of a
@@ -663,6 +690,79 @@ class PolySpecModel(SpecModel):
             poly = np.zeros_like(self._outwave)
 
         return (1.0 + poly)
+
+
+class SplineSpecModel(SpecModel):
+
+    """This is a subclass of *SpecModel* that generates the multiplicative
+    calibration vector at each model `predict` call as the maximum likelihood
+    cubic spline describing the ratio between the observed and the model
+    spectrum.
+    """
+
+    def _available_parameters(self):
+        pars = [("spline_knot_wave", "vector of wavelengths for the location ot he spline knots"),
+                ("spline_knot_spacing", "spacing between knots, in units of wavelength"),
+                ("spline_knot_n", "number of interior knots between minimum and maximum unmasked wavelength")
+                ]
+
+        return pars
+
+    def spec_calibration(self, theta=None, obs=None, spec=None, **kwargs):
+        """Implements a spline calibration model.  This fits a cubic spline with
+        determined knot locations to the ratio of the observed spectrum to the
+        model spectrum.  If emission lines are being marginalized out, they are
+        excluded from the least-squares fit.
+
+        The knot locations must be specified as model parameters, either
+        explicitly or via a number of knots or knot spacing (in angstroms)
+        """
+        if theta is not None:
+            self.set_parameters(theta)
+
+        splineopt = True
+        if splineopt:
+            mask, (wlo, whi) = self.obs_to_mask(obs)
+            y = (obs['spectrum'] / spec)[mask] - 1.0
+            yerr = (obs['unc'] / spec)[mask]  # HACK
+            knots_x = self.make_knots(wlo, whi, as_x=True, **self.params)
+            x = 2.0 * (obs["wavelength"] - wlo) / (whi - wlo) - 1.0
+            tck = splrep(x[mask], y[mask], w=1/yerr[mask], k=3, task=-1, t=knots_x)
+            self._spline_coeffs = tck
+            spl = BSpline(*tck)
+            spline = spl(x)
+        else:
+            spline = np.zeros_like(self._outwave)
+        return (1.0 + spline)
+
+    def make_knots(self, wlo, whi, as_x=True, **params):
+        """
+        """
+        if "spline_knot_wave" in params:
+            knots = np.squeeze(params["spline_knot_wave"])
+        elif "spline_knot_spacing" in params:
+            s = np.squeeze(params["spline_knot_spacing"])
+            # we drop the start so knots are interior
+            knots = np.arange(wlo, whi, s)[1:]
+        elif "spline_knot_n" in params:
+            n = np.squeeze(params["spline_knot_n"])
+            # we need to drop the endpoints so knots are interior
+            knots = np.linspace(wlo, whi, n)[1:-1]
+        else:
+            raise KeyError("No valid spline knot specification in self.params")
+
+        if as_x:
+            knots = 2.0 * (knots - wlo) / (whi - wlo) - 1.0
+
+        return knots
+
+    def obs_to_mask(self, obs):
+        mask = obs.get('mask', np.ones_like(obs['wavelength'], dtype=bool)).copy()
+        if self.params.get('marginalize_elines', False):
+            mask[self._fit_eline_pixelmask] = 0
+        w = obs["wavelength"]
+        wrange = w[mask].min(), w[mask].max()
+        return mask, wrange
 
 
 class SedModel(ProspectorParams):
