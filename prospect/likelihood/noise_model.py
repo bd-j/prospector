@@ -82,6 +82,79 @@ class NoiseModel(object):
 
         return lnlike
 
+
+class NoiseModelKDE(object):
+
+    def __init__(self, metric_name='', mask_name='mask', kernel=None):
+#                 weight_by=None):
+        self.kernel = kernel
+#        self.weight_names = weight_by
+        self.metric_name = metric_name
+        self.mask_name = mask_name
+        self.lnl = None
+
+    def get_weights(self, **vectors):
+        """From a dictionary of vectors that give weights, pull the vectors
+        that correspond to each kernel, as stored in the `weight_names`
+        attribute.  A None vector will result in None weights
+        """
+
+### CURRENTLY UNUSED - DO I NEED IT?
+        mask = vectors.get(self.mask_name, slice(None))
+        wghts = []
+        for w in self.weight_names:
+            if vectors[w] is None:
+                wghts += [None]
+            else:
+                wghts.append(vectors[w][mask])
+        return wghts
+
+    def compute(self, **vectors):
+        """Identify and cache the lnlikelihood function
+        using the photometry posterior samples
+        """
+# need an assert statement, in case it is a new object
+        if self.lnl is None:
+            metric = vectors[self.metric_name]
+            mask = vectors.get('mask', slice(None))
+
+            self.metric_lims = np.percentile(metric, [0, 100], axis=0)
+            # KDE - use if possible 
+            self.lnl = KDEMultivariate(data=metric, var_type='c'*metric.shape[1]).pdf
+
+            # Correlated normals (use if trial point is out of bounds)
+            self.mu = np.mean(metric, axis=0)
+            self.cov = np.cov(metric, rowvar=0)
+            self.factorized_Sigma = cho_factor(self.cov, overwrite_a=True,
+                                               check_finite=check_finite)
+            self.log_det = 2 * np.sum(np.log(np.diag(self.factorized_Sigma[0])))
+            assert np.isfinite(self.log_det)
+            self.n = metric.shape[1]
+
+    def lnlikelihood(self, phot_mu, phot_obs=None, **extras):
+        """Compute the ln of the likelihood
+
+        :param phot_mu:
+            Model photometry, same units as the photometry in `phot_obs`.
+        :param phot_obs:
+            Observed photometry, in linear flux units (i.e. maggies).
+        """
+        # check bounds of trial point relative to phot samples
+        lo_check = np.min( phot_mu - self.metric_lims[0] ) >= 0
+        hi_check = np.max( phot_mu - self.metric_lims[1] ) <= 0
+        if lo_check * hi_check:
+            return np.log(self.lnl(phot_mu))
+        # use correlated normals if trial point is out of bounds
+        else:
+            residual = phot_mu - self.mu
+            first_term = np.dot(residual, cho_solve(self.factorized_Sigma,
+                                residual, check_finite=check_finite))
+            lnlike = -0.5 * (first_term + self.log_det + self.n * np.log(2.*np.pi))
+            return lnlike
+
+
+
+
 class NoiseModel_photsamples(object):
 
     def __init__(self, metric_name='', mask_name='mask', kernel=None):

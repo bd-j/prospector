@@ -107,3 +107,23 @@ class PhotoCal(Kernel):
         K = k[:, None] * k[None, :]     # select off-diagonal elements
         return K * self.params["amplitude"]**2
 
+class PhotSamples_MVN(Kernel):
+    ndim = 2
+    npars = 0
+    kernel_params = []
+
+    def __init__(cov, filter_names, parnames=[], name=''):
+        super().__init__(parnames=parnames, name=name)
+        assert cov.shape[0] == len(filter_names)
+        self.cov_mat = cov
+        self.params["filter_names"] = filter_names
+
+    def construct_kernel(self, metric):
+        # we pull the rows of the covariance matrix corresponding to the filters listed in `metric`
+        band_index = np.array([self.params["filter_names"].index(f) for f in metric])
+        return self.cov_mat[band_index[:, None], band_index]
+
+    def __call__(self, metric, weights=None, ndim=2, **extras):
+        assert weights is None, "PhotCorrelated is not meant to be weighted by anything"
+        super().__call__(metric, ndim=ndim, **extras)
+
