@@ -23,6 +23,12 @@ class Observation:
         self.uncertainty = uncertainty
         self.mask = mask
 
+    def __getitem__(self, item):
+        """Dict-like interface for backwards compatibility
+        """
+        k = self.alias.get(item)
+        return getattr(self, k)
+
     def render(self, wavelength, spectrum):
         raise(NotImplementedError)
 
@@ -32,6 +38,9 @@ class Observation:
 
 
 class Photometry(Observation):
+
+    alias = {"maggies": "flux",
+             "maggies_unc": "uncertainty"}
 
     def __init__(self, filters=[], **kwargs):
 
