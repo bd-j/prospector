@@ -422,7 +422,7 @@ def twodhist(x, y, ax=None, span=None, weights=None,
 
     # Smooth the results.
     if not np.all(svalues == 0.):
-        H = norm_kde(H, svalues)
+        H = norm_kde(H*1.0, svalues)
 
     # Compute the density levels.
     Hflat = H.flatten()
@@ -503,7 +503,7 @@ def marginal(x, ax=None, weights=None, span=None, smooth=0.02,
         bins = int(round(10. / smooth))
         n, b = np.histogram(x, bins=bins, weights=weights,
                             range=np.sort(span))
-        n = norm_kde(n, 10.)
+        n = norm_kde(n*1.0, 10.)
         b0 = 0.5 * (b[1:] + b[:-1])
         xx, bins, wght = b0, b, n
 
