@@ -557,7 +557,6 @@ _nonpar_continuity_psb_ = TemplateLibrary["ssp"]
 _ = _nonpar_continuity_psb_.pop("tage")
 
 _nonpar_continuity_psb_["sfh"] = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
-#_nonpar_continuity_flex_["tuniv"]      = {"N": 1, "isfree": False, "init": 13.7, "units": "Gyr"}
 
 # This is the *total*  mass formed
 _nonpar_continuity_psb_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
@@ -568,10 +567,10 @@ _nonpar_continuity_psb_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units
 # the youngest bin has variable width tlast. tflex is specified by the user, and
 # sets the amount of time available for the flexible+youngest bins (e.g., t_lookback=tflex
 # is the time when the SFH transitions from fixed to flexible bins)  
-model_params['tflex'] = {'name':'tflex', 'N':1, 'isfree': False, 'init':2, 'units':'Gyr'}          
-model_params['nflex'] = {'name':'nflex', 'N':1, 'isfree': False, 'init':5}          
-model_params['nfixed'] = {'name':'nfixed', 'N':1, 'isfree': False, 'init':3}  
-model_params['tlast'] = {'name':'tlast', 'N':1, 'isfree':True,
+_nonpar_continuity_psb_['tflex'] = {'name':'tflex', 'N':1, 'isfree': False, 'init':2, 'units':'Gyr'}          
+_nonpar_continuity_psb_['nflex'] = {'name':'nflex', 'N':1, 'isfree': False, 'init':5}          
+_nonpar_continuity_psb_['nfixed'] = {'name':'nfixed', 'N':1, 'isfree': False, 'init':3}  
+_nonpar_continuity_psb_['tlast'] = {'name':'tlast', 'N':1, 'isfree':True,
     'init':.2, 'prior':priors.TopHat(mini=.01, maxi=1.5)}                                  
                                        
 # These variables control the ratio of SFRs in adjacent bins

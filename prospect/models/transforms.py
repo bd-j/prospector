@@ -266,7 +266,7 @@ def logsfr_ratios_to_masses_psb(logmass=None, logsfr_ratios=None,
     mold = mbin * old_factor 
     n_masses = np.full(nflex, mbin)
 
-    return np.array([myoung] + n_masses.tolist() + mold.tolist())
+    return np.array(myoung.tolist() + n_masses.tolist() + mold.tolist())
 
 def psb_logsfr_ratios_to_agebins(logsfr_ratios=None, agebins=None, 
                                tlast=None, tflex=None, nflex=None, nfixed=None, **extras):
