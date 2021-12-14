@@ -226,6 +226,89 @@ def logsfr_ratios_to_agebins(logsfr_ratios=None, agebins=None, **extras):
     agebins = np.log10([agelims[:-1], agelims[1:]]).T
 
     return agebins
+    
+# --------------------------------------
+# -- Transforms for the fixed+flexible non-parametric SFHs used in (Suess et al. 2021) --
+# --------------------------------------    
+def logsfr_ratios_to_masses_psb(logmass=None, logsfr_ratios=None,
+                                 logsfr_ratio_young=None, logsfr_ratio_old=None,
+                                 tlast=None, tflex=None, nflex=None, nfixed=None, 
+                                 agebins=None, **extras):
+    """This is a modified version of logsfr_ratios_to_masses_flex above. This now
+    assumes that there are nfixed fixed-edge timebins at the beginning of 
+    the universe, followed by nflex flexible timebins that each form an equal
+    stellar mass. The final bin has variable width and variable SFR; the width
+    of the bin is set by the parameter tlast.
+                                 
+    The major difference between this and the transform above is that 
+    logsfr_ratio_old is a vector.                             
+    """
+                                     
+    # clip for numerical stability
+    nflex = nflex[0]; nfixed = nfixed[0]
+    logsfr_ratio_young = np.clip(logsfr_ratio_young[0], -7, 7)
+    logsfr_ratio_old = np.clip(logsfr_ratio_old, -7, 7)
+    syoung, sold = 10**logsfr_ratio_young, 10**logsfr_ratio_old
+    sratios = 10.**np.clip(logsfr_ratios, -7, 7) # numerical issues...
+
+    # get agebins
+    abins = psb_logsfr_ratios_to_agebins(logsfr_ratios=logsfr_ratios,
+            agebins=agebins, tlast=tlast, tflex=tflex, nflex=nflex, nfixed=nfixed, **extras)     
+    
+    # get find mass in each bin
+    dtyoung, dt1 = (10**abins[:2, 1] - 10**abins[:2, 0])
+    dtold = 10**abins[-nfixed-1:, 1] - 10**abins[-nfixed-1:, 0]
+    old_factor = np.zeros(nfixed)
+    for i in range(nfixed): 
+        old_factor[i] = (1. / np.prod(sold[:i+1]) * np.prod(dtold[1:i+2]) / np.prod(dtold[:i+1]))                    
+    mbin = 10**logmass / (syoung*dtyoung/dt1 + np.sum(old_factor) + nflex)
+    myoung = syoung * mbin * dtyoung / dt1
+    mold = mbin * old_factor 
+    n_masses = np.full(nflex, mbin)
+
+    return np.array(myoung.tolist() + n_masses.tolist() + mold.tolist())
+
+def psb_logsfr_ratios_to_agebins(logsfr_ratios=None, agebins=None, 
+                               tlast=None, tflex=None, nflex=None, nfixed=None, **extras):
+    """This is a modified version of logsfr_ratios_to_agebins above. This now
+    assumes that there are nfixed fixed-edge timebins at the beginning of 
+    the universe, followed by nflex flexible timebins that each form an equal
+    stellar mass. The final bin has variable width and variable SFR; the width
+    of the bin is set by the parameter tlast.
+                               
+    For the flexible bins, we again use the equation:
+        delta(t1) = tuniv  / (1 + SUM(n=1 to n=nbins-1) PROD(j=1 to j=n) Sn)
+        where Sn = SFR(n) / SFR(n+1) and delta(t1) is width of youngest bin
+        
+    """
+
+    # dumb way to de-arrayify values...
+    tlast = tlast[0]; tflex = tflex[0]
+    try: nflex = nflex[0]
+    except IndexError: pass
+    try: nfixed = nfixed[0]
+    except IndexError: pass   
+                           
+    # numerical stability
+    logsfr_ratios = np.clip(logsfr_ratios, -7, 7)
+    
+    # flexible time is t_flex - youngest bin (= tlast, which we fit for)
+    # this is also equal to tuniv - upper_time - lower_time
+    tf = (tflex - tlast) * 1e9
+    
+    # figure out other bin sizes
+    n_ratio = logsfr_ratios.shape[0]
+    sfr_ratios = 10**logsfr_ratios
+    dt1 = tf / (1 + np.sum([np.prod(sfr_ratios[:(i+1)]) for i in range(n_ratio)]))
+
+    # translate into agelims vector (time bin edges)
+    agelims = [1, (tlast*1e9), dt1+(tlast*1e9)]
+    for i in range(n_ratio):
+        agelims += [dt1*np.prod(sfr_ratios[:(i+1)]) + agelims[-1]]
+    agelims += list(10**agebins[-nfixed:,1]) 
+    abins = np.log10([agelims[:-1], agelims[1:]]).T
+
+    return abins
 
 # --------------------------------------
 # --- Transforms for Dirichlet non-parametric SFH used in (Leja et al. 2017) ---
