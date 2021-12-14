@@ -332,6 +332,11 @@ class FastStepBasis(SSPBasis):
         """Construct the tabular SFH and feed it to the ``ssp``.
         """
         self.update(**params)
+        # --- check to make sure agebins have minimum spacing of 1million yrs ---
+        #       (this can happen in flex models and will crash FSPS)
+        if np.min(np.diff(10**self.params['agebins'])) < 1e6:
+            raise ValueError
+
         mtot = self.params['mass'].sum()
         time, sfr, tmax = self.convert_sfh(self.params['agebins'], self.params['mass'])
         self.ssp.params["sfh"] = 3  # Hack to avoid rewriting the superclass

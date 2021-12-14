@@ -112,11 +112,6 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     except:
         print("There was an error during the likelihood call at parameters {}".format(theta))
         raise
-        
-    # --- check to make sure agebins have minimum spacing of 1million yrs ---
-    #       (this can happen in flex models and will crash FSPS)
-    if np.min(np.diff(10**model.params['agebins'])) < 1e6:
-        return lnnull    
 
     # --- Optionally return chi vectors for least-squares ---
     # note this does not include priors!
