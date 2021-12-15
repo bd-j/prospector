@@ -41,7 +41,9 @@ class NoiseModel(object):
         mask = vectors.get(self.mask_name, slice(None))
         wghts = []
         for w in self.weight_names:
-            if vectors[w] is None:
+            if w is None:
+                wghts += [None]
+            elif vectors[w] is None:
                 wghts += [None]
             else:
                 wghts.append(vectors[w][mask])

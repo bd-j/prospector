@@ -1,6 +1,7 @@
 import numpy as np
 
-__all__ = ["Kernel", "Uncorrelated", "ExpSquared", "Matern", "PhotoCal"]
+__all__ = ["Kernel", "Uncorrelated", "ExpSquared", "Matern", "PhotoCal", 
+           "PhotSamples_MVN"]
 
 
 class Kernel(object):
@@ -108,13 +109,19 @@ class PhotoCal(Kernel):
         return K * self.params["amplitude"]**2
 
 class PhotSamples_MVN(Kernel):
-    ndim = 2
     npars = 0
     kernel_params = []
 
-    def __init__(cov, filter_names, parnames=[], name=''):
+    def __init__(self, cov, filter_names, parnames=[], name=''):
+
+
         super().__init__(parnames=parnames, name=name)
         assert cov.shape[0] == len(filter_names)
+        # if no covariance, set ndim = 1
+        if not np.count_nonzero(cov - np.diag(np.diagonal(cov))):
+            self.ndim = 1
+        else:
+            self.ndim = 2
         self.cov_mat = cov
         self.params["filter_names"] = filter_names
 
@@ -125,5 +132,5 @@ class PhotSamples_MVN(Kernel):
 
     def __call__(self, metric, weights=None, ndim=2, **extras):
         assert weights is None, "PhotCorrelated is not meant to be weighted by anything"
-        super().__call__(metric, ndim=ndim, **extras)
+        return super().__call__(metric, ndim=ndim, **extras)
 
