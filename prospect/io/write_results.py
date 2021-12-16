@@ -151,8 +151,8 @@ def write_hdf5(hfile, run_params, model, obs, sampler=None,
     # Best fitting model in space of data
     if sps is not None:
         if "sampling/chain" in hf:
-            from ..utils.plotting import get_best
-            _, pbest = get_best(hf["sampling"])
+            from ..plotting.utils import best_sample
+            pbest = best_sample(hf["sampling"])
             spec, phot, mfrac = model.predict(pbest, obs=obs, sps=sps)
             best = hf.create_group("bestfit")
             best.create_dataset("spectrum", data=spec)

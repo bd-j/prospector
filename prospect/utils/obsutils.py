@@ -5,6 +5,7 @@
 ensuring the the required keys are present in the `obs` dictionary.
 """
 
+from copy import deepcopy
 import numpy as np
 import warnings
 np.errstate(invalid='ignore')
@@ -69,19 +70,10 @@ def fix_obs(obs, rescale_spectrum=False, normalize_spectrum=False,
     if obs['maggies'] is not None:
         obs['ndof'] += int(obs['phot_mask'].sum())
         if grid_filters:
-            wlo, whi, dlo = [], [], []
-            for f in obs['filters']:
-                dlnlam = np.gradient(f.wavelength)/f.wavelength
-                wlo.append(f.wavelength.min())
-                dlo.append(dlnlam.min())
-                whi.append(f.wavelength.max())
-            wmin = np.min(wlo)
-            wmax = np.max(whi)
-            dlnlam = np.min(dlo)
-            for f in obs['filters']:
-                f.gridify_transmission(dlnlam, wmin)
-                f.get_properties()
-            obs['lnwavegrid'] = np.exp(np.arange(np.log(wmin), np.log(wmax)+dlnlam, dlnlam))
+            from sedpy.observate import FilterSet
+            fset = FilterSet([f.name for f in obs["filters"]])
+            obs["filters"] = fset
+            obs['lnwavegrid'] = fset.lnlam.copy()
     else:
         obs['maggies_unc'] = None
 
@@ -124,7 +116,12 @@ def norm_spectrum(obs, norm_band_name='f475w', **kwargs):
     """
     from sedpy import observate
 
-    norm_band = [i for i, f in enumerate(obs['filters'])
+    try:
+        flist = obs["filters"].filters
+    except(AttributeError):
+        flist = obs["filters"]
+
+    norm_band = [i for i, f in enumerate(flist)
                  if norm_band_name in f.name][0]
 
     synphot = observate.getSED(obs['wavelength'], obs['spectrum'], obs['filters'])
@@ -137,7 +134,7 @@ def norm_spectrum(obs, norm_band_name='f475w', **kwargs):
 
     # Pivot the calibration polynomial near the filter used for approximate
     # normalization
-    pivot_wave = obs['filters'][norm_band].wave_effective
+    pivot_wave = flist[norm_band].wave_effective
     # model.params['pivot_wave'] = 4750.
 
     return norm, pivot_wave
@@ -164,6 +161,8 @@ def rectify_obs(obs):
                             np.isfinite(obs['maggies_unc']) *
                             (obs['maggies_unc'] > 0))
         try:
+            obs['filternames'] = obs["filters"].filternames
+        except(AttributeError):
             obs['filternames'] = [f.name for f in obs['filters']]
         except:
             pass
@@ -180,42 +179,83 @@ def rectify_obs(obs):
     return obs
 
 
-def generate_mock(model, sps, mock_info):
-    """Generate a mock data set given model, mock parameters, wavelength grid,
-    and filter set.  Very old and unused.
+def build_mock(sps, model,
+               filterset=None,
+               wavelength=None,
+               snr_spec=10.0, snr_phot=20., add_noise=False,
+               seed=101, **model_params):
+    """Make a mock dataset.  Feel free to add more complicated kwargs, and put
+    other things in the run_params dictionary to control how the mock is
+    generated.
+    :param filterset:
+        A FilterSet or list of Filters
+    :param wavelength:
+        A vector
+    :param snr_phot:
+        The S/N of the phock photometry.  This can also be a vector of same
+        lngth as the number of filters, for heteroscedastic noise.
+    :param snr_spec:
+        The S/N of the phock spectroscopy.  This can also be a vector of same
+        lngth as `wavelength`, for heteroscedastic noise.
+    :param add_noise: (optional, boolean, default: True)
+        If True, add a realization of the noise to the mock photometry.
+    :param seed: (optional, int, default: 101)
+        If greater than 0, use this seed in the RNG to get a deterministic
+        noise for adding to the mock data.
     """
-    # Generate mock spectrum and photometry given mock parameters, and
-    # Apply calibration.
+    # We'll put the mock data in this dictionary, just as we would for real
+    # data.  But we need to know which filters (and wavelengths if doing
+    # spectroscopy) with which to generate mock data.
+    mock = {"filters": None, "maggies": None, "wavelength": None, "spectrum": None}
+    mock['wavelength'] = wavelength
+    if filterset is not None:
+        mock['filters'] = filterset
 
-    # NEED TO DEAL WITH FILTERNAMES ADDED FOR SPS_BASIS
-    obs = {'wavelength': mock_info['wavelength'],
-           'filters': mock_info['filters']}
-    model.configure(**mock_info['params'])
-    mock_theta = model.theta.copy()
-    # print('generate_mock: mock_theta={}'.format(mock_theta))
-    s, p, x = model.mean_model(mock_theta, obs, sps=sps)
-    cal = model.calibration(mock_theta, obs)
-    if 'calibration' in mock_info:
-        cal = mock_info['calibration']
-    s *= cal
-    model.configure()
-    # Add noise to the mock data
-    if mock_info['filters'] is not None:
-        p_unc = p / mock_info['phot_snr']
-        noisy_p = (p + p_unc * np.random.normal(size=len(p)))
-        obs['maggies'] = noisy_p
-        obs['maggies_unc'] = p_unc
-        obs['phot_mask'] = np.ones(len(obs['filters']), dtype=bool)
-    else:
-        obs['maggies'] = None
-    if mock_info['wavelength'] is not None:
-        s_unc = s / mock_info.get('spec_snr', 10.0)
-        noisy_s = (s + s_unc * np.random.normal(size=len(s)))
-        obs['spectrum'] = noisy_s
-        obs['unc'] = s_unc
-        obs['mask'] = np.ones(len(obs['wavelength']), dtype=bool)
-    else:
-        obs['spectrum'] = None
-        obs['mask'] = None
+    # Now we get any mock params from the model_params dict
+    params = {}
+    for p in model.params.keys():
+        if p in model_params:
+            params[p] = np.atleast_1d(model_params[p])
 
-    return obs
+    # And build the mock
+    model.params.update(params)
+    spec, phot, mfrac = model.predict(model.theta, mock, sps=sps)
+
+    # Now store some output
+    mock['true_spectrum'] = spec.copy()
+    mock['true_maggies'] = np.copy(phot)
+    mock['mock_params'] = deepcopy(model.params)
+
+    # store the mock photometry
+    if filterset is not None:
+        pnoise_sigma = phot / snr_phot
+        mock['maggies'] = phot.copy()
+        mock['maggies_unc'] = pnoise_sigma
+        mock['mock_snr_phot'] = snr_phot
+        # And add noise
+        if add_noise:
+            if int(seed) > 0:
+                np.random.seed(int(seed))
+            pnoise = np.random.normal(0, 1, size=len(phot)) * pnoise_sigma
+            mock['maggies'] += pnoise
+
+        try:
+            flist = mock["filters"].filters
+        except(AttributeError):
+            flist = mock["filters"]
+        mock['phot_wave'] = np.array([f.wave_effective for f in flist])
+
+    # store the mock spectrum
+    if wavelength is not None:
+        snoise_sigma = spec / snr_spec
+        mock['spectrum'] = spec.copy()
+        mock['unc'] = snoise_sigma
+        mock['mock_snr_spec'] = snr_spec
+        # And add noise
+        if add_noise:
+            if int(seed) > 0:
+                np.random.seed(int(seed))
+            snoise = np.random.normal(0, 1, size=len(spec)) * snoise_sigma
+            mock['spectrum'] += snoise
+
+    return mock

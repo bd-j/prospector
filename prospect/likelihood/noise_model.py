@@ -23,7 +23,7 @@ class NoiseModel(object):
         objects, and a list of weight vectors (of same length as the metric)
         """
         metric = vectors[self.metric_name]
-        mask = vectors.get('mask', slice(None))
+        mask = vectors.get(self.mask_name, slice(None))
 
         # 1 = uncorrelated errors, 2 = covariance matrix, >2 undefined
         ndmax = np.array([k.ndim for k in self.kernels]).max()

@@ -5,19 +5,15 @@ properties from photometric and/or spectroscopic data using flexible models.
 Prospector allows you to:
 
 * Infer high-dimensional stellar population properties, including nebular
-  emission, from rest UV through Far-IR data (with nested or ensemble MCMC sampling.)
+  emission, from rest UV through Far-IR data (with nested or ensemble MCMC
+  sampling.)
 
 * Combine photometric and spectroscopic data rigorously using a flexible
-  spectroscopic calibration model.
+  spectroscopic calibration model and forward modeling many
+  aspects of spectroscopic data analysis.
 
-* Use spectra and/or photometry to constrain the linear combination of stellar
-  population components that are present in a galaxy (e.g. non-parametric
-  SFHs).
-
-* Forward model many aspects of spectroscopic data analysis and calibration,
-  including spectral resolution, spectrophotometric calibration, sky emission
-  (coming soon), and wavelength solution, thus properly incorporating
-  uncertainties in these components in the final parameter uncertainties.
+* Use spectra and/or photometry to constrain highly flexible star formation
+  history treatments.
 
 
 .. toctree::
@@ -52,27 +48,31 @@ Prospector allows you to:
 License and Attribution
 ------------------------------
 
-*Copyright 2014-2020 Benjamin D. Johnson and contributors.*
+*Copyright 2014-2021 Benjamin D. Johnson and contributors.*
 
 This code is available under the `MIT License
 <https://raw.github.com/bdj/prospector/blob/main/LICENSE>`_.
 
-If you use this code, please reference
+If you use this code, please reference `this paper https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract`_:
 
 .. code-block:: none
 
-        @MISC{2019ascl.soft05025J,
-            author = {{Johnson}, Benjamin D. and {Leja}, Joel L. and {Conroy}, Charlie and
-                {Speagle}, Joshua S.},
-                title = "{Prospector: Stellar population inference from spectra and SEDs}",
-            keywords = {Software},
-                year = 2019,
-                month = may,
-                eid = {ascl:1905.025},
-                pages = {ascl:1905.025},
-        archivePrefix = {ascl},
-            eprint = {1905.025},
-            adsurl = {https://ui.adsabs.harvard.edu/abs/2019ascl.soft05025J},
-            adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-        }
+    @ARTICLE{2021ApJS..254...22J,
+        author = {{Johnson}, Benjamin D. and {Leja}, Joel and {Conroy}, Charlie and {Speagle}, Joshua S.},
+            title = "{Stellar Population Inference with Prospector}",
+        journal = {\apjs},
+        keywords = {Galaxy evolution, Spectral energy distribution, Astronomy data modeling, 594, 2129, 1859, Astrophysics - Astrophysics of Galaxies, Astrophysics - Instrumentation and Methods for Astrophysics},
+            year = 2021,
+            month = jun,
+        volume = {254},
+        number = {2},
+            eid = {22},
+            pages = {22},
+            doi = {10.3847/1538-4365/abef67},
+    archivePrefix = {arXiv},
+        eprint = {2012.01426},
+    primaryClass = {astro-ph.GA},
+        adsurl = {https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J},
+        adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+    }
 

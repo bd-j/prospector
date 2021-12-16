@@ -122,7 +122,10 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, f_outlier_phot=0.0, **vector
     psamples = obs.get('phot_samples', None)
 
     if phot_noise is not None:
-        filternames = [f.name for f in obs['filters']]
+        try:
+            filternames = obs['filters'].filternames
+        except(AttributeError):
+            filternames = [f.name for f in obs['filters']]
         vectors['mask'] = mask
         vectors['filternames'] = np.array(filternames)
         vectors['phot_samples'] = psamples

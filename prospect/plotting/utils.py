@@ -5,7 +5,8 @@ import numpy as np
 from .corner import _quantile
 from ..models.priors import TopHat as Uniform
 
-__all__ = ["get_simple_prior", "sample_prior", "sample_posterior",
+
+__all__ = ["get_best", "best_sample", "get_simple_prior", "sample_prior", "sample_posterior",
            "boxplot", "violinplot", "step"]
 
 
@@ -92,7 +93,30 @@ def sample_posterior(chain, weights=None, nsample=int(1e4),
 
 
 def get_best(res, **kwargs):
-    """Get the maximum a posteriori parameters.
+    """Get the maximum a posteriori parameters and their names
+
+    :param res:
+        A ``results`` dictionary with the keys 'lnprobability', 'chain', and
+        'theta_labels'
+
+    :returns theta_names:
+        List of strings giving the names of the parameters, of length ``ndim``
+
+    :returns best:
+        ndarray with shape ``(ndim,)`` of parameter values corresponding to the
+        sample with the highest posterior probaility
+    """
+    theta_best = best_sample(res)
+
+    try:
+        theta_names = res["theta_labels"]
+    except(KeyError):
+        theta_names = res["model"].theta_labels()
+    return theta_names, theta_best
+
+
+def best_sample(res):
+    """Get the posterior sample with the highest posterior probability.
     """
     imax = np.argmax(res['lnprobability'])
     # there must be a more elegant way to deal with differnt shapes
@@ -101,12 +125,7 @@ def get_best(res, **kwargs):
         theta_best = res['chain'][i, j, :].copy()
     except(ValueError):
         theta_best = res['chain'][imax, :].copy()
-
-    try:
-        theta_names = res.get('theta_labels', res['model'].theta_labels())
-    except(KeyError):
-        theta_names = None
-    return theta_names, theta_best
+    return theta_best
 
 
 def violinplot(data, pos, widths, ax=None,

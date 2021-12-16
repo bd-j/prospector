@@ -66,9 +66,26 @@ This dictionary should have (at least) the following keys and values:
     photometric data during the likelihood calculation.
     Elements with ``False`` values are ignored in the likelihood calculation.
 
-If you do not have spectral or photometric data, set ``"wavelength": None`` or ``"maggies": None`` respectively.
-Feel free to add keys that store other metadata, these will be stored on output.
-However, for ease of storage these keys should either be numpy arrays or basic python datatypes that are JSON serializable
-(e.g. strings, ints, and floats and lists, dicts, and tuples thereof.)
+If you do not have spectral or photometric data, you can set ``"wavelength":
+None`` or ``"maggies": None`` respectively. Feel free to add keys that store
+other metadata, these will be stored on output. However, for ease of storage
+these keys should either be numpy arrays or basic python datatypes that are JSON
+serializable (e.g. strings, ints, and floats and lists, dicts, and tuples
+thereof.)
+
+The method :py:meth:`prospect.utils.obsutils.fix_obs` can be used to add any of
+the missing required keys with their default values and ensure that there is
+data to fit, e.g.
+
+.. code-block:: python
+
+        from prospect.utils.obsutils import fix_obs
+        # dummy observation dictionary with just a spectrum
+        N = 1000
+        obs = dict(wavelength=np.linspace(3000, 5000, N), spectrum=np.zeros(N), unc=np.ones(N))
+        obs = fix_obs(obs)
+        assert "mask" in obs.keys()
+
+It is recommended to use this method at the end of any `build_obs` function.
 
 .. |Codename| replace:: Prospector

@@ -123,6 +123,10 @@ def add_dynesty_args(parser):
                         help=("Method for drawing new points during sampling.  "
                               "One of unif | rwalk | slice"))
 
+    parser.add_argument("--nested_walks", type=int, default=48,
+                        help=("Number of Metropolis steps to take when "
+                              "`nested_sample` is 'rwalk'"))
+
     parser.add_argument("--nlive_init", dest="nested_nlive_init", type=int, default=100,
                         help="Number of live points for the intial nested sampling run.")
 

@@ -150,10 +150,10 @@ class SSPBasis(object):
         predicted by FSPS. These lines are in units of Lsun/solar mass formed.
         This assumes that `get_galaxy_spectrum` has already been called.
 
-        :returns ewave: 
+        :returns ewave:
             The *restframe* wavelengths of the emission lines, AA
 
-        :returns elum: 
+        :returns elum:
             Specific luminosities of the nebular emission lines,
             Lsun/stellar mass formed
         """
@@ -171,7 +171,7 @@ class SSPBasis(object):
                 # tabular sfh
                 mass = np.sum(self.params.get('mass', 1.0))
                 elum /= mass
-        
+
         return ewave, elum
 
     def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
@@ -186,7 +186,7 @@ class SSPBasis(object):
             maggies.
 
         :param filters: (default: None)
-            A list of filter objects for which you'd like photometry to be calculated. 
+            A list of filter objects for which you'd like photometry to be calculated.
 
         :param **params:
             Optional keywords giving parameter values that will be used to
@@ -224,8 +224,11 @@ class SSPBasis(object):
 
         # Observed frame photometry, as absolute maggies
         if filters is not None:
-            mags = getSED(wa, lightspeed/wa**2 * sa * to_cgs, filters)
-            phot = np.atleast_1d(10**(-0.4 * mags))
+            flambda = lightspeed/wa**2 * sa * to_cgs
+            phot = 10**(-0.4 * np.atleast_1d(getSED(wa, flambda, filters)))
+            # TODO: below is faster for sedpy > 0.2.0
+            #phot = np.atleast_1d(getSED(wa, lightspeed/wa**2 * sa * to_cgs,
+            #                            filters, linear_flux=True))
         else:
             phot = 0.0
 
@@ -329,6 +332,11 @@ class FastStepBasis(SSPBasis):
         """Construct the tabular SFH and feed it to the ``ssp``.
         """
         self.update(**params)
+        # --- check to make sure agebins have minimum spacing of 1million yrs ---
+        #       (this can happen in flex models and will crash FSPS)
+        if np.min(np.diff(10**self.params['agebins'])) < 1e6:
+            raise ValueError
+
         mtot = self.params['mass'].sum()
         time, sfr, tmax = self.convert_sfh(self.params['agebins'], self.params['mass'])
         self.ssp.params["sfh"] = 3  # Hack to avoid rewriting the superclass

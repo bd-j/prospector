@@ -7,27 +7,11 @@ try:
 except(ImportError):
     pass
 
+from ..plotting.utils import get_best
+
 __all__ = ["get_best", "get_truths", "get_percentiles", "get_stats",
            "posterior_samples", "hist_samples", "joint_pdf", "compute_sigma_level",
            "trim_walkers", "fill_between", "figgrid"]
-
-
-def get_best(res, **kwargs):
-    """Get the maximum a posteriori parameters.
-    """
-    imax = np.argmax(res['lnprobability'])
-    # there must be a more elegant way to deal with differnt shapes
-    try:
-        i, j = np.unravel_index(imax, res['lnprobability'].shape)
-        theta_best = res['chain'][i, j, :].copy()
-    except(ValueError):
-        theta_best = res['chain'][imax, :].copy()
-
-    try:
-        theta_names = res.get('theta_labels', res['model'].theta_labels())
-    except(KeyError):
-        theta_names = None
-    return theta_names, theta_best
 
 
 def get_truths(res):

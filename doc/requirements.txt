@@ -1,4 +1,6 @@
 numpy >= 1.16
 scipy >= 1.1.0
 matplotlib >= 3.0
-sphinx>=1.7.5
+sphinx==3.4.3
+sphinx_rtd_theme==0.5.1
+docutils < 0.18

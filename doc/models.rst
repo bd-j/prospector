@@ -87,10 +87,13 @@ Nearly all parameters used by FSPS can become a model parameter.
 When fitting galaxies the default python-FSPS parameter values will be used unless specified in a fixed parameter,
 e.g. ``imf_type`` can be changed by including it as a fixed parameter with value given by ``"init"``.
 
-Parameters can also be used to control the Prospector-specific parts of the modeling code.
-These include things like spectral smoothing, wavelength calibration, spectrophotometric calibration, and any parameters of the noise model.
-Be warned though, if you include a parameter that does not affect the model the code will not complain,
-and if that parameter is free it will simply result in a posterior PDF that is the same as the prior (though optimization algorithms may fail).
+Parameters can also be used to control the Prospector-specific parts of the
+modeling code. These include things like spectral smoothing, wavelength
+calibration, spectrophotometric calibration, and any parameters of the noise
+model. Be warned though, if you include a parameter that does not affect the
+model the code will not complain, and if that parameter is free it will simply
+result in a posterior PDF that is the same as the prior (though optimization
+algorithms may fail).
 
 
 Priors
@@ -145,7 +148,7 @@ of the timescale itself.  The follwing code
 
 
 could be used to set the value of ``tau`` using the free parameter ``logtau``
-(i.e., sample in the log of a parameter, though setting a :py:class:`prospect.models.priors.LogUnifrom`
+(i.e., sample in the log of a parameter, though setting a :py:class:`prospect.models.priors.LogUniform`
 prior is equivalent in terms of the posterior).
 
 This dependency function must take optional extra keywords (``**extras``)
@@ -173,7 +176,7 @@ Parameter Set Templates
 --------------------------------
 
 A number of predefined sets of parameters (with priors) are available as
-dictionaries of model specifications from `prospect.models.templates.TemplateLibrary`,
+dictionaries of model specifications from :py:class:`prospect.models.templates.TemplateLibrary`,
 these can be a good starting place for building your model.
 To see the available parameter sets to inspect the free and fixed parameters in
 a given set, you can do something like
