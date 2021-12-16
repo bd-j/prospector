@@ -2,7 +2,7 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from statsmodels.nonparametric.kernel_density import KDEMultivariate
 
-__all__ = ["NoiseModel", "NoiseModelKDE", "NoiseModel_photsamples"]
+__all__ = ["NoiseModel", "NoiseModelKDE"] 
 
 
 class NoiseModel(object):
@@ -150,11 +150,9 @@ class NoiseModelKDE(object):
         lo_check = np.min( phot_mu - self.metric_lims[0] ) >= 0
         hi_check = np.max( phot_mu - self.metric_lims[1] ) <= 0
         if lo_check * hi_check:
-            print('trial point in bounds')
             return np.log(self.lnl(phot_mu))
         # use correlated normals if trial point is out of bounds
         else:
-            print('trial point out of bounds')
             residual = phot_mu - self.mu
             first_term = np.dot(residual, cho_solve(self.factorized_Sigma,
                                 residual, check_finite=check_finite))
