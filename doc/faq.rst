@@ -7,7 +7,7 @@ Many projects use particular filter systems that are not general or widely used.
 It is easy to add a set of custom filter curves. Filter projections are handled
 by the `sedpy <https://github.com/bd-j/sedpy>`_ code. See the FAQ `there
 <https:github.com/bd-j/sedpy/blob/main/docs/faq.rst>`_ for detailed instructions
-on adding filter cirves.
+on adding filter curves.
 
 
 What units?
@@ -279,8 +279,41 @@ then the distance has to be specified explicitly via a ``lumdist`` model
 parameter because otherwise it is inferred from the redshift which for restframe
 spectra is 0.
 
-If you are fitting photometry and spectroscopy then you should be fitting the
-observed frame spectra.
+If you are fitting photometry and spectroscopy simultaneously then you should be
+fitting the observed frame spectra.
+
+
+How do I obtain posteriors for the surviving stellar mass instead of the formed stellar mass
+--------------------------------------------------------------------------------------------
+
+By default the units of stellar mass used in prospector models are the *formed*
+stellar mass. This is different than the 'current' or surviving stellar mass due
+to stellar mass loss during evolution (e.g. AGB winds, supernovae) in a way that
+depends on metallicity, SFH, and IMF.  The ratio between the surviving stellar
+stellar mass and the formed stellar mass (often referred to in the code as
+``mfrac`` is returned by by the :py:meth:`prospect.models.SpecModel.predict()`
+method, and the surviving stellar mass can be obtained for any given parameter
+set as:
+
+.. code-block:: python
+
+        spec, phot, mfrac = model.predict(parameter_vector, obs=obs, sps=sps)
+        surviving_mass = np.sum(model.params["mass"]) * mfrac
+
+
+When fitting parametric SFH models using
+:py:class:`prospect.sources.CSPSpecBasis` it may be possible to fit directly in
+surviving stellar mass by adding the following fixed parameter to your model
+specification:
+
+.. code-block:: python
+
+        model_params["mass_units"]=dict(init="mstar", isfree=False, N=1)
+
+
+Note that the surviving stellar mass will include stellar remnants (black holes,
+neutron stars, and white dwarfs) by default.  This can be controlled via the
+(FSPS) parameter ``"add_stellar_remnants"``
 
 
 What priors should I use?
@@ -302,9 +335,9 @@ the marginalized pPDFs
 
 To be fully righteous you should only fix parameters if
 
-  - you are very sure of their values;
-  - or if you don't think changing the parameter will have a noticeable effect on the model;
-  - or if a parameter is perfectly degenerate (in the space of the data) with another parameter.
+  * you are very sure of their values;
+  * or if you don't think changing the parameter will have a noticeable effect on the model;
+  * or if a parameter is perfectly degenerate (in the space of the data) with another parameter.
 
 In practice parameters that have only a small effect but take a great deal of
 time to vary are often fixed.
@@ -324,8 +357,8 @@ uncertainty to the 1-sigma upper limit.
 What do I do with the chain?  What values should I report?
 ----------------------------------------------------------
 This is a general question for MC sampling techniques.  See `sharma17
-<https://ui.adsabs.harvard.edu/abs/2017ARA%26A..55..213S/abstract>` or
-`speagle19 <https://ui.adsabs.harvard.edu/abs/2019arXiv190912313S/abstract>` for
+<https://ui.adsabs.harvard.edu/abs/2017ARA%26A..55..213S/abstract>`_ or
+`speagle19 <https://ui.adsabs.harvard.edu/abs/2019arXiv190912313S/abstract>`_ for
 advice.
 
 
