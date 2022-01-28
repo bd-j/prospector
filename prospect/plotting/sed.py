@@ -9,7 +9,7 @@ __all__ = ["convolve_spec", "to_nufnu"]
 
 
 def convolve_spec(wave, flux, R, minw=1e3, maxw=5e4,
-                  nufnu=False, microns=False):
+                  nufnu=False, microns=False, fftsmooth=True):
     """Convolve a spectrum for display purposes
 
     Parameters
@@ -25,7 +25,7 @@ def convolve_spec(wave, flux, R, minw=1e3, maxw=5e4,
     """
     dlnlam = 1.0 / R / 2
     owave = np.exp(np.arange(np.log(minw), np.log(maxw), dlnlam))
-    fout = [smoothspec(wave, f, resolution=R, outwave=owave, smoothtype="R")
+    fout = [smoothspec(wave, f, resolution=R, outwave=owave, smoothtype="R", fftsmooth=fftsmooth)
             for f in np.atleast_2d(flux)]
     fout = np.squeeze(np.array(fout))
     if nufnu:
