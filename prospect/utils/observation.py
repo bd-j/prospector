@@ -3,6 +3,8 @@
 import json
 import numpy as np
 
+__all__ = ["Observation", "Spectrum", "Photometry",
+           "from_oldstyle"]
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -35,6 +37,12 @@ class Observation:
         """
         k = self.alias.get(item, item)
         return getattr(self, k)
+
+    def get(self, item, default):
+        try:
+            return self[item]
+        except(AttributeError):
+            return default
 
     def from_oldstyle(self, **kwargs):
         """Take an old-style obs dict and use it to populate the relevant
@@ -152,3 +160,9 @@ class Spectrum(Observation):
         obs.update({k: self[v] for k, v in self.alias.items()})
         _ = [obs.pop(k) for k in ["flux", "uncertainty"]]
         return obs
+
+
+def from_oldstyle(obs):
+    """Convert from an oldstyle dictionary to a list of observations
+    """
+    return [Spectrum().from_oldstyle(obs), Photometry().from_oldstyle(obs)]
