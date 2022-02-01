@@ -41,6 +41,8 @@ class SpecModel(ProspectorParams):
         super().__init__(*args, **kwargs)
         self.init_eline_info()
 
+        self.parse_elines()
+
     def _available_parameters(self):
         new_pars = [("sigma_smooth", ""),
                     ("marginalize_elines", ""),
@@ -51,26 +53,24 @@ class SpecModel(ProspectorParams):
                     ("eline_sigma", ""),
                     ("use_eline_priors", ""),
                     ("eline_prior_width", "")]
-        relevant_pars = [("mass", ""),
-                         ("lumdist", ""),
-                         ("zred", ""),
-                         ("nebemlineinspec", ""),
-                         ("add_neb_emission")]
+
+        referenced_pars = [("mass", ""),
+                           ("lumdist", ""),
+                           ("zred", ""),
+                           ("nebemlineinspec", ""),
+                           ("add_neb_emission")]
 
         return new_pars
 
-    def predict(self, theta, obs=None, sps=None, sigma_spec=None, **extras):
+    def predict(self, theta, obslist=None, sps=None, sigma_spec=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
 
         :param theta:
             ndarray of parameter values, of shape ``(ndim,)``
 
-        :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:func:`utils.obsutils.rectify_obs`
+        :param obslist:
+            A list of `Observation` instances.
 
         :param sps:
             An `sps` object to be used in the model generation.  It must have
@@ -80,14 +80,17 @@ class SpecModel(ProspectorParams):
             The covariance matrix for the spectral noise. It is only used for
             emission line marginalization.
 
-        :returns spec:
-            The model spectrum for these parameters, at the wavelengths
-            specified by ``obs['wavelength']``, including multiplication by the
-            calibration vector.  Units of maggies
+        :returns predictions: (list of ndarrays)
+            List of predictions for the given list of observations.
 
-        :returns phot:
-            The model photometry for these parameters, for the filters
-            specified in ``obs['filters']``.  Units of maggies.
+            If the observation kind is "spectrum" then this is the model spectrum for these
+            parameters, at the wavelengths specified by ``obs['wavelength']``,
+            including multiplication by the calibration vector.  Units of
+            maggies
+
+            If the observation kind is "photometry" then this is the model
+            photometry for these parameters, for the filters specified in
+            ``obs['filters']``.  Units of maggies.
 
         :returns extras:
             Any extra aspects of the model that are returned.  Typically this
@@ -103,15 +106,28 @@ class SpecModel(ProspectorParams):
         # Flux normalize
         self._norm_spec = self._spec * self.flux_norm()
 
-        # generate spectrum and photometry for likelihood
-        # predict_spec should be called before predict_phot
-        # because in principle it can modify the emission line parameters
-        # and also needs some things done in 'cache_eline_parameters`
-        # especially _ewave_obs and _use_elines
-        spec = self.predict_spec(obs, sigma_spec=sigma_spec)
-        phot = self.predict_phot(obs.get('filters', None))
+        # cache eline observed wavelengths
+        eline_z = self.params.get("eline_delta_zred", 0.0)
+        self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
+        # cache eline mle info
+        self._ln_eline_penalty = 0
+        self._eline_lum_var = np.zeros_like(self._eline_wave)
 
-        return spec, phot, self._mfrac
+        # generate predictions for likelihood
+        # this assumes all spectral datasets (if present) occur first
+        # because they can change the line strengths during marginalization.
+        predictions = [self.predict_one(obs, sigma_spec=sigma_spec)
+                       for obs in obslist]
+
+        return predictions, self._mfrac
+
+    def predict_one(self, obs, sigma_spec=None):
+        self.cache_eline_parameters(obs)
+        if obs.kind == "spectrum":
+            prediction = self.predict_spec(obs, sigma_spec)
+        elif obs.kind == "photometry":
+            prediction = self.predict_phot(obs["filters"])
+        return prediction
 
     def predict_spec(self, obs, sigma_spec=None, **extras):
         """Generate a prediction for the observed spectrum.  This method assumes
@@ -139,10 +155,9 @@ class SpecModel(ProspectorParams):
         ``cache_eline_parameters()`` and ``fit_el()`` for details.)
 
         :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:meth:`utils.obsutils.rectify_obs`
+            An instance of `Spectrum`, containing the output wavelength array,
+            the observed fluxes and uncertainties thereon.  Assumed to be the
+            result of :py:meth:`utils.obsutils.rectify_obs`
 
         :param sigma_spec: (optional)
             The covariance matrix for the spectral noise. It is only used for
@@ -159,9 +174,6 @@ class SpecModel(ProspectorParams):
         self._outwave = obs.get('wavelength', obs_wave)
         if self._outwave is None:
             self._outwave = obs_wave
-
-        # --- cache eline parameters ---
-        self.cache_eline_parameters(obs)
 
         # --- smooth and put on output wavelength grid ---
         smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
@@ -340,29 +352,21 @@ class SpecModel(ProspectorParams):
         redshift - first looks for ``eline_delta_zred``, and defaults to ``zred``
         sigma - first looks for ``eline_sigma``, defaults to 100 km/s
 
+        N.B. This must be run separately for each `Observation` instance at each
+        likelihood call!!!
+
+        param
+
         :param nsigma: (float, optional, default: 5.)
             Number of sigma from a line center to use for defining which lines
             to fit and useful spectral elements for the fitting.  float.
         """
-
-        # observed wavelengths
-        eline_z = self.params.get("eline_delta_zred", 0.0)
-        self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
-        self._eline_lum_var = np.zeros_like(self._eline_wave)
-
-        # masks for lines to be treated in various ways.
-        # always run this becuase it's need for spec *and* phot if adding lines
-        # by hand
-        self.parse_elines()
-
         # exit gracefully if not adding lines.  We also exit if only fitting
         # photometry, for performance reasons
         hasspec = obs.get('spectrum', None) is not None
         if not (self._want_lines & self._need_lines & hasspec):
-            self._fit_eline = None
             self._fit_eline_pixelmask = np.array([], dtype=bool)
             self._fix_eline_pixelmask = np.array([], dtype=bool)
-            self._fix_eline = None
             return
 
         # observed linewidths
@@ -497,6 +501,7 @@ class SpecModel(ProspectorParams):
             K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
 
         # Cache the ln-penalty
+        # FIXME this needs to be acumulated if there are multiple spectra
         self._ln_eline_penalty = K
 
         # Store fitted emission line luminosities in physical units
@@ -637,7 +642,10 @@ class SpecModel(ProspectorParams):
     def mean_model(self, theta, obs, sps=None, sigma=None, **extras):
         """Legacy wrapper around predict()
         """
-        return self.predict(theta, obs, sps=sps, sigma_spec=sigma, **extras)
+        from ..utils.observation import from_oldstyle
+        obslist = from_oldstyle(obs)
+        predictions, mfrac = self.predict(theta, obslist, sps=sps, sigma_spec=sigma, **extras)
+        return predictions[0], predictions[1], mfrac
 
 
 class PolySpecModel(SpecModel):
@@ -661,6 +669,9 @@ class PolySpecModel(SpecModel):
         certain order describing the ratio of the observed spectrum to the model
         spectrum, conditional on all other parameters. If emission lines are
         being marginalized out, they are excluded from the least-squares fit.
+
+        :param obs:
+            Instance of `Spectrum`
 
         :returns cal:
            A polynomial given by :math:`\sum_{m=0}^M a_{m} * T_m(x)`.
