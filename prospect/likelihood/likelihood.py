@@ -6,74 +6,74 @@ __all__ = ["lnlike_spec", "lnlike_phot", "chi_spec", "chi_phot", "write_log"]
 
 
 def lnlike_spec(spec_mu, obs=None, spec_noise=None, f_outlier_spec=0.0, **vectors):
-        """Calculate the likelihood of the spectroscopic data given the
-        spectroscopic model.  Allows for the use of a gaussian process
-        covariance matrix for multiplicative residuals.
+    """Calculate the likelihood of the spectroscopic data given the
+    spectroscopic model.  Allows for the use of a gaussian process
+    covariance matrix for multiplicative residuals.
 
-        :param spec_mu:
-            The mean model spectrum, in linear or logarithmic units, including
-            e.g. calibration and sky emission.
+    :param spec_mu:
+        The mean model spectrum, in linear or logarithmic units, including
+        e.g. calibration and sky emission.
 
-        :param obs: (optional)
-            A dictionary of the observational data, including the keys
-            *``spectrum`` a numpy array of the observed spectrum, in linear or
-             logarithmic units (same as ``spec_mu``).
-            *``unc`` the uncertainty of same length as ``spectrum``
-            *``mask`` optional boolean array of same length as ``spectrum``
-            *``wavelength`` if using a GP, the metric that is used in the
-             kernel generation, of same length as ``spectrum`` and typically
-             giving the wavelength array.
+    :param obs: (optional)
+        A dictionary of the observational data, including the keys
+        *``spectrum`` a numpy array of the observed spectrum, in linear or
+         logarithmic units (same as ``spec_mu``).
+        *``unc`` the uncertainty of same length as ``spectrum``
+        *``mask`` optional boolean array of same length as ``spectrum``
+        *``wavelength`` if using a GP, the metric that is used in the
+         kernel generation, of same length as ``spectrum`` and typically
+         giving the wavelength array.
 
-        :param spec_noise: (optional)
-            A NoiseModel object with the methods `compute` and `lnlikelihood`.
-            If ``spec_noise`` is supplied, the `wavelength` entry in the obs
-            dictionary must exist.
+    :param spec_noise: (optional)
+        A NoiseModel object with the methods `compute` and `lnlikelihood`.
+        If ``spec_noise`` is supplied, the `wavelength` entry in the obs
+        dictionary must exist.
 
-        :param f_outlier_spec: (optional)
-            The fraction of spectral pixels which are considered outliers
-            by the mixture model
+    :param f_outlier_spec: (optional)
+        The fraction of spectral pixels which are considered outliers
+        by the mixture model
 
-        :param vectors: (optional)
-            A dictionary of vectors of same length as ``wavelength`` giving
-            possible weghting functions for the kernels
+    :param vectors: (optional)
+        A dictionary of vectors of same length as ``wavelength`` giving
+        possible weghting functions for the kernels
 
-        :returns lnlikelhood:
-            The natural logarithm of the likelihood of the data given the mean
-            model spectrum.
-        """
-        if obs['spectrum'] is None:
-            return 0.0
+    :returns lnlikelhood:
+        The natural logarithm of the likelihood of the data given the mean
+        model spectrum.
+    """
+    if obs['spectrum'] is None:
+        return 0.0
 
-        mask = obs.get('mask', slice(None))
-        vectors['mask'] = mask
-        vectors['wavelength'] = obs['wavelength']
+    mask = obs.get('mask', slice(None))
+    vectors['mask'] = mask
+    vectors['wavelength'] = obs['wavelength']
 
-        delta = (obs['spectrum'] - spec_mu)[mask]
-        var = (obs['unc'][mask])**2
+    delta = (obs['spectrum'] - spec_mu)[mask]
+    var = (obs['unc'][mask])**2
 
-        if spec_noise is not None:
-            try:
-                spec_noise.compute(**vectors)
-                if (f_outlier_spec == 0.0):
-                    return spec_noise.lnlikelihood(delta)
+    if spec_noise is not None:
+        try:
+            spec_noise.compute(**vectors)
+            if (f_outlier_spec == 0.0):
+                return spec_noise.lnlikelihood(spec_mu[mask], obs['spectrum'][mask])
 
-                # disallow (correlated noise model + mixture model)
-                # and redefine errors
-                assert spec_noise.Sigma.ndim == 1
-                var = spec_noise.Sigma
+            # disallow (correlated noise model + mixture model)
+            # and redefine errors
+            assert spec_noise.Sigma.ndim == 1
+            var = spec_noise.Sigma
 
-            except(LinAlgError):
-                return np.nan_to_num(-np.inf)
+        except(LinAlgError):
+            return np.nan_to_num(-np.inf)
 
-        lnp = -0.5*( (delta**2/var) + np.log(2*np.pi*var) )
-        if (f_outlier_spec == 0.0):
-            return lnp.sum()
-        else:
-            var_bad = var * (vectors["nsigma_outlier_spec"]**2)
-            lnp_bad = -0.5*( (delta**2/var_bad) + np.log(2*np.pi*var_bad) )
-            lnp_tot = np.logaddexp(lnp + np.log(1-f_outlier_spec), lnp_bad + np.log(f_outlier_spec))
+    lnp = -0.5*( (delta**2/var) + np.log(2*np.pi*var) )
+    if (f_outlier_spec == 0.0):
+        return lnp.sum()
+    else:
+        var_bad = var * (vectors["nsigma_outlier_spec"]**2)
+        lnp_bad = -0.5*( (delta**2/var_bad) + np.log(2*np.pi*var_bad) )
+        lnp_tot = np.logaddexp(lnp + np.log(1-f_outlier_spec), lnp_bad + np.log(f_outlier_spec))
 
-            return lnp_tot.sum()
+        return lnp_tot.sum()
 
 def lnlike_phot(phot_mu, obs=None, phot_noise=None, f_outlier_phot=0.0, **vectors):
     """Calculate the likelihood of the photometric data given the spectroscopic
@@ -119,6 +119,7 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, f_outlier_phot=0.0, **vector
     mask = obs.get('phot_mask', slice(None))
     delta = (obs['maggies'] - phot_mu)[mask]
     var = (obs['maggies_unc'][mask])**2
+    psamples = obs.get('phot_samples', None)
 
     if phot_noise is not None:
         try:
@@ -127,10 +128,11 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, f_outlier_phot=0.0, **vector
             filternames = [f.name for f in obs['filters']]
         vectors['mask'] = mask
         vectors['filternames'] = np.array(filternames)
+        vectors['phot_samples'] = psamples
         try:
             phot_noise.compute(**vectors)
             if (f_outlier_phot == 0.0):
-                return phot_noise.lnlikelihood(delta)
+                return phot_noise.lnlikelihood(phot_mu[mask], obs['maggies'][mask])
 
             # disallow (correlated noise model + mixture model)
             # and redefine errors
