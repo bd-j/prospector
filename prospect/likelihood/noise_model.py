@@ -1,8 +1,11 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
-from statsmodels.nonparametric.kernel_density import KDEMultivariate
+try:
+    from statsmodels.nonparametric.kernel_density import KDEMultivariate
+except(ImportError):
+    pass
 
-__all__ = ["NoiseModel", "NoiseModelKDE"] 
+__all__ = ["NoiseModel", "NoiseModelKDE"]
 
 
 class NoiseModel(object):
@@ -88,11 +91,10 @@ class NoiseModel(object):
 
 class NoiseModelKDE(object):
 
-    def __init__(self, metric_name='', mask_name='mask'):
-# , kernel=None
-# , weight_by=None):
-#        self.kernel = kernel
-#        self.weight_names = weight_by
+    def __init__(self, metric_name="phot_samples", mask_name="mask"):
+        # , kernel=None, weight_by=None):
+        #  self.kernel = kernel
+        #  self.weight_names = weight_by
         self.metric_name = metric_name
         self.mask_name = mask_name
         self.lnl = None
@@ -100,33 +102,19 @@ class NoiseModelKDE(object):
     def update(self, **params):
         pass
 
-### CURRENTLY UNUSED - DO I NEED IT?
-#    def get_weights(self, **vectors):
-#        """From a dictionary of vectors that give weights, pull the vectors
-#        that correspond to each kernel, as stored in the `weight_names`
-#        attribute.  A None vector will result in None weights
-#        """
-#        mask = vectors.get(self.mask_name, slice(None))
-#        wghts = []
-#        for w in self.weight_names:
-#            if vectors[w] is None:
-#                wghts += [None]
-#            else:
-#                wghts.append(vectors[w][mask])
-#        return wghts
-
     def compute(self, check_finite=False, **vectors):
-        """Identify and cache the lnlikelihood function
-        using the photometry posterior samples
+        """Identify and cache the lnlikelihood function using the photometry
+        posterior samples.  This will look for `self.metric_name` in vectors and
+        use that as a set of samples to initialize a multivariate KDE
         """
-# need an assert statement, in case it is a new object
+        # need an assert statement, in case it is a new object
         if self.lnl is None:
             metric = vectors[self.metric_name]
             mask = vectors.get('mask', slice(None))
             samples = metric[:, mask]
 
             self.metric_lims = np.percentile(samples, [0, 100], axis=0)
-            # KDE - use if possible 
+            # KDE - use if possible
             self.lnl = KDEMultivariate(data=samples, var_type='c'*samples.shape[1]).pdf
 
             # Correlated normals (use if trial point is out of bounds)
@@ -147,8 +135,8 @@ class NoiseModelKDE(object):
             Observed photometry, in linear flux units (i.e. maggies).
         """
         # check bounds of trial point relative to phot samples
-        lo_check = np.min( phot_mu - self.metric_lims[0] ) >= 0
-        hi_check = np.max( phot_mu - self.metric_lims[1] ) <= 0
+        lo_check = np.min(phot_mu - self.metric_lims[0]) >= 0
+        hi_check = np.max(phot_mu - self.metric_lims[1]) <= 0
         if lo_check * hi_check:
             return np.log(self.lnl(phot_mu))
         # use correlated normals if trial point is out of bounds

@@ -75,6 +75,7 @@ def lnlike_spec(spec_mu, obs=None, spec_noise=None, f_outlier_spec=0.0, **vector
 
         return lnp_tot.sum()
 
+
 def lnlike_phot(phot_mu, obs=None, phot_noise=None, f_outlier_phot=0.0, **vectors):
     """Calculate the likelihood of the photometric data given the spectroscopic
     model.  Allows for the use of a gaussian process covariance matrix.
@@ -142,11 +143,10 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, f_outlier_phot=0.0, **vector
         except(LinAlgError):
             return np.nan_to_num(-np.inf)
 
-
     # simple noise model
     lnp = -0.5*( (delta**2/var) + np.log(2*np.pi*var) )
     if (f_outlier_phot == 0.0):
-            return lnp.sum()
+        return lnp.sum()
     else:
         var_bad = var * (vectors["nsigma_outlier_phot"]**2)
         lnp_bad = -0.5*( (delta**2/var_bad) + np.log(2*np.pi*var_bad) )

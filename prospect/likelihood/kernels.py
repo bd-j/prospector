@@ -100,7 +100,7 @@ class PhotoCal(Kernel):
     ndim = 2
     npars = 2
     kernel_params = ['amplitude', 'filter_names']
-    
+
     def construct_kernel(self, metric):
         """ This adds correlated noise in specified bands of photometry
         """
@@ -108,12 +108,12 @@ class PhotoCal(Kernel):
         K = k[:, None] * k[None, :]     # select off-diagonal elements
         return K * self.params["amplitude"]**2
 
+
 class PhotSamples_MVN(Kernel):
     npars = 0
     kernel_params = []
 
     def __init__(self, cov, filter_names, parnames=[], name=''):
-
 
         super().__init__(parnames=parnames, name=name)
         assert cov.shape[0] == len(filter_names)
