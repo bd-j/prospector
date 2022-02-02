@@ -197,7 +197,7 @@ def test_eline_implementation():
     #ax.plot(obs["wavelength"], spec_nolya)
 
 
-def test_marginalizing_lines():
+#def test_marginalizing_lines():
     # test marginalizing over lines
     #model_pars["marginalize_elines"] = dict(init=True)
     #model = SpecModel(model_pars)
