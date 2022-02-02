@@ -30,6 +30,7 @@ jobs:
         run: |
           python -m pip install -U pip pytest
           python -m pip install -U fsps astro-sedpy astropy
+          python -m pip install -U dynesty
           python -m pip install .
         env:
           SPS_HOME: ${{ github.workspace }}/fsps
