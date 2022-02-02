@@ -59,7 +59,7 @@ class SpecModel(ProspectorParams):
                     ("elines_to_ignore", ""),
                     ("eline_delta_zred", ""),
                     ("eline_sigma", ""),
-                    ("use_eline_priors", "")
+                    ("use_eline_priors", ""),
                     ("eline_prior_width", "")]
         relevant_pars = [("mass", ""),
                          ("lumdist", ""),

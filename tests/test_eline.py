@@ -26,8 +26,8 @@ def test_eline_parsing():
     assert not np.isin(lya, model.emline_info["name"][model._use_eline])
     assert np.isin("H alpha 6563", model.emline_info["name"][model._use_eline])
     assert np.all(model._fix_eline)
-    assert model.use_eline.sum() == len(model._use_eline) - 1
-    assert en(model._use_eline) == len(model.emline_info)
+    assert model._use_eline.sum() == len(model._use_eline) - 1
+    assert len(model._use_eline) == len(model.emline_info)
 
     # test fitting all the non-ignored lines
     model_pars["marginalize_elines"] = dict(init=True)
@@ -134,8 +134,8 @@ def test_filtersets():
 
         # make sure some of the filters are affected by lines
         if i == 1:
-           nebphot = model.nebline_photometry(flist)
-           assert np.any(nebphot / pset > 0.1)
+            nebphot = model.nebline_photometry(flist)
+            assert np.any(nebphot / pset > 0.1)
 
         dmag = np.abs(pset - plist) / plist
         #print(plist)
@@ -181,14 +181,12 @@ def test_eline_implementation():
     lint = np.trapz(spec - spec_nolya, obs["wavelength"])
     assert lint > 0
 
-
     # test igoring a line, phot only
     obs_spec = obs.pop("spectrum")
     model = SpecModel(model_pars)
     spec_nolya_2, phot_nolya_2, mfrac = model.predict(model.theta, obs=obs, sps=sps)
     obs["spectrum"] = obs_spec
     assert np.all(phot_nolya == phot_nolya_2)
-
 
     #import matplotlib.pyplot as pl
     #pl.ion()
