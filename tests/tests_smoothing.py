@@ -3,7 +3,7 @@ smoothing.
 """
 
 # TODO: turn plots into asserts with tolerances.
-
+# TODO: have some tests that do not require a python-fsps install
 import numpy as np
 import matplotlib.pyplot as pl
 from prospect.utils.smoothing import smooth_fft, smooth_wave_fft, smooth_lsf_fft, smoothspec
@@ -78,7 +78,7 @@ def compare_simple(resolution, wmin=3800, wmax=7100, vel=False, **kwargs):
         sps.params['smooth_velocity'] = False
     w, fsmooth = sps.get_spectrum(tage=1.0)
 
-    # My smoothing
+    # Prospector smoothing
     if vel:
         smoothtype = 'vel'
     else:
@@ -89,30 +89,28 @@ def compare_simple(resolution, wmin=3800, wmax=7100, vel=False, **kwargs):
     display(w, flib, fsmooth, outwave, msmooth)
 
 
-def test_fft(lsf, **kwargs):
+def compare_fft(lsf, **kwargs):
 
-    # Do a test with stellar spectra
-    libname = 'ckc/lores/ckc_R10K.h5'
-    from prospect.sources import BigStarBasis
-    sps = BigStarBasis(use_params=['logt', 'logg', 'feh'], log_interp=True,
-                       n_neighbors=1, libname=libname)
-    # get a solar spectrum
-    swave, spec, _ = sps.get_star_spectrum(logt=np.log10(5780), logg=4.5, feh=0.0)
+    # Do a test with stellar spectrum
+    from sedpy.reference_spectra import vega
+    swave, spec = vega.T
+    g = (swave < 2e4) & (swave > 2e3)
 
-    g = (swave < 1e4) & (swave > 3.6e3)
+    sigma_out = 60.0
+
     # constant dlam
-    out1 = smooth_wave_fft(swave[g], spec[g], outwave, sigma_out=1.0)
+    out1 = smooth_wave_fft(swave[g], spec[g], outwave, sigma_out=sigma_out)
     # wave dependent dlam with lsf_fft
     out2 = smooth_lsf_fft(swave[g], spec[g], outwave, lsf=lsf, **kwargs)
     # use lsf_fft to do a constant dlam case
-    out3 = smooth_lsf_fft(swave[g], spec[g], outwave, lsf=lsf, a=0, b=0, c=1.0)
-    out4 = smooth_lsf_fft(swave[g], spec[g], outwave, lsf=lsf, a=0, b=0, c=1.0,
+    out3 = smooth_lsf_fft(swave[g], spec[g], outwave, lsf=lsf, a=0, b=0, c=sigma_out)
+    out4 = smooth_lsf_fft(swave[g], spec[g], outwave, lsf=lsf, a=0, b=0, c=sigma_out,
                           preserve_all_input_frequencies=True)
     # wave dependent dlam
     out5 = smooth_lsf_fft(swave[g], spec[g], outwave, lsf=lsf,
                           preserve_all_input_frequencies=True, **kwargs)
 
-    fig, ax = pl.subplots(2, 1, sharex=True)
+    fig, axes = pl.subplots(2, 1, sharex=True)
     ax = axes[0]
     ax.plot(outwave, out3/out1 - 1, label='(default - const) / const')
     ax.plot(outwave, out4/out1 - 1, label='(exact - const) / const')
@@ -121,25 +119,26 @@ def test_fft(lsf, **kwargs):
     ax.plot(swave[g], spec[g], label='Native')
     #ax.plot(outwave, out1, label='wave_fft')
     ax.plot(outwave, out2, label='lsf_fft (default)')
+    ax.legend()
 
-    return fig, ax
+    return fig, axes
 
 
 if __name__ == "__main__":
     kwargs = {'a': 1e-5, 'b': 8e-7, 'c': 0.1, 'wave0': 5000.0}
-    outwave = np.arange(4000, 8000, 0.5)
+    outwave = np.arange(2000, 10000, 0.5)
 
     if False:
-        fig, axes = compare_fft(test_lsf, **kwargs)
-
-    if False:
-        fig, axes = test(test_lsf, pix_per_sigma=20, **kwargs)
-        [ax.legend(loc=0) for ax in axes[:-1]]
+        fig, axes = compare_lsf(lsf, **kwargs)
 
     if True:
-        fig, axes = simple_test(100.0, vel=True)
+        fig, axes = compare_fft(lsf, pix_per_sigma=20, **kwargs)
+        [ax.legend(loc=0) for ax in axes[:-1]]
+
+    if False:
+        fig, axes = compare_simple(100.0, vel=True)
         [ax.legend(loc=0) for ax in axes]
         pl.show()
-        fig, axes = simple_test(1.0, vel=False)
+        fig, axes = compare_simple(1.0, vel=False)
         [ax.legend(loc=0) for ax in axes]
         pl.show()
