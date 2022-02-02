@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install -U pip pytest
-          python -m pip install -U fsps
+          python -m pip install -U fsps astro-sedpy astropy
           python -m pip install .
       - name: Run tests
         run: python -m pytest --durations=0 --maxfail=1 -vs tests/
