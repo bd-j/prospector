@@ -15,13 +15,16 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- General configuration ------------------------------------------------
 
 extensions = [
-    'sphinx.ext.autodoc',
-    #'sphinx.napoleon',
-    'sphinx.ext.mathjax',
-#    'sphinx.ext.doctest',
-#    'sphinx.ext.viewcode',
-#    'sphinx.ext.githubpages',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.intersphinx",
+    "myst_nb",
+    "sphinx.ext.napoleon",
+    "numpydoc"
+
 ]
+
+myst_enable_extensions = ["dollarmath", "colon_fence"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -36,7 +39,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'prospector'
-copyright = '2014-2020, Benjamin Johnson and Contributors'
+copyright = '2014-2022, Benjamin Johnson and Contributors'
 author = 'Benjamin Johnson'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -85,19 +88,18 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-on_rtd = os.environ.get("READTHEDOCS", None) == "True"
-if not on_rtd:
-    import sphinx_rtd_theme
-html_theme = 'sphinx_rtd_theme'
-html_theme_options = {"logo_only": True}
-# html_theme_options = {}
-# html_theme_path = []
+html_theme = 'sphinx_book_theme'
+html_title = "prospector"
+html_copy_source = True
+html_show_sourcelink = True
+html_theme_options = {"path_to_docs": "docs",
+                      "repository_url": "https://github.com/bd-j/prospector",
+                      "repository_branch": "main",
+                      "use_repository_button": True,
+                      "use_edit_page_button": True,
+                      "use_issues_button": True,
+                      "use_download_button": True}
 
-# The name for this set of Sphinx documents.
-# "<project> v<release> documentation" by default.
-# html_title = 'prospector v0.4'
-# A shorter title for the navigation bar.  Default is the same as html_title.
-# html_short_title = None
 
 html_static_path = ["_static"]
 html_css_files = ['css/custom.css']
@@ -105,49 +107,16 @@ html_css_files = ['css/custom.css']
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 html_logo = "_static/logo_name.png"
-# html_logo = None
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
 html_favicon = "_static/favicon.png"
-# html_favicon = None
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
 
 # If not None, a 'Last updated on:' timestamp is inserted at every page
 # bottom, using the given strftime format.
 # The empty string is equivalent to '%b %d, %Y'.
 html_last_updated_fmt = ''
-
-# If true, SmartyPants will be used to convert quotes and dashes to
-# typographically correct entities.
-# html_use_smartypants = True
-
-# Custom sidebar templates, maps document names to template names.
-# html_sidebars = {}
-
-# Additional templates that should be rendered to pages, maps page names to
-# template names.
-# html_additional_pages = {}
-
-# If false, no module index is generated.
-# html_domain_indices = True
-
-# If false, no index is generated.
-# html_use_index = True
-
-# If true, the index is split into individual pages for each letter.
-# html_split_index = False
-
-# If true, links to the reST sources are added to the pages.
-# html_show_sourcelink = True
-
-# If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
-# html_show_copyright = True
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'prospectordoc'

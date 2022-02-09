@@ -1,6 +1,9 @@
 numpy >= 1.16
 scipy >= 1.1.0
 matplotlib >= 3.0
-sphinx==3.4.3
-sphinx_rtd_theme==0.5.1
-docutils < 0.18
+astropy
+h5py
+astro-sedpy
+sphinx-book-theme @ git+https://github.com/dfm/sphinx-book-theme.git@fix-outdir
+myst-nb
+numpydoc

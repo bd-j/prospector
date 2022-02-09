@@ -19,7 +19,7 @@ and that it return an ``obs`` dictionary as described below.
 The ``obs`` Dictionary & Data Units
 -----------------------------------
 
-|Codename| expects the data in the form of a dictionary returned by py:meth:`build_obs`.
+|Codename| expects the data in the form of a dictionary returned by :py:meth:`build_obs`.
 This dictionary should have (at least) the following keys and values:
 
 ``"wavelength"``

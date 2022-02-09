@@ -48,7 +48,7 @@ Prospector allows you to:
 License and Attribution
 ------------------------------
 
-*Copyright 2014-2021 Benjamin D. Johnson and contributors.*
+*Copyright 2014-2022 Benjamin D. Johnson and contributors.*
 
 This code is available under the `MIT License
 <https://raw.github.com/bdj/prospector/blob/main/LICENSE>`_.

@@ -29,34 +29,33 @@ type of data to various parameters.
 Parameter Specification
 ------------------------------
 
-All model parameters require a specification in the **parameter file**.
-A dictionary of parameter specifications, keyed by parameter name,
-is used to instantiate and configure the model objects
-(instances of ProspectorParams or its subclasses.)
-For a single parameter the specification is a dictionary that must at minimum include several keys:
+All model parameters are specified in a **parameter file**. A dictionary of
+parameter specifications, keyed by parameter name, is used to instantiate and
+configure the model objects (instances of :py:class:`models.ProspectorParams``
+or its subclasses.)
 
-``"name"``
-    The name of the parameter, string.
+For a single parameter the specification is a dictionary that should at minimum
+include several keys:
 
 ``"N"``
     An integer specifying the length of the parameter.
-    For the common case of a scalar parameter, use ``1``.
+    If not supplied this defaults to ``1``, the common case of a scalar parameter.
+
+``"isfree"``
+    Boolean specifying whether a parameter is free to vary during optimization
+    and sampling (``True``) or not (``False``). This defaults to ``False`` if
+    not supplied.
 
 ``"init"``
     The initial value of the parameter.
-    If the parameter is free to vary, this is where optimization or will start
-    from, or, if no optimization happens, this will be the center of the initial
-    ball of `emcee` walkers.
-    If using nested sampling then the value of ``"init"`` is not important
-    (though a value must still be given.)
     If the parameter is not free, then this is the value that will be used
     throughout optimization and sampling.
+    If the parameter is free to vary, this is where optimization will start
+    from or -- if no optimization happens -- this will be the center of the initial
+    ball of `emcee` walkers. Note that if using nested sampling then the value of
+    ``"init"`` is not important (though a value must still be given).
 
-``"isfree"``
-    Boolean specifying whether a parameter is free to vary during
-    optimization and sampling (``True``) or not (``False``).
-
-For parameters with ``"isfree": True`` the following additional key is required:
+For parameters with ``isfree=True`` the following additional key is required:
 
 ``"prior"``
     An instance of a prior object, including parameters for the prior
@@ -70,22 +69,19 @@ If using ``emcee``, the following key can be useful to have:
     It is ignored if nested sampling is used.
 
 It's also a good idea to have a ``"units"`` key, a string describing the units of the the parameter.
-So, in the end, this looks something like
+So, in the end, this looks something like:
 
 .. code-block:: python
 
-    mass = {"name": "mass",
-                  "N": 1,
-                  "init": 1e9,
-                  "init_disp": 1e8, # only important if using emcee sampling
-                  "units": "M$_\odot$ of stars formed.",
-                  "isfree": True,
-                  "prior": priors.LogUniform(mini=1e7, maxi=1e12)
-                  }
+    mass = dict(N=1, init=1e9, isfree=True,
+                prior= priors.LogUniform(mini=1e7, maxi=1e12),
+                units="M$_\odot$ of stars formed.", init_disp=1e8)
+    model_params = dict(mass=mass)
 
-Nearly all parameters used by FSPS can become a model parameter.
-When fitting galaxies the default python-FSPS parameter values will be used unless specified in a fixed parameter,
-e.g. ``imf_type`` can be changed by including it as a fixed parameter with value given by ``"init"``.
+Nearly all parameters used by FSPS can become a model parameter. When fitting
+galaxies the default python-FSPS parameter values will be used unless specified
+in a fixed parameter, e.g. ``imf_type`` can be changed by including it as a
+fixed parameter with value given by ``"init"``.
 
 Parameters can also be used to control the Prospector-specific parts of the
 modeling code. These include things like spectral smoothing, wavelength
@@ -99,15 +95,14 @@ algorithms may fail).
 Priors
 ------
 
-Prior objects can be found in the :py:mod:`prospect.models.priors` module.
-It is recommended to use the objects instead of the functions,
-as they have some useful attributes and are suitable for all types of sampling.
-The prior functions by contrast will not work for nested sampling.
-When specifying a prior using an object, you can and should specify the parameters of that prior on initialization, e.g.
+All parameters that are free to vary must have an associated prior distribution.
+Prior objects can be found in the :py:mod:`prospect.models.priors` module. When
+specifying a prior using an object, you can and should specify the parameters of
+that prior on initialization, e.g.
 
 .. code-block:: python
 
-		mass["prior"] = priors.ClippedNormal(mean=0.0, sigma=1.0, mini=0.0, maxi=3.0)
+		model_params["dust2"]["prior"] = priors.ClippedNormal(mean=0.3, sigma=0.5, mini=0.0, maxi=3.0)
 
 
 Transformations
@@ -165,21 +160,21 @@ mechanism is used extensively for the non-parametric SFHs, and is recommended
 for complex dust attenuation models.
 
 .. note::
-It is important that any parameter with the ``"depends_on"`` key present is a
-fixed parameter. For portability and easy reconstruction of the model it is
-important that the ``depends_on`` function either be importable (e.g. one of the
-functions supplied in :py:mod:`prospect.models.transforms`) or defined within
-the parameter file.
+    It is important that any parameter with the ``"depends_on"`` key present is a
+    fixed parameter. For portability and easy reconstruction of the model it is
+    important that the ``depends_on`` function either be importable (e.g. one of the
+    functions supplied in :py:mod:`prospect.models.transforms`) or defined within
+    the parameter file.
 
 
 Parameter Set Templates
 --------------------------------
 
 A number of predefined sets of parameters (with priors) are available as
-dictionaries of model specifications from :py:class:`prospect.models.templates.TemplateLibrary`,
-these can be a good starting place for building your model.
-To see the available parameter sets to inspect the free and fixed parameters in
-a given set, you can do something like
+dictionaries of model specifications from
+:py:class:`prospect.models.templates.TemplateLibrary`, these can be a good
+starting place for building your model. To see the available parameter sets to
+inspect the free and fixed parameters in a given set, you can do something like
 
 .. code-block:: python
 
@@ -192,10 +187,11 @@ a given set, you can do something like
 		print(TemplateLibrary["parametric_sfh"])
 		# Actually get a copy of one of the predefined sets
 		model_params = TemplateLibrary["parametric_sfh"]
+        # This dictionary can be updated or modified, e.g. to add default nebular emission parameters.
+        model_params.update(TemplateLibrary["nebular"])
 		# Instantiate a model object
 		from prospect.models import SedModel
 		model = SedModel(model_params)
-
 
 
 The ``build_model()`` Method

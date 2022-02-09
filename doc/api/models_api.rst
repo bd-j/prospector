@@ -1,8 +1,11 @@
 prospect.models
 ===============
 
+prospect.models
+---------------
+
 .. automodule:: prospect.models
-   :members: ProspectorParams, SpecModel, SedModel
+   :members: ProspectorParams, SpecModel, PolySpecModel
 
 prospect.models.priors
 ----------------------
