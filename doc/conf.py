@@ -98,7 +98,10 @@ html_theme_options = {"path_to_docs": "docs",
                       "use_repository_button": True,
                       "use_edit_page_button": True,
                       "use_issues_button": True,
-                      "use_download_button": True}
+                      "use_download_button": True,
+                      "logo_only": True,
+                      "extra_navbar": ("<p>Logo by Lynn Carlson & Kate Whitaker</p>"
+                                       "<p>Theme by Executable Book Project</p>"),}
 
 
 html_static_path = ["_static"]
@@ -106,7 +109,7 @@ html_css_files = ['css/custom.css']
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = "_static/logo_name.png"
+html_logo = "_static/logo_name_kh.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
@@ -120,6 +123,19 @@ html_last_updated_fmt = ''
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'prospectordoc'
+
+
+autodoc_default_options = {
+    'member-order': 'bysource',
+}
+
+#def skip(app, what, name, obj, would_skip, options):
+#    if name == "__init__":
+#        return False
+#    return would_skip
+
+#def setup(app):
+#    app.connect("autodoc-skip-member", skip)
 
 # -- Options for LaTeX output ---------------------------------------------
 

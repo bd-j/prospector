@@ -5,13 +5,13 @@ prospect.models
 ---------------
 
 .. automodule:: prospect.models
-   :members: ProspectorParams, SpecModel, PolySpecModel
+   :members: ProspectorParams, SpecModel, PolySpecModel, SplineSpecModel
 
 prospect.models.priors
 ----------------------
 
 .. automodule:: prospect.models.priors
-   :members:
+   :members: Prior
 
 prospect.models.transforms
 --------------------------

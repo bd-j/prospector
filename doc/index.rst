@@ -24,6 +24,7 @@ Prospector allows you to:
    usage
    dataformat
    models
+   sfhs
    output
 
 .. toctree::
@@ -53,7 +54,7 @@ License and Attribution
 This code is available under the `MIT License
 <https://raw.github.com/bdj/prospector/blob/main/LICENSE>`_.
 
-If you use this code, please reference `this paper https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract`_:
+If you use this code, please reference `this paper <https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract>`_:
 
 .. code-block:: none
 

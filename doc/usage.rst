@@ -116,7 +116,7 @@ The required methods in a **parameter file** for building the data and model are
 
 4.  :py:meth:`build_noise`:
     This function should return a :py:class:`NoiseModel` object for the spectroscopy and/or
-    photometry.  Either or both can be ``None``(the default)  in which case the likelihood
+    photometry. Either or both can be ``None`` (the default)  in which case the likelihood
     will not include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
 
 Using MPI

@@ -126,18 +126,21 @@ class SpecModel(ProspectorParams):
     def predict_spec(self, obs, sigma_spec, **extras):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
-        present and correct:
+        present and correct
+
           + ``_wave`` - The SPS restframe wavelength array
           + ``_zred`` - Redshift
           + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies
           + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
 
         It generates the following attributes
+
           + ``_outwave`` - Wavelength grid (observed frame)
           + ``_speccal`` - Calibration vector
           + ``_sed`` - Intrinsic spectrum (before cilbration vector applied but including emission lines)
 
-        And the following attributes are generated if nebular lines are added:
+        And the following attributes are generated if nebular lines are added
+
           + ``_fix_eline_spec`` - emission line spectrum for fixed lines, intrinsic units
           + ``_fix_eline_spec`` - emission line spectrum for fitted lines, with
             spectroscopic calibration factor included.
@@ -653,7 +656,7 @@ class PolySpecModel(SpecModel):
         least-squares fit.
 
         :returns cal:
-           A polynomial given by :math:`\Sum_{m=0}^M a_{m} * T_m(x)`.
+           A polynomial given by :math:`\sum_{m=0}^M a_{m} * T_m(x)`.
         """
         if theta is not None:
             self.set_parameters(theta)
@@ -923,7 +926,7 @@ class PolySedModel(SedModel):
         normalization is controlled by ``spec_norm``.
 
         :returns cal:
-           A polynomial given by 'spec_norm' * (1 + \Sum_{m=1}^M a_{m} * T_m(x)).
+           A polynomial given by 'spec_norm' * (1 + \sum_{m=1}^M a_{m} * T_m(x)).
         """
         if theta is not None:
             self.set_parameters(theta)
