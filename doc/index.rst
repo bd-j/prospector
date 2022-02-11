@@ -31,6 +31,7 @@ Prospector allows you to:
    :maxdepth: 1
    :caption: Demos & Tutorials
 
+   quickstart
    demo
    tutorial
    faq
