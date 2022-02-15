@@ -23,22 +23,31 @@ class Prior(object):
 
     .. code-block:: python
 
-        ln_prior_prob = Prior()(value)
+        ln_prior_prob = Prior(param=par)(value)
 
     Should be able to sample from the prior, and to get the gradient of the
     prior at any variable value.  Methods should also be avilable to give a
     useful plotting range and, if there are bounds, to return them.
 
-    :param parnames:
+    Parameters
+    ----------
+    parnames : sequence of strings
         A list of names of the parameters, used to alias the intrinsic
         parameter names.  This way different instances of the same Prior can
         have different parameter names, in case they are being fit for....
+    
+    Attributes
+    ----------
+    params : dictionary
+        The values of the parameters describing the prior distribution.
     """
 
     def __init__(self, parnames=[], name='', **kwargs):
         """Constructor.
 
-        :param parnames:
+        Parameters
+        ----------
+        parnames : sequence of strings
             A list of names of the parameters, used to alias the intrinsic
             parameter names.  This way different instances of the same Prior
             can have different parameter names, in case they are being fit for....
@@ -57,7 +66,7 @@ class Prior(object):
         return '{}({})'.format(self.__class__, ",".join(argstring))
 
     def update(self, **kwargs):
-        """Update `params` values using alias.
+        """Update ``self.params`` values using alias.
         """
         for k in self.prior_params:
             try:
@@ -77,16 +86,20 @@ class Prior(object):
         """Compute the value of the probability desnity function at x and
         return the ln of that.
 
-        :param x:
+        Parameters
+        ----------
+        x : float or sequqnce of float
             Value of the parameter, scalar or iterable of same length as the
             Prior object.
 
-        :param kwargs: optional
-            All extra keyword arguments are sued to update the `prior_params`.
+        kwargs : optional
+            All extra keyword arguments are used to update the `prior_params`.
 
-        :returns lnp:
-            The natural log of the prior probability at x, scalar or ndarray of
-            same length as the prior object.
+        Returns
+        -------
+        lnp : float or sequqnce of float, same shape as ``x``
+            The natural log of the prior probability at ``x``, scalar or ndarray
+            of same length as the prior object.
         """
         if len(kwargs) > 0:
             self.update(**kwargs)

@@ -28,10 +28,14 @@ def stellar_logzsol(logzsol=0.0, **extras):
     """Simple function that takes an argument list and returns the value of the
     `logzsol` argument (i.e. the stellar metallicity)
 
-    :param logzsol:
+    Parameters
+    ----------
+    logzsol : float
         FSPS stellar metaliicity parameter.
 
-    :returns logzsol:
+    Returns
+    -------
+    logzsol: float
         The same.
     """
     return logzsol
@@ -41,10 +45,14 @@ def delogify_mass(logmass=0.0, **extras):
     """Simple function that takes an argument list including a `logmass`
     parameter and returns the corresponding linear mass.
 
-    :param logmass:
+    Parameters
+    ----------
+    logmass : float
         The log10(mass)
 
-    :returns mass:
+    Returns
+    -------
+    mass : float
         The mass in linear units
     """
     return 10**logmass
@@ -54,10 +62,14 @@ def total_mass(mass=0.0, **extras):
     """Simple function that takes an argument list uncluding a `mass`
     parameter and returns the corresponding total mass.
 
-    :param mass:
-        length-N vector of masses in bins
+    Parameters
+    ----------
+    mass : ndarray of shape ``(N_bins,)``
+        Vector of masses in bins
 
-    :returns total mass:
+    Returns
+    -------
+    total_mass : float
         Total mass in linear units
     """
     return mass.sum()
@@ -71,13 +83,17 @@ def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
     age.  With this transformation one can sample in ``fage_burst`` without
     worry about the case ``tburst`` > ``tage``.
 
-    :param tage:
-        The age of the host galaxy (Gyr)
+    Parameters
+    ----------
+    tage : float, Gyr
+        The age of the host galaxy.
 
-    :param fage_burst:
+    fage_burst : float between 0 and 1
         The fraction of the host age at which the burst occurred.
 
-    :returns tburst:
+    Returns
+    -------
+    tburst : float, Gyr
         The age of the host when the burst occurred (i.e. the FSPS ``tburst``
         parameter)
     """
@@ -90,13 +106,17 @@ def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
     allows for both ``zred`` and ``tage`` parameters without ``tage`` exceeding
     the age of the universe.
 
-    :param zred:
+    Parameters
+    ----------
+    zred : float
         Cosmological redshift.
 
-    :param tage_tuniv:
+    tage_tuniv : float between 0 and 1
         The ratio of ``tage`` to the age of the universe at ``zred``.
 
-    :returns tage:
+    Returns
+    -------
+    tage : float
         The stellar population age, in Gyr
     """
     tuniv = cosmo.age(zred).value
@@ -110,13 +130,17 @@ def zred_to_agebins(zred=0.0, agebins=[], **extras):
     the upper edge of the oldest bin, but the intervening bins are evenly
     spaced in log(age).
 
-    :param zred:
+    Parameters
+    ----------
+    zred : float
         Cosmological redshift.  This sets the age of the universe.
 
-    :param agebins:
-        The SFH bin edges in log10(years).  ndarray of shape ``(nbin, 2)``.
+    agebins :  ndarray of shape ``(nbin, 2)``
+        The SFH bin edges in log10(years).
 
-    :returns agebins:
+    Returns
+    -------
+    agebins : ndarray of shape ``(nbin, 2)``
         The new SFH bin edges.
     """
     tuniv = cosmo.age(zred).value * 1e9
@@ -129,14 +153,18 @@ def zred_to_agebins(zred=0.0, agebins=[], **extras):
 def dustratio_to_dust1(dust2=0.0, dust_ratio=0.0, **extras):
     """Set the value of dust1 from the value of dust2 and dust_ratio
 
-    :param dust2:
+    Parameters
+    ----------
+    dust2 : float
         The diffuse dust V-band optical depth (the FSPS ``dust2`` parameter.)
 
-    :param dust_ratio:
+    dust_ratio : float
         The ratio of the extra optical depth towards young stars to the diffuse
         optical depth affecting all stars.
 
-    :returns dust1:
+    Returns
+    -------
+    dust1 : float
         The extra optical depth towards young stars (the FSPS ``dust1``
         parameter.)
     """
@@ -320,11 +348,15 @@ def zfrac_to_sfrac(z_fraction=None, **extras):
     fractions. The transformation is such that sfr fractions are drawn from a
     Dirichlet prior.  See Betancourt et al. 2010 and Leja et al. 2017
 
-    :param z_fraction:
-        latent variables drawn form a specific set of Beta distributions. (see
+    Parameters
+    ----------
+    z_fraction : ndarray of shape ``(Nbins-1,)``
+        latent variables drawn from a specific set of Beta distributions. (see
         Betancourt 2010)
 
-    :returns sfrac:
+    Returns
+    -------
+    sfrac : ndarray of shape ``(Nbins,)``
         The star formation fractions (See Leja et al. 2017 for definition).
     """
     sfr_fraction = np.zeros(len(z_fraction) + 1)
@@ -342,14 +374,18 @@ def zfrac_to_masses(total_mass=None, z_fraction=None, agebins=None, **extras):
     sfr fractions are drawn from a Dirichlet prior.  See Betancourt et al. 2010
     and Leja et al. 2017
 
-    :param total_mass:
+    Parameters
+    ----------
+    total_mass : float
         The total mass formed over all bins in the SFH.
 
-    :param z_fraction:
-        latent variables drawn form a specific set of Beta distributions. (see
+    z_fraction : ndarray of shape ``(Nbins-1,)``
+        latent variables drawn from a specific set of Beta distributions. (see
         Betancourt 2010)
 
-    :returns masses:
+    Returns
+    -------
+    masses : ndarray of shape ``(Nbins,)``
         The stellar mass formed in each age bin.
     """
     # sfr fractions
@@ -404,11 +440,14 @@ def masses_to_zfrac(mass=None, agebins=None, **extras):
     """The inverse of :py:func:`zfrac_to_masses`, for setting mock parameters
     based on mock bin masses.
 
-    :returns total_mass:
+    Returns
+    -------
+    total_mass : float
         The total mass
 
-    :returns zfrac:
-        The dimensionless `z` variables used for sfr fraction parameterization.
+    zfrac : ndarray of shape ``(Nbins-1,)``
+        latent variables drawn from a specific set of Beta distributions. (see
+        Betancourt 2010) related to the fraction of mass formed in each bin.
     """
     total_mass = mass.sum()
     time_per_bin = np.diff(10**agebins, axis=-1)[:, 0]

@@ -43,15 +43,16 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
 
     :param obs:
         A dictionary of observational data.  The keys should be
-          + ``"wavelength"``  (angstroms)
-          + ``"spectrum"``    (maggies)
-          + ``"unc"``         (maggies)
-          + ``"maggies"``     (photometry in maggies)
-          + ``"maggies_unc"`` (photometry uncertainty in maggies)
-          + ``"filters"``     (:py:class:`sedpy.observate.FilterSet` or iterable of :py:class:`sedpy.observate.Filter`)
-          +  and optional spectroscopic ``"mask"`` and ``"phot_mask"``
-             (same length as ``spectrum`` and ``maggies`` respectively,
-             True means use the data points)
+
+        + ``"wavelength"``  (angstroms)
+        + ``"spectrum"``    (maggies)
+        + ``"unc"``         (maggies)
+        + ``"maggies"``     (photometry in maggies)
+        + ``"maggies_unc"`` (photometry uncertainty in maggies)
+        + ``"filters"``     (:py:class:`sedpy.observate.FilterSet` or iterable of :py:class:`sedpy.observate.Filter`)
+        +  and optional spectroscopic ``"mask"`` and ``"phot_mask"`` (same
+           length as ``spectrum`` and ``maggies`` respectively, True means use
+           the data points)
 
     :param sps:
         A :py:class:`prospect.sources.SSPBasis` object or subclass thereof, or
@@ -75,8 +76,8 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         should not be included here.
 
     :returns lnp:
-        Ln posterior probability, unless ``residuals=True`` in which case a
-        vector of :math:`\chi` values is returned.
+        Ln-probability, unless ``residuals=True`` in which case a vector of
+        :math:`\chi` values is returned.
     """
     if residuals:
         lnnull = np.zeros(obs["ndof"]) - 1e18  # np.infty
@@ -213,9 +214,9 @@ def fit_model(obs, model, sps, noise=(None, None), lnprobfn=lnprobfn,
         :py:func:`run_dynesty` for details.
 
     :returns output:
-        A dictionary with two keys, 'optimization' and 'sampling'.  The value
-        of each of these is a 2-tuple with results in the first element and
-        durations (in seconds) in the second element.
+        A dictionary with two keys, ``"optimization"`` and ``"sampling"``.  The
+        value of each of these is a 2-tuple with results in the first element
+        and durations (in seconds) in the second element.
     """
     # Make sure obs has required keys
     obs = fix_obs(obs)
