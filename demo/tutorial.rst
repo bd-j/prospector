@@ -1,5 +1,7 @@
+.. _tutorial:
+
 Tutorial
-============
+========
 
 Here is a guide to running |Codename| fits from the command line using parameter
 files, and working with the output.  This is a generalization of the techniques
@@ -24,7 +26,7 @@ This is just an example.
 In practice |Codename| can work with a wide variety of data types.
 
 The parameter file
-----------------------
+------------------
 
 Open up ``demo_params.py`` in an editor, preferably one with syntax
 highlighting. You'll see that it's a python file. It includes some imports, a

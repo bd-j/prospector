@@ -3,7 +3,8 @@ Quickstart
 
 Here's a quick intro that fits 5-band SDSS photometry with a simple delay-tau
 parametric SFH model. This assumes you've successully installed prospector and
-all the prerequisites
+all the prerequisites.  This is intended simply to introduce the key
+ingrediants; for more realistic usage see :ref:`demo` or the :ref:`tutorial`.
 
 .. code:: python
 

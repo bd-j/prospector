@@ -29,10 +29,10 @@ type of data to various parameters.
 Parameter Specification
 ------------------------------
 
-All model parameters are specified in a **parameter file**. A dictionary of
-parameter specifications, keyed by parameter name, is used to instantiate and
-configure the model objects (instances of :py:class:`models.ProspectorParams``
-or its subclasses.)
+A model is defined by a dictionary of parameter specifications, keyed by
+parameter name, that is used to instantiate and configure the model objects
+(instances of :py:class:`models.ProspectorParams` or its subclasses.) This
+dictionary is usually constructed or given in a **parameter file**.
 
 For a single parameter the specification is a dictionary that should at minimum
 include several keys:
@@ -187,7 +187,7 @@ inspect the free and fixed parameters in a given set, you can do something like
 		print(TemplateLibrary["parametric_sfh"])
 		# Actually get a copy of one of the predefined sets
 		model_params = TemplateLibrary["parametric_sfh"]
-        # This dictionary can be updated or modified, e.g. to add default nebular emission parameters.
+        # This dictionary can be updated or modified, to expand the model.
         model_params.update(TemplateLibrary["nebular"])
 		# Instantiate a model object
 		from prospect.models import SedModel
