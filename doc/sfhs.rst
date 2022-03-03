@@ -120,11 +120,12 @@ mass to form. The widths are derived from the :math:`J` sampled SFR ratios
 
 .. math::
 
-    \Delta t_0 = t_{flex}  / (1 + \sum_{n=1}^{n=J} \prod_{j=1}^{j=n} r_j) \\
+    \Delta t_0 = t_{\rm flex}  / (1 + \sum_{n=1}^{n=J} \prod_{j=1}^{j=n} r_j) \\
     \Delta t_i = \Delta t_0 \, \prod_{j=1}^{j=i} r_j
 
 where :math:`t` is lookback time. Note that the width of the first and last bin
-are fixed to the values supplied in the initial ``"agebins"`` parameter.
+are fixed to the values supplied in the initial ``"agebins"`` parameter, while
+:math:`t_{\rm flex}` is the remaining interval of lookback time.
 
 
 PSB Hybrid SFH
