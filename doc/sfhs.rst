@@ -3,7 +3,7 @@ SFH Treatments
 ==============
 
 Numerous star formation history (SFH) treatments are available in prospector.
-Some of these are described blow, along with instructions for their use.
+Some of these are described below, along with instructions for their use.
 
 SSPs
 ----
@@ -33,6 +33,13 @@ To these it is possible to add a burst and/or a truncation, and a constant
 component can also be added.  Finally, the SFH descibed in simha14 is also
 available. See the `FSPS documentation
 <https://github.com/cconroy20/fsps/blob/master/doc/MANUAL.pdf>`_ for details.
+
+It is also possible to model *linear combinations* of these parameteric SFHs.
+This is accomplished by making the ``mass`` parameter a vector with the number
+of elements corresponding to the number of components.  Other paramaters of the
+FSPS stellar population model (e.g. ``age``, ``tau``, and even ``dust2`` or
+``dust1``) can be also be made vectors, with vector priors if they are free to
+be fit; relevant scalar parameters will be shared by all components.
 
 Use of parametric SFHs requires an instance of
 :py:class:`prospect.sources.CSPSpecBasis` to be used as the ``sps`` object. A set
@@ -72,8 +79,7 @@ See `leja19 <https://ui.adsabs.harvard.edu/abs/2019ApJ...876....3L/abstract>`_,
 `johnson21 <https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract>`_
 for more details. A set of propsector parameters implementing this treatment
 with 3 bins is available as the ``"continuity_sfh"`` entry of
-:py:class:`prospect.models.templates.TemplateLibrary`.  To change the number of
-bins see :py:meth:`prospect.models.templates.adjust_continuity_agebins`.
+:py:class:`prospect.models.templates.TemplateLibrary`.
 
 In this parameterization, the SFR of each bin is derived from sampling a vector
 of parameters describing the *ratio* of SFRs in adjacent temporal bins.  By
@@ -92,6 +98,11 @@ In detail, the SFR in each timetime is computed as
 where :math:`K` is a normalization constant. These are then converted to masses
 by multiplication with the bin widths and renormalization by the total mass.
 
+To change the number of bins see
+:py:meth:`prospect.models.templates.adjust_continuity_agebins`.  This method
+produces 3 bins with defined edges at recent and very distant lookback times,
+and then divides the remaining time in to bins of equal intervals of
+ :math:`\log(t_{\rm lookback})`
 
 Continuity Flex SFH
 ^^^^^^^^^^^^^^^^^^^
@@ -100,9 +111,11 @@ for more details. A set of prospector parameters implementing this treatment is
 available as the ``"continuity_flex_sfh"`` entry of
 :py:class:`prospect.models.templates.TemplateLibrary`
 
-In this parameterization, the edges of the temporal bins are adjusted, such that
-for a given set of SFRs an equal amount of mass forms in each bin.  The widths
-are derived from the :math:`J` given SFR ratios
+In this parameterization, the edges of the temporal bins are adjusted such that
+for a given set of SFRs an equal amount of mass forms in each bin.  In other
+words, the bins all contain the same fraction of the total stellar mass, and the
+free parameters are related to the time it takes each succesive quantile of the
+mass to form. The widths are derived from the :math:`J` sampled SFR ratios
 :math:`r_j = {\rm SFR}_j / {\rm SFR}_{j+1}` as
 
 .. math::
@@ -115,7 +128,7 @@ are fixed to the values supplied in the initial ``"agebins"`` parameter.
 
 
 PSB Hybrid SFH
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
 See `suess21 <https://ui.adsabs.harvard.edu/abs/2021arXiv211114878S/abstract>`_
 for details.
 
@@ -142,8 +155,5 @@ variable ``z_fraction`` with a specific prior distribution. Transformations from
 these dimensionless variables to SFRs or masses in each bin are provided in
 :py:mod:`prospect.models.transforms`.
 
-
-Tabular SFH
------------
 
 
