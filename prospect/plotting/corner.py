@@ -98,7 +98,7 @@ def allcorner(samples, labels, axes, weights=None, span=None,
                       label_kwargs=label_kwargs, tick_kwargs=tick_kwargs)
 
     if psamples is not None:
-        scatter(psamples, axes, zorder=10, **samples_kwargs)
+        scatter(psamples, axes, zorder=10, upper=upper, **samples_kwargs)
 
     if (qcolor is not None) | show_titles:
         show_extras(samples, labels, axes, weights=weights,
@@ -530,14 +530,18 @@ def marginal(x, ax=None, weights=None, span=None, smooth=0.02,
     ax.set_ylim([0., max(n) * 1.05])
 
 
-def scatter(samples, paxes, **scatter_kwargs):
+def scatter(samples, paxes, upper=False, **scatter_kwargs):
     """Overplot selected points on cornerplot.
+
+    Parameters
+    ----------
+    samples : shape (ndim, npts)
     """
     assert samples.ndim > 1
     for i, xx in enumerate(samples):
         x = xx.flatten()
-        for j, yy in enumerate(samples[:i]):
-            if j >= i:
+        for j, yy in enumerate(samples):
+            if ((j >= i) and (not upper)) or ((j <= i) and upper):
                 continue
             ax = paxes[i, j]
             y = yy.flatten()
