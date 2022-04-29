@@ -120,7 +120,9 @@ class Photometry(Observation):
     def __init__(self, filters=[], **kwargs):
 
         super(Photometry, self).__init__(**kwargs)
-        self.filters = FilterSet(filters)
+        self.filterset = FilterSet(filters)
+        # filters on the gridded resolution
+        self.filters = [f for f in self.filterset.filters]
         self.filternames = np.array([f.name for f in self.filters])
 
     @property
