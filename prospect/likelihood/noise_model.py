@@ -53,7 +53,7 @@ class NoiseModel:
         else:
             raise ValueError("f_outlier must be >= 0")
 
-    def populate_vectors(self, vectors, obs):
+    def populate_vectors(self, obs, vectors={}):
         # update vectors
         vectors["mask"] = obs.mask
         vectors["unc"] = obs.unc
@@ -62,10 +62,13 @@ class NoiseModel:
             vectors["phot_samples"] = obs.get("phot_samples", None)
         return vectors
 
-    def compute(self, unc=[], mask=slice(None), **vectors):
+    def construct_covariance(self, unc=[], mask=slice(None), **vectors):
+        self.Sigma = np.atleast_1d(unc[mask]**2)
+
+    def compute(self, **vectors):
         """Make a boring diagonal Covariance array
         """
-        self.Sigma = np.atleast_1d(unc[mask]**2)
+        self.construct_covariance(**vectors)
         self.log_det = np.sum(np.log(self.Sigma))
 
     def lnlikelihood(self, pred, data):

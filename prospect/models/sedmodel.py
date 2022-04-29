@@ -62,25 +62,25 @@ class SpecModel(ProspectorParams):
 
         return new_pars
 
-    def predict(self, theta, obslist=None, sps=None, sigma_spec=None, **extras):
+    def predict(self, theta, observations=None, sps=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
 
-        :param theta:
-            ndarray of parameter values, of shape ``(ndim,)``
+        Parameters
+        ----------
+        theta : ndarray of shape ``(ndim,)``
+            Vector of free model parameter values.
 
-        :param obslist:
-            A list of `Observation` instances.
+        observations : A list of `Observation` instances.
+            The data to predict
 
-        :param sps:
+        sps : 
             An `sps` object to be used in the model generation.  It must have
             the :py:func:`get_galaxy_spectrum` method defined.
 
-        :param sigma_spec: (optional)
-            The covariance matrix for the spectral noise. It is only used for
-            emission line marginalization.
-
-        :returns predictions: (list of ndarrays)
+        Returns
+        -------
+        predictions: (list of ndarrays)
             List of predictions for the given list of observations.
 
             If the observation kind is "spectrum" then this is the model spectrum for these
@@ -92,12 +92,12 @@ class SpecModel(ProspectorParams):
             photometry for these parameters, for the filters specified in
             ``obs['filters']``.  Units of maggies.
 
-        :returns extras:
+        extras :
             Any extra aspects of the model that are returned.  Typically this
             will be `mfrac` the ratio of the surviving stellar mass to the
             stellar mass formed.
         """
-        obslist = list(obs)
+        obslist = list(observations)
 
         # generate and cache intrinsic model spectrum and info
         self.set_parameters(theta)
@@ -115,8 +115,7 @@ class SpecModel(ProspectorParams):
         # generate predictions for likelihood
         # this assumes all spectral datasets (if present) occur first
         # because they can change the line strengths during marginalization.
-        predictions = [self.predict_obs(obs, sigma_spec=sigma_spec)
-                       for obs in obslist]
+        predictions = [self.predict_obs(obs) for obs in observations]
 
         return predictions, self._mfrac
 
@@ -127,7 +126,7 @@ class SpecModel(ProspectorParams):
             prediction = self.predict_phot(obs["filters"])
         return prediction
 
-    def predict_spec(self, obs, sigma_spec=None, **extras):
+    def predict_spec(self, obs, **extras):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct
@@ -197,7 +196,12 @@ class SpecModel(ProspectorParams):
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
         if emask.any():
-            self._fit_eline_spec = self.fit_el(obs, calibrated_spec, sigma_spec)
+            # We need the spectroscopic covariance matrix to do emission line optimization and marginalization
+            sigma_spec = None
+            # FIXME: do this only if the noise model is non-trivial, and make sure masking is consistent
+            #vectors = obs.noise.populate_vectors(obs)
+            #sigma_spec = obs.noise.construct_covariance(**vectors)
+            self._fit_eline_spec = self.get_el(obs, calibrated_spec, sigma_spec)
             calibrated_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
         # --- cache intrinsic spectrum ---
