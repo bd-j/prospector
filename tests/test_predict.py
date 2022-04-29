@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 import numpy as np
 
 from sedpy.observate import load_filters
@@ -9,8 +10,10 @@ from prospect.models import SpecModel, templates
 from prospect.utils.observation import Spectrum, Photometry
 
 
-def build_model():
+def build_model(add_neb=False):
     model_params = templates.TemplateLibrary["parametric_sfh"]
+    if add_neb:
+        model_params.update(templates.TemplateLibrary["nebular_emission"])
     return SpecModel(model_params)
 
 
@@ -19,9 +22,9 @@ def build_obs(multispec=True):
     wmax = 7000
     wsplit = wmax - N * multispec
 
-    filterlist = load_filters([f"sdss_{b}0" for b in "ugriz"])
-    Nf = len(filterlist)
-    phot = [Photometry(filters=filterlist, flux=np.ones(Nf), uncertainty=np.ones(Nf)/10)]
+    fnames = list([f"sdss_{b}0" for b in "ugriz"])
+    Nf = len(fnames)
+    phot = [Photometry(filters=fnames, flux=np.ones(Nf), uncertainty=np.ones(Nf)/10)]
     spec = [Spectrum(wavelength=np.linspace(4000, wsplit, N),
                      flux=np.ones(N), uncertainty=np.ones(N) / 10,
                      mask=slice(None))]
@@ -47,10 +50,8 @@ if __name__ == "__main__":
     model = build_model()
     sps = build_sps()
 
-    #sys.exit()
-    predictions_single, mfrac = model.predict(model.theta, obslist=obslist_single, sps=sps)
-    #sys.exit()
-    predictions, mfrac = model.predict(model.theta, obslist=obslist, sps=sps)
+    predictions_single, mfrac = model.predict(model.theta, observations=obslist_single, sps=sps)
+    predictions, mfrac = model.predict(model.theta, observations=obslist, sps=sps)
 
     import matplotlib.pyplot as pl
     fig, ax = pl.subplots()
@@ -61,3 +62,14 @@ if __name__ == "__main__":
         else:
             ax.plot(o.wavelength, p)
 
+    # -- TESting ---
+    observations = obslist
+    arr = np.zeros(model.ndim)
+    from prospect.likelihood.likelihood import compute_lnlike
+    from prospect.fitting import lnprobfn
+
+    sys.exit()
+    #%timeit model.prior_product(model.theta)
+    #%timeit predictions, x = model.predict(model.theta + np.random.uniform(0, 3) * arr, observations=obslist, sps=sps)
+    #%timeit lnp_data = [compute_lnlike(pred, obs, vectors={}) for pred, obs in zip(predictions, observations)]
+    #%timeit lnp = lnprobfn(model.theta + np.random.uniform(0, 3) * arr, model=model, observations=obslist, sps=sps)
