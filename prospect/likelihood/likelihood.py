@@ -5,6 +5,40 @@ from scipy.linalg import LinAlgError
 __all__ = ["lnlike_spec", "lnlike_phot", "chi_spec", "chi_phot", "write_log"]
 
 
+def compute_lnlike(pred, obs, **vectors):
+
+    # update vectors
+    vectors['mask'] = obs.mask
+    vectors['wavelength'] = obs.wavelength
+    if obs.kind == "photometry":
+        vectors['filternames'] = obs.filternames
+        vectors["phot_samples"] = obs.get("phot_samples", None)
+
+    # Residuals
+    var = (obs.unc[obs.mask])**2
+
+    # use a noise model?
+    if obs.noise is not None:
+        obs.noise.compute(**vectors)
+        if (f_outlier == 0.0):
+            lnp = obs.noise.lnlikelihood(pred[obs.mask], obs.flux[obs.mask])
+            return lnp
+        else:
+            assert noise_model.Sigma.ndim == 1
+            var = noise_model.Sigma
+
+    # basic calculation
+    delta = (obs.flux - pred)[obs.mask]
+    lnp = -0.5*( (delta**2 / var) + np.log(2*np.pi*var) )
+    if (f_outlier == 0.0):
+        return lnp.sum()
+    else:
+        var_bad = var * (vectors["nsigma_outlier"]**2)
+        lnp_bad = -0.5*( (delta**2 / var_bad) + np.log(2*np.pi*var_bad) )
+        lnp_tot = np.logaddexp(lnp + np.log(1 - f_outlier), lnp_bad + np.log(f_outlier))
+        return lnp_tot.sum()
+
+
 def lnlike_spec(spec_mu, obs=None, spec_noise=None, f_outlier_spec=0.0, **vectors):
     """Calculate the likelihood of the spectroscopic data given the
     spectroscopic model.  Allows for the use of a gaussian process
@@ -154,64 +188,16 @@ def lnlike_phot(phot_mu, obs=None, phot_noise=None, f_outlier_phot=0.0, **vector
 
         return lnp_tot.sum()
 
-
-def chi_phot(phot_mu, obs, **extras):
-    """Return a vector of chi values, for use in non-linear least-squares
-    algorithms.
-
-    :param phot_mu:
-        Model photometry, same units as the photometry in `obs`.
-
-    :param obs:
-        An observational data dictionary, with the keys ``"maggies"`` and
-        ``"maggies_unc"``.  If ``"maggies"`` is None then an empty array is
-        returned.
-
-    :returns chi:
-        An array of noise weighted residuals, same length as the number of
-        unmasked phtometric points.
+def compute_chi(pred, obs):
     """
-    if obs['maggies'] is None:
-        return np.array([])
+    Parameters
+    ----------
+    pred : ndarray of shape (ndata,)
+        The model prediction for this observation
 
-    mask = obs.get('phot_mask', slice(None))
-    delta = (obs['maggies'] - phot_mu)[mask]
-    unc = obs['maggies_unc'][mask]
-    chi = delta / unc
-    return chi
-
-
-def chi_spec(spec_mu, obs, **extras):
-    """Return a vector of chi values, for use in non-linear least-squares
-    algorithms.
-
-    :param spec_mu:
-        Model spectroscopy, same units as the photometry in `obs`.
-
-    :param obs:
-        An observational data dictionary, with the keys ``"spectrum"`` and
-        ``"unc"``.  If ``"spectrum"`` is None then an empty array is returned.
-        Optinally a ``"mask"`` boolean vector may be supplied that will be used
-        to index the residual vector.
-
-    :returns chi:
-        An array of noise weighted residuals, same length as the number of
-        unmasked spectroscopic points.
+    obs : instance of Observation()
+        The observational data
     """
-    if obs['spectrum'] is None:
-        return np.array([])
-    mask = obs.get('mask', slice(None))
-    delta = (obs['spectrum'] - spec_mu)[mask]
-    unc = obs['unc'][mask]
-    chi = delta / unc
-    return chi
+    chi = (pred - obs.flux) / obs.uncertainty
+    return chi[obs.mask]
 
-
-def write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2):
-    """Write all sorts of documentary info for debugging.
-    """
-    print(theta)
-    print('model calc = {0}s, lnlike calc = {1}'.format(d1, d2))
-    fstring = 'lnp = {0}, lnp_spec = {1}, lnp_phot = {2}'
-    values = [lnp_spec + lnp_phot + lnp_prior, lnp_spec, lnp_phot]
-    print(fstring.format(*values))
