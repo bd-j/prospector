@@ -6,6 +6,8 @@ import numpy as np
 from sedpy.observate import FilterSet
 from sedpy.smoothing import smoothspec
 
+from ..likelihood.noise_model import NoiseModel
+
 
 __all__ = ["Observation", "Spectrum", "Photometry",
            "from_oldstyle"]
@@ -38,7 +40,7 @@ class Observation:
                  flux=None,
                  uncertainty=None,
                  mask=slice(None),
-                 noise=None,
+                 noise=NoiseModel(),
                  **kwargs
                  ):
 

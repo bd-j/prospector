@@ -16,7 +16,6 @@ import warnings
 from .minimizer import minimize_wrapper, minimizer_ball
 from .ensemble import run_emcee_sampler
 from .nested import run_dynesty_sampler
-from ..likelihood import lnlike_spec, lnlike_phot, chi_spec, chi_phot, write_log
 from ..utils.obsutils import fix_obs
 
 
@@ -112,25 +111,14 @@ def lnprobfn(theta, model=None, observations=None, sps=None, noises=None,
     # --- Optionally return chi vectors for least-squares ---
     # note this does not include priors!
     if residuals:
-        chi = [compute_chi(spec, obs) for pred, obs
-               in zip(predictions, observations)]
+        chi = [compute_chi(spec, obs) for pred, obs in zip(predictions, observations)]
         return np.concatenate(chi)
 
-    #  --- Mixture Model ---
-    f_outlier_spec = model.params.get('f_outlier_spec', 0.0)
-    if (f_outlier_spec != 0.0):
-        sigma_outlier_spec = model.params.get('nsigma_outlier_spec', 10)
-        vectors.update({'nsigma_outlier_spec': sigma_outlier_spec})
-    f_outlier_phot = model.params.get('f_outlier_phot', 0.0)
-    if (f_outlier_phot != 0.0):
-        sigma_outlier_phot = model.params.get('nsigma_outlier_phot', 10)
-        vectors.update({'nsigma_outlier_phot': sigma_outlier_phot})
-
     # --- Emission Lines ---
-    lnp_eline = getattr(model, '_ln_eline_penalty', 0.0)
+    lnp_eline = getattr(model, "_ln_eline_penalty", 0.0)
 
     # --- Calculate likelihoods ---
-    lnp_data = [compute_lnlike(pred, obs, **vectors) for pred, obs
+    lnp_data = [compute_lnlike(pred, obs, vectors={}) for pred, obs
                 in zip(predictions, observations)]
 
     lnp = lnp_prior + np.sum(lnp_data) + lnp_eline
