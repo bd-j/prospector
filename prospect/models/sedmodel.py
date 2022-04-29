@@ -97,6 +97,8 @@ class SpecModel(ProspectorParams):
             will be `mfrac` the ratio of the surviving stellar mass to the
             stellar mass formed.
         """
+        obslist = list(obs)
+
         # generate and cache intrinsic model spectrum and info
         self.set_parameters(theta)
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
