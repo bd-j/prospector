@@ -19,9 +19,9 @@ def build_obs(multispec=True):
     wmax = 7000
     wsplit = wmax - N * multispec
 
-    filterlist = load_filters([f"sdss_{b}0" for b in "ugriz"])
-    Nf = len(filterlist)
-    phot = [Photometry(filters=filterlist, flux=np.ones(Nf), uncertainty=np.ones(Nf)/10)]
+    fnames = list([f"sdss_{b}0" for b in "ugriz"])
+    Nf = len(fnames)
+    phot = [Photometry(filters=fnames, flux=np.ones(Nf), uncertainty=np.ones(Nf)/10)]
     spec = [Spectrum(wavelength=np.linspace(4000, wsplit, N),
                      flux=np.ones(N), uncertainty=np.ones(N) / 10,
                      mask=slice(None))]
@@ -48,9 +48,9 @@ if __name__ == "__main__":
     sps = build_sps()
 
     #sys.exit()
-    predictions_single, mfrac = model.predict(model.theta, obslist=obslist_single, sps=sps)
+    predictions_single, mfrac = model.predict(model.theta, observations=obslist_single, sps=sps)
     #sys.exit()
-    predictions, mfrac = model.predict(model.theta, obslist=obslist, sps=sps)
+    predictions, mfrac = model.predict(model.theta, observations=obslist, sps=sps)
 
     import matplotlib.pyplot as pl
     fig, ax = pl.subplots()

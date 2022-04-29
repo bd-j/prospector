@@ -97,7 +97,6 @@ class SpecModel(ProspectorParams):
             will be `mfrac` the ratio of the surviving stellar mass to the
             stellar mass formed.
         """
-        obslist = list(observations)
 
         # generate and cache intrinsic model spectrum and info
         self.set_parameters(theta)
@@ -121,7 +120,7 @@ class SpecModel(ProspectorParams):
 
     def predict_obs(self, obs, sigma_spec=None):
         if obs.kind == "spectrum":
-            prediction = self.predict_spec(obs, sigma_spec)
+            prediction = self.predict_spec(obs)
         elif obs.kind == "photometry":
             prediction = self.predict_phot(obs["filters"])
         return prediction
