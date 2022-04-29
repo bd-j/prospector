@@ -25,7 +25,7 @@ __all__ = ["lnprobfn", "fit_model",
            ]
 
 
-def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
+def lnprobfn(theta, model=None, observations=None, sps=None, noises=None,
              residuals=False, nested=False, negative=False, verbose=False):
     """Given a parameter vector and optionally a dictionary of observational
     ata and a model object, return the matural log of the posterior. This
@@ -41,8 +41,8 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         :py:func:`prior_product`, and :py:func:`predict` methods
         defined.
 
-    :param obs:
-        A dictionary of observational data.  The keys should be
+    :param observations:
+        A list of observation instances
 
         + ``"wavelength"``  (angstroms)
         + ``"spectrum"``    (maggies)
@@ -84,8 +84,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         :math:`\chi` values is returned.
     """
     if residuals:
-        lnnull = np.zeros(obs["ndof"]) - 1e18  # np.infty
-        #lnnull = -np.infty
+        lnnull = np.zeros(obs["ndof"]) - 1e18  # -np.infty
     else:
         lnnull = -np.infty
 
@@ -94,25 +93,16 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     if not np.isfinite(lnp_prior):
         return lnnull
 
-    #  --- Update Noise Model ---
-    spec_noise, phot_noise = noise
-    vectors, sigma_spec = {}, None
+    # set parameters
     model.set_parameters(theta)
-    if spec_noise is not None:
-        spec_noise.update(**model.params)
-        vectors.update({"unc": obs.get('unc', None)})
-        sigma_spec = spec_noise.construct_covariance(**vectors)
-    if phot_noise is not None:
-        phot_noise.update(**model.params)
-        vectors.update({'phot_unc': obs.get('maggies_unc', None),
-                        'phot': obs.get('maggies', None),
-                        'filter_names': obs.get('filter_names', None)})
+
+    #  --- Update Noise Model Parameters ---
+    [obs.noise.update(**model.params) for obs in observations
+     if obs.noise is not None]
 
     # --- Generate mean model ---
     try:
-        t1 = time.time()
-        spec, phot, x = model.predict(theta, obs, sps=sps, sigma_spec=sigma_spec)
-        d1 = time.time() - t1
+        predictions, x = model.predict(theta, observations, sps=sps)
     except(ValueError):
         return lnnull
     except:
@@ -122,9 +112,9 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     # --- Optionally return chi vectors for least-squares ---
     # note this does not include priors!
     if residuals:
-        chispec = chi_spec(spec, obs)
-        chiphot = chi_phot(phot, obs)
-        return np.concatenate([chispec, chiphot])
+        chi = [compute_chi(spec, obs) for pred, obs
+               in zip(predictions, observations)]
+        return np.concatenate(chi)
 
     #  --- Mixture Model ---
     f_outlier_spec = model.params.get('f_outlier_spec', 0.0)
@@ -137,23 +127,13 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         vectors.update({'nsigma_outlier_phot': sigma_outlier_phot})
 
     # --- Emission Lines ---
-
-    # --- Calculate likelihoods ---
-    t1 = time.time()
-    lnp_spec = lnlike_spec(spec, obs=obs,
-                           f_outlier_spec=f_outlier_spec,
-                           spec_noise=spec_noise,
-                           **vectors)
-    lnp_phot = lnlike_phot(phot, obs=obs,
-                           f_outlier_phot=f_outlier_phot,
-                           phot_noise=phot_noise, **vectors)
     lnp_eline = getattr(model, '_ln_eline_penalty', 0.0)
 
-    d2 = time.time() - t1
-    if verbose:
-        write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
+    # --- Calculate likelihoods ---
+    lnp_data = [compute_lnlike(pred, obs, **vectors) for pred, obs
+                in zip(predictions, observations)]
 
-    lnp = lnp_prior + lnp_phot + lnp_spec + lnp_eline
+    lnp = lnp_prior + np.sum(lnp_data) + lnp_eline
     if negative:
         lnp *= -1
 

@@ -3,8 +3,13 @@
 import json
 import numpy as np
 
+from sedpy.observate import FilterSet
+from sedpy.smoothing import smoothspec
+
+
 __all__ = ["Observation", "Spectrum", "Photometry",
            "from_oldstyle"]
+
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -17,6 +22,15 @@ class NumpyEncoder(json.JSONEncoder):
 
 class Observation:
 
+    """
+    Attributes
+    ----------
+    flux :
+    uncertainty :
+    mask :
+    noise :
+    """
+
     logify_spectrum = False
     alias = {}
 
@@ -24,12 +38,14 @@ class Observation:
                  flux=None,
                  uncertainty=None,
                  mask=slice(None),
+                 noise=None,
                  **kwargs
                  ):
 
         self.flux = flux
         self.uncertainty = uncertainty
         self.mask = mask
+        self.noise = noise
         self.from_oldstyle(**kwargs)
 
     def __getitem__(self, item):
@@ -70,6 +86,7 @@ class Observation:
                      (self.uncertainty > 0))
 
         assert self.ndof > 0, "No valid data to fit: check the sign of the masks."
+        assert hasattr(self, "noise")
 
     def render(self, wavelength, spectrum):
         raise(NotImplementedError)
@@ -101,13 +118,8 @@ class Photometry(Observation):
     def __init__(self, filters=[], **kwargs):
 
         super(Photometry, self).__init__(**kwargs)
-        self.filters = filters
-
-    def render(self, wavelength, spectrum):
-        w, s = wavelength, spectrum
-        mags = [f.ab_mag(w, s, **self.render_kwargs)
-                for f in self.filters]
-        return 10**(-0.4 * np.array(mags))
+        self.filters = FilterSet(filters)
+        self.filternames = np.array([f.name for f in self.filters])
 
     @property
     def wavelength(self):
@@ -148,12 +160,19 @@ class Spectrum(Observation):
         self.wavelength = wavelength
         self.resolution = resolution
         self.calibration = calibration
+        self.instrument_smoothing_parameters = dict(smoothtype="R", fftsmooth=True)
 
-    def render(self, wavelength, spectrum):
-        if self.ndata > 0:
-            wave = self.wavelength
-            spec = np.interp(wave, wavelength, spectrum)
-        return wave, spec
+    def instrumental_smoothing(self, inwave, influx, libres=0):
+        if self.resolution:
+            out = smoothspec(inwave, spec,
+                             self.resolution,
+                             outwave=self.wavelength,
+                             **self.instrument_smoothing_parameters)
+        else:
+            #out = np.interp(self.wavelength, inwave, influx)
+            out = influx
+
+        return out
 
     def to_oldstyle(self):
         obs = vars(self)

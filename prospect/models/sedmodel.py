@@ -97,7 +97,7 @@ class SpecModel(ProspectorParams):
             will be `mfrac` the ratio of the surviving stellar mass to the
             stellar mass formed.
         """
-        # generate and cache model spectrum and info
+        # generate and cache intrinsic model spectrum and info
         self.set_parameters(theta)
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
         self._zred = self.params.get('zred', 0)
@@ -113,13 +113,12 @@ class SpecModel(ProspectorParams):
         # generate predictions for likelihood
         # this assumes all spectral datasets (if present) occur first
         # because they can change the line strengths during marginalization.
-        predictions = [self.predict_one(obs, sigma_spec=sigma_spec)
+        predictions = [self.predict_obs(obs, sigma_spec=sigma_spec)
                        for obs in obslist]
 
         return predictions, self._mfrac
 
-    def predict_one(self, obs, sigma_spec=None):
-        self.cache_eline_parameters(obs)
+    def predict_obs(self, obs, sigma_spec=None):
         if obs.kind == "spectrum":
             prediction = self.predict_spec(obs, sigma_spec)
         elif obs.kind == "photometry":
@@ -166,14 +165,19 @@ class SpecModel(ProspectorParams):
             including multiplication by the calibration vector.
             ndarray of shape ``(nwave,)`` in units of maggies.
         """
-        # redshift wavelength
+        self._outwave = obs['wavelength']
+
+        # redshift model wavelength
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
-        self._outwave = obs.get('wavelength', obs_wave)
-        if self._outwave is None:
-            self._outwave = obs_wave
+
+        # Set up for emission lines
+        self.cache_eline_parameters(obs)
 
         # --- smooth and put on output wavelength grid ---
+        # physical smoothing
         smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+        # instrumental smoothing (accounting for library resolution)
+        smooth_spec = obs.instrumental_smoothing(self._outwave, smooth_spec, libres=0)
 
         # --- add fixed lines if necessary ---
         emask = self._fix_eline_pixelmask
@@ -225,9 +229,7 @@ class SpecModel(ProspectorParams):
         # generate photometry w/o emission lines
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
         flambda = self._norm_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
-        phot = 10**(-0.4 * np.atleast_1d(getSED(obs_wave, flambda, filters)))
-        # TODO: below is faster for sedpy > 0.2.0
-        #phot = np.atleast_1d(getSED(obs_wave, flambda, filters, linear_flux=True))
+        phot = np.atleast_1d(getSED(obs_wave, flambda, filters, linear_flux=True))
 
         # generate emission-line photometry
         if (self._want_lines & self._need_lines):
@@ -665,10 +667,16 @@ class PolySpecModel(SpecModel):
         emission lines are being marginalized out, they are excluded from the
         least-squares fit.
 
-        :param obs:
-            Instance of `Spectrum`
+        Parameters
+        ----------
+        obs :  Instance of `Spectrum`
 
-        :returns cal:
+        spec : ndarray of shape (nwave,)
+            The model spectrum.
+
+        Returns
+        -------
+        cal : ndarray of shape (nwave,)
            A polynomial given by :math:`\sum_{m=0}^M a_{m} * T_m(x)`.
         """
         if theta is not None:
