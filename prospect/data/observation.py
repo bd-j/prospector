@@ -116,6 +116,7 @@ class Observation:
     def serialize(self):
         obs = vars(self)
         serial = json.dumps(obs, cls=NumpyEncoder)
+        return serial
 
 
 class Photometry(Observation):
