@@ -33,6 +33,7 @@ Prospector allows you to:
    models
    sfhs
    nebular
+   noise
    output
 
 .. toctree::
