@@ -56,7 +56,7 @@ class NoiseModel:
     def populate_vectors(self, obs, vectors={}):
         # update vectors
         vectors["mask"] = obs.mask
-        vectors["unc"] = obs.unc
+        vectors["unc"] = obs.uncertainty
         if obs.kind == "photometry":
             vectors["filternames"] = obs.filternames
             vectors["phot_samples"] = obs.get("phot_samples", None)
@@ -99,7 +99,7 @@ class NoiseModelCov(NoiseModel):
         # update vectors
         vectors["mask"] = obs.mask
         vectors["wavelength"] = obs.wavelength
-        vectors["unc"] = obs.unc
+        vectors["unc"] = obs.uncertainty
         vectors["flux"] = obs.flux
         if obs.kind == "photometry":
             vectors["filternames"] = obs.filternames
