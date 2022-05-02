@@ -19,14 +19,14 @@ class NoiseModel:
     f_outlier = 0
     n_sigma_outlier = 50
 
-    def __init__(self, f_outlier_name="f_outlier", n_sigma_name="nsigma_outlier"):
-        self.f_outlier_name = f_outlier_name
-        self.n_sigma_name = n_sigma_name
+    def __init__(self, frac_out_name="f_outlier", nsigma_out_name="nsigma_outlier"):
+        self.frac_out_name = frac_out_name
+        self.nsigma_out_name = nsigma_out_name
         self.kernels = []
 
     def update(self, **params):
-        self.f_outlier = params.get(self.f_outlier_name, 0)
-        self.n_sigma_outlier = params.get(self.n_sigma_name, 50)
+        self.f_outlier = params.get(self.frac_out_name, 0)
+        self.n_sigma_outlier = params.get(self.nsigma_out_name, 50)
         [k.update(**params) for k in self.kernels]
 
     def lnlike(self, pred, obs, vectors={}):
@@ -84,11 +84,11 @@ class NoiseModelCov(NoiseModel):
     """This object allows for 1d or 2d covariance matrices constructed from kernels
     """
 
-    def __init__(self, f_outlier_name="f_outlier", n_sigma_name="nsigma_outlier",
+    def __init__(self, frac_out_name="f_outlier", nsigma_out_name="nsigma_outlier",
                  metric_name='', mask_name='mask', kernels=[], weight_by=[]):
 
-        super().__init__(f_outlier_name=f_outlier_name,
-                         n_sigma_name=n_sigma_name)
+        super().__init__(frac_out_name=frac_out_name,
+                         nsigma_out_name=nsigma_out_name)
         assert len(kernels) == len(weight_by)
         self.kernels = kernels
         self.weight_names = weight_by

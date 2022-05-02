@@ -100,7 +100,7 @@ The required methods in a **parameter file** for building the data and model are
 
 1. :py:meth:`build_obs`:
    This function will take the command line arguments dictionary as keyword arguments
-   and returns on obs dictionary (see :doc:`dataformat` .)
+   and returns a list of `Observation` instances (see :doc:`dataformat` .)
 
 2. :py:meth:`build_model`:
    This function will take the command line arguments dictionary dictionary as keyword arguments
@@ -115,9 +115,11 @@ The required methods in a **parameter file** for building the data and model are
     building code and as such has a large memory footprint.
 
 4.  :py:meth:`build_noise`:
-    This function should return a :py:class:`NoiseModel` object for the spectroscopy and/or
-    photometry. Either or both can be ``None`` (the default)  in which case the likelihood
-    will not include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
+    This function, if present, should add a :py:class:`NoiseModel` object to the
+    spectroscopy and/or photometry. If not present the likelihood will not
+    include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
+
+
 
 Using MPI
 ---------

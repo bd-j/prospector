@@ -94,7 +94,7 @@ class Observation:
                      (np.isfinite(self.uncertainty)) &
                      (self.uncertainty > 0))
 
-        assert self.ndof == 0, f"{self.__repr__()} has no valid data to fit: check the sign of the masks."
+        assert self.ndof > 0, f"{self.__repr__()} has no valid data to fit: check the sign of the masks."
         assert hasattr(self, "noise")
 
     def render(self, wavelength, spectrum):
@@ -116,6 +116,7 @@ class Observation:
     def serialize(self):
         obs = vars(self)
         serial = json.dumps(obs, cls=NumpyEncoder)
+        return serial
 
 
 class Photometry(Observation):
