@@ -502,10 +502,10 @@ _nonpar_continuity_["agebins"]    = {'N': 3, 'isfree': False,
                                      'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
                                      'units': 'log(yr)'}
 # This controls the distribution of SFR(t) / SFR(t+dt). It has NBINS-1 components.
-_nonpar_continuity_["logsfr_ratios"] = {'N': 2, 'isfree': True, 'init': [0.0,0.0],
-                                        'prior':priors.StudentT(mean=np.full(2,0.0),
-                                                                scale=np.full(2,0.3),
-                                                                df=np.full(2,2))}
+_nonpar_continuity_["logsfr_ratios"] = {'N': 2, 'isfree': True, 'init': [0.0, 0.0],
+                                        'prior': priors.StudentT(mean=np.full(2, 0.0),
+                                                                 scale=np.full(2, 0.3),
+                                                                 df=np.full(2, 2))}
 TemplateLibrary["continuity_sfh"] = (_nonpar_continuity_,
                                      "Non-parameteric SFH fitting for mass in fixed time bins with a smoothness prior")
 
@@ -547,7 +547,7 @@ _nonpar_continuity_flex_["agebins"]    = {'N': 4, 'isfree': False,
 TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
                                           ("Non-parameteric SFH fitting for mass in flexible time "
                                            "bins with a smoothness prior"))
-                                           
+
 # ----------------------------
 # --- PSB Continuity SFH ----
 # ----------------------------
@@ -560,47 +560,47 @@ _nonpar_continuity_psb_["sfh"] = {"N": 1, "isfree": False, "init": 3, "units": "
 
 # This is the *total*  mass formed
 _nonpar_continuity_psb_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
-                                       'prior': priors.TopHat(mini=7, maxi=12)}
-                                       
-# set up the total number of bins that we want in our SFH. 
+                                      "prior": priors.TopHat(mini=7, maxi=12)}
+
+# set up the total number of bins that we want in our SFH.
 # there are nfixed "oldest" bins, one "youngest" bin, and nflex flexible bins in between
 # the youngest bin has variable width tlast. tflex is specified by the user, and
 # sets the amount of time available for the flexible+youngest bins (e.g., t_lookback=tflex
-# is the time when the SFH transitions from fixed to flexible bins)  
-_nonpar_continuity_psb_['tflex'] = {'name':'tflex', 'N':1, 'isfree': False, 'init':2, 'units':'Gyr'}          
-_nonpar_continuity_psb_['nflex'] = {'name':'nflex', 'N':1, 'isfree': False, 'init':5}          
-_nonpar_continuity_psb_['nfixed'] = {'name':'nfixed', 'N':1, 'isfree': False, 'init':3}  
-_nonpar_continuity_psb_['tlast'] = {'name':'tlast', 'N':1, 'isfree':True,
-    'init':.2, 'prior':priors.TopHat(mini=.01, maxi=1.5)}                                  
-                                       
+# is the time when the SFH transitions from fixed to flexible bins)
+_nonpar_continuity_psb_['tflex'] = {'name': 'tflex', 'N': 1, 'isfree': False, 'init': 2, 'units':'Gyr'}
+_nonpar_continuity_psb_['nflex'] = {'name': 'nflex', 'N': 1, 'isfree': False, 'init': 5}
+_nonpar_continuity_psb_['nfixed'] = {'name': 'nfixed', 'N': 1, 'isfree': False, 'init': 3}
+_nonpar_continuity_psb_['tlast'] = {'name': 'tlast', 'N': 1, 'isfree': True,
+                                    'init': 0.2, 'prior': priors.TopHat(mini=.01, maxi=1.5)}
+
 # These variables control the ratio of SFRs in adjacent bins
-# there is one for a fixed "youngest" bin, nfixed for nfixed "oldest" bins, 
+# there is one for a fixed "youngest" bin, nfixed for nfixed "oldest" bins,
 # and (nflex-1) for nflex flexible bins in between
 _nonpar_continuity_psb_["logsfr_ratio_young"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
-                                                  'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
+                                                 'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
 _nonpar_continuity_psb_["logsfr_ratio_old"] = {'N': 3, 'isfree': True, 'init': np.zeros(3), 'units': r'dlogSFR (dex)',
-                                                'prior': priors.StudentT(mean=np.zeros(3), scale=np.ones(3)*0.3, df=np.ones(3))}
+                                               'prior': priors.StudentT(mean=np.zeros(3), scale=np.ones(3)*0.3, df=np.ones(3))}
 _nonpar_continuity_psb_["logsfr_ratios"] = {'N': 4, 'isfree': True, 'init': np.zeros(4), 'units': r'dlogSFR (dex)',
-                                             'prior': priors.StudentT(mean=np.zeros(4), scale=0.3*np.ones(4), df=np.ones(4))}
+                                            'prior': priors.StudentT(mean=np.zeros(4), scale=0.3*np.ones(4), df=np.ones(4))}
 
 # This will be the mass in each bin.  It depends on other free and fixed
 # parameters.  Its length needs to be modified based on the total number of
 # bins (including fixed young and old bin)
 _nonpar_continuity_psb_["mass"] = {'N': 9, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
-                                    'depends_on': transforms.logsfr_ratios_to_masses_psb}
+                                   'depends_on': transforms.logsfr_ratios_to_masses_psb}
 # This gives the start and stop of each age bin.  The fixed bins can/should be adjusted and its
 # length must match the lenth of "mass"
-agelims = np.array([1, 0.2*1e9] + \
-        np.linspace((0.3+.1)*1e9, 2e9, 5).tolist() \
-        + np.linspace(2e9, 13.6e9, 4)[1:].tolist())
+agelims = np.array([1, 0.2*1e9] +
+                   np.linspace((0.3 + .1)*1e9, 2e9, 5).tolist() +
+                   np.linspace(2e9, 13.6e9, 4)[1:].tolist())
 _nonpar_continuity_psb_["agebins"]    = {'N': 9, 'isfree': False,
-                                          'depends_on': transforms.psb_logsfr_ratios_to_agebins,
-                                          'init': np.array([np.log10(agelims[:-1]), np.log10(agelims[1:])]).T,
-                                          'units': 'log(yr)'}
+                                         'depends_on': transforms.psb_logsfr_ratios_to_agebins,
+                                         'init': np.array([np.log10(agelims[:-1]), np.log10(agelims[1:])]).T,
+                                         'units': 'log(yr)'}
 
 TemplateLibrary["continuity_psb_sfh"] = (_nonpar_continuity_psb_,
-                                          ("Non-parameteric SFH fitting for mass in Nfixed fixed bins "
-                                           "and Nflex flexible time bins with a smoothness prior"))                                           
+                                         ("Non-parameteric SFH fitting for mass in Nfixed fixed bins "
+                                          "and Nflex flexible time bins with a smoothness prior"))
 
 # ----------------------------
 # --- Dirichlet SFH ----

@@ -23,7 +23,7 @@ Parametric SFH
 So called "parametric" SFHs describe the SFR as a function of time via a
 relatively simple function with just a few parameters.  In prospector the
 parametric SFH treatment is actually handled by FSPS itself, and so the model
-parameters requirted are the same as those in FSPS (see `documentation
+parameters required are the same as those in FSPS (see `documentation
 <https://github.com/cconroy20/fsps/blob/master/doc/MANUAL.pdf>`_).
 
 The available parametric SFHs include exponential decay ("tau" models,
@@ -44,7 +44,7 @@ be fit; relevant scalar parameters will be shared by all components.
 Use of parametric SFHs requires an instance of
 :py:class:`prospect.sources.CSPSpecBasis` to be used as the ``sps`` object. A set
 of propsector parameters implementing this treatment (defaulting to a delay-tau
-form, ``sfh=4``) is available as the ``"continuity_sfh"`` entry of
+form, ``sfh=4``) is available as the ``"parametric_sfh"`` entry of
 :py:class:`prospect.models.templates.TemplateLibrary`.
 
 Binned SFHs
