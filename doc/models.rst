@@ -190,8 +190,8 @@ inspect the free and fixed parameters in a given set, you can do something like
         # This dictionary can be updated or modified, to expand the model.
         model_params.update(TemplateLibrary["nebular"])
 		# Instantiate a model object
-		from prospect.models import SedModel
-		model = SedModel(model_params)
+		from prospect.models import SpecModel
+		model = SpecModel(model_params)
 
 
 The ``build_model()`` Method

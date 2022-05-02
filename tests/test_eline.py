@@ -167,13 +167,12 @@ def test_eline_implementation():
     model = SpecModel(model_pars)
     (spec_nolya, phot_nolya), mfrac = model.predict(model.theta, obslist, sps=sps)
     assert np.any((phot - phot_nolya) / phot != 0.0)
-    lint = np.trapz(spec - spec_nolya, obs["wavelength"])
+    lint = np.trapz(spec - spec_nolya, obslist[0]["wavelength"])
     assert lint > 0
 
     # test igoring a line, phot only
     model = SpecModel(model_pars)
     (phot_nolya_2,), mfrac = model.predict(model.theta, [obslist[1]], sps=sps)
-    obs["spectrum"] = obs_spec
     assert np.all(phot_nolya == phot_nolya_2)
 
     #import matplotlib.pyplot as pl
