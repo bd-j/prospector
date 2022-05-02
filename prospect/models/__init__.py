@@ -8,6 +8,8 @@ specifications.
 from .sedmodel import ProspectorParams, SedModel, SpecModel
 from .sedmodel import PolySpecModel, SplineSpecModel, LineSpecModel
 
-__all__ = ["ProspectorParams", "SpecModel",
+
+__all__ = ["ProspectorParams",
+           "SpecModel",
            "PolySpecModel", "SplineSpecModel", "LineSpecModel"
-           "SedModel"]
+           ]
