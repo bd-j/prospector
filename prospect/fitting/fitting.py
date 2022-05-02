@@ -24,13 +24,8 @@ __all__ = ["lnprobfn", "fit_model",
            ]
 
 
-<<<<<<< HEAD
-def lnprobfn(theta, model=None, observations=None, sps=None, noises=None,
-             residuals=False, nested=False, negative=False, verbose=False):
-=======
 def lnprobfn(theta, model=None, observations=None, sps=None,
-             residuals=False, nested=False, verbose=False):
->>>>>>> 5617c8c (fitting ubdates for observation lists; dosctring modernization.)
+             residuals=False, nested=False, negative=False, verbose=False):
     """Given a parameter vector and optionally a dictionary of observational
     ata and a model object, return the matural log of the posterior. This
     requires that an sps object (and if using spectra and gaussian processes, a
@@ -287,12 +282,8 @@ def run_minimize(observations=None, model=None, sps=None, lnprobfn=lnprobfn,
         residuals = False
 
     args = []
-<<<<<<< HEAD
-    loss = argfix(lnprobfn, obs=obs, model=model, sps=sps,
-                  noise=noise, residuals=residuals, negative=True)
-=======
-    loss = argfix(lnprobfn, observations=observations, model=model, sps=sps, residuals=residuals)
->>>>>>> 5617c8c (fitting ubdates for observation lists; dosctring modernization.)
+    loss = argfix(lnprobfn, observations=observations, model=model, sps=sps,
+                  residuals=residuals, negative=True)
     minimizer = minimize_wrapper(algorithm, loss, [], min_method, min_opts)
     qinit = minimizer_ball(initial, nmin, model)
 
@@ -420,13 +411,8 @@ def run_emcee(observations, model, sps, lnprobfn=lnprobfn,
     return sampler, ts
 
 
-<<<<<<< HEAD
 def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
                 pool=None, nested_target_n_effective=10000, **kwargs):
-=======
-def run_dynesty(obs, model, sps, lnprobfn=lnprobfn,
-                pool=None, nested_posterior_thresh=0.05, **kwargs):
->>>>>>> 5617c8c (fitting ubdates for observation lists; dosctring modernization.)
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_dynesty_sampler`
 
     Parameters
