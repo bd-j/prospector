@@ -28,29 +28,37 @@ get spectral data so we know the redshift.
     bands = "ugriz"
     mcol = [f"cModelMag_{b}" for b in bands]
     ecol = [f"cModelMagErr_{b}" for b in bands]
-    cat = SDSS.query_crossid(SkyCoord(ra=204.46376, dec=35.79883, unit="deg"), data_release=16, photoobj_fields=mcol + ecol + ["specObjID"])
+    cat = SDSS.query_crossid(SkyCoord(ra=204.46376, dec=35.79883, unit="deg"), data_release=16,
+                             photoobj_fields=mcol + ecol + ["specObjID"])
     shdus = SDSS.get_spectra(plate=2101, mjd=53858, fiberID=220)[0]
     assert int(shdus[2].data["SpecObjID"][0]) == cat[0]["specObjID"]
 
-Now we will put this data in a dictionary with format expected by prospector. We
-convert the magnitudes to maggies, convert the magnitude errors to flux
-uncertainties (including a noise floor), and load the filter transmission curves
-using `sedpy`. We'll store the redshift here as well for convenience.  Note that
-for this example we do *not* attempt to fit the spectrum at the same time.
+Now we will put this data in the format expected by prospector. We convert the
+magnitudes to maggies, convert the magnitude errors to flux uncertainties
+(including a noise floor), and load the filter transmission curves using
+`sedpy`. We'll store the redshift here as well for convenience.  Note that for
+this example we do *not* attempt to fit the spectrum at the same time, though we
+include an empty Spectrum data set to force a prediction of the full spectrum.
 
 .. code:: python
 
     from sedpy.observate import load_filters
-    from prospect.utils.obsutils import fix_obs
+    from prospect.data import Photometry, Spectrum
 
     filters = load_filters([f"sdss_{b}0" for b in bands])
     maggies = np.array([10**(-0.4 * cat[0][f"cModelMag_{b}"]) for b in bands])
     magerr = np.array([cat[0][f"cModelMagErr_{b}"] for b in bands])
     magerr = np.clip(magerr, 0.05, np.inf)
 
-    obs = dict(wavelength=None, spectrum=None, unc=None, redshift=shdus[2].data[0]["z"],
-               maggies=maggies, maggies_unc=magerr * maggies / 1.086, filters=filters)
-    obs = fix_obs(obs)
+    pdat = Photometry(filters=filters, flux=maggies, uncertainty=magerr*maggies/1.086)
+    sdat = Spectrum(wavelength=None, flux=None, uncertainty=None)
+    observations = [sdat, pdat]
+    for obs in observations:
+        obs.redshift = shdus[2].data[0]["z"]
+
+In principle we could also add noise models for the spectral and photometric
+data (e.g. to fit for the photometric noise floor), but we'll make the default
+assumption of iid Gaussian noise for the moment.
 
 
 Build a Model
@@ -59,7 +67,7 @@ Build a Model
 Here we will get a default parameter set for a simple parametric SFH, and add a
 set of parameters describing nebular emission.  We'll also fix the redshift to
 the value given by SDSS. This model has 5 free parameters, each of which has a
-and associated prior distribution.  These default prior distributions can and
+an associated prior distribution.  These default prior distributions can and
 should be replaced or adjusted depending on your particular science question.
 
 .. code:: python
@@ -73,13 +81,6 @@ should be replaced or adjusted depending on your particular science question.
     model = SpecModel(model_params)
     assert len(model.free_params) == 5
     print(model)
-
-In principle we could also add noise models for the spectral and photometric
-data, but we'll make the default assumption of iid Gaussian noise for the moment.
-
-.. code:: python
-
-    noise_model = (None, None)
 
 
 Get a 'Source'
@@ -109,7 +110,7 @@ the free parameters.
 
     current_parameters = ",".join([f"{p}={v}" for p, v in zip(model.free_params, model.theta)])
     print(current_parameters)
-    spec, phot, mfrac = model.predict(model.theta, obs=obs, sps=sps)
+    (spec, phot), mfrac = model.predict(model.theta, observations, sps=sps)
     print(phot / obs["maggies"])
 
 
@@ -126,7 +127,7 @@ minutes.
 
     from prospect.fitting import lnprobfn, fit_model
     fitting_kwargs = dict(nlive_init=400, nested_method="rwalk", nested_target_n_effective=10000)
-    output = fit_model(obs, model, sps, optimize=False, dynesty=True, lnprobfn=lnprobfn, noise=noise_model, **fitting_kwargs)
+    output = fit_model(obs, model, sps, optimize=False, dynesty=True, lnprobfn=lnprobfn, **fitting_kwargs)
     result, duration = output["sampling"]
 
 The result is a dictionary with keys giving the Monte Carlo samples of parameter

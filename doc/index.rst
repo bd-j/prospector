@@ -32,6 +32,7 @@ Prospector allows you to:
    dataformat
    models
    sfhs
+   noise
    output
 
 .. toctree::

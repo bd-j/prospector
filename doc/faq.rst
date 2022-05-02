@@ -56,7 +56,7 @@ There are several extra considerations that come up when fitting spectroscopy
       Prospector includes methods for FFT based smoothing of the spectra,
       assuming a gaussian LSF (in either wavelength or velocity space). There is
       also the possibility of FFT based smoothing for wavelength dependent
-      gaussian dispersion (i.e. sigma_lambda = f(lambda) with f possibly a
+      Gaussian dispersion (i.e. sigma_lambda = f(lambda) with f possibly a
       polynomial of lambda). In practice the smoothed spectra will be a
       combination of the library resolution plus whatever FFT smoothing is
       applied. Hopefully this can be made to match your actual data resolution,
