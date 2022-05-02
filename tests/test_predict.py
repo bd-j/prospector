@@ -13,7 +13,7 @@ from prospect.utils.observation import Spectrum, Photometry
 def build_model(add_neb=False):
     model_params = templates.TemplateLibrary["parametric_sfh"]
     if add_neb:
-        model_params.update(templates.TemplateLibrary["nebular_emission"])
+        model_params.update(templates.TemplateLibrary["nebular"])
     return SpecModel(model_params)
 
 
@@ -47,7 +47,7 @@ def build_sps():
 if __name__ == "__main__":
     obslist_single = build_obs(multispec=False)
     obslist = build_obs()
-    model = build_model()
+    model = build_model(add_neb=True)
     sps = build_sps()
 
     predictions_single, mfrac = model.predict(model.theta, observations=obslist_single, sps=sps)

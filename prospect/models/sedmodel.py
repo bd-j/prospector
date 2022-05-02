@@ -22,7 +22,7 @@ from ..utils.smoothing import smoothspec
 
 __all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",
            "LineSpecModel", "AGNSpecModel",
-           "SedModel", "PolySedModel", "PolyFitModel"]
+           "PolyFitModel"]
 
 
 class SpecModel(ProspectorParams):
@@ -103,6 +103,7 @@ class SpecModel(ProspectorParams):
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
         self._zred = self.params.get('zred', 0)
         self._eline_wave, self._eline_lum = sps.get_galaxy_elines()
+        self._library_resolution = getattr(sps, "spectral_resolution", 0.0)
 
         # Flux normalize
         self._norm_spec = self._spec * self.flux_norm()
@@ -121,7 +122,7 @@ class SpecModel(ProspectorParams):
 
         return predictions, self._mfrac
 
-    def predict_obs(self, obs, sigma_spec=None):
+    def predict_obs(self, obs):
         if obs.kind == "spectrum":
             prediction = self.predict_spec(obs)
         elif obs.kind == "photometry":
@@ -180,7 +181,8 @@ class SpecModel(ProspectorParams):
         # physical smoothing
         smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
         # instrumental smoothing (accounting for library resolution)
-        smooth_spec = obs.instrumental_smoothing(self._outwave, smooth_spec, libres=0)
+        smooth_spec = obs.instrumental_smoothing(self._outwave, smooth_spec,
+                                                 libres=self._library_resolution)
 
         # --- add fixed lines if necessary ---
         emask = self._fix_eline_pixelmask
@@ -1083,201 +1085,10 @@ class AGNSpecModel(SpecModel):
         return aline_spec
 
 
-class SedModel(ProspectorParams):
+class PolyFitModel(SpecModel):
 
-    """A subclass of :py:class:`ProspectorParams` that passes the models
-    through to an ``sps`` object and returns spectra and photometry, including
-    optional spectroscopic calibration and sky emission.
-    """
-
-    def predict(self, theta, obs=None, sps=None, **extras):
-        """Given a ``theta`` vector, generate a spectrum, photometry, and any
-        extras (e.g. stellar mass), including any calibration effects.
-
-        :param theta:
-            ndarray of parameter values, of shape ``(ndim,)``
-
-        :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:func:`utils.obsutils.rectify_obs`
-
-        :param sps:
-            An `sps` object to be used in the model generation.  It must have
-            the :py:func:`get_spectrum` method defined.
-
-        :param sigma_spec: (optional, unused)
-            The covariance matrix for the spectral noise. It is only used for
-            emission line marginalization.
-
-        :returns spec:
-            The model spectrum for these parameters, at the wavelengths
-            specified by ``obs['wavelength']``, including multiplication by the
-            calibration vector.  Units of maggies
-
-        :returns phot:
-            The model photometry for these parameters, for the filters
-            specified in ``obs['filters']``.  Units of maggies.
-
-        :returns extras:
-            Any extra aspects of the model that are returned.  Typically this
-            will be `mfrac` the ratio of the surviving stellar mass to the
-            stellar mass formed.
-        """
-        s, p, x = self.sed(theta, obs, sps=sps, **extras)
-        self._speccal = self.spec_calibration(obs=obs, **extras)
-        if obs.get('logify_spectrum', False):
-            s = np.log(s) + np.log(self._speccal)
-        else:
-            s *= self._speccal
-        return s, p, x
-
-    def sed(self, theta, obs=None, sps=None, **kwargs):
-        """Given a vector of parameters ``theta``, generate a spectrum, photometry,
-        and any extras (e.g. surviving mass fraction), ***not** including any
-        instrument calibration effects.  The intrinsic spectrum thus produced is
-        cached in `_spec` attribute
-
-        :param theta:
-            ndarray of parameter values.
-
-        :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:func:`utils.obsutils.rectify_obs`
-
-        :param sps:
-            An `sps` object to be used in the model generation.  It must have
-            the :py:func:`get_spectrum` method defined.
-
-        :returns spec:
-            The model spectrum for these parameters, at the wavelengths
-            specified by ``obs['wavelength']``.  Default units are maggies, and
-            the calibration vector is **not** applied.
-
-        :returns phot:
-            The model photometry for these parameters, for the filters
-            specified in ``obs['filters']``. Units are maggies.
-
-        :returns extras:
-            Any extra aspects of the model that are returned.  Typically this
-            will be `mfrac` the ratio of the surviving stellar mass to the
-            steallr mass formed.
-        """
-        self.set_parameters(theta)
-        spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
-                                              filters=obs['filters'],
-                                              component=obs.get('component', -1),
-                                              lnwavegrid=obs.get('lnwavegrid', None),
-                                              **self.params)
-
-        spec *= obs.get('normalization_guess', 1.0)
-        # Remove negative fluxes.
-        try:
-            tiny = 1.0 / len(spec) * spec[spec > 0].min()
-            spec[spec < tiny] = tiny
-        except:
-            pass
-        spec = (spec + self.sky(obs))
-        self._spec = spec.copy()
-        return spec, phot, extras
-
-    def sky(self, obs):
-        """Model for the *additive* sky emission/absorption"""
-        return 0.
-
-    def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """Implements an overall scaling of the spectrum, given by the
-        parameter ``'spec_norm'``
-
-        :returns cal: (float)
-          A scalar multiplicative factor that gives the ratio between the true
-          spectrum and the observed spectrum
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        return 1.0 * self.params.get('spec_norm', 1.0)
-
-    def wave_to_x(self, wavelength=None, mask=slice(None), **extras):
-        """Map unmasked wavelengths to the interval (-1, 1). Masked wavelengths may have x>1, x<-1
-
-        :param wavelength:
-            The input wavelengths.  ndarray of shape ``(nwave,)``
-
-        :param mask: optional
-            The mask.  slice or boolean array with ``True`` for unmasked elements.
-            The interval (-1, 1) will be defined only by unmasked wavelength points
-
-        :returns x:
-            The wavelength vector, remapped to the interval (-1, 1).
-            ndarray of same shape as  ``wavelength``
-        """
-        x = wavelength - (wavelength[mask]).min()
-        x = 2.0 * (x / (x[mask]).max()) - 1.0
-        return x
-
-    def mean_model(self, theta, obs, sps=None, sigma_spec=None, **extras):
-        """Legacy wrapper around predict()
-        """
-        return self.predict(theta, obs, sps=sps, sigma=sigma_spec, **extras)
-
-
-class PolySedModel(SedModel):
-
-    """This is a subclass of SedModel that replaces the calibration vector with
-    the maximum likelihood chebyshev polynomial describing the difference
-    between the observed and the model spectrum.
-    """
-
-    def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """Implements a Chebyshev polynomial calibration model. This uses
-        least-squares to find the maximum-likelihood Chebyshev polynomial of a
-        certain order describing the ratio of the observed spectrum to the
-        model spectrum, conditional on all other parameters, using least
-        squares.  The first coefficient is always set to 1, as the overall
-        normalization is controlled by ``spec_norm``.
-
-        :returns cal:
-           A polynomial given by 'spec_norm' * (1 + \sum_{m=1}^M a_{m} * T_m(x)).
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        norm = self.params.get('spec_norm', 1.0)
-        order = np.squeeze(self.params.get('polyorder', 0))
-        polyopt = ((order > 0) &
-                   (obs.get('spectrum', None) is not None))
-        if polyopt:
-            mask = obs.get('mask', slice(None))
-            # map unmasked wavelengths to the interval -1, 1
-            # masked wavelengths may have x>1, x<-1
-            x = self.wave_to_x(obs["wavelength"], mask)
-            y = (obs['spectrum'] / self._spec)[mask] / norm - 1.0
-            yerr = (obs['unc'] / self._spec)[mask] / norm
-            yvar = yerr**2
-            A = chebvander(x[mask], order)[:, 1:]
-            ATA = np.dot(A.T, A / yvar[:, None])
-            reg = self.params.get('poly_regularization', 0.)
-            if np.any(reg > 0):
-                ATA += reg**2 * np.eye(order)
-            ATAinv = np.linalg.inv(ATA)
-            c = np.dot(ATAinv, np.dot(A.T, y / yvar))
-            Afull = chebvander(x, order)[:, 1:]
-            poly = np.dot(Afull, c)
-            self._poly_coeffs = c
-        else:
-            poly = 0.0
-
-        return (1.0 + poly) * norm
-
-
-class PolyFitModel(SedModel):
-
-    """This is a subclass of *SedModel* that generates the multiplicative
-    calibration vector as a Chebyshev polynomial described by the
+    """This is a subclass of :py:class:`SpecModel` that generates the
+    multiplicative calibration vector as a Chebyshev polynomial described by the
     ``'poly_coeffs'`` parameter of the model, which may be free (fittable)
     """
 
@@ -1297,8 +1108,7 @@ class PolyFitModel(SedModel):
 
         :returns cal:
            If ``params["cal_type"]`` is ``"poly"``, a polynomial given by
-           ``'spec_norm'`` :math:`\times (1 + \Sum_{m=1}^M```'poly_coeffs'[m-1]``:math:` \times T_n(x))`.
-           Otherwise, the exponential of a Chebyshev polynomial.
+           :math:`\times (\Sum_{m=0}^M```'poly_coeffs'[m]``:math:` \times T_n(x))`.
         """
         if theta is not None:
             self.set_parameters(theta)
@@ -1308,20 +1118,12 @@ class PolyFitModel(SedModel):
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
             x = self.wave_to_x(obs["wavelength"], mask)
-            # get coefficients.  Here we are setting the first term to 0 so we
-            # can deal with it separately for the exponential and regular
-            # multiplicative cases
-            c = np.insert(self.params['poly_coeffs'], 0, 0)
+            # get coefficients.
+            c = self.params['poly_coeffs']
             poly = chebval(x, c)
-            # switch to have spec_norm be multiplicative or additive depending
-            # on whether the calibration model is multiplicative in exp^poly or
-            # just poly
-            if self.params.get('cal_type', 'exp_poly') == 'poly':
-                return (1.0 + poly) * self.params.get('spec_norm', 1.0)
-            else:
-                return np.exp(self.params.get('spec_norm', 0) + poly)
+            return poly
         else:
-            return 1.0 * self.params.get('spec_norm', 1.0)
+            return 1.0
 
 
 def ln_mvn(x, mean=None, cov=None):
