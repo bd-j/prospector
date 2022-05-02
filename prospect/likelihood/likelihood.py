@@ -28,9 +28,9 @@ def compute_lnlike(pred, obs, vectors={}):
         possible weghting functions for the kernels
     """
     try:
-        obs.noise.lnlike(pred, obs, vectors=vectors)
+        return obs.noise.lnlike(pred, obs, vectors=vectors)
     except:
-        basic_noise_model.lnlike(pred, obs, vectors=vectors)
+        return basic_noise_model.lnlike(pred, obs, vectors=vectors)
 
 
 def compute_chi(pred, obs):

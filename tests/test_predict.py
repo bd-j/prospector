@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 import numpy as np
 
 from sedpy.observate import load_filters
@@ -9,8 +10,10 @@ from prospect.models import SpecModel, templates
 from prospect.utils.observation import Spectrum, Photometry
 
 
-def build_model():
+def build_model(add_neb=False):
     model_params = templates.TemplateLibrary["parametric_sfh"]
+    if add_neb:
+        model_params.update(templates.TemplateLibrary["nebular_emission"])
     return SpecModel(model_params)
 
 
@@ -47,9 +50,7 @@ if __name__ == "__main__":
     model = build_model()
     sps = build_sps()
 
-    #sys.exit()
     predictions_single, mfrac = model.predict(model.theta, observations=obslist_single, sps=sps)
-    #sys.exit()
     predictions, mfrac = model.predict(model.theta, observations=obslist, sps=sps)
 
     import matplotlib.pyplot as pl
@@ -61,3 +62,14 @@ if __name__ == "__main__":
         else:
             ax.plot(o.wavelength, p)
 
+    # -- TESting ---
+    observations = obslist
+    arr = np.zeros(model.ndim)
+    from prospect.likelihood.likelihood import compute_lnlike
+    from prospect.fitting import lnprobfn
+
+    sys.exit()
+    #%timeit model.prior_product(model.theta)
+    #%timeit predictions, x = model.predict(model.theta + np.random.uniform(0, 3) * arr, observations=obslist, sps=sps)
+    #%timeit lnp_data = [compute_lnlike(pred, obs, vectors={}) for pred, obs in zip(predictions, observations)]
+    #%timeit lnp = lnprobfn(model.theta + np.random.uniform(0, 3) * arr, model=model, observations=obslist, sps=sps)

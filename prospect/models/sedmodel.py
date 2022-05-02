@@ -73,7 +73,7 @@ class SpecModel(ProspectorParams):
         observations : A list of `Observation` instances.
             The data to predict
 
-        sps : 
+        sps :
             An `sps` object to be used in the model generation.  It must have
             the :py:func:`get_galaxy_spectrum` method defined.
 
