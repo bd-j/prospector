@@ -36,7 +36,7 @@ def lnprobfn(theta, model=None, observations=None, sps=None,
     theta :  ndarray of shape ``(ndim,)``
         Input parameter vector
 
-    model : instance of the :py:class:`prospect.models.SedModel`
+    model : instance of the :py:class:`prospect.models.SpecModel`
         The model parameterization and parameter state. Must have
         :py:meth:`predict()` defined
 
@@ -131,7 +131,7 @@ def fit_model(observations, model, sps, lnprobfn=lnprobfn,
     observations : list of :py:class:`observate.Observation` instances
         The data to be fit.
 
-    model : instance of the :py:class:`prospect.models.SedModel`
+    model : instance of the :py:class:`prospect.models.SpecModel`
         The model parameterization and parameter state.  It will be
         passed to ``lnprobfn``.
 
@@ -226,7 +226,7 @@ def run_minimize(observations=None, model=None, sps=None, lnprobfn=lnprobfn,
     observations : list of :py:class:`observate.Observation` instances
         The data to be fit.
 
-    model : instance of the :py:class:`prospect.models.SedModel`
+    model : instance of the :py:class:`prospect.models.SpecModel`
         The model parameterization and parameter state.  It will be
         passed to ``lnprobfn``.
 
@@ -315,7 +315,7 @@ def run_emcee(observations, model, sps, lnprobfn=lnprobfn,
     observations : list of :py:class:`observate.Observation` instances
         The data to be fit.
 
-    model : instance of the :py:class:`prospect.models.SedModel`
+    model : instance of the :py:class:`prospect.models.SpecModel`
         The model parameterization and parameter state.  It will be
         passed to ``lnprobfn``.
 
@@ -420,7 +420,7 @@ def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
     observations : list of :py:class:`observate.Observation` instances
         The data to be fit.
 
-    model : instance of the :py:class:`prospect.models.SedModel`
+    model : instance of the :py:class:`prospect.models.SpecModel`
         The model parameterization and parameter state.  It will be
         passed to ``lnprobfn``.
 

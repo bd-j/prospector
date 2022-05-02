@@ -7,7 +7,7 @@ import numpy as np
 from sedpy.observate import load_filters
 from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
-from prospect.utils.observation import Spectrum, Photometry
+from prospect.data import Spectrum, Photometry
 
 
 def build_model(add_neb=False):
@@ -44,7 +44,7 @@ def build_sps():
     return sps
 
 
-if __name__ == "__main__":
+def test_multispec():
     obslist_single = build_obs(multispec=False)
     obslist = build_obs()
     model = build_model(add_neb=True)
@@ -53,22 +53,30 @@ if __name__ == "__main__":
     predictions_single, mfrac = model.predict(model.theta, observations=obslist_single, sps=sps)
     predictions, mfrac = model.predict(model.theta, observations=obslist, sps=sps)
 
-    import matplotlib.pyplot as pl
-    fig, ax = pl.subplots()
-    ax.plot(obslist_single[0].wavelength, predictions_single[0])
-    for p, o in zip(predictions, obslist):
-        if o.kind == "photometry":
-            ax.plot(o.wavelength, p, "o")
-        else:
-            ax.plot(o.wavelength, p)
+    assert len(predictions_single) == 2
+    assert len(predictions) == 3
+    assert np.allclose(predictions_single[-1], predictions[-1])
+    # TODO: turn this plot into an actual test
+    #import matplotlib.pyplot as pl
+    #fig, ax = pl.subplots()
+    #ax.plot(obslist_single[0].wavelength, predictions_single[0])
+    #for p, o in zip(predictions, obslist):
+    #    if o.kind == "photometry":
+    #        ax.plot(o.wavelength, p, "o")
+    #    else:
+    #        ax.plot(o.wavelength, p)
 
-    # -- TESting ---
-    observations = obslist
-    arr = np.zeros(model.ndim)
+
+def lnlike_testing():
+
+    # testing lnprobfn
+    observations = build_obs()
+    model = build_model(add_neb=True)
     from prospect.likelihood.likelihood import compute_lnlike
     from prospect.fitting import lnprobfn
 
-    sys.exit()
+    lnp = lnprobfn(model.theta, model=model, observations=obslist, sps=sps)
+
     #%timeit model.prior_product(model.theta)
     #%timeit predictions, x = model.predict(model.theta + np.random.uniform(0, 3) * arr, observations=obslist, sps=sps)
     #%timeit lnp_data = [compute_lnlike(pred, obs, vectors={}) for pred, obs in zip(predictions, observations)]
