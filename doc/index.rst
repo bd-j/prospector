@@ -15,6 +15,13 @@ Prospector allows you to:
 * Use spectra and/or photometry to constrain highly flexible star formation
   history treatments.
 
+.. image:: https://img.shields.io/badge/GitHub-bdj%2Fprospector-blue.svg
+    :target: https://github.com/bd-j/prospector
+.. image:: https://img.shields.io/badge/arXiv-2012.01426-b31b1b.svg
+    :target: https://arxiv.org/abs/2012.01426
+.. image:: https://img.shields.io/badge/license-MIT-blue.svg
+    :target: https://github.com/bd-j/prospector/blob/main/LICENSE
+
 
 .. toctree::
    :maxdepth: 2
@@ -78,3 +85,7 @@ If you use this code, please reference `this paper <https://ui.adsabs.harvard.ed
         adsnote = {Provided by the SAO/NASA Astrophysics Data System}
     }
 
+Changelog
+---------
+
+.. include:: ../CHANGELOG.rst
