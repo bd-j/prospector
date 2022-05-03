@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 
-from ..utils.smoothing import smoothspec
+from sedpy.smoothing import smoothspec
 from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
 
 try:

@@ -13,11 +13,11 @@ from scipy.interpolate import splrep, BSpline
 from scipy.stats import multivariate_normal as mvn
 
 from sedpy.observate import getSED
+from sedpy.smoothing import smoothspec
 
 from .parameters import ProspectorParams
 from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
-from ..utils.smoothing import smoothspec
 
 
 __all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",

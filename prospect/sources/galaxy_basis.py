@@ -2,8 +2,8 @@ from itertools import chain
 import numpy as np
 from copy import deepcopy
 
+from sedpy.smoothing import smoothspec
 from .ssp_basis import SSPBasis
-from ..utils.smoothing import smoothspec
 from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
 
 try:
