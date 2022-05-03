@@ -3,7 +3,7 @@ import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from scipy.spatial import Delaunay
 
-from ..utils.smoothing import smoothspec
+from sedpy.smoothing import smoothspec
 from .constants import lightspeed, lsun, jansky_cgs, to_cgs_at_10pc
 
 try:

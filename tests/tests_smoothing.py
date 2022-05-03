@@ -6,7 +6,7 @@ smoothing.
 # TODO: have some tests that do not require a python-fsps install
 import numpy as np
 import matplotlib.pyplot as pl
-from prospect.utils.smoothing import smooth_fft, smooth_wave_fft, smooth_lsf_fft, smoothspec
+from sedpy.smoothing import smooth_fft, smooth_wave_fft, smooth_lsf_fft, smoothspec
 
 
 def lsf(wave, wave0=5000, a=5e-5, b=1e-7, c=1.0, **extras):
