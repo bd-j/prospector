@@ -28,7 +28,6 @@ myst_enable_extensions = ["dollarmath", "colon_fence"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
-
 source_suffix = '.rst'
 
 # The encoding of source files.
@@ -47,52 +46,37 @@ author = 'Benjamin Johnson'
 # built documents.
 # The short X.Y version.
 version = '1.1'
-# The full version, including alpha/beta/rc tags.
 release = '1.1'
 
 language = None
-
-# There are two options for replacing |today|: either, you set today to some
-# non-false value, then it is used:
-# today = ''
-#
-# Else, today_fmt is used as the format for a strftime call.
-# today_fmt = '%B %d, %Y'
-
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 # add_function_parentheses = True
-
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
 # add_module_names = True
 
 autodoc_mock_imports = ["sedpy", "h5py"]
-
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
-
-
-# If true, keep warnings as "system message" paragraphs in the built documents.
-# keep_warnings = False
+#pygments_style = 'sphinx'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
 
 # -- Options for HTML output ----------------------------------------------
-
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-html_theme = 'sphinx_book_theme'
 html_title = "prospector"
+htmlhelp_basename = 'prospectordoc'
+html_logo = "_static/logo_name_kh.png"
+html_favicon = "_static/favicon.png"
+html_theme = 'sphinx_book_theme'
+html_static_path = ["_static"]
+html_css_files = ['css/custom.css']
+
 html_copy_source = True
 html_show_sourcelink = True
-html_theme_options = {"path_to_docs": "docs",
+html_theme_options = {"path_to_docs": "doc",
                       "repository_url": "https://github.com/bd-j/prospector",
                       "repository_branch": "main",
                       "use_repository_button": True,
@@ -104,26 +88,12 @@ html_theme_options = {"path_to_docs": "docs",
                                        "<p>Theme by Executable Book Project</p>"),}
 
 
-html_static_path = ["_static"]
-html_css_files = ['css/custom.css']
-
-# The name of an image file (relative to this directory) to place at the top
-# of the sidebar.
-html_logo = "_static/logo_name_kh.png"
-
-# The name of an image file (relative to this directory) to use as a favicon of
-# the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
-# pixels large.
-html_favicon = "_static/favicon.png"
-
 # If not None, a 'Last updated on:' timestamp is inserted at every page
 # bottom, using the given strftime format.
 # The empty string is equivalent to '%b %d, %Y'.
 html_last_updated_fmt = ''
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'prospectordoc'
-
 
 autodoc_default_options = {
     'member-order': 'bysource',
@@ -149,10 +119,3 @@ latex_elements = {
      # Latex figure (float) alignment
      # 'figure_align': 'htbp',
 }
-
-# Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title,
-#  author, documentclass [howto, manual, or own class]).
-#latex_documents = [
-#    (master_doc, 'prospector.tex', 'prospector Documentation',
-#     'Benjamin Johnson', 'manual'),]
