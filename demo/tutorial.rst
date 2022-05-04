@@ -40,19 +40,20 @@ The executable portion of the parameter file that comes after the ``if __name__
 == "__main__"`` line is run when the parameter file is called. Here the possible
 command line arguments and their default values are defined, including any
 custom arguments that you might add. In this example we have added several
-command line arguments that control how the data is read and how the The
-supplied command line arguments are then parsed and placed in a dictionary. This
-dictionary is passed to all the ingredient building methods (described below),
-which return the data dictionary and necessary model objects. The data
-dictionary and model objects are passed to a function that runs the prospector
-fit (:py:func:`prospect.fitting.fit_model`). Finally, the fit results are
-written to an output file.
+command line arguments that control how the data is read and how the model is
+built. The supplied command line arguments are then parsed and placed in a
+**configuration** dictionary. This dictionary is passed to all the ingredient
+building methods (described below), which return the required
+:py:class:`Observation` objects and necessary model objects. The data and model
+objects are passed to a function that runs the prospector fit
+(:py:func:`prospect.fitting.fit_model`). Finally, the fit results are written to
+an output file.
 
 
 **Building the fit ingredients: build_model**
 
 Several methods must be defined in the parameter file to build the ingredients
-for the fit. The purpose of these functions and their required output are
+for the fit. The purpose of these methods and their required output are
 described here. You will want to modify some of these for your specific model
 and data. Note that each of these functions will be passed a dictionary of
 command line arguments. These command line arguments, including any you add to
@@ -65,7 +66,7 @@ First, the :py:func:`build_model` function is where the model that we will fit
 will be constructed. The specific model that you choose to construct depends on
 your data and your scientific question.
 
-We have to specify a dictionary or list of model parameter specifications (see
+We have to specify a dictionary of model parameter specifications (see
 :doc:`models`). Each specification is a dictionary that describes a single
 parameter. We can build the model by adjusting predefined sets of model
 parameter specifications, stored in the
@@ -103,17 +104,18 @@ specifications. Since ``model_params`` is a dictionary (of dictionaries), you
 can update it with other parameter set dictionaries from the
 :py:class:`TemplateLibrary`.
 
-Finally, the :py:func:`build_model` function takes the ``model_params`` dictionary or list that you build and
-uses it to instantiate a :py:class:`SedModel` object.
+Finally, the :py:func:`build_model` function takes the ``model_params``
+dictionary that you build and uses it to instantiate a :py:class:`SedModel`
+object.
 
 .. code-block:: python
 
-		from prospect.models import SedModel
+		from prospect.models import SpecModel
 		model_params = TemplateLibrary["parametric_sfh"]
 		# Turn on nebular emission and add associated parameters
 		model_params.update(TemplateLibrary["nebular"])
 		model_params["gas_logu"]["isfree"] = True
-		model = SedModel(model_params)
+		model = SpecModel(model_params)
 		print(model)
 
 
@@ -128,25 +130,25 @@ nebular and/or dust emission parameters are added to the model.
 
 **Building the fit ingredients: build_obs**
 
-The next thing to look at is the :py:func:`build_obs` function.
-This is where you take the data from whatever format you have and
-put it into the dictionary format required by |Codename| for a single object.
-This means you will have to modify this function heavily for your own use.
-But it also means you can use your existing data formats.
+The next thing to look at is the :py:func:`build_obs` function. This is where
+you take the data from whatever format you have and put it into the format
+required by |Codename| for a single object. This means you will have to modify
+this function heavily for your own use. But it also means you can use your
+existing data formats.
 
 Right now, the :py:func:`build_obs` function just reads ascii data from a file,
 picks out a row (corresponding to the photometry of a single galaxy), and then
-makes a dictionary using data in that row. You'll note that both the datafile
+makes a set of :py:class:`Observation`s using data in that row. You'll note that both the datafile
 name and the object number are keyword arguments to this function. That means
 they can be set at execution time on the command line, by also including those
-variables in the ``run_params`` dictionary. We'll see an example later.
+variables in the configuration dictionary. We'll see an example later.
 
 When you write your own :py:func:`build_obs` function, you can add all sorts of
 keyword arguments that control its output (for example, an object name or ID
 number that can be used to choose or find a single object in your data file).
 You can also import helper functions and modules. These can be either things
 like astropy, h5py, and sqlite or your own project specific modules and
-functions. As long as the output dictionary is in the right format (see
+functions. As long as the output data is in the right format (see
 dataformat.rst), the body of this function can do anything.
 
 **Building the fit ingredients: the rest**
@@ -337,7 +339,7 @@ chain.
 
         # Get the modeled spectra and photometry.
         # These have the same shape as the obs['spectrum'] and obs['maggies'] arrays.
-        spec, phot, mfrac = model.predict(theta, obs=res['obs'], sps=sps)
+        (spec, phot), mfrac = model.predict(theta, obs=res['obs'], sps=sps)
         # mfrac is the ratio of the surviving stellar mass to the formed mass (the ``"mass"`` parameter).
 
         # Plot the model SED

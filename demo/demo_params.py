@@ -9,46 +9,6 @@ from prospect.io import write_results as writer
 
 
 # --------------
-# RUN_PARAMS
-# When running as a script with argparsing, these are ignored.  Kept here for backwards compatibility.
-# --------------
-
-run_params = {'verbose': True,
-              'debug': False,
-              'outfile': 'demo_galphot',
-              'output_pickles': False,
-              # Optimization parameters
-              'do_powell': False,
-              'ftol': 0.5e-5, 'maxfev': 5000,
-              'do_levenberg': True,
-              'nmin': 10,
-              # emcee fitting parameters
-              'nwalkers': 128,
-              'nburn': [16, 32, 64],
-              'niter': 512,
-              'interval': 0.25,
-              'initial_disp': 0.1,
-              # dynesty Fitter parameters
-              'nested_bound': 'multi',  # bounding method
-              'nested_sample': 'unif',  # sampling method
-              'nested_nlive_init': 100,
-              'nested_nlive_batch': 100,
-              'nested_bootstrap': 0,
-              'nested_dlogz_init': 0.05,
-              'nested_weight_kwargs': {"pfrac": 1.0},
-              'nested_target_n_effective': 10000,
-              # Obs data parameters
-              'objid': 0,
-              'phottable': 'demo_photometry.dat',
-              'luminosity_distance': 1e-5,  # in Mpc
-              # Model parameters
-              'add_neb': False,
-              'add_duste': False,
-              # SPS parameters
-              'zcontinuous': 1,
-              }
-
-# --------------
 # Model Definition
 # --------------
 
@@ -91,7 +51,7 @@ def build_model(object_redshift=0.0, fixed_metallicity=None, add_duste=False,
     # controlled by the "zred" parameter and a WMAP9 cosmology.
     if luminosity_distance > 0:
         model_params["lumdist"] = {"N": 1, "isfree": False,
-                                   "init": luminosity_distance, "units":"Mpc"}
+                                   "init": luminosity_distance, "units": "Mpc"}
 
     # Adjust model initial values (only important for optimization or emcee)
     model_params["dust2"]["init"] = 0.1
@@ -135,7 +95,7 @@ def build_model(object_redshift=0.0, fixed_metallicity=None, add_duste=False,
         model_params.update(TemplateLibrary["nebular"])
 
     # Now instantiate the model using this new dictionary of parameter specifications
-    model = sedmodel.SedModel(model_params)
+    model = sedmodel.SpecModel(model_params)
 
     return model
 
@@ -214,22 +174,13 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
 
     # Build output dictionary.
     obs = {}
-    # This is a list of sedpy filter objects.    See the
-    # sedpy.observate.load_filters command for more details on its syntax.
+    # This is a list of maggies, converted from mags.  It should have the same
+    # order as `filternames` above.
     maggies = np.squeeze(10**(-mags/2.5))
     pdat = Photometry(filters=filternames, flux=maggies,
-                      uncertainty=maggies, mask=np.isfinite(maggies))
+                      uncertainty=maggies * 0.07, mask=np.isfinite(maggies))
+    # We have no spectral data, but we still want to see the predicted spectrum
     sdat = Spectrum()
-    # This is a list of maggies, converted from mags.  It should have the same
-    # order as `filters` above.
-    obs['maggies'] = np.squeeze(10**(-mags/2.5))
-    # HACK.  You should use real flux uncertainties
-    obs['maggies_unc'] = obs['maggies'] * 0.07
-    # Here we mask out any NaNs or infs
-    obs['phot_mask'] = np.isfinite(np.squeeze(mags))
-    # We have no spectrum.
-    obs['wavelength'] = None
-    obs['spectrum'] = None
 
     # Add unessential bonus info.  This will be stored in output
     pdat.distance_modulus = dm
@@ -273,9 +224,9 @@ def build_all(**kwargs):
 
 if __name__ == '__main__':
 
-    # - Parser with default arguments -
+    # --- Parser with default arguments ---
     parser = prospect_args.get_parser()
-    # - Add custom arguments -
+    # --- Add custom arguments ---
     parser.add_argument('--object_redshift', type=float, default=0.0,
                         help=("Redshift for the model"))
     parser.add_argument('--add_neb', action="store_true",
@@ -290,30 +241,33 @@ if __name__ == '__main__':
     parser.add_argument('--objid', type=int, default=0,
                         help="zero-index row number in the table to fit.")
 
+    # --- Configure ---
     args = parser.parse_args()
-    run_params = vars(args)
-    obs, model, sps = build_all(**run_params)
+    config = vars(args)
+    config["param_file"] = __file__
 
-    run_params["sps_libraries"] = sps.ssp.libraries
-    run_params["param_file"] = __file__
-
+    # --- Get fitting ingredients ---
+    obs, model, sps = build_all(**config)
+    config["sps_libraries"] = sps.ssp.libraries
     print(model)
 
     if args.debug:
         sys.exit()
 
-    #hfile = setup_h5(model=model, obs=obs, **run_params)
+    # --- Set up output ---
     ts = time.strftime("%y%b%d-%H.%M", time.localtime())
-    hfile = "{0}_{1}_result.h5".format(args.outfile, ts)
+    hfile = f"{args.outfile}_{ts}_result.h5"
 
-    output = fit_model(obs, model, sps, **run_params)
+    #  --- Run the actual fit ---
+    output = fit_model(obs, model, sps, **config)
 
     print("writing to {}".format(hfile))
     writer.write_hdf5(hfile, run_params, model, obs,
                       output["sampling"][0], output["optimization"][0],
                       tsample=output["sampling"][1],
                       toptimize=output["optimization"][1],
-                      sps=sps)
+                      sps=sps
+                      )
 
     try:
         hfile.close()
