@@ -188,7 +188,7 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
     # import astropy.io.fits as pyfits
     # catalog = pyfits.getdata(phottable)
 
-    from prospect.utils.obsutils import fix_obs
+    from prospect.data.observation import Photometry, Spectrum
 
     # Here we will read in an ascii catalog of magnitudes as a numpy structured
     # array
@@ -216,7 +216,10 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
     obs = {}
     # This is a list of sedpy filter objects.    See the
     # sedpy.observate.load_filters command for more details on its syntax.
-    obs['filters'] = load_filters(filternames)
+    maggies = np.squeeze(10**(-mags/2.5))
+    pdat = Photometry(filters=filternames, flux=maggies,
+                      uncertainty=maggies, mask=np.isfinite(maggies))
+    sdat = Spectrum()
     # This is a list of maggies, converted from mags.  It should have the same
     # order as `filters` above.
     obs['maggies'] = np.squeeze(10**(-mags/2.5))
@@ -229,13 +232,13 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
     obs['spectrum'] = None
 
     # Add unessential bonus info.  This will be stored in output
-    #obs['dmod'] = catalog[ind]['dmod']
-    obs['objid'] = objid
+    pdat.distance_modulus = dm
+    pdat.objid = objid
 
-    # This ensures all required keys are present and adds some extra useful info
-    obs = fix_obs(obs)
+    # This ensures all required keys are present
+    pdat.rectify()
 
-    return obs
+    return [sdat, pdat]
 
 # --------------
 # SPS Object
@@ -251,17 +254,21 @@ def build_sps(zcontinuous=1, compute_vega_mags=False, **extras):
 # Noise Model
 # ------------------
 
-def build_noise(**extras):
-    return None, None
+def build_noise(observations, **extras):
+    # use the defaults
+    return observations
 
 # -----------
 # Everything
 # ------------
 
 def build_all(**kwargs):
+    observations = build_obs(**kwargs)
+    observations = build_noise(observations, **kwargs)
+    model = build_model(**kwargs)
+    sps = build_sps(**kwargs)
 
-    return (build_obs(**kwargs), build_model(**kwargs),
-            build_sps(**kwargs), build_noise(**kwargs))
+    return (observations, model, sps)
 
 
 if __name__ == '__main__':
@@ -285,7 +292,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     run_params = vars(args)
-    obs, model, sps, noise = build_all(**run_params)
+    obs, model, sps = build_all(**run_params)
 
     run_params["sps_libraries"] = sps.ssp.libraries
     run_params["param_file"] = __file__
@@ -299,7 +306,7 @@ if __name__ == '__main__':
     ts = time.strftime("%y%b%d-%H.%M", time.localtime())
     hfile = "{0}_{1}_result.h5".format(args.outfile, ts)
 
-    output = fit_model(obs, model, sps, noise, **run_params)
+    output = fit_model(obs, model, sps, **run_params)
 
     print("writing to {}".format(hfile))
     writer.write_hdf5(hfile, run_params, model, obs,
