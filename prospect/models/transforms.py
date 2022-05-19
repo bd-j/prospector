@@ -365,6 +365,14 @@ def zfrac_to_sfrac(z_fraction=None, **extras):
         sfr_fraction[i] = np.prod(z_fraction[:i]) * (1.0 - z_fraction[i])
     sfr_fraction[-1] = 1 - np.sum(sfr_fraction[:-1])
 
+    if (sfr_fraction < 0).any():
+        idx = sfr_fraction < 0
+        if np.isclose(sfr_fraction[idx],0,rtol=1e-8):
+            sfr_fraction[idx] = 0.0
+        else:
+            raise ValueError('The input z_fractions are returning negative masses!')
+
+
     return sfr_fraction
 
 
@@ -399,6 +407,13 @@ def zfrac_to_masses(total_mass=None, z_fraction=None, agebins=None, **extras):
     time_per_bin = np.diff(10**agebins, axis=-1)[:, 0]
     mass_fraction = sfr_fraction * np.array(time_per_bin)
     mass_fraction /= mass_fraction.sum()
+
+    if (mass_fraction < 0).any():
+        idx = mass_fraction < 0
+        if np.isclose(mass_fraction[idx],0,rtol=1e-8):
+            mass_fraction[idx] = 0.0
+        else:
+            raise ValueError('The input z_fractions are returning negative masses!')
 
     masses = total_mass * mass_fraction
     return masses
