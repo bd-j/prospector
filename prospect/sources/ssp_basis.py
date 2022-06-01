@@ -8,7 +8,7 @@ from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
 try:
     import fsps
     from sedpy.observate import getSED
-except(ImportError):
+except(ImportError, RuntimeError):
     pass
 
 __all__ = ["SSPBasis", "FastSSPBasis", "FastStepBasis",
