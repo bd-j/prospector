@@ -459,7 +459,7 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
 
 
 def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
-                pool=None, nested_posterior_thresh=0.05, **kwargs):
+                pool=None, target_n_effective=10000, **kwargs):
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_dynesty_sampler`
 
     :param obs:
@@ -511,7 +511,7 @@ def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
         Duration of sampling in seconds of wall time.
     """
     from dynesty.dynamicsampler import stopping_function, weight_function
-    nested_stop_kwargs = {"post_thresh": nested_posterior_thresh}
+    nested_stop_kwargs = {"target_n_effective": nested_target_n_effective}
 
     lnp = wrap_lnp(lnprobfn, obs, model, sps, noise=noise,
                    nested=True)
