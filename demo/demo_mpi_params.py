@@ -36,7 +36,7 @@ run_params = {'verbose': True,
               'nested_bootstrap': 0,
               'nested_dlogz_init': 0.05,
               'nested_weight_kwargs': {"pfrac": 1.0},
-              'nested_stop_kwargs': {"post_thresh": 0.1},
+              'nested_target_n_effective': 10000,
               # Obs data parameters
               'objid': 0,
               'phottable': 'demo_photometry.dat',

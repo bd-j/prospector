@@ -173,10 +173,10 @@ In addition to the standard sampling phase which terminates based on the quality
 of the estimation of the Bayesian evidence, `dynesty` includes a subsequent
 dynamic sampling phase which, as implemented in |Codename|, instead terminates
 based the quality of the posterior estimation. This permits the user to specify
-stopping criteria based directly on the quality of the posterior sampling with
-the ``nested_posterior_thresh`` keyword, providing direct control over the
-trade-off between posterior quality and computational time. A value of 0.02 for
-this keyword specifies high-quality posteriors, whereas a value of 0.05 will
+stopping criteria based directly on the density of the posterior sampling with
+the ``nested_target_n_effective`` keyword, providing direct control over the
+trade-off between posterior quality and computational time. A value of 10,000 for
+this keyword specifies high-quality posteriors, whereas a value of 3,000 will
 produce reasonable but approximate posteriors. Additionally, `dynesty` sampling
 can be parallelized in |Codename|: this produces faster convergence time at the
 cost of lower computational efficiency (i.e., fewer model evaluations per unit

@@ -125,7 +125,7 @@ minutes.
 .. code:: python
 
     from prospect.fitting import lnprobfn, fit_model
-    fitting_kwargs = dict(nlive_init=400, nested_method="rwalk", nested_posterior_thresh=0.05)
+    fitting_kwargs = dict(nlive_init=400, nested_method="rwalk", nested_target_n_effective=10000)
     output = fit_model(obs, model, sps, optimize=False, dynesty=True, lnprobfn=lnprobfn, noise=noise_model, **fitting_kwargs)
     result, duration = output["sampling"]
 

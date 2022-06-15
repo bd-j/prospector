@@ -459,7 +459,7 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
 
 
 def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
-                pool=None, target_n_effective=10000, **kwargs):
+                pool=None, nested_target_n_effective=10000, **kwargs):
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_dynesty_sampler`
 
     :param obs:
