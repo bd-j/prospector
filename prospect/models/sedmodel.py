@@ -20,7 +20,7 @@ from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 from ..utils.smoothing import smoothspec
 
 
-__all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",
+__all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel", "LineSpecModel",
            "SedModel", "PolySedModel", "PolyFitModel"]
 
 
@@ -773,7 +773,12 @@ class SplineSpecModel(SpecModel):
 
 class LineSpecModel(SpecModel):
 
-    def predict_spec(self, obs, sigma_spec=None, **extras):
+    """This is a sublcass of SpecModel that predicts emission line fluxes
+    instead of a full spectrum, useful when the continuum is not detected or is
+    otherwise uninformative.
+    """
+
+    def predict_spec(self, obs, **extras):
         """Generate a prediction for the observed nebular line fluxes.  This method assumes
         that the model parameters have been set and that the following
         attributes are present and correct
@@ -790,14 +795,10 @@ class LineSpecModel(SpecModel):
         ``_predicted_line_inds`` which is the indices of the line that are predicted.
 
         :param obs:
-            An observation dictionary, containing the observed fram wavelength
-            array of the lines, the photometric filter lists, and the observed
+            An observation dictionary, containing the observed frame wavelength
+            array of the lines, a set of indices correand the observed
             fluxes and uncertainties thereon in cgs units.  Assumed to be the
             result of :py:meth:`utils.obsutils.rectify_obs`
-
-        :param sigma_spec: (optional)
-            The covariance matrix for the spectral noise. It is only used for
-            emission line marginalization.
 
         :returns spec:
             The prediction for the observed frame nebular emission line flux these
