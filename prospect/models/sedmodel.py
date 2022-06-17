@@ -795,10 +795,11 @@ class LineSpecModel(SpecModel):
         ``_predicted_line_inds`` which is the indices of the line that are predicted.
 
         :param obs:
-            An observation dictionary, containing the observed frame wavelength
-            array of the lines, a set of indices correand the observed
-            fluxes and uncertainties thereon in cgs units.  Assumed to be the
-            result of :py:meth:`utils.obsutils.rectify_obs`
+            An observation dictionary, containing the keys
+            + ``"wavelength"`` - the observed frame wavelength of the lines.
+            + ``"line_ind"`` - a set of indices identifying the observed lines in
+            the fsps line array
+            Assumed to be the result of :py:meth:`utils.obsutils.rectify_obs`
 
         :returns spec:
             The prediction for the observed frame nebular emission line flux these
