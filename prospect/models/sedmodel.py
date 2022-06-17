@@ -38,18 +38,7 @@ class SpecModel(ProspectorParams):
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
-
-        # get the emission line info
-        try:
-            SPS_HOME = os.getenv('SPS_HOME')
-            info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
-                                 dtype=[('wave', 'f8'), ('name', '<U20')],
-                                 delimiter=',')
-            self.emline_info = info
-            self._use_eline = np.ones(len(info), dtype=bool)
-        except(OSError, KeyError, ValueError) as e:
-            print("Could not read and cache emission line info from $SPS_HOME/data/emlines_info.dat")
-            self.emline_info = e
+        self.init_eline_info()
 
     def _available_parameters(self):
         new_pars = [("sigma_smooth", ""),
@@ -255,6 +244,20 @@ class SpecModel(ProspectorParams):
         unit_conversion = to_cgs / (3631*jansky_cgs) * (1 + self._zred)
 
         return mass * unit_conversion / dfactor
+
+    def init_eline_info(self, eline_file='emlines_info.dat'):
+
+        # get the emission line info
+        try:
+            SPS_HOME = os.getenv('SPS_HOME')
+            info = np.genfromtxt(os.path.join(SPS_HOME, 'data', eline_file),
+                                 dtype=[('wave', 'f8'), ('name', '<U20')],
+                                 delimiter=',')
+            self.emline_info = info
+            self._use_eline = np.ones(len(info), dtype=bool)
+        except(OSError, KeyError, ValueError) as e:
+            print("Could not read and cache emission line info from $SPS_HOME/data/emlines_info.dat")
+            self.emline_info = e
 
     @property
     def _need_lines(self):
@@ -766,6 +769,58 @@ class SplineSpecModel(SpecModel):
         w = obs["wavelength"]
         wrange = w[mask].min(), w[mask].max()
         return mask, wrange
+
+
+class LineSpecModel(SpecModel):
+
+    def predict_spec(self, obs, sigma_spec=None, **extras):
+        """Generate a prediction for the observed nebular line fluxes.  This method assumes
+        that the model parameters have been set and that the following
+        attributes are present and correct
+          + ``_wave`` - The SPS restframe wavelength array
+          + ``_zred`` - Redshift
+          + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies
+          + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
+        It generates the following attributes
+          + ``_outwave`` - Wavelength grid (observed frame)
+          + ``_speccal`` - Calibration vector
+
+        Numerous quantities related to the emission lines are also cached (see
+        ``cache_eline_parameters()`` and ``get_el()`` for details) including
+        ``_predicted_line_inds`` which is the indices of the line that are predicted.
+
+        :param obs:
+            An observation dictionary, containing the observed fram wavelength
+            array of the lines, the photometric filter lists, and the observed
+            fluxes and uncertainties thereon in cgs units.  Assumed to be the
+            result of :py:meth:`utils.obsutils.rectify_obs`
+
+        :param sigma_spec: (optional)
+            The covariance matrix for the spectral noise. It is only used for
+            emission line marginalization.
+
+        :returns spec:
+            The prediction for the observed frame nebular emission line flux these
+            parameters, at the wavelengths specified by ``obs['wavelength']``,
+            ndarray of shape ``(nwave,)`` in units of erg/s/cm^2.
+        """
+        obs_wave = self.observed_wave(self._eline_wave, do_wavecal=False)
+        self._outwave = obs.get('wavelength', obs_wave)
+        assert len(self._outwave) <= len(self.emline_info)
+
+        # --- cache eline parameters ---
+        self.cache_eline_parameters(obs)
+
+        # find the indices of the observed emission lines
+        #dw = np.abs(self._ewave_obs[:, None] - self._outwave[None, :])
+        #self._predicted_line_inds = np.argmin(dw, axis=0)
+        self._predicted_line_inds = obs.get("line_ind")
+        self._speccal = 1.0
+
+        self.line_norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
+        elums = self._eline_lum[self._predicted_line_inds] * self.line_norm
+
+        return elums
 
 
 class SedModel(ProspectorParams):
