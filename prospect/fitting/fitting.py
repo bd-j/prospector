@@ -26,7 +26,7 @@ __all__ = ["lnprobfn", "fit_model",
 
 
 def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
-             residuals=False, nested=False, verbose=False):
+             residuals=False, nested=False, negative=False, verbose=False):
     """Given a parameter vector and optionally a dictionary of observational
     ata and a model object, return the matural log of the posterior. This
     requires that an sps object (and if using spectra and gaussian processes, a
@@ -148,7 +148,11 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     if verbose:
         write_log(theta, lnp_prior, lnp_spec, lnp_phot, d1, d2)
 
-    return lnp_prior + lnp_phot + lnp_spec + lnp_eline
+    lnp = lnp_prior + lnp_phot + lnp_spec + lnp_eline
+    if negative:
+        lnp *= -1
+
+    return lnp
 
 
 def wrap_lnp(lnpfn, obs, model, sps, **lnp_kwargs):
@@ -322,7 +326,7 @@ def run_minimize(obs=None, model=None, sps=None, noise=None, lnprobfn=lnprobfn,
 
     args = []
     loss = argfix(lnprobfn, obs=obs, model=model, sps=sps,
-                  noise=noise, residuals=residuals)
+                  noise=noise, residuals=residuals, negative=True)
     minimizer = minimize_wrapper(algorithm, loss, [], min_method, min_opts)
     qinit = minimizer_ball(initial, nmin, model)
 
