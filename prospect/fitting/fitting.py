@@ -75,6 +75,10 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         prior probability is incorporated in the way samples are drawn, so
         should not be included here.
 
+    :param negative: (optiona, default: False)
+        If ``True`` return the negative on the ln-probability for minimization
+        purposes.
+
     :returns lnp:
         Ln-probability, unless ``residuals=True`` in which case a vector of
         :math:`\chi` values is returned.
