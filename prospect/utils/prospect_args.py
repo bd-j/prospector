@@ -152,9 +152,9 @@ def add_dynesty_args(parser):
                         help=("Number of bootstrap resamplings to use when estimating "
                               "ellipsoid expansion factor."))
 
-    parser.add_argument("--nested_posterior_thresh", type=float, default=0.05,
-                        help=("Stop when the fractional scatter in the K-L divergence of the "
-                              "posterior estimates reaches this value"))
+    parser.add_argument("--nested_target_n_effective", type=int, default=10000,
+                        help=("Stop when the number of *effective* posterior samples as estimated "
+                              "by dynesty reaches the target number."))
 
     return parser
 

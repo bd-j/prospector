@@ -16,7 +16,7 @@ dependencies:
   # inference
   - corner
   - emcee
-  - dynesty <= 1.1
+  - dynesty
   - pip:
     - fsps
     - astro-sedpy
