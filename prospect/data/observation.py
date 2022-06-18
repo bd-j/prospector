@@ -197,6 +197,16 @@ class Photometry(Observation):
         name : string, optional
             The name for this set of data
         """
+        self.set_filters(filters)
+        super(Photometry, self).__init__(name=name, **kwargs)
+
+    def set_filters(self, filters):
+        if not filters:
+            self.filters = filters
+            self.filternames = []
+            self.filterset = None
+            return
+
         if type(filters[0]) is str:
             self.filternames = filters
         else:
@@ -205,8 +215,6 @@ class Photometry(Observation):
         self.filterset = FilterSet(self.filternames)
         # filters on the gridded resolution
         self.filters = [f for f in self.filterset.filters]
-
-        super(Photometry, self).__init__(name=name, **kwargs)
 
     @property
     def wavelength(self):
@@ -354,7 +362,8 @@ class Lines(Spectrum):
 def from_oldstyle(obs, **kwargs):
     """Convert from an oldstyle dictionary to a list of observations
     """
-    obslist = [Spectrum(**obs), Photometry(**obs)]
+    spec, phot = Spectrum(**obs), Photometry(**obs)
+    #phot.set_filters(phot.filters)
     #[o.rectify() for o in obslist]
 
-    return obslist
+    return [spec, phot]
