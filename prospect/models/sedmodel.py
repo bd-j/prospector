@@ -123,7 +123,7 @@ class SpecModel(ProspectorParams):
         if obs.kind == "spectrum":
             prediction = self.predict_spec(obs)
         elif obs.kind == "photometry":
-            prediction = self.predict_phot(obs["filters"])
+            prediction = self.predict_phot(obs.filterset)
         return prediction
 
     def predict_spec(self, obs, **extras):
@@ -166,17 +166,20 @@ class SpecModel(ProspectorParams):
             including multiplication by the calibration vector.
             ndarray of shape ``(nwave,)`` in units of maggies.
         """
-        self._outwave = obs['wavelength']
-
         # redshift model wavelength
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
+
+        # get output wavelength vector
+        self._outwave = obs.wavelength
+        if self._outwave is None:
+            self._outwave = obs_wave
 
         # Set up for emission lines
         self.cache_eline_parameters(obs)
 
         # --- smooth and put on output wavelength grid ---
         # physical smoothing
-        smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+        smooth_spec = self.velocity_smoothing(obs_wave, self._norm_spec)
         # instrumental smoothing (accounting for library resolution)
         smooth_spec = obs.instrumental_smoothing(self._outwave, smooth_spec,
                                                  libres=self._library_resolution)
@@ -210,7 +213,7 @@ class SpecModel(ProspectorParams):
 
         return calibrated_spec
 
-    def predict_phot(self, filters):
+    def predict_phot(self, filterset):
         """Generate a prediction for the observed photometry.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct:
@@ -236,11 +239,11 @@ class SpecModel(ProspectorParams):
         # generate photometry w/o emission lines
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
         flambda = self._norm_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
-        phot = np.atleast_1d(getSED(obs_wave, flambda, filters, linear_flux=True))
+        phot = np.atleast_1d(getSED(obs_wave, flambda, filterset, linear_flux=True))
 
         # generate emission-line photometry
         if (self._want_lines & self._need_lines):
-            phot += self.nebline_photometry(filters)
+            phot += self.nebline_photometry(filterset)
 
         return phot
 
@@ -286,7 +289,7 @@ class SpecModel(ProspectorParams):
     def _want_lines(self):
         return bool(self.params.get('add_neb_emission', False))
 
-    def nebline_photometry(self, filters, elams=None, elums=None):
+    def nebline_photometry(self, filterset, elams=None, elums=None):
         """Compute the emission line contribution to photometry.  This requires
         several cached attributes:
           + ``_ewave_obs``
@@ -317,11 +320,11 @@ class SpecModel(ProspectorParams):
             elums = self._eline_lum[self._use_eline] * self.line_norm
 
         # loop over filters
-        flux = np.zeros(len(filters))
+        flux = np.zeros(len(filterset))
         try:
             # TODO: Since in this case filters are on a grid, there should be a
             # faster way to look up the transmission than the later loop
-            flist = filters.filters
+            flist = filterset.filters
         except(AttributeError):
             flist = filters
         for i, filt in enumerate(flist):
@@ -572,12 +575,13 @@ class SpecModel(ProspectorParams):
 
         return eline_gaussians
 
-    def smoothspec(self, wave, spec):
+    def velocity_smoothing(self, wave, spec):
         """Smooth the spectrum.  See :py:func:`prospect.utils.smoothing.smoothspec`
         for details.
         """
         sigma = self.params.get("sigma_smooth", 100)
-        outspec = smoothspec(wave, spec, sigma, outwave=self._outwave, **self.params)
+        outspec = smoothspec(wave, spec, sigma, outwave=self._outwave,
+                             smoothtype="vel", fft=True)
 
         return outspec
 
