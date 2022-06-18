@@ -233,7 +233,7 @@ class SpecModel(ProspectorParams):
             ndarray of shape ``(len(filters),)``, in units of maggies.
             If ``filters`` is None, this returns 0.0
         """
-        if filters is None:
+        if filterset is None:
             return 0.0
 
         # generate photometry w/o emission lines
@@ -610,7 +610,7 @@ class SpecModel(ProspectorParams):
     def spec_calibration(self, **kwargs):
         return np.ones_like(self._outwave)
 
-    def absolute_rest_maggies(self, filters):
+    def absolute_rest_maggies(self, filterset):
         """Return absolute rest-frame maggies (=10**(-0.4*M)) of the last
         computed spectrum.
 
@@ -632,27 +632,17 @@ class SpecModel(ProspectorParams):
         fmaggies = self._norm_spec / (1 + self._zred) * (ld / 10)**2
         # convert to erg/s/cm^2/AA for sedpy and get absolute magnitudes
         flambda = fmaggies * lightspeed / self._wave**2 * (3631*jansky_cgs)
-        abs_rest_maggies = 10**(-0.4 * np.atleast_1d(getSED(self._wave, flambda, filters)))
-        # TODO: below is faster for sedpy > 0.2.0
-        #abs_rest_maggies = np.atleast_1d(getSED(self._wave, flambda, filters, linear_flux=True))
+        abs_rest_maggies = np.atleast_1d(getSED(self._wave, flambda, filterset, linear_flux=True))
 
         # add emission lines
         if bool(self.params.get('nebemlineinspec', False)) is False:
             eline_z = self.params.get("eline_delta_zred", 0.0)
             elams = (1 + eline_z) * self._eline_wave
             elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs) * (ld / 10)**2
-            emaggies = self.nebline_photometry(filters, elams=elams, elums=elums)
+            emaggies = self.nebline_photometry(filterset, elams=elams, elums=elums)
             abs_rest_maggies += emaggies
 
         return abs_rest_maggies
-
-    def mean_model(self, theta, obs, sps=None, sigma=None, **extras):
-        """Legacy wrapper around predict()
-        """
-        from ..utils.observation import from_oldstyle
-        obslist = from_oldstyle(obs)
-        predictions, mfrac = self.predict(theta, obslist, sps=sps, sigma_spec=sigma, **extras)
-        return predictions[0], predictions[1], mfrac
 
 
 class PolySpecModel(SpecModel):
