@@ -4,6 +4,8 @@
 import sys
 import numpy as np
 
+import pytest
+
 from sedpy.observate import load_filters
 from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
