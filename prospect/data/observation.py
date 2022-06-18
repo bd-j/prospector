@@ -14,6 +14,7 @@ __all__ = ["Observation", "Spectrum", "Photometry",
 
 
 class NumpyEncoder(json.JSONEncoder):
+
     def default(self, obj):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
@@ -36,6 +37,8 @@ class Observation:
 
     logify_spectrum = False
     alias = {}
+    meta = ["kind", "name"]
+    data = ["wavelength", "flux", "uncertainty", "mask"]
 
     def __init__(self,
                  flux=None,
@@ -73,29 +76,37 @@ class Observation:
             if k in kwargs:
                 setattr(self, v, kwargs[k])
 
-    def rectify(self, for_fitting=False):
+    def rectify(self):
         """Make sure required attributes for fitting are present and have the
         appropriate sizes.  Also auto-masks non-finite data or negative
         uncertainties.
         """
+        if self.flux is None:
+            print(f"{self.__repr__} has no data")
+            return
 
         assert self.wavelength.ndim == 1, "`wavelength` is not 1-d array"
         assert self.ndata > 0, "no wavelength points supplied!"
-        assert self.flux is not None, " No data."
         assert self.uncertainty is not None, "No uncertainties."
         assert len(self.wavelength) == len(self.flux), "Flux array not same shape as wavelength."
         assert len(self.wavelength) == len(self.uncertainty), "Uncertainty array not same shape as wavelength."
 
-        # make mask array with automatic filters
-        marr = np.zeros(self.ndata, dtype=bool)
-        marr[self.mask] = True
-        self.mask = (marr &
-                     (np.isfinite(self.flux)) &
-                     (np.isfinite(self.uncertainty)) &
-                     (self.uncertainty > 0))
+        self._automask()
 
         assert self.ndof > 0, f"{self.__repr__()} has no valid data to fit: check the sign of the masks."
         assert hasattr(self, "noise")
+
+    def _automask(self):
+        # make mask array with automatic filters
+        marr = np.zeros(self.ndata, dtype=bool)
+        marr[self.mask] = True
+        if self.flux is not None:
+            self.mask = (marr &
+                         (np.isfinite(self.flux)) &
+                         (np.isfinite(self.uncertainty)) &
+                         (self.uncertainty > 0))
+        else:
+            self.mask = marr
 
     def render(self, wavelength, spectrum):
         raise(NotImplementedError)
@@ -113,10 +124,50 @@ class Observation:
         else:
             return len(self.wavelength)
 
-    def serialize(self):
-        obs = vars(self)
+    def to_json(self):
+        obs = {m: getattr(self, m) for m in self.meta + self.data}
         serial = json.dumps(obs, cls=NumpyEncoder)
         return serial
+
+    def to_struct(self, data_dtype=np.float32):
+        self._automask()
+        dtype = np.dtype([(c, data_dtype) for c in self.data])
+        struct = np.zeros(self.ndata, dtype=dtype)
+        for c in self.data:
+            data = getattr(self, c)
+            try:
+                struct[c] = data
+            except(ValueError):
+                pass
+        return struct
+
+    def to_fits(self, filename=None):
+        from astropy.io import fits
+        hdus = fits.HDUList([fits.PrimaryHDU(),
+                             fits.BinTableHDU(self.to_struct())])
+        meta = {m: getattr(self, m) for m in self.meta}
+        if "filternames" in meta:
+            meta["filters"] = ",".join(meta["filternames"])
+        for k, v in meta.items():
+            try:
+                for hdu in hdus:
+                    hdu.header[k] = v
+            except(ValueError):
+                pass
+        if filename is None:
+            fn = f"{self.name}.fits"
+        else:
+            fn = filename
+        hdus.writeto(fn, overwrite=True)
+        hdus.close
+
+    def to_h5_dataset(self, handle):
+        dset = handle.create_dataset(self.name, data=self.to_struct())
+        for m in self.meta:
+            try:
+                dset.attr[m] = getattr(self, m)
+            except:
+                pass
 
 
 class Photometry(Observation):
@@ -126,6 +177,7 @@ class Photometry(Observation):
                  maggies_unc="uncertainty",
                  filters="filters",
                  phot_mask="mask")
+    meta = ["kind", "name", "filternames"]
 
     def __init__(self, filters=[], name="PhotA", **kwargs):
 
@@ -159,6 +211,9 @@ class Spectrum(Observation):
                  unc="uncertainty",
                  wavelength="wavelength",
                  mask="mask")
+
+    data = ["wavelength", "flux", "uncertainty", "mask",
+            "resolution", "calibration"]
 
     def __init__(self,
                  wavelength=None,
