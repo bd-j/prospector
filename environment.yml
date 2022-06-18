@@ -19,4 +19,4 @@ dependencies:
   - dynesty
   - pip:
     - fsps
-    - astro-sedpy
+    - astro-sedpy >= 0.3.0
