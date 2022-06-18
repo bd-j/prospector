@@ -5,7 +5,7 @@ common parameter transformations, and pre-defined sets of parameter
 specifications.
 """
 
-from .sedmodel import ProspectorParams, SedModel, SpecModel
+from .sedmodel import ProspectorParams, SpecModel
 from .sedmodel import PolySpecModel, SplineSpecModel, LineSpecModel
 
 
