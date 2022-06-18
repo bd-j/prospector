@@ -49,8 +49,8 @@ class Observation:
                  **kwargs
                  ):
 
-        self.flux = flux
-        self.uncertainty = uncertainty
+        self.flux = np.array(flux)
+        self.uncertainty = np.array(uncertainty)
         self.mask = mask
         self.noise = noise
         self.name = name
@@ -130,6 +130,8 @@ class Observation:
         return serial
 
     def to_struct(self, data_dtype=np.float32):
+        """Convert data to a structured array
+        """
         self._automask()
         dtype = np.dtype([(c, data_dtype) for c in self.data])
         struct = np.zeros(self.ndata, dtype=dtype)
@@ -141,7 +143,9 @@ class Observation:
                 pass
         return struct
 
-    def to_fits(self, filename=None):
+    def to_fits(self, filename=""):
+        """
+        """
         from astropy.io import fits
         hdus = fits.HDUList([fits.PrimaryHDU(),
                              fits.BinTableHDU(self.to_struct())])
@@ -154,12 +158,9 @@ class Observation:
                     hdu.header[k] = v
             except(ValueError):
                 pass
-        if filename is None:
-            fn = f"{self.name}.fits"
-        else:
-            fn = filename
-        hdus.writeto(fn, overwrite=True)
-        hdus.close
+        if filename:
+            hdus.writeto(filename, overwrite=True)
+            hdus.close()
 
     def to_h5_dataset(self, handle):
         dset = handle.create_dataset(self.name, data=self.to_struct())
@@ -180,7 +181,22 @@ class Photometry(Observation):
     meta = ["kind", "name", "filternames"]
 
     def __init__(self, filters=[], name="PhotA", **kwargs):
+        """On Observation object that holds photometric data
 
+        Parameters
+        ----------
+        filters : list of strings or list of `sedpy.observate.Filter` instances
+            The names or instances of Filters to use
+
+        flux : iterable of floats
+            The flux through the filters, in units of maggies
+
+        uncertainty : iterable of floats
+            The uncertainty on the flux
+
+        name : string, optional
+            The name for this set of data
+        """
         if type(filters[0]) is str:
             self.filternames = filters
         else:
@@ -225,6 +241,15 @@ class Spectrum(Observation):
         """
         Parameters
         ----------
+        wavelength : iterable of floats
+            The wavelength of each flux measurement, in vacuum AA
+
+        flux : iterable of floats
+            The flux at each wavelength, in units of maggies, same length as ``wavelength``
+
+        uncertainty : iterable of floats
+            The uncertainty on the flux
+
         resolution : (optional, default: None)
             Instrumental resolution at each wavelength point in units of km/s
             dispersion (:math:`= c \, \sigma_\lambda / \lambda = c \, \FWHM_\lambda / 2.355 / \lambda = c / (2.355 \, R_\lambda)`
@@ -279,6 +304,51 @@ class Spectrum(Observation):
         obs.update({k: self[v] for k, v in self.alias.items()})
         _ = [obs.pop(k) for k in ["flux", "uncertainty"]]
         return obs
+
+
+class Lines(Spectrum):
+
+    kind = "spectrum"
+    alias = dict(spectrum="flux",
+                 unc="uncertainty",
+                 wavelength="wavelength",
+                 mask="mask",
+                 line_inds="line_ind")
+
+    data = ["wavelength", "flux", "uncertainty", "mask",
+            "resolution", "calibration", "line_ind"]
+
+    def __init__(self,
+                 line_ind=None,
+                 name="SpecA",
+                 **kwargs):
+
+        """
+        Parameters
+        ----------
+        line_ind : iterable of int
+            The index of the lines in the FSPS spectral line array.
+
+        wavelength : iterable of floats
+            The wavelength of each flux measurement, in vacuum AA
+
+        flux : iterable of floats
+            The flux at each wavelength, in units of maggies, same length as ``wavelength``
+
+        uncertainty : iterable of floats
+            The uncertainty on the flux
+
+        resolution : (optional, default: None)
+            Instrumental resolution at each wavelength point in units of km/s
+            dispersion (:math:`= c \, \sigma_\lambda / \lambda = c \, \FWHM_\lambda / 2.355 / \lambda = c / (2.355 \, R_\lambda)`
+            where :math:`c=2.998e5 {\rm km}/{\rm s}`
+
+        :param calibration:
+            not sure yet ....
+        """
+        super(Lines, self).__init__(name=name, **kwargs)
+        assert (line_ind is not None), "You must identify the lines by their index in the FSPS emission line array"
+        self.line_ind = np.array(line_ind).as_type(int)
 
 
 def from_oldstyle(obs, **kwargs):
