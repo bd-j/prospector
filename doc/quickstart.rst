@@ -23,7 +23,7 @@ get spectral data so we know the redshift.
 
 .. code:: python
 
-    from astroquery import SDSS
+    from astroquery.sdss import SDSS
     from astropy.coordinates import SkyCoord
     bands = "ugriz"
     mcol = [f"cModelMag_{b}" for b in bands]
@@ -50,7 +50,8 @@ include an empty Spectrum data set to force a prediction of the full spectrum.
     magerr = np.array([cat[0][f"cModelMagErr_{b}"] for b in bands])
     magerr = np.clip(magerr, 0.05, np.inf)
 
-    pdat = Photometry(filters=filters, flux=maggies, uncertainty=magerr*maggies/1.086)
+    pdat = Photometry(filters=filters, flux=maggies, uncertainty=magerr*maggies/1.086,
+                      name=f'sdss_phot_specobjID{cat[0]["specObjID"]}')
     sdat = Spectrum(wavelength=None, flux=None, uncertainty=None)
     observations = [sdat, pdat]
     for obs in observations:
