@@ -4,10 +4,18 @@
 import sys
 import numpy as np
 
+import pytest
+
 from sedpy.observate import load_filters
 from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
 from prospect.data import Spectrum, Photometry
+
+
+@pytest.fixture(scope="module")
+def build_sps():
+    sps = CSPSpecBasis(zcontinuous=1)
+    return sps
 
 
 def build_model(add_neb=False):
@@ -39,23 +47,28 @@ def build_obs(multispec=True):
     return obslist
 
 
-def build_sps():
-    sps = CSPSpecBasis(zcontinuous=1)
-    return sps
+@pytest.mark.skip(reason="not ready")
+def xtest_prediction_nodata(build_sps):
+    sobs, pobs = build_obs(multispec=False)
+    pobs.flux = None
+    pobs.uncertainty = None
+    pred, mfrac = model.predict(model.theta, observations=[pobs], sps=sps)
 
 
-def test_multispec():
+def test_multispec(build_sps):
+    sps = build_sps
+
     obslist_single = build_obs(multispec=False)
-    obslist = build_obs()
+    obslist_multi = build_obs(multispec=True)
     model = build_model(add_neb=True)
-    sps = build_sps()
 
-    predictions_single, mfrac = model.predict(model.theta, observations=obslist_single, sps=sps)
-    predictions, mfrac = model.predict(model.theta, observations=obslist, sps=sps)
+    preds_single, mfrac = model.predict(model.theta, observations=obslist_single, sps=sps)
+    preds_multi, mfrac = model.predict(model.theta, observations=obslist_multi, sps=sps)
 
-    assert len(predictions_single) == 2
-    assert len(predictions) == 3
-    assert np.allclose(predictions_single[-1], predictions[-1])
+    assert len(preds_single) == 2
+    assert len(preds_multi) == 3
+    assert np.allclose(preds_single[-1], preds_multi[-1])
+
     # TODO: turn this plot into an actual test
     #import matplotlib.pyplot as pl
     #fig, ax = pl.subplots()
@@ -67,14 +80,15 @@ def test_multispec():
     #        ax.plot(o.wavelength, p)
 
 
-def lnlike_testing():
-
+def lnlike_testing(build_sps):
     # testing lnprobfn
+
+    sps = build_sps
     observations = build_obs()
     model = build_model(add_neb=True)
+
     from prospect.likelihood.likelihood import compute_lnlike
     from prospect.fitting import lnprobfn
-
     lnp = lnprobfn(model.theta, model=model, observations=obslist, sps=sps)
 
     #%timeit model.prior_product(model.theta)

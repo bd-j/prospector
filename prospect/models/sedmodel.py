@@ -39,8 +39,8 @@ class SpecModel(ProspectorParams):
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
-        self.init_eline_info()
 
+        self.init_eline_info()
         self.parse_elines()
 
     def _available_parameters(self):
