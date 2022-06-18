@@ -12,7 +12,7 @@ from prospect.models import SpecModel, templates
 from prospect.data import Spectrum, Photometry
 
 
-#@pytest.fixture(scope="module")
+@pytest.fixture(scope="module")
 def build_sps():
     sps = CSPSpecBasis(zcontinuous=1)
     return sps
@@ -59,6 +59,7 @@ def test_prediction_nodata(build_sps):
     sobs.uncertainty = None
     pred, mfrac = model.predict(model.theta, observations=[sobs, pobs], sps=sps)
     assert len(pred[0]) == len(sps.wavelengths)
+    assert len(pred[1]) == len(pobs.filterset)
 
 
 def test_multispec(build_sps):
