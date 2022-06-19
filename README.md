@@ -11,16 +11,37 @@ samples of the spectra (and mfrac) generated during sampling to be saved as well
 as as cleaner parameter sample output. It may include emulator models and
 gradient based sampling.
 
-Badges
-------
+Work to do includes:
+
+- [x] Convert to/from old style observation dictionaries
+- [x] Put responsibility for Noise Models including outlier modeling in individual Observation instances
+- [x] Make predictions even when there is no fittable data (e.g. model spectra when fitting photometry only)
+- [x] Store Observation objects in HDF5, FITS, etc as structured arrays with metadata
+- [ ] Test multi-spectral calibration
+- [ ] Test multi-spectral instrumental & physical smoothing
+- [ ] Test smoothing accounting for library resolution
+- [ ] Test multi-spectra noise modeling
+- [ ] Catch (and handle?) emission line marginalization if spectra overlap.
+- [x] Update demo scripts
+- [x] Update docs
+- [ ] Update notebooks
+- [x] Structured ndarray for output chains and lnlikehoods
+- [ ] Test i/o with structured arrays
+- [ ] Structured ndarray for derived parameters
+- [ ] Store samples of spectra, photometry, and mfrac
+- [ ] Update plotting module
+- [ ] Implement an emulator-based SpecModel class
+
+
+Purpose
+-------
 
 [![Docs](https://readthedocs.org/projects/prospect/badge/?version=latest)](https://readthedocs.org/projects/prospect/badge/?version=latest)
 [![Tests](https://github.com/bd-j/prospector/workflows/Tests/badge.svg)](https://github.com/bd-j/prospector/actions?query=workflow%3ATests)
 [![arXiv](https://img.shields.io/badge/arXiv-2012.01426-b31b1b.svg)](https://arxiv.org/abs/2012.01426)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/bd-j/prospector/blob/main/LICENSE)
 
-Purpose
--------
+
 Conduct principled inference of stellar population properties from photometric
 and/or spectroscopic data.  Prospector allows you to:
 
