@@ -85,11 +85,11 @@ def test_nebline_phot_addition():
     (s2, p2), _ = m2.predict(m2.theta, obslist, sps)
 
     # make sure some of the lines were important
-    p1n = m1.nebline_photometry(filts)
+    p1n = m1.nebline_photometry(obslist[-1].filterset)
     assert np.any(p1n / p1[1] > 0.05)
 
-    # make sure you got the same answer
-    assert np.all(np.abs(p1 - p2) / p1 < 1e-3)
+    # make sure you got the same-ish answer
+    assert np.all((np.abs(p1 - p2) / p1) < 1e-2)
 
 
 def test_filtersets():
