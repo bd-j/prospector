@@ -47,7 +47,6 @@ def build_obs(multispec=True):
     return obslist
 
 
-#@pytest.mark.skip(reason="not ready")
 def test_prediction_nodata(build_sps):
     sps = build_sps
     model = build_model(add_neb=True)
