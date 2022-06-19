@@ -326,7 +326,7 @@ class SpecModel(ProspectorParams):
             # faster way to look up the transmission than the later loop
             flist = filterset.filters
         except(AttributeError):
-            flist = filters
+            flist = filterset
         for i, filt in enumerate(flist):
             # calculate transmission at line wavelengths
             trans = np.interp(elams, filt.wavelength, filt.transmission,
