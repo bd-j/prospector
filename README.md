@@ -1,6 +1,19 @@
 <img src="doc/_static/logo_name_kh.png" height=75/>  <!-- . -->
 ==========
 
+Version 2.0! (in progress)
+--------------------------
+
+This is a major refactor to allow for multiple datasets (i.e. multiple spectra)
+with different noise models and instrument parameters to constrain a single
+galaxy model.  It will also include substantial updates to the outputs to allow
+samples of the spectra (and mfrac) generated during sampling to be saved as well
+as as cleaner parameter sample output. It may include emulator models and
+gradient based sampling.
+
+Badges
+------
+
 [![Docs](https://readthedocs.org/projects/prospect/badge/?version=latest)](https://readthedocs.org/projects/prospect/badge/?version=latest)
 [![Tests](https://github.com/bd-j/prospector/workflows/Tests/badge.svg)](https://github.com/bd-j/prospector/actions?query=workflow%3ATests)
 [![arXiv](https://img.shields.io/badge/arXiv-2012.01426-b31b1b.svg)](https://arxiv.org/abs/2012.01426)
