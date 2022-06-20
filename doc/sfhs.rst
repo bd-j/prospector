@@ -60,11 +60,11 @@ Use of these piece-wise constant SFHs requires an instance of
 :py:class:`prospect.sources.FastStepBasis` to be used as the ``sps`` object.
 Fundamentally this class requires two vector parameters to generate a model:
 
-    * ``agebins`` an array of shape ``(Nbin, 2)`` describing the lower and upper
-      *lookback time* of each bin (in units of log(years))
-    * ``mass`` an array of shape ``(Nbin,)`` describing the total stellar mass
-      **formed** in each bin.  For the ith bin this means
-      :math:`{\rm SFR}_i = {\rm mass}_i / (10^{{\rm agebins}_{i, 1}} - 10^{{\rm agebins}_{i, 0}})`
+* ``agebins`` an array of shape ``(Nbin, 2)`` describing the lower and upper
+  *lookback time* of each bin (in units of log(years))
+* ``mass`` an array of shape ``(Nbin,)`` describing the total stellar mass
+  **formed** in each bin.  For the ith bin this means
+  :math:`{\rm SFR}_i = {\rm mass}_i / (10^{{\rm agebins}_{i, 1}} - 10^{{\rm agebins}_{i, 0}})`
 
 The SFH treatments described below all differ in how they transform from the
 sampled SFH parameters to these fundamental binned SFH parameters, and in the
@@ -102,7 +102,7 @@ To change the number of bins see
 :py:meth:`prospect.models.templates.adjust_continuity_agebins`.  This method
 produces 3 bins with defined edges at recent and very distant lookback times,
 and then divides the remaining time in to bins of equal intervals of
- :math:`\log(t_{\rm lookback})`
+:math:`\log(t_{\rm lookback})`
 
 Continuity Flex SFH
 ^^^^^^^^^^^^^^^^^^^

@@ -10,7 +10,7 @@ Purpose
 Conduct principled inference of stellar population properties from photometric
 and/or spectroscopic data.  Prospector allows you to:
 
-* Infer high-dimensional stellar population properties using parameteric or
+* Infer high-dimensional stellar population properties using parametric or
   highly flexible SFHs (with nested or ensemble Monte Carlo sampling)
 
 * Combine photometric and spectroscopic data from the UV to Far-IR rigorously
