@@ -7,6 +7,7 @@ that can be used as a starting point and then combined or altered.
 
 from copy import deepcopy
 import numpy as np
+import os
 from . import priors
 from . import transforms
 
