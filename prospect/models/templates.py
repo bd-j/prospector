@@ -274,7 +274,12 @@ use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
 nebemlineinspec = {'N': 1, 'isfree': False, 'init': False}  # can't be included w/ marginalization
 # marginalize over which of the 128 FSPS emission lines?
 # input is a list of emission line names matching $SPS_HOME/data/emlines_info.dat
-elines_to_fit = {'N': 1, 'isfree': False, 'init': []}
+SPS_HOME = os.getenv('SPS_HOME')
+info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
+                     dtype=[('wave', 'f8'), ('name', '<U20')],
+                     delimiter=',')
+# Fit all lines by default
+elines_to_fit = {'N': 1, 'isfree': False, 'init': np.array(info['name'])}
 eline_prior_width = {'N': 1, 'isfree': False,
                      'init': 0.2,
                      'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
