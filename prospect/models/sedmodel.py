@@ -387,8 +387,8 @@ class SpecModel(ProspectorParams):
 
     def parse_elines(self):
         """Create mask arrays to identify the lines that should be fit and the
-        lines that should be fixed based on the content of `params["lines_to_fix"]`
-        and `params["lines_to_fit"]`
+        lines that should be fixed based on the content of `params["elines_to_fix"]`
+        and `params["elines_to_fit"]`
 
         This can probably be cached just once unless you want to change between
         separate fits.

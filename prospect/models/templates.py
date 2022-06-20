@@ -7,6 +7,7 @@ that can be used as a starting point and then combined or altered.
 
 from copy import deepcopy
 import numpy as np
+import os
 from . import priors
 from . import transforms
 
@@ -272,9 +273,19 @@ TemplateLibrary["nebular"] = (_nebular_,
 marginalize_elines = {'N': 1, 'isfree': False, 'init': True}
 use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
 nebemlineinspec = {'N': 1, 'isfree': False, 'init': False}  # can't be included w/ marginalization
+
 # marginalize over which of the 128 FSPS emission lines?
 # input is a list of emission line names matching $SPS_HOME/data/emlines_info.dat
-lines_to_fit = {'N': 1, 'isfree': False, 'init': []}
+SPS_HOME = os.getenv('SPS_HOME')
+try:
+    info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
+                     dtype=[('wave', 'f8'), ('name', '<U20')],
+                     delimiter=',')
+except OSError:
+    info = {'name':[]}
+
+# Fit all lines by default
+elines_to_fit = {'N': 1, 'isfree': False, 'init': np.array(info['name'])}
 eline_prior_width = {'N': 1, 'isfree': False,
                      'init': 0.2,
                      'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
@@ -291,7 +302,7 @@ eline_sigma = {'N': 1, 'isfree': True,
 _neb_marg_ = {"marginalize_elines": marginalize_elines,
               "use_eline_prior": use_eline_prior,
               "nebemlineinspec": nebemlineinspec,
-              "lines_to_fit": lines_to_fit,
+              "elines_to_fit": elines_to_fit,
               "eline_prior_width": eline_prior_width,
               "eline_sigma": eline_sigma
               }
