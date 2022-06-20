@@ -18,7 +18,7 @@ add the emission lines to the model spectrum internally.  In some situations
 (see below) this is not desired, and so the ``"nebemlineinspec"`` switch can be
 used to keep the lines from being added -- though their luminosities will still
 be computed by FSPS -- in which case prospector can be used to add the lines to
-model spectra nd photometry.
+the predicted spectra and photometry.
 
 The nebular emission grids were computed for ionization sources (stellar
 populations) with the same metallicity as the gas-phase, so to keep perfect
@@ -35,9 +35,9 @@ accurate models for the emission lines, e.g. to account for their presence in
 the center of an absorption line of interest.  For this reason it is possible
 with prospector, when fitting spectroscopic data, to *fit* for the true emission
 line fluxes and compute model likelihoods marginalized over the possible
-emission line fluxes.  The methodology is described in `johnson21
-<https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract>`_, and is
-enabled via the ``"marginalize_elines"`` model parameter.
+emission line fluxes.  The methodology is described in
+`johnson21 <https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract>`_,
+and is enabled via the ``"marginalize_elines"`` model parameter.
 
 Briefly, explicit parameters are introduced to account for the emission line
 widths (``"eline_sigma"``) and redshift offset from the stellar model
@@ -61,13 +61,13 @@ cloudy-FSPS values.  It is also possible to completely ignore the contribution
 of specific lines (i.e. to not include them in the modeled spectrum or
 photometry).  These parameters are:
 
-* ``"elines_to_fit"`` - A list of lines to fit via linear-least-squares and
+* ``"elines_to_fit"`` A list of lines to fit via linear-least-squares and
     marginalize over.  If this parameter is not given but
     ``"marginalize_elines"`` is True, all lines within the observed spectral
     range will be fit.
-* ``"elines_to_fix"`` - A list of lines to fix to their cloudy+FSPS predicted
+* ``"elines_to_fix"`` A list of lines to fix to their cloudy+FSPS predicted
     luminosities.
-* ``"elines_to_ignore"`` - A list of lines to ignore in the spectral and
+* ``"elines_to_ignore"`` A list of lines to ignore in the spectral and
     photometric models.  Thier luminosities are still computed, and can be
     accessed through the :py:class:`prospect.models.sedmodel.SpecModel` object
     at each likelihood call.  This parameter takes effect regardless of the
@@ -82,19 +82,20 @@ Nebular Parameter Templates
 
 Several default model parameter templates are available in
 :py:class:`prospect.models.templates.TemplateLibrary` to easily include
-different emission line treatments in prospector modeling.
+different emission line treatments in prospector modeling including properly
+setting the values of the various switches described above.
 
-* ``"nebular"`` - a basic parameter set in which the nebular emission is based
+* ``"nebular"`` A basic parameter set in which the nebular emission is based
     on the cloudy-FSPS grids, the lines are added to the model within FSPS, and
     the gas-phase metallicity is tied to the stellar metallicity.  The only free
     parameter introduced by this template is ``"gas_logu"``.
-* ``"nebular_marginalization"`` - A parameter set for fitting and
-    marginalizing over the emission line luminosities, with a prior based on
-    the cloudy-fsps predictions.  By default all lines will be fit, and the
-    line widths are included as a free parameter with
+* ``"nebular_marginalization"`` A parameter set for fitting and
+    marginalizing over the emission line luminosities, with a prior based on the
+    cloudy-fsps predictions.  By default all lines will be fit as long as FSPS
+    is installed, and the line widths are included as a free parameter with
     uniform prior.  This parameter set adds one new free parameter,
     ``"eline_sigma"``.
-* ``"fit_eline_redshift"`` - this template can be used with
+* ``"fit_eline_redshift"`` This template can be used with
     ``"nebular_marginaliztion"`` above to also fit for the redshift offset of
     the emission lines from the stellar model.  It adds one free parameter,
     ``"eline_delta_zred"``.
