@@ -1,10 +1,12 @@
 manual*
-*.tex
+*tex
 .vscode
 *.pyc
 __pycache__
 .ipynb_checkpoints
 *.h5
+*.fits
+*egg*
 build/
 _build/
 dist/
