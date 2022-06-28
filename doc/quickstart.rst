@@ -23,12 +23,14 @@ get spectral data so we know the redshift.
 
 .. code:: python
 
-    from astroquery import SDSS
+    from astroquery.sdss import SDSS
     from astropy.coordinates import SkyCoord
     bands = "ugriz"
     mcol = [f"cModelMag_{b}" for b in bands]
     ecol = [f"cModelMagErr_{b}" for b in bands]
-    cat = SDSS.query_crossid(SkyCoord(ra=204.46376, dec=35.79883, unit="deg"), data_release=16, photoobj_fields=mcol + ecol + ["specObjID"])
+    cat = SDSS.query_crossid(SkyCoord(ra=204.46376, dec=35.79883, unit="deg"),
+                             data_release=16,
+                             photoobj_fields=mcol + ecol + ["specObjID"])
     shdus = SDSS.get_spectra(plate=2101, mjd=53858, fiberID=220)[0]
     assert int(shdus[2].data["SpecObjID"][0]) == cat[0]["specObjID"]
 
