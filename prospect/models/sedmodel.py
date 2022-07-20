@@ -107,12 +107,12 @@ class SpecModel(ProspectorParams):
         # because in principle it can modify the emission line parameters
         # and also needs some things done in 'cache_eline_parameters`
         # especially _ewave_obs and _use_elines
-        spec = self.predict_spec(obs, sigma_spec)
+        spec = self.predict_spec(obs, sigma_spec=sigma_spec)
         phot = self.predict_phot(obs.get('filters', None))
 
         return spec, phot, self._mfrac
 
-    def predict_spec(self, obs, sigma_spec, **extras):
+    def predict_spec(self, obs, sigma_spec=None, **extras):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct
