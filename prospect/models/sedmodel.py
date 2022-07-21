@@ -778,6 +778,14 @@ class LineSpecModel(SpecModel):
     otherwise uninformative.
     """
 
+    def _available_parameters(self):
+        pars = [("linespec_scaling", "This float scales the predicted nebular "
+                 "emission line luminosities, for example to accxount for a "
+                 "(constant in wavelengtrh) slit loss"),
+                ]
+
+        return pars
+
     def predict_spec(self, obs, **extras):
         """Generate a prediction for the observed nebular line fluxes.  This method assumes
         that the model parameters have been set and that the following
@@ -820,6 +828,7 @@ class LineSpecModel(SpecModel):
         self._speccal = 1.0
 
         self.line_norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
+        self.line_norm *= self.params.get("linespec_scaling", 1.0)
         elums = self._eline_lum[self._predicted_line_inds] * self.line_norm
 
         return elums
