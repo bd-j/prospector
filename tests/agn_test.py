@@ -9,22 +9,14 @@ from prospect.utils.obsutils import fix_obs
 from prospect.models.sedmodel import AGNSpecModel
 from prospect.models.templates import TemplateLibrary
 from prospect.sources import CSPSpecBasis
-from prospect.models import priors
-
-
-_agn_eline_ = {}
-_agn_eline_["agn_elum"] = dict(N=1, isfree=False, init=1e-4,
-                               prior=priors.Uniform(mini=1e-6, maxi=1e-2))
-_agn_eline_["agn_eline_sigma"] = dict(N=1, isfree=False, init=100.0,
-                                      prior=priors.Uniform(mini=50, maxi=500))
 
 
 if __name__ == "__main__":
 
-    #
+    # sps
     sps = CSPSpecBasis(zcontinuous=1)
 
-    #obs
+    # obs
     fnames = [f"sdss_{b}0" for b in "ugriz"]
     filts = observate.load_filters(fnames)
 
@@ -34,7 +26,7 @@ if __name__ == "__main__":
                unc=np.ones(1000)*0.1)
     obs = fix_obs(obs)
 
-    # model
+    # --- model ---
     model_pars = TemplateLibrary["parametric_sfh"]
     model_pars.update(TemplateLibrary["nebular"])
     # add an emission line template for AGN
@@ -46,7 +38,6 @@ if __name__ == "__main__":
 
     model.params["agn_elum"] = 1e-4
     spec, phot, x = model.predict(model.theta, obs, sps)
-    #aind = model.theta_index["agne_elum"]
     model.params["agn_elum"] = 1e-6
     spec1, phot1, x1 = model.predict(model.theta, obs, sps)
 
@@ -64,5 +55,5 @@ if __name__ == "__main__":
     ax.set_xlabel("Wavelength")
     ax.set_ylabel("F_nu (maggies)")
 
-    print("Change in magnitude for faint AGN:\n",-2.5*np.log10(phot1/phot))
-    print("Change in magnitude for broad-line AGN:\n",-2.5*np.log10(phot2/phot))
+    print("Change in magnitude for faint AGN:\n", -2.5*np.log10(phot1/phot))
+    print("Change in magnitude for broader-line AGN:\n", -2.5*np.log10(phot2/phot))
