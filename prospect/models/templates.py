@@ -317,6 +317,20 @@ TemplateLibrary["fit_eline_redshift"] = (_fit_eline_redshift_,
                                               ("Fit for the redshift of the emission lines separately"
                                                "from the stellar redshift"))
 
+# ------------------------
+# --- AGN Nebular emission
+# ------------------------
+_agn_eline_ = {}
+_agn_eline_["agn_elum"] = dict(N=1, isfree=False, init=1e-4,
+                               prior=priors.Uniform(mini=1e-6, maxi=1e-2),
+                               units="L_Hbeta(Lsun) / Mformed")
+_agn_eline_["agn_eline_sigma"] = dict(N=1, isfree=False, init=100.0,
+                                      prior=priors.Uniform(mini=50, maxi=500))
+_agn_eline_["nebemlineinspec"] = dict(N=1, isfree=False, init=False)  # can't be included w/ AGN lines
+
+TemplateLibrary["agn_eline"] = (_agn_eline_,
+                                ("Add AGN emission lines"))
+
 # -------------------------
 # --- Outlier Templates ---
 # -------------------------
