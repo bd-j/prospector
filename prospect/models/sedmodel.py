@@ -317,7 +317,7 @@ class SpecModel(ProspectorParams):
 
         return flux
 
-    def cache_eline_parameters(self, obs, nsigma=5):
+    def cache_eline_parameters(self, obs, nsigma=5, forcelines=False):
         """ This computes and caches a number of quantities that are relevant
         for predicting the emission lines, and computing the MAP values thereof,
         including
@@ -971,29 +971,25 @@ class AGNSpecModel(SpecModel):
 
         # --- add fixed lines ---
         assert self.params["nebemlineinspec"] == False, "must add agn and nebular lines within prospector"
-        assert np.all(self._elines_to_fit == False), "Cannot fit lines when AGN lines included"
+        assert self.params.get("marginalize_elines", False) == False, "Cannot fit lines when AGN lines included"
         emask = self._fix_eline_pixelmask
-        inds = self._fix_eline & self._valid_eline
-        espec = self.predict_eline_spec(line_indices=inds,
-                                        wave=self._outwave[emask])
-        self._fix_eline_spec = espec
-        smooth_spec[emask] += self._fix_eline_spec.sum(axis=1)
+        if emask.any():
+            # Add SF lines
+            inds = self._fix_eline & self._valid_eline
+            espec = self.predict_eline_spec(line_indices=inds,
+                                            wave=self._outwave[emask])
+            self._fix_eline_spec = espec
+            smooth_spec[emask] += self._fix_eline_spec.sum(axis=1)
 
-        # Add agn lines
-        aspec = self.predict_aline_spec(line_indices=inds,
-                                        wave=self._outwave[emask])
-        self._agn_eline_spec = aspec
-        smooth_spec[emask] += self._agn_eline_spec
+            # Add agn lines
+            aspec = self.predict_aline_spec(line_indices=inds,
+                                            wave=self._outwave[emask])
+            self._agn_eline_spec = aspec
+            smooth_spec[emask] += self._agn_eline_spec
 
         # --- calibration ---
         self._speccal = self.spec_calibration(obs=obs, spec=smooth_spec, **extras)
         calibrated_spec = smooth_spec * self._speccal
-
-        # --- fit and add lines if necessary ---
-        emask = self._fit_eline_pixelmask
-        if emask.any():
-            self._fit_eline_spec = self.fit_el(obs, calibrated_spec, sigma_spec)
-            calibrated_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
         # --- cache intrinsic spectrum ---
         self._sed = calibrated_spec / self._speccal
