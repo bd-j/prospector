@@ -3,7 +3,6 @@
 
 from copy import deepcopy
 import numpy as np
-import matplotlib.pyplot as pl
 
 from sedpy import observate
 from prospect.utils.obsutils import fix_obs
@@ -60,6 +59,7 @@ def test_agn_elines():
     assert np.allclose(phot3, phot2), "Phot-only obs did not add AGn lines correctly"
 
     if False:
+        import matplotlib.pyplot as pl
         pl.ion()
         fig, ax = pl.subplots()
         ax.plot(obs["wavelength"], spec0, label="agn_elum=1e-4")
