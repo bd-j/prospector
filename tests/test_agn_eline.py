@@ -39,7 +39,7 @@ def test_agn_elines():
     spec0, phot0, x0 = model.predict(model.theta, obs, sps)
     model.params["agn_elum"] = 1e-6
     spec1, phot1, x1 = model.predict(model.theta, obs, sps)
-    assert (not np.allclose(spec2, spec0)), "changing AGN luminosity had no effect"
+    assert (not np.allclose(spec1, spec0)), "changing AGN luminosity had no effect"
 
     model.params["agn_elum"] = 1e-4
     model.params["agn_eline_sigma"] = 400.0
