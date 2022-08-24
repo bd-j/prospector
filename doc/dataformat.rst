@@ -1,29 +1,12 @@
 Data Formats
 ============
-The :py:meth:`build_obs` function
----------------------------------
-
-The :py:meth:`build_obs` function in the parameter file is written by the user.
-It should take a dictionary of command line arguments as keyword arguments. It
-should return an ``obs`` dictionary described below.
-
-Other than that, the contents can be anything. Within this function you might
-open and read FITS files, ascii tables, HDF5 files, or query SQL databases. You
-could, using e.g. an ``objid`` parameter, dynamically load data (including
-filter sets) for different objects in a table. Feel free to import helper
-functions, modules, and packages (like astropy, h5py, sqlite, astroquery, etc.)
-
-The point of this function is that you don't have to *externally* convert your
-data format to be what |Codename| expects and keep another version of files
-lying around: the conversion happens *within* the code itself. Again, the only
-requirement is that the function can take a ``run_params`` dictionary as keyword
-arguments and that it return an ``obs`` dictionary as described below.
 
 The ``obs`` Dictionary & Data Units
 -----------------------------------
 
-|Codename| expects the data in the form of a dictionary returned by :py:meth:`build_obs`.
-This dictionary should have (at least) the following keys and values:
+|Codename| expects the data in the form of a dictionary, preferably returned by
+a :py:meth:`build_obs` function (see below). This dictionary should have (at
+least) the following keys and values:
 
 ``"wavelength"``
     The wavelength vector for the spectrum, ndarray.
@@ -89,5 +72,25 @@ that there is data to fit, e.g.
         assert "mask" in obs.keys()
 
 It is recommended to use this method at the end of any `build_obs` function.
+
+The :py:meth:`build_obs` function
+---------------------------------
+
+The :py:meth:`build_obs` function in the parameter file is written by the user.
+It should take a dictionary of command line arguments as keyword arguments. It
+should return an ``obs`` dictionary described above.
+
+Other than that, the contents can be anything. Within this function you might
+open and read FITS files, ascii tables, HDF5 files, or query SQL databases. You
+could, using e.g. an ``objid`` parameter, dynamically load data (including
+filter sets) for different objects in a table. Feel free to import helper
+functions, modules, and packages (like astropy, h5py, sqlite, astroquery, etc.)
+
+The point of this function is that you don't have to *externally* convert your
+data format to be what |Codename| expects and keep another version of files
+lying around: the conversion happens *within* the code itself. Again, the only
+requirement is that the function can take a ``run_params`` dictionary as keyword
+arguments and that it return an ``obs`` dictionary as described below.
+
 
 .. |Codename| replace:: Prospector

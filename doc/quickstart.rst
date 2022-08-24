@@ -166,8 +166,8 @@ information we can use the built-in reader.
 This gives a dictionary of useful information (``out``), as well as the obs
 dictionary that we were using and, in some cases, a reconsitituted model object.
 However, that is only possible if the model generation code is saved to the
-results file, in the form of a `build_obs()` function.  Here we will use just
-use the model object that we've already generated.
+results file, in the form of the text for a `build_model()` function.  Here we
+will use just use the model object that we've already generated.
 
 Now we will do some plotting.  First, lets make a corner plot of the posterior.
 We'll mark the highest probablity posterior sample as well.
