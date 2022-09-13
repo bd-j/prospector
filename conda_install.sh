@@ -6,11 +6,11 @@ CODEDIR=$PWD
 cd $CODEDIR
 
 # Install FSPS from source (to get data files)
-git clone https://github.com:cconroy20/fsps
+git clone https://github.com/cconroy20/fsps.git
 export SPS_HOME="$PWD/fsps"
 
 # Create and activate environment (named 'prospector')
-git clone https://github.com:bd-j/prospector.git
+git clone https://github.com/bd-j/prospector.git
 cd prospector
 conda env create -f environment.yml
 conda activate prospector
