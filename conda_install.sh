@@ -9,7 +9,6 @@ cd $CODEDIR
 git clone https://github.com/cconroy20/fsps.git
 export SPS_HOME="$PWD/fsps"
 
-# Create and activate environment (named 'prospector')
 git clone https://github.com/bd-j/prospector.git
 cd prospector
 conda env create -f environment.yml -n prospector
