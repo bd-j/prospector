@@ -316,7 +316,7 @@ class Spectrum(Observation):
 
 class Lines(Spectrum):
 
-    kind = "spectrum"
+    kind = "lines"
     alias = dict(spectrum="flux",
                  unc="uncertainty",
                  wavelength="wavelength",
