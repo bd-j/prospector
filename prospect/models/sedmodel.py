@@ -10,7 +10,6 @@ import os
 
 from numpy.polynomial.chebyshev import chebval, chebvander
 from scipy.interpolate import splrep, BSpline
-from scipy.stats import multivariate_normal as mvn
 
 from sedpy.observate import getSED
 from sedpy.smoothing import smoothspec
@@ -20,8 +19,9 @@ from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 
 
-__all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",
-           "LineSpecModel", "AGNSpecModel",
+__all__ = ["SpecModel",
+           "PolySpecModel", "SplineSpecModel",
+           "AGNSpecModel",
            "PolyFitModel"]
 
 
@@ -217,28 +217,32 @@ class SpecModel(ProspectorParams):
 
     def predict_lines(self, obs, **extras):
         """Generate a prediction for the observed nebular line fluxes.  This method assumes
-        that the model parameters have been set and that the following
-        attributes are present and correct
+        that the model parameters have been set, that any adjustments to the
+        emission line fluxes based on ML fitting have been applied, and that the
+        following attributes are present and correct
           + ``_wave`` - The SPS restframe wavelength array
           + ``_zred`` - Redshift
-          + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies
           + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
         It generates the following attributes
           + ``_outwave`` - Wavelength grid (observed frame)
           + ``_speccal`` - Calibration vector
+          + ``line_norm`` - the conversion from FSPS line luminosities to the
+                            observed line luminosities, including scaling fudge_factor
+          + ``_predicted_line_inds`` - the indices of the line that are predicted
 
         Numerous quantities related to the emission lines are also cached (see
         ``cache_eline_parameters()`` and ``fit_mle_elines()`` for details) including
         ``_predicted_line_inds`` which is the indices of the line that are predicted.
+        ``cache_eline_parameters()`` and ``fit_elines()`` for details).
+
 
         :param obs:
-            An observation dictionary, containing the keys
+            A ``data.observation.Lines()`` instance, with the attributes
             + ``"wavelength"`` - the observed frame wavelength of the lines.
             + ``"line_ind"`` - a set of indices identifying the observed lines in
             the fsps line array
-            Assumed to be the result of :py:meth:`utils.obsutils.rectify_obs`
 
-        :returns spec:
+        :returns elum:
             The prediction for the observed frame nebular emission line flux these
             parameters, at the wavelengths specified by ``obs['wavelength']``,
             ndarray of shape ``(nwave,)`` in units of erg/s/cm^2.
@@ -257,6 +261,7 @@ class SpecModel(ProspectorParams):
         self._speccal = 1.0
 
         self.line_norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
+        self.line_norm *= self.params.get("linespec_scaling", 1.0)
         elums = self._eline_lum[self._predicted_line_inds] * self.line_norm
 
         return elums
