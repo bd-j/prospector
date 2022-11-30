@@ -221,9 +221,13 @@ class Photometry(Observation):
         return np.array([f.wave_effective for f in self.filters])
 
     def to_oldstyle(self):
-        obs = vars(self)
-        obs.update({k: self[v] for k, v in self.alias.items()})
-        _ = [obs.pop(k) for k in ["flux", "uncertainty", "mask"]]
+        obs = {}
+        obs.update(vars(self))
+        for k, v in self.alias.items():
+            obs[k] = self[v]
+            _ = obs.pop(v)
+        #obs.update({k: self[v] for k, v in self.alias.items()})
+        #_ = [obs.pop(k) for k in ["flux", "uncertainty", "mask"]]
         obs["phot_wave"] = self.wavelength
         return obs
 
@@ -285,7 +289,7 @@ class Spectrum(Observation):
             Flux array
 
         libres : float or ndarray
-            Library resolution in units of km/ (dispersion) to be subtracted from the smoothing kernel.
+            Library resolution in units of km/s (dispersion) to be subtracted from the smoothing kernel.
 
         Returns
         -------
@@ -308,9 +312,11 @@ class Spectrum(Observation):
         return out
 
     def to_oldstyle(self):
-        obs = vars(self)
-        obs.update({k: self[v] for k, v in self.alias.items()})
-        _ = [obs.pop(k) for k in ["flux", "uncertainty"]]
+        obs = {}
+        obs.update(vars(self))
+        for k, v in self.alias.items():
+            obs[k] = self[v]
+            _ = obs.pop(v)
         return obs
 
 
