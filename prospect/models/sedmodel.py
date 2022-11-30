@@ -881,7 +881,7 @@ class AGNSpecModel(SpecModel):
         assert np.abs(self.emline_info["wave"][59] - 4863) < 2
         self._aline_lum[ainds] = afluxes
 
-    def predict_spec(self, obs, sigma_spec=None, **extras):
+    def predict_spec(self, obs, **extras):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct
@@ -933,7 +933,7 @@ class AGNSpecModel(SpecModel):
         self.cache_eline_parameters(obs, nsigma=nsigma)
 
         # --- smooth and put on output wavelength grid ---
-        smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+        smooth_spec = self.velocity_smoothing(obs_wave, self._norm_spec)
 
         # --- add fixed lines ---
         assert self.params["nebemlineinspec"] == False, "must add agn and nebular lines within prospector"
@@ -961,6 +961,30 @@ class AGNSpecModel(SpecModel):
         self._sed = calibrated_spec / self._speccal
 
         return calibrated_spec
+
+    def predict_lines(self, obs, **extras):
+        """Generate a prediction for the observed nebular line fluxes, including
+        AGN.
+
+        :param obs:
+            A ``data.observation.Lines()`` instance, with the attributes
+            + ``"wavelength"`` - the observed frame wavelength of the lines.
+            + ``"line_ind"`` - a set of indices identifying the observed lines in
+            the fsps line array
+
+        :returns elum:
+            The prediction for the observed frame nebular + AGN emission line
+            flux these parameters, at the wavelengths specified by
+            ``obs['wavelength']``, ndarray of shape ``(nwave,)`` in units of
+            erg/s/cm^2.
+        """
+        sflums = super().predict_lines(obs, **extras)
+        anorm = self.params.get('agn_elum', 1.0) * self.line_norm
+        alums = self._aline_lum[self._predicted_line_inds] * anorm
+
+        elums = sflums + alums
+
+        return elums
 
     def predict_phot(self, filters):
         """Generate a prediction for the observed photometry.  This method assumes
