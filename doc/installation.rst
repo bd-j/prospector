@@ -12,7 +12,7 @@ Then in Python
 .. code-block:: python
 
         import prospect
-        print prospect.__version__
+        print(prospect.__version__)
 
 However, several other packages are required for the code to model and fit SEDs
 (see below.)

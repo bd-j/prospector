@@ -1,7 +1,20 @@
 .. :changelog:
 
-v1.1 (2022-02-20)
-+++++++++++++++++
+v1.2.0 (2022-12-31)
++++++++++++++++++++
+
+- Document, improvements, and bugfixes in ``LineSpecModel`` (h/t @kgarofali)
+- Add ``AGNSpecModel`` with a scalable, empirical AGN emission line template.
+- Fix floating point issue with Dirichlet SFH transforms.
+- Implement ``nested_target_n_effective`` as dynesty stopping criterion.
+- Fixes to the dynesty interface for dynesty >= 2.0 (h/t @mjastro)
+- Fix sign error in Powell minimization (h/t @blanton144)
+- Fix bugs in parameter template for emission line fitting.
+- numeropus documentation updates including nebular emission details.
+
+
+v1.1.0 (2022-02-20)
++++++++++++++++++++
 
 - Improved treatment of emission lines in ``SpecModel``, including ability to ignore
   selected lines entirely.

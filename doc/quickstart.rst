@@ -78,7 +78,7 @@ should be replaced or adjusted depending on your particular science question.
     print(model)
 
 In principle we could also add noise models for the spectral and photometric
-data, but we'll make the default assumption of iid Gaussian noise for the moment.
+data, but we'll make the default assumption of independent Gaussian noise for the moment.
 
 .. code:: python
 
@@ -121,14 +121,14 @@ Run a fit
 
 Since we can make predictions and we have data and uncertainties, we should be
 able to construct a likelihood function.  Here we'll use the pre-defined default
-posterior probability function.  We also set some some sampling related keywords
-to make the fit go a little faster, though it should still take of order tens of
+posterior probability function.  We also set some sampling related keywords to
+make the fit go a little faster, though it should still take of order tens of
 minutes.
 
 .. code:: python
 
     from prospect.fitting import lnprobfn, fit_model
-    fitting_kwargs = dict(nlive_init=400, nested_method="rwalk", nested_target_n_effective=1000)
+    fitting_kwargs = dict(nlive_init=400, nested_method="rwalk", nested_target_n_effective=1000, nested_dlogz_init=0.05)
     output = fit_model(obs, model, sps, optimize=False, dynesty=True, lnprobfn=lnprobfn, noise=noise_model, **fitting_kwargs)
     result, duration = output["sampling"]
 
