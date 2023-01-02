@@ -5,7 +5,7 @@ from copy import deepcopy
 import numpy as np
 
 from sedpy import observate
-from prospect.utils.obsutils import fix_obs
+from prospect.data.observation import Spectrum, Photometry
 from prospect.models.sedmodel import AGNSpecModel
 from prospect.models.templates import TemplateLibrary
 from prospect.sources import CSPSpecBasis
@@ -19,11 +19,13 @@ def test_agn_elines():
     fnames = [f"sdss_{b}0" for b in "ugriz"]
     filts = observate.load_filters(fnames)
 
-    obs = dict(filters=filts,
-               wavelength=np.linspace(3000, 9000, 1000),
-               spectrum=np.ones(1000),
-               unc=np.ones(1000)*0.1)
-    obs = fix_obs(obs)
+    phot = Photometry(filters=filts,
+                      flux=np.ones(len(filts)),
+                      uncertainty=0.1 * np.ones(len(filts)))
+    spec = Spectrum(wavelength=np.linspace(3000, 9000, 1000),
+                    flux=np.ones(1000),
+                    uncertainty=np.ones(1000)*0.1)
+    obs = [spec, phot]
 
     # --- model ---
     model_pars = TemplateLibrary["parametric_sfh"]
@@ -36,26 +38,21 @@ def test_agn_elines():
     model = AGNSpecModel(model_pars)
 
     model.params["agn_elum"] = 1e-4
-    spec0, phot0, x0 = model.predict(model.theta, obs, sps)
+    (spec0, phot0), x0 = model.predict(model.theta, obs, sps)
     model.params["agn_elum"] = 1e-6
-    spec1, phot1, x1 = model.predict(model.theta, obs, sps)
+    (spec1, phot1), x1 = model.predict(model.theta, obs, sps)
     assert (not np.allclose(spec1, spec0)), "changing AGN luminosity had no effect"
 
     model.params["agn_elum"] = 1e-4
     model.params["agn_eline_sigma"] = 400.0
-    spec2, phot2, x2 = model.predict(model.theta, obs, sps)
+    (spec2, phot2), x2 = model.predict(model.theta, obs, sps)
     assert (not np.allclose(spec2, spec0)), "broadening lines had no effect on the spectrum"
 
     assert np.allclose(phot2, phot0), "broadening lines changed the photometry"
 
     # do a check for phot-only obs
-    pobs = dict(filters=filts,
-                maggies=np.ones(len(filts)),
-                maggies_unc=0.1 * np.ones(len(filts)),
-                wavelength=np.linspace(3000, 9000, 1000),
-                spectrum=None)
-    pobs = fix_obs(pobs)
-    spec3, phot3, x2 = model.predict(model.theta, obs=pobs, sps=sps)
+    pobs = [phot]
+    (phot3), x2 = model.predict(model.theta, obs=pobs, sps=sps)
     assert np.allclose(phot3, phot2), "Phot-only obs did not add AGn lines correctly"
 
     if False:
