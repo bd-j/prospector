@@ -926,7 +926,7 @@ class AGNSpecModel(SpecModel):
         self.cache_eline_parameters(obs, nsigma=nsigma)
 
         # --- smooth and put on output wavelength grid ---
-        smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+        smooth_spec = self.velocity_smoothing(obs_wave, self._norm_spec)
 
         # --- add fixed lines ---
         assert self.params["nebemlineinspec"] == False, "must add agn and nebular lines within prospector"
