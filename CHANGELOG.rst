@@ -27,7 +27,7 @@ v1.1.0 (2022-02-20)
 - Several bugfixes including fixes to the "logm_sfh" parameter template, a fix
   for the nested sampling argument parsing, and bestfit spectrum saving.
 
-v1.0 (2021-12-02)
+v1.0 (2020-12-02)
 +++++++++++++++++
 
 Release to accompany submitted paper. Includes
@@ -36,7 +36,7 @@ Release to accompany submitted paper. Includes
 - Demonstrations of MPI usage with dynesty
 - Numerous small bugfixes.
 
-v0.4 (2021-07-08)
+v0.4 (2020-07-08)
 +++++++++++++++++
 
 - New ``models.SpecModel`` class that handles much of the conversion from FSPS
