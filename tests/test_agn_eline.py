@@ -52,7 +52,7 @@ def test_agn_elines():
 
     # do a check for phot-only obs
     pobs = [phot]
-    (phot3), x2 = model.predict(model.theta, obs=pobs, sps=sps)
+    (phot3), x2 = model.predict(model.theta, observations=pobs, sps=sps)
     assert np.allclose(phot3, phot2), "Phot-only obs did not add AGn lines correctly"
 
     if False:
