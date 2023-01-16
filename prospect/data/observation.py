@@ -86,6 +86,8 @@ class Observation:
             return
 
         assert self.wavelength.ndim == 1, "`wavelength` is not 1-d array"
+        assert self.flux.ndim == 1, "flux is not a 1d array"
+        assert self.uncertainty.ndim == 1, "uncertainty is not a 1d array"
         assert self.ndata > 0, "no wavelength points supplied!"
         assert self.uncertainty is not None, "No uncertainties."
         assert len(self.wavelength) == len(self.flux), "Flux array not same shape as wavelength."
