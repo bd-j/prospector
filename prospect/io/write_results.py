@@ -15,13 +15,28 @@ try:
 except(ImportError):
     _has_h5py_ = False
 
-from .. import NumpyEncoder
-
 __all__ = ["githash", "write_hdf5",
            "chain_to_struct"]
 
 
 unserial = json.dumps('Unserializable')
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """
+    """
+
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, type):
+            return str(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+
+        return json.JSONEncoder.default(self, obj)
 
 
 def pick(obj):
