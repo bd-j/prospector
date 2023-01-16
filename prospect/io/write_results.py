@@ -6,6 +6,7 @@ to HDF5 files as well as to pickles.
 """
 
 import os, time, warnings
+from copy import deepcopy
 import pickle, json, base64
 import numpy as np
 try:
@@ -14,6 +15,7 @@ try:
 except(ImportError):
     _has_h5py_ = False
 
+from .. import NumpyEncoder
 
 __all__ = ["githash", "write_hdf5",
            "chain_to_struct"]
@@ -32,7 +34,8 @@ def githash(**extras):
     """Pull out the git hash history for Prospector here.
     """
     try:
-        from .._version import __version__, __githash__
+        from .._version import __version__#, __githash__
+        __githash__ = None
         bgh = __version__, __githash__
     except(ImportError):
         warnings.warn("Could not obtain prospector version info", RuntimeWarning)
@@ -137,7 +140,7 @@ def write_hdf5(hfile, run_params, model, obs,
             if obs["wavelength"] is None:
                 best.create_dataset("restframe_wavelengths", data=sps.wavelengths)
 
-        # Store the githash last after flushing since getting it might cause an
+    # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
     bgh = githash(**run_params)
     hf.attrs['prospector_version'] = json.dumps(bgh)
@@ -151,7 +154,7 @@ def metadata(run_params, model):
                 )
     for k, v in list(meta.items()):
         try:
-            meta[k] = json.dumps(v)
+            meta[k] = json.dumps(v, cls=NumpyEncoder)
         except(TypeError):
             meta[k] = pick(v)
         except:
