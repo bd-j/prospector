@@ -100,7 +100,7 @@ def lnprobfn(theta, model=None, observations=None, sps=None,
     # --- Optionally return chi vectors for least-squares ---
     # note this does not include priors!
     if residuals:
-        chi = [compute_chi(spec, obs) for pred, obs in zip(predictions, observations)]
+        chi = [compute_chi(pred, obs) for pred, obs in zip(predictions, observations)]
         return np.concatenate(chi)
 
     # --- Emission Lines ---
@@ -411,7 +411,7 @@ def run_emcee(observations, model, sps, lnprobfn=lnprobfn,
     return sampler, ts
 
 
-def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
+def run_dynesty(observations, model, sps, lnprobfn=lnprobfn,
                 pool=None, nested_target_n_effective=10000, **kwargs):
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_dynesty_sampler`
 
@@ -461,8 +461,7 @@ def run_dynesty(obs, model, sps, noise, lnprobfn=lnprobfn,
     from dynesty.dynamicsampler import stopping_function, weight_function
     nested_stop_kwargs = {"target_n_effective": nested_target_n_effective}
 
-    lnp = wrap_lnp(lnprobfn, observations, model, sps, noise=noise,
-                   nested=True)
+    lnp = wrap_lnp(lnprobfn, observations, model, sps, nested=True)
 
     # Need to deal with postkwargs...
 

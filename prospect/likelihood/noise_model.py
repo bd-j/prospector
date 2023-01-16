@@ -12,8 +12,8 @@ __all__ = ["NoiseModel", "NoiseModelCov", "NoiseModelKDE"]
 
 class NoiseModel:
 
-    """This class allows for 1-d covariance matrix noise models without any
-    special kernels for covariance matrix construction.
+    """This base class allows for 1-d noise models without any special kernels
+    for covariance matrix construction, but with possibility for outliers.
     """
 
     f_outlier = 0
@@ -31,8 +31,9 @@ class NoiseModel:
 
     def lnlike(self, pred, obs, vectors={}):
 
-        # Construct Sigma (and factorize if 2d)
+        # populatate vectors used as metrics and weight functions.
         vectors = self.populate_vectors(obs)
+        # Construct Sigma (and factorize if 2d)
         self.compute(**vectors)
 
         # Compute likelihood
@@ -56,7 +57,9 @@ class NoiseModel:
     def populate_vectors(self, obs, vectors={}):
         # update vectors
         vectors["mask"] = obs.mask
-        vectors["unc"] = obs.uncertainty
+        vectors["wavelength"] = obs.wavelength
+        vectors["uncertainty"] = obs.uncertainty
+        vectors["flux"] = obs.flux
         if obs.kind == "photometry":
             vectors["filternames"] = obs.filternames
             vectors["phot_samples"] = obs.get("phot_samples", None)
@@ -81,7 +84,8 @@ class NoiseModel:
 
 
 class NoiseModelCov(NoiseModel):
-    """This object allows for 1d or 2d covariance matrices constructed from kernels
+    """This object allows for 1d or 2d covariance matrices constructed from
+    kernels.
     """
 
     def __init__(self, frac_out_name="f_outlier", nsigma_out_name="nsigma_outlier",
@@ -94,17 +98,6 @@ class NoiseModelCov(NoiseModel):
         self.weight_names = weight_by
         self.metric_name = metric_name
         self.mask_name = mask_name
-
-    def populate_vectors(self, vectors, obs):
-        # update vectors
-        vectors["mask"] = obs.mask
-        vectors["wavelength"] = obs.wavelength
-        vectors["unc"] = obs.uncertainty
-        vectors["flux"] = obs.flux
-        if obs.kind == "photometry":
-            vectors["filternames"] = obs.filternames
-            vectors["phot_samples"] = obs.get("phot_samples", None)
-        return vectors
 
     def construct_covariance(self, **vectors):
         """Construct a covariance matrix from a metric, a list of kernel
