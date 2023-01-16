@@ -6,6 +6,7 @@ to HDF5 files as well as to pickles.
 """
 
 import os, time, warnings
+from copy import deepcopy
 import pickle, json, base64
 import numpy as np
 try:
@@ -14,12 +15,28 @@ try:
 except(ImportError):
     _has_h5py_ = False
 
-
 __all__ = ["githash", "write_hdf5",
            "chain_to_struct"]
 
 
 unserial = json.dumps('Unserializable')
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """
+    """
+
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, type):
+            return str(obj)
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+
+        return json.JSONEncoder.default(self, obj)
 
 
 def pick(obj):
@@ -32,7 +49,8 @@ def githash(**extras):
     """Pull out the git hash history for Prospector here.
     """
     try:
-        from .._version import __version__, __githash__
+        from .._version import __version__#, __githash__
+        __githash__ = None
         bgh = __version__, __githash__
     except(ImportError):
         warnings.warn("Could not obtain prospector version info", RuntimeWarning)
@@ -139,7 +157,7 @@ def write_hdf5(hfile, run_params, model, obs,
             if obs["wavelength"] is None:
                 best.create_dataset("restframe_wavelengths", data=sps.wavelengths)
 
-        # Store the githash last after flushing since getting it might cause an
+    # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
     bgh = githash(**run_params)
     hf.attrs['prospector_version'] = json.dumps(bgh)
@@ -154,7 +172,7 @@ def metadata(run_params, model, write_model_params=True):
         meta["model_params"] = deepcopy(model.params)
     for k, v in list(meta.items()):
         try:
-            meta[k] = json.dumps(v)
+            meta[k] = json.dumps(v, cls=NumpyEncoder)
         except(TypeError):
             meta[k] = pick(v)
         except:
