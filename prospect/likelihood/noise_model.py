@@ -65,8 +65,8 @@ class NoiseModel:
             vectors["phot_samples"] = obs.get("phot_samples", None)
         return vectors
 
-    def construct_covariance(self, unc=[], mask=slice(None), **vectors):
-        self.Sigma = np.atleast_1d(unc[mask]**2)
+    def construct_covariance(self, uncertainty=[], mask=slice(None), **other_vectors):
+        self.Sigma = np.atleast_1d(uncertainty[mask]**2)
 
     def compute(self, **vectors):
         """Make a boring diagonal Covariance array
