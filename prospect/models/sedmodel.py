@@ -10,6 +10,7 @@ import os
 
 from numpy.polynomial.chebyshev import chebval, chebvander
 from scipy.interpolate import splrep, BSpline
+from scipy.signal import medfilt
 
 from sedpy.observate import getSED
 from sedpy.smoothing import smoothspec
@@ -714,7 +715,8 @@ class PolySpecModel(SpecModel):
 
     def _available_parameters(self):
         pars = [("polyorder", "order of the polynomial to fit"),
-                ("poly_regularization", "vector of length `polyorder` providing regularization for each polynomial term")
+                ("poly_regularization", "vector of length `polyorder` providing regularization for each polynomial term"),
+                ("median_polynomial", "if > 0, median smooth with a kernel of width order/range/median_polynomial before fitting")
                 ]
 
         return pars
@@ -756,6 +758,12 @@ class PolySpecModel(SpecModel):
             # masked wavelengths may have x>1, x<-1
             x = self.wave_to_x(obs["wavelength"], mask)
             y = (obs['spectrum'] / spec)[mask] - 1.0
+
+            if self.params.get('median_polynomial', 0) > 0:
+                kernel_factor = self.params["median_polynomial"]
+                knl = int((x.max() - x.min()) / order / kernel_factor)
+                knl += int((knl % 2) == 0)
+                y = medfilt(y, knl)
             yerr = (obs['unc'] / spec)[mask]
             yvar = yerr**2
             A = chebvander(x[mask], order)

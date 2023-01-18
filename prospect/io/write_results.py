@@ -146,16 +146,17 @@ def write_hdf5(hfile, run_params, model, obs,
     # Best fitting model in space of data
     if sps is not None:
         if "sampling/chain" in hf:
-            from ..plotting.utils import best_sample
-            pbest = best_sample(hf["sampling"])
-            spec, phot, mfrac = model.predict(pbest, obs=obs, sps=sps)
-            best = hf.create_group("bestfit")
-            best.create_dataset("spectrum", data=spec)
-            best.create_dataset("photometry", data=phot)
-            best.create_dataset("parameter", data=pbest)
-            best.attrs["mfrac"] = mfrac
-            if obs["wavelength"] is None:
-                best.create_dataset("restframe_wavelengths", data=sps.wavelengths)
+            pass
+            #from ..plotting.utils import best_sample
+            #pbest = best_sample(hf["sampling"])
+            #spec, phot, mfrac = model.predict(pbest, obs=obs, sps=sps)
+            #best = hf.create_group("bestfit")
+            #best.create_dataset("spectrum", data=spec)
+            #best.create_dataset("photometry", data=phot)
+            #best.create_dataset("parameter", data=pbest)
+            #best.attrs["mfrac"] = mfrac
+            #if obs["wavelength"] is None:
+            #    best.create_dataset("restframe_wavelengths", data=sps.wavelengths)
 
     # Store the githash last after flushing since getting it might cause an
     # uncatchable crash
