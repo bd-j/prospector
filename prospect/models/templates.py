@@ -283,6 +283,9 @@ try:
                      delimiter=',')
 except OSError:
     info = {'name':[]}
+except TypeError:
+    # SPS_HOME not defined
+    info = {'name':[]}
 
 # Fit all lines by default
 elines_to_fit = {'N': 1, 'isfree': False, 'init': np.array(info['name'])}
