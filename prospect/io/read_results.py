@@ -69,19 +69,17 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
 
     """
     # Read the basic chain, parameter, and run_params info
-    res = read_hdf5(filename, **kwargs)
+    res, obs = read_hdf5(filename, **kwargs)
 
     # Now try to instantiate the model object from the paramfile
-    param_file = (res['run_params'].get('param_file', ''),
-                  res.get("paramfile_text", ''))
     if dangerous:
         try:
             model = get_model(res)
         except:
             model = None
-    res['model'] = model
+    #res['model'] = model
 
-    return res, res["obs"], model
+    return res, obs, model
 
 
 def emcee_restarter(restart_from="", niter=32, **kwargs):
@@ -151,8 +149,9 @@ def read_hdf5(filename, **extras):
     :param filename:
         Name of the HDF5 file.
     """
-    groups = {"sampling": {}, "obs": {},
-              "bestfit": {}, "optimization": {}}
+    groups = {"sampling": {},
+              "bestfit": {},
+              "optimization": {}}
     res = {}
     with h5py.File(filename, "r") as hf:
         # loop over the groups
@@ -184,17 +183,21 @@ def read_hdf5(filename, **extras):
         res.update(groups['sampling'])
         res["bestfit"] = groups["bestfit"]
         res["optimization"] = groups["optimization"]
-        res['obs'] = groups['obs']
-        try:
-            res['obs']['filters'] = load_filters([str(f) for f in res['obs']['filters']])
-        except:
-            pass
-        try:
-            res['rstate'] = unpick(res['rstate'])
-        except:
-            pass
+        obs = obs_from_h5(groups['observations'])
 
-    return res
+        #res['obs'] = obs
+
+    return res, obs
+
+
+def obs_from_h5(obsgroup):
+    from ..data.observation import from_serial
+    observations = []
+    for obsname, dset in obsgroup.items():
+        arr, meta = dset[:], dset.attrs
+        obs = from_serial(arr, meta)
+        observations.append(obs)
+    return observations
 
 
 def get_sps(res):
@@ -258,8 +261,7 @@ def get_model(res):
         A prospect.models.SedModel object
     """
     import os
-    param_file = (res['run_params'].get('param_file', ''),
-                  res.get("paramfile_text", ''))
+    param_file = ("prospar", res.get("paramfile_text", ''))
     path, filename = os.path.split(param_file[0])
     modname = filename.replace('.py', '')
     user_module = import_module_from_string(param_file[1], modname)

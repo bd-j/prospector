@@ -9,8 +9,8 @@ from sedpy.smoothing import smoothspec
 from ..likelihood.noise_model import NoiseModel
 
 
-__all__ = ["Observation", "Spectrum", "Photometry",
-           "from_oldstyle"]
+__all__ = ["Observation", "Spectrum", "Photometry", "Lines"
+           "from_oldstyle", "from_serial", "obstypes"]
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -37,8 +37,8 @@ class Observation:
 
     logify_spectrum = False
     alias = {}
-    meta = ["kind", "name"]
-    data = ["wavelength", "flux", "uncertainty", "mask"]
+    _meta = ["kind", "name"]
+    _data = ["wavelength", "flux", "uncertainty", "mask"]
 
     def __init__(self,
                  flux=None,
@@ -126,18 +126,20 @@ class Observation:
         else:
             return len(self.wavelength)
 
-    def to_json(self):
-        obs = {m: getattr(self, m) for m in self.meta + self.data}
-        serial = json.dumps(obs, cls=NumpyEncoder)
-        return serial
+    @property
+    def metadata(self):
+        meta = {m: getattr(self, m) for m in self._meta}
+        if "filternames" in meta:
+            meta["filters"] = ",".join(meta["filternames"])
+        return meta
 
     def to_struct(self, data_dtype=np.float32):
         """Convert data to a structured array
         """
         self._automask()
-        dtype = np.dtype([(c, data_dtype) for c in self.data])
+        dtype = np.dtype([(c, data_dtype) for c in self._data])
         struct = np.zeros(self.ndata, dtype=dtype)
-        for c in self.data:
+        for c in self._data:
             data = getattr(self, c)
             try:
                 struct[c] = data
@@ -146,31 +148,23 @@ class Observation:
         return struct
 
     def to_fits(self, filename=""):
-        """
-        """
         from astropy.io import fits
         hdus = fits.HDUList([fits.PrimaryHDU(),
                              fits.BinTableHDU(self.to_struct())])
-        meta = {m: getattr(self, m) for m in self.meta}
-        if "filternames" in meta:
-            meta["filters"] = ",".join(meta["filternames"])
-        for k, v in meta.items():
-            try:
-                for hdu in hdus:
-                    hdu.header[k] = v
-            except(ValueError):
-                pass
+        for hdu in hdus:
+            hdu.header.update(self.metadata)
         if filename:
             hdus.writeto(filename, overwrite=True)
             hdus.close()
 
     def to_h5_dataset(self, handle):
         dset = handle.create_dataset(self.name, data=self.to_struct())
-        for m in self.meta:
-            try:
-                dset.attr[m] = getattr(self, m)
-            except:
-                pass
+        dset.attrs.update(self.metadata)
+
+    def to_json(self):
+        obs = {m: getattr(self, m) for m in self._meta + self._data}
+        serial = json.dumps(obs, cls=NumpyEncoder)
+        return serial
 
 
 class Photometry(Observation):
@@ -367,6 +361,11 @@ class Lines(Spectrum):
         self.line_ind = np.array(line_ind).as_type(int)
 
 
+obstypes = dict(photometry=Photometry,
+                spectrum=Spectrum,
+                lines=Lines)
+
+
 def from_oldstyle(obs, **kwargs):
     """Convert from an oldstyle dictionary to a list of observations
     """
@@ -375,3 +374,10 @@ def from_oldstyle(obs, **kwargs):
     #[o.rectify() for o in obslist]
 
     return [spec, phot]
+
+
+def from_serial(arr, meta):
+    adict = {a:arr[a] for a in arr.dtype.names}
+    obs = obstypes[meta["kind"]](**adict)
+    [setattr(obs, m, v) for m, v in meta.items()]
+

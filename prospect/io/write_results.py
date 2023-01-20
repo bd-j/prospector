@@ -124,7 +124,7 @@ def write_hdf5(hfile, run_params, model, obs,
     # High level parameter and version info
     meta = metadata(run_params, model)
     for k, v in meta.items():
-        hf.attrs[k] = k
+        hf.attrs[k] = v
     hf.flush()
 
     # -----------------
@@ -229,7 +229,7 @@ def write_obs_to_h5(hf, obslist):
     """Write observational data to the hdf5 file
     """
     try:
-        odat = hf.create_group('obs')
+        odat = hf.create_group('observations')
     except(ValueError):
         # We already have an 'obs' group
         return

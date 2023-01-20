@@ -7,11 +7,52 @@ try:
 except(ImportError):
     pass
 
-from ..plotting.utils import get_best
 
 __all__ = ["get_best", "get_truths", "get_percentiles", "get_stats",
            "posterior_samples", "hist_samples", "joint_pdf", "compute_sigma_level",
            "trim_walkers", "fill_between", "figgrid"]
+
+
+def flatstruct(struct):
+    params = struct.dtype.names
+    m = [struct[s] for s in params]
+    return np.concatenate(m), params
+
+
+def get_best(res, **kwargs):
+    """Get the maximum a posteriori parameters and their names
+
+    :param res:
+        A ``results`` dictionary with the keys 'lnprobability', 'chain', and
+        'theta_labels'
+
+    :returns theta_names:
+        List of strings giving the names of the parameters, of length ``ndim``
+
+    :returns best:
+        ndarray with shape ``(ndim,)`` of parameter values corresponding to the
+        sample with the highest posterior probaility
+    """
+    theta_best = best_sample(res)
+
+    try:
+        theta_names = res["theta_labels"]
+    except(KeyError):
+        theta_names = res["model"].theta_labels()
+    return theta_names, theta_best
+
+
+def best_sample(res):
+    """Get the posterior sample with the highest posterior probability.
+    """
+    imax = np.argmax(res['lnprobability'])
+    # there must be a more elegant way to deal with differnt shapes
+    try:
+        i, j = np.unravel_index(imax, res['lnprobability'].shape)
+        theta_best = res['chain'][i, j].copy()
+    except(ValueError):
+        theta_best = res['chain'][imax].copy()
+    return theta_best
 
 
 def get_truths(res):
@@ -111,38 +152,6 @@ def trim_walkers(res, threshold=-1e4):
     return trimmed
 
 
-def joint_pdf(res, p1, p2, pmap={}, **kwargs):
-    """Build a 2-dimensional array representing the binned joint PDF of 2
-    parameters, in terms of sigma or fraction of the total distribution.
-
-    For example, to plot contours of the joint PDF of parameters ``"parname1"``
-    and ``"parname2"`` from the last half of a chain with 30bins in each
-    dimension;
-
-    ::
-
-        xb, yb, sigma = joint_pdf(res, parname1, parname2, nbins=30, start=0.5)
-        ax.contour(xb, yb, sigma, **plotting_kwargs)
-
-    :param p1:
-        The name of the parameter for the x-axis
-
-    :param p2:
-        The name of the parameter for the y axis
-
-    :returns xb, yb, sigma:
-        The bins and the 2-d histogram
-    """
-    trace, pars = hist_samples(res, [p1, p2], **kwargs)
-    trace = trace.copy().T
-    if pars[0] == p1:
-        trace = trace[::-1, :]
-    x = pmap.get(p2, lambda x: x)(trace[0])
-    y = pmap.get(p1, lambda x: x)(trace[1])
-    xbins, ybins, sigma = compute_sigma_level(x, y, **kwargs)
-    return xbins, ybins, sigma.T
-
-
 def posterior_samples(res, nsample=None, **kwargs):
     """Pull samples of theta from the MCMC chain
 
@@ -209,65 +218,6 @@ def hist_samples(res, showpars=None, start=0, thin=1,
         return flatchain, parnames[ind_show], flatlnprob
 
     return flatchain, parnames[ind_show]
-
-
-def compute_sigma_level(trace1, trace2, nbins=30, weights=None, extents=None, **extras):
-    """From a set of traces in two parameters, make a 2-d histogram of number
-    of standard deviations.  Following examples from J Vanderplas.
-    """
-    L, xbins, ybins = np.histogram2d(trace1, trace2, bins=nbins,
-                                     weights=weights,
-                                     range=extents)
-    L[L == 0] = 1E-16
-    logL = np.log(L)
-
-    shape = L.shape
-    L = L.ravel()
-
-    # obtain the indices to sort and unsort the flattened array
-    i_sort = np.argsort(L)[::-1]
-    i_unsort = np.argsort(i_sort)
-
-    L_cumsum = L[i_sort].cumsum()
-    L_cumsum /= L_cumsum[-1]
-
-    xbins = 0.5 * (xbins[1:] + xbins[:-1])
-    ybins = 0.5 * (ybins[1:] + ybins[:-1])
-
-    return xbins, ybins, L_cumsum[i_unsort].reshape(shape)
-
-
-def figgrid(ny, nx, figsize=None, left=0.1, right=0.85,
-            top=0.9, bottom=0.1, wspace=0.2, hspace=0.10):
-    """Gridpars is
-    left, right
-    """
-    from matplotlib import gridspec
-    if figsize is None:
-        figsize = (nx*4.5, ny*3)
-    fig = pl.figure(figsize=figsize)
-    axarray = np.zeros([ny, nx], dtype=np.dtype('O'))
-    gs1 = gridspec.GridSpec(ny, nx)
-    gs1.update(left=left, right=right, top=top, bottom=bottom,
-               wspace=wspace, hspace=hspace)
-    for i in range(ny):
-        for j in range(nx):
-            axarray[i, j] = fig.add_subplot(gs1[i, j])
-    return fig, axarray
-
-
-def fill_between(x, y1, y2=0, ax=None, **kwargs):
-    """Plot filled region between `y1` and `y2`.
-
-    This function works exactly the same as matplotlib's fill_between, except
-    that it also plots a proxy artist (specifically, a rectangle of 0 size)
-    so that it can be added it appears on a legend.
-    """
-    ax = ax if ax is not None else pl.gca()
-    ax.fill_between(x, y1, y2, **kwargs)
-    p = pl.Rectangle((0, 0), 0, 0, **kwargs)
-    ax.add_patch(p)
-    return p
 
 
 def logify(x):
