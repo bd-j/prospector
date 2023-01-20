@@ -340,7 +340,7 @@ class SpecModel(ProspectorParams):
 
     @property
     def _need_lines(self):
-        return (not (bool(self.params.get("nebemlineinspec", True))))
+        return (not (bool(np.any(self.params.get("nebemlineinspec", True)))))
 
     @property
     def _want_lines(self):
@@ -430,6 +430,7 @@ class SpecModel(ProspectorParams):
         # exit gracefully if not adding lines.  We also exit if only fitting
         # photometry, for performance reasons
         hasspec = obs.get('spectrum', None) is not None
+        #hasspec = True
         if not (self._want_lines & self._need_lines & hasspec):
             self._fit_eline_pixelmask = np.array([], dtype=bool)
             self._fix_eline_pixelmask = np.array([], dtype=bool)
