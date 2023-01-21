@@ -4,7 +4,7 @@
 import numpy as np
 from .corner import _quantile
 from ..models.priors import TopHat as Uniform
-
+from ..utils.stats import get_best, best_sample
 
 __all__ = ["get_best", "best_sample",
            "get_simple_prior", "sample_prior", "sample_posterior",

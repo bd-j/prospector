@@ -183,8 +183,10 @@ def read_hdf5(filename, **extras):
         res.update(groups['sampling'])
         res["bestfit"] = groups["bestfit"]
         res["optimization"] = groups["optimization"]
-        obs = obs_from_h5(groups['observations'])
-
+        if 'observations' in groups:
+            obs = obs_from_h5(groups['observations'])
+        else:
+            obs = None
         #res['obs'] = obs
 
     return res, obs

@@ -33,13 +33,8 @@ def get_best(res, **kwargs):
         ndarray with shape ``(ndim,)`` of parameter values corresponding to the
         sample with the highest posterior probaility
     """
-    theta_best = best_sample(res)
-
-    try:
-        theta_names = res["theta_labels"]
-    except(KeyError):
-        theta_names = res["model"].theta_labels()
-    return theta_names, theta_best
+    qbest, qnames = flatstruct(best_sample(res))
+    return qnames, qbest
 
 
 def best_sample(res):
@@ -49,10 +44,10 @@ def best_sample(res):
     # there must be a more elegant way to deal with differnt shapes
     try:
         i, j = np.unravel_index(imax, res['lnprobability'].shape)
-        theta_best = res['chain'][i, j].copy()
+        Qbest = res['chain'][i, j].copy()
     except(ValueError):
-        theta_best = res['chain'][imax].copy()
-    return theta_best
+        Qbest = res['chain'][imax].copy()
+    return Qbest
 
 
 def get_truths(res):
@@ -89,16 +84,22 @@ def get_percentiles(res, ptile=[16, 50, 84], start=0.0, thin=1, **extras):
        requested percentiles for that parameter.
     """
 
-    parnames = np.array(res.get('theta_labels', res['model'].theta_labels()))
-    niter = res['chain'].shape[-2]
+    chaincat = res["chain"]
+    niter = res['chain'].shape[0]
+    parnames = chaincat.dtype.names
+    weights = res.get("weights", None)
+
+
     start_index = np.floor(start * (niter-1)).astype(int)
-    if res["chain"].ndim > 2:
-        flatchain = res['chain'][:, start_index::thin, :]
-        dims = flatchain.shape
-        flatchain = flatchain.reshape(dims[0]*dims[1], dims[2])
-    elif res["chain"].ndim == 2:
-        flatchain = res["chain"][start_index::thin, :]
-    pct = np.array([quantile(p, ptile, weights=res.get("weights", None)) for p in flatchain.T])
+    if res["chain"].ndim > 1:
+        flatchain = res['chain'][:, start_index::thin]
+        flatchain = flatchain.reshape(-1)
+    elif res["chain"].ndim == 1:
+        flatchain = res["chain"][start_index::thin]
+    chain = flatstruct(chaincat)
+
+    pct = [quantile(x, ptile, weights=weights, axis=0)
+           for x in chain.T]
     return dict(zip(parnames, pct))
 
 
