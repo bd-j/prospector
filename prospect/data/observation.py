@@ -166,6 +166,9 @@ class Observation:
         serial = json.dumps(obs, cls=NumpyEncoder)
         return serial
 
+    @property
+    def to_nJy(self):
+        return 1e9 * 3631
 
 class Photometry(Observation):
 
@@ -174,7 +177,7 @@ class Photometry(Observation):
                  maggies_unc="uncertainty",
                  filters="filters",
                  phot_mask="mask")
-    meta = ["kind", "name", "filternames"]
+    _meta = ["kind", "name", "filternames"]
 
     def __init__(self, filters=[], name="PhotA", **kwargs):
         """On Observation object that holds photometric data
@@ -378,6 +381,9 @@ def from_oldstyle(obs, **kwargs):
 
 def from_serial(arr, meta):
     adict = {a:arr[a] for a in arr.dtype.names}
+    if 'filternames' in meta:
+        adict["filters"] = meta["filternames"]
     obs = obstypes[meta["kind"]](**adict)
     [setattr(obs, m, v) for m, v in meta.items()]
+    return obs
 
