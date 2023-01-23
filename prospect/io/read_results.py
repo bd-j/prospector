@@ -196,7 +196,7 @@ def obs_from_h5(obsgroup):
     from ..data.observation import from_serial
     observations = []
     for obsname, dset in obsgroup.items():
-        arr, meta = dset[:], dset.attrs
+        arr, meta = dset[:], dict(dset.attrs)
         obs = from_serial(arr, meta)
         observations.append(obs)
     return observations

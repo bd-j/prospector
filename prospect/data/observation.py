@@ -170,6 +170,7 @@ class Observation:
     def to_nJy(self):
         return 1e9 * 3631
 
+
 class Photometry(Observation):
 
     kind = "photometry"
@@ -200,16 +201,20 @@ class Photometry(Observation):
         super(Photometry, self).__init__(name=name, **kwargs)
 
     def set_filters(self, filters):
-        if not filters:
+        if len(filters) == 0:
             self.filters = filters
             self.filternames = []
             self.filterset = None
             return
 
-        if type(filters[0]) is str:
-            self.filternames = filters
-        else:
+        try:
             self.filternames = [f.name for f in filters]
+        except(AttributeError):
+            self.filternames = filters
+        #if type(filters[0]) is str:
+        #    self.filternames = filters
+        #else:
+        #    self.filternames = [f.name for f in filters]
 
         self.filterset = FilterSet(self.filternames)
         # filters on the gridded resolution
@@ -381,9 +386,10 @@ def from_oldstyle(obs, **kwargs):
 
 def from_serial(arr, meta):
     adict = {a:arr[a] for a in arr.dtype.names}
-    if 'filternames' in meta:
-        adict["filters"] = meta["filternames"]
+    adict["name"] = meta.get("name", "")
+    if 'filters' in meta:
+        adict["filters"] = meta["filters"].split(",")
     obs = obstypes[meta["kind"]](**adict)
-    [setattr(obs, m, v) for m, v in meta.items()]
+    #[setattr(obs, m, v) for m, v in meta.items()]
     return obs
 
