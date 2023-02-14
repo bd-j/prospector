@@ -709,7 +709,7 @@ _beta_nzsfh_['nzsfh'] = {'N': 9, 'isfree': True, 'init': np.array([0.5,8,0.0, 0,
                                                const_phi=True)}
 
 _beta_nzsfh_['zred'] = {'N': 1, 'isfree': False, 'init': 0.5,
-                        'depends_on': transforms.nzsfh_to_zred}]
+                        'depends_on': transforms.nzsfh_to_zred}
 
 _beta_nzsfh_['logmass'] = {'N': 1, 'isfree': False, 'init': 8.0, 'units': 'Msun',
                            'depends_on': transforms.nzsfh_to_logmass}
