@@ -21,7 +21,7 @@ from scipy.interpolate import interp1d, UnivariateSpline
 from astropy.cosmology import WMAP9 as cosmos
 import astropy.units as u
 from scipy.stats import t
-import priors
+from . import priors
 
 __all__ = ["PhiMet", "ZredMassMet", "PhiSFH", "NzSFH"]
 
