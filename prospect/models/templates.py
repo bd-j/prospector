@@ -9,6 +9,7 @@ from copy import deepcopy
 import numpy as np
 import os
 from . import priors
+from . import priors_beta
 from . import transforms
 
 __all__ = ["TemplateLibrary",
@@ -702,11 +703,11 @@ TemplateLibrary["alpha"] = (_alpha_,
 _beta_nzsfh_ = TemplateLibrary["alpha"]
 
 _beta_nzsfh_['nzsfh'] = {'N': 9, 'isfree': True, 'init': np.array([0.5,8,0.0, 0,0,0,0,0,0]),
-                         'prior': priors.NzSFH(zred_mini=1e-3, zred_maxi=15.0,
-                                               mass_mini=7.0, mass_maxi=12.5,
-                                               z_mini=-1.98, z_maxi=0.19,
-                                               logsfr_ratio_mini=-5.0, logsfr_ratio_maxi=5.0,
-                                               const_phi=True)}
+                         'prior': priors_beta.NzSFH(zred_mini=1e-3, zred_maxi=15.0,
+                                                    mass_mini=7.0, mass_maxi=12.5,
+                                                    z_mini=-1.98, z_maxi=0.19,
+                                                    logsfr_ratio_mini=-5.0, logsfr_ratio_maxi=5.0,
+                                                    const_phi=True)}
 
 _beta_nzsfh_['zred'] = {'N': 1, 'isfree': False, 'init': 0.5,
                         'depends_on': transforms.nzsfh_to_zred}
