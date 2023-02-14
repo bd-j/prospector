@@ -3,7 +3,7 @@ Prospector-beta Priors
 ==============
 
 This model is intended for fitting galaxy photometry where the redshift is unknown.
-The priors encodes empirical constraints of redshifts, masses, and star formation histories in the galaxy population.
+The priors encode empirical constraints of redshifts, masses, and star formation histories in the galaxy population.
 
 A set of prospector parameters implementing the full set of priors is available as the ``"beta_nzsfh"`` entry
 of :py:class:`prospect.models.templates.TemplateLibrary`.
@@ -13,7 +13,7 @@ We provide different combinations of the priors for flexibility. Specifically, w
 * ``PhiMet``      : mass funtion + mass-met
 * ``ZredMassMet`` : number density + mass funtion + mass-met
 * ``PhiSFH``      : mass funtion + mass-met + SFH(M, z)
-* ``NzSFH``       : number density + mass funtion + mass-met + SFH; this is the full set of prospector-beta priors.
+* ``NzSFH``       : number density + mass funtion + mass-met + SFH(M, z); this is the full set of Prospector-beta priors.
 
 We describe each of the priors briefly below.
 
@@ -21,7 +21,7 @@ Stellar Mass Function
 -----------
 
 Two options are available, the choice of which depends on the given scientific question.
-The relevant data files are ``prior_data/pdf_of_z_l20.txt`` & ``prior_data/pdf_of_z_l20t18.txt``
+The relevant data files are ``prior_data/pdf_of_z_l20.txt`` & ``prior_data/pdf_of_z_l20t18.txt``.
 These mass functions can also be replaced by supplying new data files to ``prior_data/``
 
 1. ``"const_phi = True"``
