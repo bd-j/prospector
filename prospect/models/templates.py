@@ -701,6 +701,8 @@ TemplateLibrary["alpha"] = (_alpha_,
 # ----------------------------
 
 _beta_nzsfh_ = TemplateLibrary["alpha"]
+_beta_nzsfh_.pop('z_fraction', None)
+_beta_nzsfh_.pop('total_mass', None)
 
 _beta_nzsfh_['nzsfh'] = {'N': 9, 'isfree': True, 'init': np.array([0.5,8,0.0, 0,0,0,0,0,0]),
                          'prior': priors_beta.NzSFH(zred_mini=1e-3, zred_maxi=15.0,
