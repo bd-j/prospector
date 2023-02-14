@@ -17,7 +17,10 @@ __all__ = ["stellar_logzsol", "delogify_mass",
            "logsfr_ratios_to_masses", "logsfr_ratios_to_sfrs",
            "logsfr_ratios_to_masses_flex", "logsfr_ratios_to_agebins",
            "zfrac_to_masses", "zfrac_to_sfrac", "zfrac_to_sfr", "masses_to_zfrac",
-           "sfratio_to_sfr", "sfratio_to_mass"]
+           "sfratio_to_sfr", "sfratio_to_mass",
+           "zred_to_agebins_pbeta",
+           "zredmassmet_to_zred", "zredmassmet_to_logmass", "zredmassmet_to_mass", "zredmassmet_to_logzsol",
+           "nzsfh_to_zred", "nzsfh_to_logmass", "nzsfh_to_mass", "nzsfh_to_logzsol", "nzsfh_to_logsfr_ratios"]
 
 
 # --------------------------------------
@@ -487,3 +490,69 @@ def sfratio_to_sfr(sfr_ratio=None, sfr0=None, **extras):
 
 def sfratio_to_mass(sfr_ratio=None, sfr0=None, agebins=None, **extras):
     raise(NotImplementedError)
+
+
+# --------------------------------------
+# --- Transforms for prospector-beta ---
+# --------------------------------------
+
+def zred_to_agebins_pbeta(zred=None, **extras):
+    """Same as zred_to_agebins, but explicitly defined here to be used with prospector-beta
+    Right now prospector-beta does *not* permit changing age bins
+
+    Parameters
+    ----------
+    zred : float
+        Cosmological redshift.  This sets the age of the universe.
+
+    agebins :  ndarray of shape ``(nbin, 2)``
+        The SFH bin edges in log10(years).
+
+    Returns
+    -------
+    agebins : ndarray of shape ``(nbin, 2)``
+        The new SFH bin edges.
+    """
+    amin = 7.1295
+    nbins_sfh = 7
+    tuniv = cosmo.age(zred)[0].value*1e9 # because input zred is atleast_1d
+    tbinmax = (tuniv*0.9)
+    if (zred <= 3.):
+        agelims = [0.0,7.47712] + np.linspace(8.0,np.log10(tbinmax),nbins_sfh-2).tolist() + [np.log10(tuniv)]
+    else:
+        agelims = np.linspace(amin,np.log10(tbinmax),nbins_sfh).tolist() + [np.log10(tuniv)]
+        agelims[0] = 0
+
+    agebins = np.array([agelims[:-1], agelims[1:]])
+    return agebins.T
+
+# separates a theta vector of [zred, mass, met] into individual parameters
+# can be used with PhiMet & ZredMassMet
+def zredmassmet_to_zred(zredmassmet=None, **extras):
+    return zredmassmet[0]
+
+def zredmassmet_to_logmass(zredmassmet=None, **extras):
+    return zredmassmet[1]
+
+def zredmassmet_to_mass(zredmassmet=None, **extras):
+    return 10**zredmassmet[1]
+
+def zredmassmet_to_logzsol(zredmassmet=None, **extras):
+    return zredmassmet[2]
+
+# separates a theta vector of [zred, mass, met, logsfr_ratios] into individual parameters
+# can be used with PhiSFH & NzSFH
+def nzsfh_to_zred(nzsfh=None, **extras):
+    return nzsfh[0]
+
+def nzsfh_to_logmass(nzsfh=None, **extras):
+    return nzsfh[1]
+
+def nzsfh_to_mass(nzsfh=None, **extras):
+    return 10**nzsfh[1]
+
+def nzsfh_to_logzsol(nzsfh=None, **extras):
+    return nzsfh[2]
+
+def nzsfh_to_logsfr_ratios(nzsfh=None, **extras):
+    return nzsfh[3:]
