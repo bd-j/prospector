@@ -742,41 +742,7 @@ class NzSFH(priors.Prior):
         logsfr_ratios_ppf = np.clip(logsfr_ratios_ppf, a_min=self.params['logsfr_ratio_mini'], a_max=self.params['logsfr_ratio_maxi'])
         return np.concatenate([np.atleast_1d(zred), np.atleast_1d(mass),
                                np.atleast_1d(met), np.atleast_1d(logsfr_ratios_ppf)])
-
-
-########################### transformation functions ###########################
-
-# separates a theta vector of [zred, mass, met] into individual parameters
-# can be used with PhiMet & ZredMassMet
-def zredmassmet_to_zred(zredmassmet=None,**extras):
-    return zredmassmet[0]
-
-def zredmassmet_to_logmass(zredmassmet=None,**extras):
-    return zredmassmet[1]
-
-def zredmassmet_to_mass(zredmassmet=None,**extras):
-    return 10**zredmassmet[1]
-
-def zredmassmet_to_logzsol(zredmassmet=None,**extras):
-    return zredmassmet[2]
-
-# separates a theta vector of [zred, mass, met, logsfr_ratios] into individual parameters
-# can be used with PhiSFH & NzSFH
-def nzsfh_to_zred(nzsfh=None,**extras):
-    return nzsfh[0]
-
-def nzsfh_to_logmass(nzsfh=None,**extras):
-    return nzsfh[1]
-
-def nzsfh_to_mass(nzsfh=None,**extras):
-    return 10**nzsfh[1]
-
-def nzsfh_to_logzsol(nzsfh=None,**extras):
-    return nzsfh[2]
-
-def nzsfh_to_logsfr_ratios(nzsfh=None,**extras):
-    return nzsfh[3:]
-
+                               
 
 ############################# necessary functions #############################
 
