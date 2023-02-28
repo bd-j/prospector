@@ -348,6 +348,7 @@ class SpecModel(ProspectorParams):
         # observed wavelengths
         eline_z = self.params.get("eline_delta_zred", 0.0)
         self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
+        self._eline_lum_var = np.zeros_like(self._eline_wave)
 
         # masks for lines to be treated in various ways.
         # always run this becuase it's need for spec *and* phot if adding lines
@@ -491,6 +492,7 @@ class SpecModel(ProspectorParams):
         else:
             # simply use the ML values and associated marginaliztion penalty
             alpha_bar = alpha_hat
+            sigma_alpha_bar = sigma_alpha_hat
             K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
 
         # Cache the ln-penalty
@@ -498,6 +500,7 @@ class SpecModel(ProspectorParams):
 
         # Store fitted emission line luminosities in physical units
         self._eline_lum[idx] = alpha_bar / linecal
+        self._eline_lum_var[idx] = np.diag(sigma_alpha_bar) / linecal**2
 
         # return the maximum-likelihood line spectrum in observed units
         return alpha_hat * eline_gaussians
