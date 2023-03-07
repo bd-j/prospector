@@ -734,4 +734,4 @@ _beta_nzsfh_['agebins'] = {'N': 7, 'isfree': False, 'init': transforms.zred_to_a
                            'depends_on': transforms.zred_to_agebins_pbeta}
 
 TemplateLibrary["beta"] = (_beta_nzsfh_,
-                            "The prospector-beta model; Wang, Leja, et al. 2023")
+                           "The prospector-beta model; Wang, Leja, et al. 2023")
