@@ -77,7 +77,7 @@ For modeling galaxies you will need:
 For parallel processing with emcee or dynesty (optional) you will need:
 
 -  MPI (e.g. openMPI or mvapich2, available from homebrew, macports, or Anaconda)  and
-   `mpi4py <http://pythonhosted.org/mpi4py/>`_
+   `mpi4py <https://mpi4py.readthedocs.io/en/stable/>`_
 
 
 
