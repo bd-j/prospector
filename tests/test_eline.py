@@ -7,7 +7,7 @@ import pytest
 
 from sedpy import observate
 
-from prospect.data import Photometry, Spectrum, from_oldstyle
+from prospect.observation import Photometry, Spectrum, from_oldstyle
 from prospect.models.templates import TemplateLibrary
 from prospect.models.sedmodel import SpecModel
 from prospect.sources import CSPSpecBasis

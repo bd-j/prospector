@@ -280,31 +280,32 @@ class Spectrum(Observation):
         self.calibration = calibration
         self.instrument_smoothing_parameters = dict(smoothtype="vel", fftsmooth=True)
 
-    def instrumental_smoothing(self, obswave, influx, libres=0):
+    def instrumental_smoothing(self, obswave, influx, zred=0, libres=0):
         """Smooth a spectrum by the instrumental resolution, optionally
         accounting (in quadrature) the intrinsic library resolution.
 
         Parameters
         ----------
-        obswave : ndarray
-            Observed frame wavelengths, in units of AA
+        obswave : ndarray of shape (N_pix_model,)
+            Observed frame wavelengths, in units of AA for the model
 
-        influx : ndarray
+        influx : ndarray of shape (N_pix_model,)
             Flux array
 
-        libres : float or ndarray
+        libres : float or ndarray of shape (N_pix_model,)
             Library resolution in units of km/s (dispersion) to be subtracted from the smoothing kernel.
+            This should be in the observed frame and *on the same wavelength grid as obs.wavelength*
 
         Returns
         -------
-        outflux : ndarray
+        outflux : ndarray of shape (ndata,)
             If instrument resolution is not None, this is the smoothed flux on
             the observed ``wavelength`` grid.  If resolution is None, this just
             passes ``influx`` right back again.
         """
         if self.resolution is None:
             # no-op
-            return influx
+            return np.interp(self.wavelength, obswave, influx)
 
         if libres:
             kernel = np.sqrt(self.resolution**2 - libres**2)

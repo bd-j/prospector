@@ -72,7 +72,7 @@ class SpecModel(ProspectorParams):
         theta : ndarray of shape ``(ndim,)``
             Vector of free model parameter values.
 
-        observations : A list of `Observation` instances.
+        observations : A list of `Observation` instances (e.g. instance of )
             The data to predict
 
         sps :
@@ -104,7 +104,7 @@ class SpecModel(ProspectorParams):
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
         self._zred = self.params.get('zred', 0)
         self._eline_wave, self._eline_lum = sps.get_galaxy_elines()
-        self._library_resolution = getattr(sps, "spectral_resolution", 0.0)
+        self._library_resolution = getattr(sps, "spectral_resolution", 0.0) # restframe
 
         # Flux normalize
         self._norm_spec = self._spec * self.flux_norm()
@@ -181,10 +181,11 @@ class SpecModel(ProspectorParams):
         self.cache_eline_parameters(obs)
 
         # --- smooth and put on output wavelength grid ---
-        # physical smoothing
+        # Physical smoothing of the whole spectrum
         smooth_spec = self.velocity_smoothing(obs_wave, self._norm_spec)
-        # instrumental smoothing (accounting for library resolution)
-        smooth_spec = obs.instrumental_smoothing(self._outwave, smooth_spec,
+        # Instrumental smoothing (accounting for library resolution)
+        # put onto the spec.wavelength grid
+        smooth_spec = obs.instrumental_smoothing(obs_wave, smooth_spec,
                                                  libres=self._library_resolution)
 
         # --- add fixed lines if necessary ---
@@ -634,8 +635,8 @@ class SpecModel(ProspectorParams):
         """Smooth the spectrum.  See :py:func:`prospect.utils.smoothing.smoothspec`
         for details.
         """
-        sigma = self.params.get("sigma_smooth", 100)
-        outspec = smoothspec(wave, spec, sigma, outwave=self._outwave,
+        sigma = self.params.get("sigma_smooth", 300)
+        outspec = smoothspec(wave, spec, sigma, outwave=wave,
                              smoothtype="vel", fft=True)
 
         return outspec
