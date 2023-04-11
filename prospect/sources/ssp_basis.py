@@ -5,11 +5,14 @@ from numpy.polynomial.chebyshev import chebval
 from ..utils.smoothing import smoothspec
 from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
 
-try:
-    import fsps
-    from sedpy.observate import getSED
-except(ImportError, RuntimeError):
-    pass
+#try:
+#    import fsps
+#    from sedpy.observate import getSED
+#except(ImportError, RuntimeError):
+#    pass
+
+import fsps
+from sedpy.observate import getSED
 
 __all__ = ["SSPBasis", "FastSSPBasis", "FastStepBasis",
            "MultiSSPBasis"]
@@ -78,6 +81,8 @@ class SSPBasis(object):
         self.flux_interp = flux_interp
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
                                           zcontinuous=zcontinuous)
+        print('FSPS libs:', self.ssp.libraries)
+
         self.ssp.params['sfh'] = 0
         self.reserved_params = reserved_params
         self.params = {}
