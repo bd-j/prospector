@@ -24,7 +24,7 @@ test = ["pytest", "pytest-xdist"]
 
 [tool.setuptools]
 packages = ["prospect",
-            "prospect.models", "prospect.sources", "prospect.data",
+            "prospect.models", "prospect.sources", "prospect.observation",
             "prospect.likelihood", "prospect.fitting",
             "prospect.io", "prospect.plotting", "prospect.utils"]
 
