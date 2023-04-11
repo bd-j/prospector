@@ -9,7 +9,7 @@ import pytest
 from sedpy.observate import load_filters
 from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
-from prospect.data import Spectrum, Photometry
+from prospect.observation import Spectrum, Photometry
 
 
 @pytest.fixture(scope="module")

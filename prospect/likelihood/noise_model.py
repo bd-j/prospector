@@ -7,7 +7,7 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["NoiseModel", "NoiseModelCov", "NoiseModelKDE"]
+__all__ = ["NoiseModel", "NoiseModel1D", "NoiseModelCov", "NoiseModelKDE"]
 
 
 class NoiseModel:
@@ -19,7 +19,8 @@ class NoiseModel:
     f_outlier = 0
     n_sigma_outlier = 50
 
-    def __init__(self, frac_out_name="f_outlier", nsigma_out_name="nsigma_outlier"):
+    def __init__(self, frac_out_name="f_outlier",
+                 nsigma_out_name="nsigma_outlier"):
         self.frac_out_name = frac_out_name
         self.nsigma_out_name = nsigma_out_name
         self.kernels = []
@@ -83,7 +84,40 @@ class NoiseModel:
         return lnp.sum()
 
 
-class NoiseModelCov(NoiseModel):
+class NoiseModel1D(NoiseModel):
+    """This class allows for 1D (diagonal) kernels
+    """
+
+    # TODO: metric names should be the responsibility of kernels, not noise models
+    def __init__(self, frac_out_name="f_outlier",
+                 nsigma_out_name="nsigma_outlier",
+                 metric_name='',
+                 mask_name='mask',
+                 kernels=[]):
+        self.frac_out_name = frac_out_name
+        self.nsigma_out_name = nsigma_out_name
+        self.kernels = kernels
+        self.metric_name = metric_name
+        self.mask_name = mask_name
+
+    def construct_covariance(self, **vectors):
+        """Construct a covariance matrix from a metric, a list of kernel
+        objects, and a list of weight vectors (of same length as the metric)
+        """
+        metric = vectors[self.metric_name]
+        mask = vectors.get(self.mask_name, slice(None))
+
+        # 1 = uncorrelated errors, 2 = covariance matrix, >2 undefined
+        ndmax = 1
+        Sigma = np.zeros(metric[mask].shape[0])
+
+        for kernel in self.kernels:
+            wght = vectors.get(kernel.weight_by, None)
+            Sigma += kernel(metric[mask], weights=wght[mask], ndim=ndmax)
+        return Sigma
+
+
+class NoiseModelCov(NoiseModel1D):
     """This object allows for 1d or 2d covariance matrices constructed from
     kernels.
     """
@@ -110,26 +144,10 @@ class NoiseModelCov(NoiseModel):
         ndmax = np.array([k.ndim for k in self.kernels]).max()
         Sigma = np.zeros(ndmax * [metric[mask].shape[0]])
 
-        weight_vectors = self.get_weights(**vectors)
-        for i, (kernel, wght) in enumerate(zip(self.kernels, weight_vectors)):
-            Sigma += kernel(metric[mask], weights=wght, ndim=ndmax)
+        for kernel in self.kernels:
+            wght = vectors.get(kernel.weight_by, None)
+            Sigma += kernel(metric[mask], weights=wght[mask], ndim=ndmax)
         return Sigma
-
-    def get_weights(self, **vectors):
-        """From a dictionary of vectors that give weights, pull the vectors
-        that correspond to each kernel, as stored in the `weight_names`
-        attribute.  A None vector will result in None weights
-        """
-        mask = vectors.get(self.mask_name, slice(None))
-        wghts = []
-        for w in self.weight_names:
-            if w is None:
-                wghts += [None]
-            elif vectors[w] is None:
-                wghts += [None]
-            else:
-                wghts.append(vectors[w][mask])
-        return wghts
 
     def compute(self, check_finite=False, **vectors):
         """Build and cache the covariance matrix, and if it is 2-d factorize it
