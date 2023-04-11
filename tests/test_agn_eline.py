@@ -5,7 +5,7 @@ from copy import deepcopy
 import numpy as np
 
 from sedpy import observate
-from prospect.data.observation import Spectrum, Photometry
+from prospect.observation import Spectrum, Photometry
 from prospect.models.sedmodel import AGNSpecModel
 from prospect.models.templates import TemplateLibrary
 from prospect.sources import CSPSpecBasis
