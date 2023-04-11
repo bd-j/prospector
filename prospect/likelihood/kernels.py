@@ -6,7 +6,7 @@ __all__ = ["Kernel", "Uncorrelated", "ExpSquared", "Matern", "PhotoCal",
 
 class Kernel(object):
 
-    def __init__(self, parnames=[], name=''):
+    def __init__(self, parnames=[], weight_by=None, name=''):
         """
         :param parnames:
             A list of names of the kernel params, used to alias the intrinsic
@@ -19,6 +19,7 @@ class Kernel(object):
         self.param_alias = dict(zip(self.kernel_params, parnames))
         self.params = {}
         self.name = name
+        self.weight_by = weight_by
 
     def __repr__(self):
         return '{}({})'.format(self.__class__, self.param_alias.items())
@@ -31,7 +32,7 @@ class Kernel(object):
         for k in self.kernel_params:
             self.params[k] = kwargs[self.param_alias[k]]
 
-    def __call__(self, metric, weights=None, ndim=2, **extras):
+    def __call__(self, metric, weights=None, ndim=2):
         """Return a covariance matrix, given a metric.  Optionally, multiply
         the output kernel by a weight function to induce non-stationarity.
         """

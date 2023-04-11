@@ -187,7 +187,7 @@ class SpecModel(ProspectorParams):
         # Physical smoothing of the whole spectrum
         smooth_spec = self.velocity_smoothing(obs_wave, self._norm_spec)
         # Instrumental smoothing (accounting for library resolution)
-        # put onto the spec.wavelength grid
+        # Put onto the spec.wavelength grid.
         smooth_spec = obs.instrumental_smoothing(obs_wave, smooth_spec,
                                                  libres=self._library_resolution)
 
