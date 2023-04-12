@@ -316,7 +316,13 @@ class Spectrum(Observation):
             else:
                 kernel = self.resolution
 
-            multires = len(np.unique(kernel)) > 1
+            kernels = np.unique(kernel)
+            if len(kernels) == 1:
+                kernel = kernels[0]
+                assert self.instrument_smoothing_parameters["smoothtype"] == "vel"
+            else:
+                assert self.instrument_smoothing_parameters["smoothtype"] == "lsf"
+
             out = smoothspec(obswave, influx, kernel,
                              outwave=self.wavelength,
                              **self.instrument_smoothing_parameters)
