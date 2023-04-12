@@ -304,16 +304,22 @@ class Spectrum(Observation):
             passes ``influx`` right back again.
         """
         if self.resolution is None:
-            # no-op
-            return np.interp(self.wavelength, obswave, influx)
+            if self.wavelength is None:
+                # no-op
+                out = influx
+            else:
+                out =  np.interp(self.wavelength, obswave, influx)
 
-        if libres:
-            kernel = np.sqrt(self.resolution**2 - libres**2)
         else:
-            kernel = self.resolution
-        out = smoothspec(obswave, influx, kernel,
-                         outwave=self.wavelength,
-                         **self.instrument_smoothing_parameters)
+            if libres:
+                kernel = np.sqrt(self.resolution**2 - libres**2)
+            else:
+                kernel = self.resolution
+
+            multires = len(np.unique(kernel)) > 1
+            out = smoothspec(obswave, influx, kernel,
+                             outwave=self.wavelength,
+                             **self.instrument_smoothing_parameters)
         return out
 
     def to_oldstyle(self):

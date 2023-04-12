@@ -58,7 +58,9 @@ def test_prediction_nodata(build_sps):
     sobs.uncertainty = None
     pred, mfrac = model.predict(model.theta, observations=[sobs, pobs], sps=sps)
     assert len(pred[0]) == len(sps.wavelengths)
+    assert np.any(np.isfinite(pred[0]))
     assert len(pred[1]) == len(pobs.filterset)
+    assert np.any(np.isfinite(pred[1]))
 
 
 def test_multispec(build_sps):
