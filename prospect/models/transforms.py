@@ -496,9 +496,8 @@ def sfratio_to_mass(sfr_ratio=None, sfr0=None, agebins=None, **extras):
 # --- Transforms for prospector-beta ---
 # --------------------------------------
 
-def zred_to_agebins_pbeta(zred=None, **extras):
-    """Same as zred_to_agebins, but explicitly defined here to be used with prospector-beta
-    Right now prospector-beta does *not* permit changing age bins
+def zred_to_agebins_pbeta(zred=None, agebins=[], **extras):
+    """New agebin scheme, refined so that none of the bins is overly wide when the universe is young.
 
     Parameters
     ----------
@@ -514,7 +513,7 @@ def zred_to_agebins_pbeta(zred=None, **extras):
         The new SFH bin edges.
     """
     amin = 7.1295
-    nbins_sfh = 7
+    nbins_sfh = len(agebins)
     tuniv = cosmo.age(zred)[0].value*1e9 # because input zred is atleast_1d
     tbinmax = (tuniv*0.9)
     if (zred <= 3.):
