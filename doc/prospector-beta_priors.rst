@@ -12,6 +12,7 @@ Additionally we provide different combinations of the priors for flexibility, wh
 
 * ``PhiMet``      : mass funtion + mass-met
 * ``ZredMassMet`` : number density + mass funtion + mass-met
+* ``DymSFH``      : mass-met + SFH(M, z)
 * ``PhiSFH``      : mass funtion + mass-met + SFH(M, z)
 * ``NzSFH``       : number density + mass funtion + mass-met + SFH(M, z); this is the full set of Prospector-beta priors.
 
@@ -44,7 +45,9 @@ In practice one would likely need to obtain the mass-completeness limits from us
 Dynamic Star-formation History
 -----------
 
-The expectation value in each age bin is matched to the cosmic star formation rate densities in `behroozi19 <https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B/abstract>`_, while the distribution about the mean remains identical to the Student’s-t distribution in Prospector-alpha.
+The SFH is described non-parametrically as in Prospector-alpha; the number of age bins is set by ``"nbins_sfh"``.
+
+In contast to the null expectation assumed in Prospector-alpha, the expectation value in each age bin is matched to the cosmic star formation rate densities in `behroozi19 <https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B/abstract>`_, while the distribution about the mean remains to be the Student’s-t distribution. The sigma of the Student’s-t distribution is set by ``"logsfr_ratio_tscale"``, and the range is clipped to be within ``"logsfr_ratio_mini"`` and ``"logsfr_ratio_maxi"``.
 
 A simple mass dependence on SFH is further introduced by shifting the start of the age bins as a function of mass. This SFH prior effectively encodes an expectation that high-mass galaxies form earlier, and low-mass galaxies form later, than naive expectations from the cosmic SFRD.
 

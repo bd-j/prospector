@@ -704,11 +704,13 @@ _beta_nzsfh_ = TemplateLibrary["alpha"]
 _beta_nzsfh_.pop('z_fraction', None)
 _beta_nzsfh_.pop('total_mass', None)
 
-_beta_nzsfh_['nzsfh'] = {'N': 9, 'isfree': True, 'init': np.array([0.5,8,0.0, 0,0,0,0,0,0]),
+nbins_sfh = 7 # number of sfh bins
+_beta_nzsfh_['nzsfh'] = {'N': nbins_sfh+2, 'isfree': True, 'init': np.concatenate([[0.5,8,0.0], np.zeros(nbins_sfh-1)]),
                          'prior': priors_beta.NzSFH(zred_mini=1e-3, zred_maxi=15.0,
                                                     mass_mini=7.0, mass_maxi=12.5,
                                                     z_mini=-1.98, z_maxi=0.19,
                                                     logsfr_ratio_mini=-5.0, logsfr_ratio_maxi=5.0,
+                                                    logsfr_ratio_tscale=0.3, nbins_sfh=nbins_sfh,
                                                     const_phi=True)}
 
 _beta_nzsfh_['zred'] = {'N': 1, 'isfree': False, 'init': 0.5,
@@ -721,16 +723,16 @@ _beta_nzsfh_['logzsol'] = {'N': 1, 'isfree': False, 'init': -0.5, 'units': r'$\l
                            'depends_on': transforms.nzsfh_to_logzsol}
 
 # --- SFH ---
-nbins_sfh = 7
 _beta_nzsfh_["sfh"] = {'N': 1, 'isfree': False, 'init': 3}
 
-_beta_nzsfh_['logsfr_ratios'] = {'N': 6, 'isfree': False, 'init': 0.0,
+_beta_nzsfh_['logsfr_ratios'] = {'N': nbins_sfh-1, 'isfree': False, 'init': 0.0,
                                  'depends_on': transforms.nzsfh_to_logsfr_ratios}
 
-_beta_nzsfh_["mass"] = {'N': 7, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+_beta_nzsfh_["mass"] = {'N': nbins_sfh, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
                         'depends_on': transforms.logsfr_ratios_to_masses}
 
-_beta_nzsfh_['agebins'] = {'N': 7, 'isfree': False, 'init': transforms.zred_to_agebins_pbeta(np.atleast_1d(0.5)),
+_beta_nzsfh_['agebins'] = {'N': nbins_sfh, 'isfree': False,
+                           'init': transforms.zred_to_agebins_pbeta(np.atleast_1d(0.5), np.zeros(nbins_sfh)),
                            'depends_on': transforms.zred_to_agebins_pbeta}
 
 TemplateLibrary["beta"] = (_beta_nzsfh_,
