@@ -4,6 +4,7 @@ from numpy.polynomial.chebyshev import chebval
 
 from ..utils.smoothing import smoothspec
 from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
+from .attenuation import extinction
 
 try:
     import fsps
@@ -394,6 +395,228 @@ class FastStepBasis(SSPBasis):
 
         return (fsps_time / 1e9)[::-1], sfrout[::-1], maxage / 1e9
 
+try:
+    from cue.continuum import predict as cont_predict
+    from cue.line import predict as line_predict
+    from cue.constants import *
+    from cue.utils import fit_4loglinear, get_4loglinear_spectra, Ltotal, logQ
+except:
+    pass
+
+def calcQ(lamin0, specin0, mstar=1.0, helium=False, f_nu=True):
+    '''
+    Claculate the number of lyman ionizing photons for given spectrum
+    Input spectrum must be in ergs/s/A!!
+    Q = int(Lnu/hnu dnu, nu_0, inf)
+    '''
+    from scipy.integrate import simps
+    lamin = np.asarray(lamin0)
+    specin = np.asarray(specin0)
+    c = 2.9979e18 #ang/s
+    h = 6.626e-27 #erg/s
+    if helium:
+        lam_0 = 304.0
+    else:
+        lam_0 = 911.6
+    if f_nu:
+        nu_0 = c/lam_0
+        inds, = np.where(c/lamin >= nu_0)
+        hlam, hflu = c/lamin[inds], specin[inds]
+        nu = hlam[::-1]
+        f_nu = hflu[::-1]
+        integrand = f_nu/(h*nu)
+        Q = simps(integrand, x=nu)
+    else:
+        inds, = np.nonzero(lamin <= lam_0)
+        lam = lamin[inds]
+        spec = specin[inds]
+        integrand = lam*spec/(h*c)
+        Q = simps(integrand, x=lam)*mstar
+    return Q
+
+
+class NebularLineBasis(FastStepBasis):
+    """A subclass of :py:class:`FastStepBasis` that uses 5 nebular parameters and the csp to predict line fluxes.
+    """
+    
+    def get_galaxy_spectrum(self, csp_wav=None, csp_spec=None, **params):
+        """Add nebular continum to the ``ssp``. Also construct the tabular SFH and feed it to the ``ssp``.
+        :param use_stellar_ionizing_spectrum:
+            If true, fit the csp and to get the ionizing spectrum parameters, else read from the model
+        :param csp_wav:
+            CSP wavelengths, AA
+        :param csp_spec:
+            CSP fluxes, Lsun/Hz
+        :param ionspec_index1, ionspec_index2, ionspec_index3, ionspec_index4, ionspec_logLratio1, ionspec_logLratio2, ionspec_logLratio3:
+            ionizing parameters, follow the range 
+            ionspec_index1: [1, 42], ionspec_index2: [-0.3, 30],
+            ionspec_index3: [-1, 14], ionspec_index4: [-1.7, 8],
+            logLratio1: [-1., 10.1], logLratio2: [-0.5, 1.9], logLratio3: [-0.4, 2.2]
+        :param gas_logu, gas_logn, gas_logz, gas_logno, gas_logco:
+            nebular parameters, follow the range
+            gas_logu: [-4, -1], gas_logn: [1, 4], gas_logz: [-2.2, 0.5],
+            gas_logno: [-1, log10(5.4)], gas_logco: [-1, log10(5.4)]
+        :returns wave:
+            The restframe wavelengths of the emission lines, AA
+        :returns spec:
+            Specific luminosities of the continuum,
+            Lsun/stellar mass formed
+        :returns mfrac:
+            Stellar mass over total mass formed
+        """
+        self.update(**params)
+        # --- check to make sure agebins have minimum spacing of 1million yrs ---
+        #       (this can happen in flex models and will crash FSPS)
+        if np.min(np.diff(10**self.params['agebins'])) < 1e6:
+            raise ValueError
+            
+        # set SFH
+        mtot = self.params['mass'].sum()
+        time, sfr, tmax = self.convert_sfh(self.params['agebins'], self.params['mass'])
+        self.ssp.params["sfh"] = 3  # Hack to avoid rewriting the superclass
+        self.ssp.set_tabular_sfh(time, sfr)
+
+        # use the emulator to predict nebular continuum in units of Lnu
+        if self.params["use_stellar_ionizing_spectrum"] == True:
+            assert bool(self.ssp.params['add_neb_emission']) is False, "params['add_neb_emission'] is True, set to False to fit the raw ionizing spectrum with no nebular emission"
+            assert bool(self.ssp.params['add_neb_continuum']) is False, "params['add_neb_continuum'] is True, set to False to fit the raw ionizing spectrum with no nebular emission"
+            if csp_spec == None: 
+                # turn off dust and IGM absortion to get the ionizing spectrum
+                dust1, dust2 = self.ssp.params['dust1'].copy(), self.ssp.params['dust2'].copy()
+                igm_flag = self.ssp.params['add_igm_absorption']
+                self.update(dust1=0, dust2=0, add_igm_absorption=False)
+                csp_wav, csp_spec = self.ssp.get_spectrum(tage=tmax, peraa=False)
+                self.update(dust1=dust1, dust2=dust2, add_igm_absorption=igm_flag)
+            popt = fit_4loglinear(csp_wav, csp_spec)
+            self._ionparam = popt # cache the parameters of the powerlaw fit to the ionizing spectrum
+            self._ionQ = calcQ(csp_wav, csp_spec*3.839E33)
+            logLratios = np.diff(np.squeeze(Ltotal(param=popt.reshape(1,4,2))))
+            self._logLratios = logLratios
+            neb_cont = cont_predict(gammas=popt[:,0],
+                                    log_L_ratios=logLratios,
+                                    log_QH=logQ(self.ssp.params['gas_logu'], lognH=self.params['gas_logn']),
+                                    n_H=10**self.params['gas_logn'],
+                                    log_OH_ratio=self.ssp.params['gas_logz'],
+                                    log_NO_ratio=self.params['gas_logno'],
+                                    log_CO_ratio=self.params['gas_logco'],
+                                   ).nn_predict()
+            cont_spec = neb_cont[1]/3.839E33/10**logQ(self.ssp.params['gas_logu'], lognH=self.params['gas_logn'])*self._ionQ # convert to the unit in FSPS
+            self.update(ionspec_index1=popt[0,0], ionspec_index2=popt[1,0], ionspec_index3=popt[2,0], ionspec_index4=popt[3,0],
+                        ionspec_logLratio1=logLratios[0], ionspec_logLratio2=logLratios[1], ionspec_logLratio3=logLratios[2])
+        else:
+            neb_cont = cont_predict(gammas=[self.params['ionspec_index1'], self.params['ionspec_index2'], 
+                                            self.params['ionspec_index3'], self.params['ionspec_index4']],
+                                    log_L_ratios=[self.params['ionspec_logLratio1'], self.params['ionspec_logLratio2'],
+                                                  self.params['ionspec_logLratio3']],
+                                    log_QH=logQ(self.ssp.params['gas_logu'], lognH=self.params['gas_logn']),
+                                    n_H=10**self.params['gas_logn'],
+                                    log_OH_ratio=self.ssp.params['gas_logz'],
+                                    log_NO_ratio=self.params['gas_logno'],
+                                    log_CO_ratio=self.params['gas_logco'],
+                                   ).nn_predict()
+            cont_spec = neb_cont[1]/3.839E33 # divided by Lsun coded in FSPS
+            
+        from scipy.interpolate import CubicSpline
+        neb_cont_cs = CubicSpline(neb_cont[0], cont_spec, extrapolate=True) # interpolate onto the fsps wavelengths
+
+        # calculate stellar continuum; add nebular continuum and attenuate it
+        wave, spec = self.ssp.get_spectrum(tage=tmax, peraa=False)
+        neb_spec_no_dust = neb_cont_cs(wave)+1e-95 #set a floor of 1E-95 following fsps
+        spec += neb_spec_no_dust*extinction(wave,dtype=self.ssp.params['dust_type'],
+                                             dust_index=self.ssp.params['dust_index'],dust2=self.ssp.params['dust2'],
+                                             dust1_index=self.ssp.params['dust1_index'],dust1=self.ssp.params['dust1'])
+        spec = spec / mtot
+        
+        # add nebular lines to the spectrum
+        if self.ssp.params['nebemlineinspec'] == True:
+            #define the minimum resolution of the emission lines based on the resolution of the spectral library
+            if self.ssp.params["smooth_velocity"] == True:
+                dlam = self.ssp.emline_wavelengths*self.ssp.params["sigma_smooth"]/2.9979E18*1E13 #smoothing variable is in km/s
+            else:
+                dlam = self.ssp.params["sigma_smooth"] #smoothing variable is in AA
+            nearest_id = np.searchsorted(wave, self.ssp.emline_wavelengths)
+            neb_res_min = wave[nearest_id]-wave[nearest_id-1]
+            dlam = np.max([dlam,neb_res_min], axis=0)
+            eline_lums = self.get_galaxy_elines()[1]
+            gaussnebarr = [1./np.sqrt(2*np.pi)/dlam[i]*np.exp(-(wave-self.ssp.emline_wavelengths[i])**2/2/dlam[i]**2) \
+            /2.9979E18*self.ssp.emline_wavelengths[i]**2 for i in range(len(eline_lums))]
+            for i in range(len(eline_lums)):
+                spec += eline_lums[i]*gaussnebarr[i]
+
+        return wave, spec, self.ssp.stellar_mass / mtot
+
+    def get_galaxy_elines(self):
+        """Get the wavelengths and specific emission line luminosity of the nebular emission lines
+        predicted by FSPS. These lines are in units of Lsun/solar mass formed.
+        This assumes that `get_galaxy_spectrum` has already been called.
+        :param use_stellar_ionizing_spectrum:
+            If true, fit the csp and to get the ionizing spectrum parameters, else read from the model
+        :param ionspec_index1, ionspec_index2, ionspec_index3, ionspec_index4, ionspec_logLratio1, ionspec_logLratio2, ionspec_logLratio3:
+            ionizing parameters, follow the range 
+            ionspec_index1: [3.2, 42], ionspec_index2: [-0.3, 30],
+            ionspec_index3: [-1, 14], ionspec_index4: [-1.7, 8],
+            logLratio1: [-2.2, 9.9], logLratio2: [-3.5, 2.1], logLratio3: [-2.6, 3.6]
+        :param gas_logu, gas_logn, gas_logz, gas_logno, gas_logco:
+            nebular parameters, follow the range
+            gas_logu: [-4, -1], gas_logn: [1, 4], gas_logz: [-2.2, 0.5],
+            gas_logno: [-1, log10(5.4)], gas_logco: [-1, log10(5.4)]
+        :returns ewave:
+            The *restframe* wavelengths of the emission lines, AA
+        :returns elum:
+            Specific luminosities of the nebular emission lines,
+            Lsun/stellar mass formed
+        """
+
+        ewave = self.ssp.emline_wavelengths
+        # This allows subclasses to set their own specific emission line
+        # luminosities within other methods, e.g., get_galaxy_spectrum, by
+        # populating the `_specific_line_luminosity` attribute.
+        elum = getattr(self, "_line_specific_luminosity", None)
+
+        if elum is None:
+            neb_flag = self.ssp.params['add_neb_emission']
+            self.update(add_neb_emission=True)
+            use_grid_lines = self.ssp.emline_luminosity.copy()[[47,71,106]] # use Nell's nebular grid for [NeIV]4720, [ArIV]7330, [SIV]10.5m
+            self.update(add_neb_emission=neb_flag)
+            if self.params["use_stellar_ionizing_spectrum"] == True:
+                assert bool(self.ssp.params['add_neb_emission']) is False, "params['add_neb_emission'] is True, set to False to fit the raw ionizing spectrum with no nebular emission"
+                assert bool(self.ssp.params['add_neb_continuum']) is False, "params['add_neb_continuum'] is True, set to False to fit the raw ionizing spectrum with no nebular emission"
+                popt = self._ionparam #powerlaw indexes and log normalizations from get_galaxy_spectrum()
+                elum = line_predict(gammas=popt[:,0],
+                                    log_L_ratios=self._logLratios,
+                                    log_QH=logQ(self.ssp.params['gas_logu'], lognH=self.params['gas_logn']),
+                                    n_H=10**self.params['gas_logn'],
+                                    log_OH_ratio=self.ssp.params['gas_logz'],
+                                    log_NO_ratio=self.params['gas_logno'],
+                                    log_CO_ratio=self.params['gas_logco'],
+                                   ).nn_predict()[1]
+                elum = elum/3.839E33/10**logQ(self.ssp.params['gas_logu'], lognH=self.params['gas_logn'])*self._ionQ # convert to the unit in FSPS
+            else:
+                elum = line_predict(gammas=[self.params['ionspec_index1'], self.params['ionspec_index2'], 
+                                            self.params['ionspec_index3'], self.params['ionspec_index4']],
+                                    log_L_ratios=[self.params['ionspec_logLratio1'], self.params['ionspec_logLratio2'],
+                                                  self.params['ionspec_logLratio3']],
+                                    log_QH=logQ(self.ssp.params['gas_logu'], lognH=self.params['gas_logn']),
+                                    n_H=10**self.params['gas_logn'],
+                                    log_OH_ratio=self.ssp.params['gas_logz'],
+                                    log_NO_ratio=self.params['gas_logno'],
+                                    log_CO_ratio=self.params['gas_logco'],
+                                   ).nn_predict()[1]
+                elum = elum/3.839E33 # divided by Lsun coded in FSPS
+            # attenuate the line emission
+            elum = elum*extinction(ewave,dtype=self.ssp.params['dust_type'],
+                                   dust_index=self.ssp.params['dust_index'],dust2=self.ssp.params['dust2'],
+                                   dust1_index=self.ssp.params['dust1_index'],dust1=self.ssp.params['dust1'])
+            elum[[47,71,106]] = use_grid_lines
+
+            #if elum.ndim > 1:
+            #    elum = elum[0]
+            #if self.ssp.params["sfh"] == 3:
+            # tabular sfh
+            mass = np.sum(self.params.get('mass', 1.0))
+            elum /= mass
+
+        return ewave, elum
 
 class MultiSSPBasis(SSPBasis):
     """An array of basis spectra with different ages, metallicities, and possibly dust
