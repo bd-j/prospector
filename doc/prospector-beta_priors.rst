@@ -5,16 +5,20 @@ Prospector-beta Priors
 This model is intended for fitting galaxy photometry where the redshift is unknown.
 The priors encode empirical constraints of redshifts, masses, and star formation histories in the galaxy population.
 
+N.B.: Please make sure to update to the Prospector-beta version post commit `09a83f2 <https://github.com/bd-j/prospector/commit/09a83f28cae3bcc0f0397b3a0b8d85aa4f96bf12>`_, merged on May 19, 2023. This is a major update to the SFH(M, z) prior, ensuring the expectation values of SFRs are well-behaved over the full prior space.
+
 A set of prospector parameters implementing the full set of priors is available as the ``"beta"`` entry
 of :py:class:`prospect.models.templates.TemplateLibrary`.
 
 Additionally we provide different combinations of the priors for flexibility, which includes the following:
 
-* ``PhiMet``      : mass funtion + mass-met
-* ``ZredMassMet`` : number density + mass funtion + mass-met
-* ``DymSFH``      : mass-met + SFH(M, z)
-* ``PhiSFH``      : mass funtion + mass-met + SFH(M, z)
-* ``NzSFH``       : number density + mass funtion + mass-met + SFH(M, z); this is the full set of Prospector-beta priors.
+* ``PhiMet``         : mass function + mass-met
+* ``ZredMassMet``    : number density + mass function + mass-met
+* ``DymSFH``         : mass-met + SFH(M, z)
+* ``DymSFHfixZred``  : same as above, but keeping zred fixed to a user-specified value, 'zred', during fitting
+* ``PhiSFH``         : mass function + mass-met + SFH(M, z)
+* ``PhiSFHfixZred``  : same as above, but keeping zred fixed to a user-specified value, 'zred', during fitting
+* ``NzSFH``          : number density + mass function + mass-met + SFH(M, z); this is the full set of Prospector-beta priors.
 
 We describe each of the priors briefly below. Please cite `wang23 <https://ui.adsabs.harvard.edu/abs/2023ApJ...944L..58W/abstract>`_ and the relevant papers if any of the priors are used.
 
@@ -47,7 +51,7 @@ Dynamic Star-formation History
 
 The SFH is described non-parametrically as in Prospector-alpha; the number of age bins is set by ``"nbins_sfh"``.
 
-In contast to the null expectation assumed in Prospector-alpha, the expectation value in each age bin is matched to the cosmic star formation rate densities in `behroozi19 <https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B/abstract>`_, while the distribution about the mean remains to be the Student’s-t distribution. The sigma of the Student’s-t distribution is set by ``"logsfr_ratio_tscale"``, and the range is clipped to be within ``"logsfr_ratio_mini"`` and ``"logsfr_ratio_maxi"``.
+In contrast to the null expectation assumed in Prospector-alpha, the expectation value in each age bin is matched to the cosmic star formation rate densities in `behroozi19 <https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B/abstract>`_, while the distribution about the mean remains to be the Student’s-t distribution. The sigma of the Student’s-t distribution is set by ``"logsfr_ratio_tscale"``, and the range is clipped to be within ``"logsfr_ratio_mini"`` and ``"logsfr_ratio_maxi"``.
 
 A simple mass dependence on SFH is further introduced by shifting the start of the age bins as a function of mass. This SFH prior effectively encodes an expectation that high-mass galaxies form earlier, and low-mass galaxies form later, than naive expectations from the cosmic SFRD.
 
