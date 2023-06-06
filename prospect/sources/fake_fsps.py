@@ -1,5 +1,8 @@
 import numpy as np
 
+__all__ = ["add_dust", "add_igm"]
+
+
 def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=0.0,dust1=0.0,**kwargs):
     """
     wave: wavelength vector in Angstroms
