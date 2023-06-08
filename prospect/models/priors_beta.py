@@ -5,13 +5,15 @@
 Ref: Wang, Leja, et al., 2023, ApJL.
 
 Specifically, this module includes the following priors --
-1. PhiMet      : p(logM|z)p(Z*|logM), i.e., mass funtion + mass-met
-2. ZredMassMet : p(z)p(logM|z)p(Z*|logM), i.e., number density + mass funtion + mass-met
-3. DymSFH      : p(Z*|logM) & SFH(M, z), i.e., mass-met + SFH
-4. PhiSFH      : p(logM|z)p(Z*|logM) & SFH(M, z), i.e., mass funtion + mass-met + SFH
-5. NzSFH       : p(z)p(logM|z)p(Z*|logM) & SFH(M, z),
-                 i.e., number density + mass funtion + mass-met + SFH;
-                 this is the full set of prospector-beta priors.
+1. PhiMet         : p(logM|z)p(Z*|logM), i.e., mass function + mass-met
+2. ZredMassMet    : p(z)p(logM|z)p(Z*|logM), i.e., number density + mass function + mass-met
+3. DymSFH         : p(Z*|logM) & SFH(M, z), i.e., mass-met + SFH
+4. DymSFHfixZred  : same as above, but keeping zred fixed to a user-specified value, 'zred', during fitting
+5. PhiSFH         : p(logM|z)p(Z*|logM) & SFH(M, z), i.e., mass function + mass-met + SFH
+6. PhiSFHfixZred  : same as above, but keeping zred fixed to a user-specified value, 'zred', during fitting
+7. NzSFH          : p(z)p(logM|z)p(Z*|logM) & SFH(M, z),
+                    i.e., number density + mass function + mass-met + SFH;
+                    this is the full set of prospector-beta priors.
 
 When called these return the ln-prior-probability, and they can also be used to
 construct prior transforms (for nested sampling) and can be sampled from.
@@ -24,7 +26,7 @@ import astropy.units as u
 from scipy.stats import t
 from . import priors
 
-__all__ = ["PhiMet", "ZredMassMet", "DymSFH", "PhiSFH", "NzSFH"]
+__all__ = ["PhiMet", "ZredMassMet", "DymSFH", "DymSFHfixZred", "PhiSFH", "PhiSFHfixZred", "NzSFH"]
 
 prior_data_dir = os.path.join(os.path.dirname(__file__), 'prior_data')
 massmet = np.loadtxt( os.path.join(prior_data_dir, 'gallazzi_05_massmet.txt'))
@@ -45,7 +47,7 @@ class PhiMet(priors.Prior):
     prior_params = ['zred_mini', 'zred_maxi', 'mass_mini', 'mass_maxi', 'z_mini', 'z_maxi', 'const_phi'] # mass is in log10
 
     def __init__(self, parnames=[], name='', **kwargs):
-        """Overwrites __init__ in the base code Prior
+        """Overwrites __init__ in the base code priors.Prior
 
         Parameters
         ----------
@@ -64,7 +66,6 @@ class PhiMet(priors.Prior):
         self.update(**kwargs)
 
         self.zred_dist = priors.FastUniform(a=self.params['zred_mini'], b=self.params['zred_maxi'])
-
         self.mgrid = np.linspace(self.params['mass_mini'], self.params['mass_maxi'], 101)
 
     def __len__(self):
@@ -105,7 +106,7 @@ class PhiMet(priors.Prior):
             # doing mcmc; x is [zred, logmass, logzsol]
             p = np.zeros_like(x)
             # p(m)
-            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'])
+            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
             # p(zsol)
             met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
                                                   mu=loc_massmet(x[1]), sig=scale_massmet(x[1]))
@@ -115,7 +116,7 @@ class PhiMet(priors.Prior):
 
             # p(z)
             lnp[0] = self.zred_dist(x[0])
-            lnp[2] = met_dist(x[2]) # FastTruncatedNormal returns ln(p)
+            lnp[2] = met_dist(x[2]) # priors.FastTruncatedNormal returns ln(p)
             return lnp
 
         else:
@@ -129,7 +130,7 @@ class PhiMet(priors.Prior):
             for i in range(len(_zreds)):
                 new_x = x[i]
                 p = np.zeros_like(new_x)
-                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'])
+                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
                 all_p.append(p)
 
             all_p = np.array(all_p)
@@ -157,7 +158,7 @@ class PhiMet(priors.Prior):
         zred = self.zred_dist.sample()
 
         # draw from the mass function at the above zred
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'])
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
         mass = draw_sample(xs=self.mgrid, cdf=cdf_mass)
 
         # given mass from above, draw logzsol
@@ -185,7 +186,7 @@ class PhiMet(priors.Prior):
 
         zred = self.zred_dist.unit_transform(x[0])
 
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'])
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
         mass = ppf(x[1], self.mgrid, cdf=cdf_mass)
 
         met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
@@ -203,7 +204,7 @@ class ZredMassMet(priors.Prior):
     prior_params = ['zred_mini', 'zred_maxi', 'mass_mini', 'mass_maxi', 'z_mini', 'z_maxi', 'const_phi'] # mass is in log10
 
     def __init__(self, parnames=[], name='', **kwargs):
-        """Overwrites __init__ in the base code Prior
+        """Overwrites __init__ in the base code priors.Prior
 
         Parameters
         ----------
@@ -222,12 +223,11 @@ class ZredMassMet(priors.Prior):
         self.update(**kwargs)
 
         if self.params['const_phi']:
-            zreds, pdf_zred = np.loadtxt( file_pdf_of_z_l20, unpack=True)
+            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z_l20.txt'), unpack=True)
         else:
-            zreds, pdf_zred = np.loadtxt( file_pdf_of_z_l20t18, unpack=True)
+            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z.txt'), unpack=True)
 
         self.finterp_z_pdf, self.finterp_cdf_z = norm_pz(self.params['zred_mini'], self.params['zred_maxi'], zreds, pdf_zred)
-
         self.mgrid = np.linspace(self.params['mass_mini'], self.params['mass_maxi'], 101)
 
     def __len__(self):
@@ -270,7 +270,7 @@ class ZredMassMet(priors.Prior):
             # p(z)
             p[0] = self.finterp_z_pdf(x[0])
             # p(m)
-            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'])
+            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
             # p(zsol)
             met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
                                                   mu=loc_massmet(x[1]), sig=scale_massmet(x[1]))
@@ -278,7 +278,7 @@ class ZredMassMet(priors.Prior):
             with np.errstate(invalid='ignore', divide='ignore'):
                 lnp = np.log(p)
 
-            lnp[2] = met_dist(x[2]) # FastTruncatedNormal returns ln(p)
+            lnp[2] = met_dist(x[2]) # priors.FastTruncatedNormal returns ln(p)
             return lnp
 
         else:
@@ -293,7 +293,7 @@ class ZredMassMet(priors.Prior):
                 new_x = x[i]
                 p = np.zeros_like(new_x)
                 p[0] = self.finterp_z_pdf(new_x[0])
-                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'])
+                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
 
                 all_p.append(p)
 
@@ -322,7 +322,7 @@ class ZredMassMet(priors.Prior):
         zred = self.finterp_cdf_z(u)
 
         # draw from the mass function at the above zred
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'])
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
         mass = draw_sample(xs=self.mgrid, cdf=cdf_mass)
 
         # given mass from above, draw logzsol
@@ -350,7 +350,7 @@ class ZredMassMet(priors.Prior):
 
         zred = self.finterp_cdf_z(x[0])
 
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'])
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
         mass = ppf(x[1], self.mgrid, cdf=cdf_mass)
 
         met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
@@ -390,9 +390,7 @@ class DymSFH(priors.Prior):
         self.update(**kwargs)
 
         self.zred_dist = priors.FastUniform(a=self.params['zred_mini'], b=self.params['zred_maxi'])
-
         self.mass_dist = priors.FastUniform(a=self.params['mass_mini'], b=self.params['mass_maxi'])
-
         self.logsfr_ratios_dist = priors.FastTruncatedEvenStudentTFreeDeg2(hw=self.params['logsfr_ratio_maxi'], sig=self.params['logsfr_ratio_tscale'])
 
     def __len__(self):
@@ -551,6 +549,195 @@ class DymSFH(priors.Prior):
                                np.atleast_1d(met), np.atleast_1d(logsfr_ratios_ppf)])
 
 
+############### SFH(M, z) at FIXED ZRED ################
+# mass-met & SFH(M, z) priors
+# expectation value of the nonparametric SFH ~ Behroozi+19 cosmic SFRD
+
+class DymSFHfixZred(priors.Prior):
+
+    prior_params = ['zred', 'mass_mini', 'mass_maxi', 'z_mini', 'z_maxi',
+                    'logsfr_ratio_mini', 'logsfr_ratio_maxi', 'logsfr_ratio_tscale', 'nbins_sfh',
+                    'const_phi'] # mass is in log10
+
+    def __init__(self, parnames=[], name='', **kwargs):
+        """Overwrites __init__ in the base code priors.Prior
+
+        Parameters
+        ----------
+        parnames : sequence of strings
+            A list of names of the parameters, used to alias the intrinsic
+            parameter names.  This way different instances of the same Prior
+            can have different parameter names, in case they are being fit for....
+        """
+        if len(parnames) == 0:
+            parnames = self.prior_params
+        assert len(parnames) == len(self.prior_params)
+        self.alias = dict(zip(self.prior_params, parnames))
+        self.params = {}
+
+        self.name = name
+        self.update(**kwargs)
+
+        self.zred = self.params['zred']
+        self.mass_dist = priors.FastUniform(a=self.params['mass_mini'], b=self.params['mass_maxi'])
+        self.logsfr_ratios_dist = priors.FastTruncatedEvenStudentTFreeDeg2(hw=self.params['logsfr_ratio_maxi'], sig=self.params['logsfr_ratio_tscale'])
+
+    def __len__(self):
+        """Hack to work with Prospector 0.3
+        """
+        return self.params['nbins_sfh']+2 # z, mass, met, + logsfr_ratios
+
+    @property
+    def range(self):
+        return (
+                (self.params['mass_mini'], self.params['mass_maxi']),\
+                (self.params['z_mini'], self.params['z_maxi']),\
+                (self.params['logsfr_ratio_mini'], self.params['logsfr_ratio_maxi'])
+               )
+
+    def bounds(self, **kwargs):
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.range
+
+    def __call__(self, x, **kwargs):
+        """Compute the value of the probability density function at x and
+        return the ln of that.
+
+        :params x: used to calculate the prior
+            x[0] = zred, x[1] = logmass, x[2] = logzsol, x[3:] = logsfr_ratios
+
+        :param kwargs: optional
+            All extra keyword arguments are used to update the `prior_params`.
+
+        :returns lnp:
+            The natural log of the prior probability at x, scalar or ndarray of
+            same length as the prior object.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+
+        if x.ndim == 1:
+            # doing mcmc; x is [zred, logmass, logzsol]
+            p = np.zeros_like(x)
+
+            # p(zsol)
+            met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
+                                                  mu=loc_massmet(x[1]), sig=scale_massmet(x[1]))
+            # sfh = sfrd
+            logsfr_ratios = expe_logsfr_ratios(this_z=x[0], this_m=x[1], nbins_sfh=self.params['nbins_sfh'],
+                                               logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                                               logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
+            p[3:] = t.pdf(x[3:], df=2, loc=logsfr_ratios, scale=self.params['logsfr_ratio_tscale'])
+
+            with np.errstate(invalid='ignore', divide='ignore'):
+                lnp = np.log(p)
+
+            lnp[0] = 0 # zred is fixed
+            lnp[1] = self.mass_dist(x[1])
+            lnp[2] = met_dist(x[2]) # priors.FastTruncatedNormal returns ln(p)
+
+            return lnp
+
+        else:
+            # write_hdf5. last step.
+            # in prior_product, x is of size (nsamples, npriors)
+            # Fast* is not vectorized?
+            # so just do a loop here
+            _zreds = x[...,0]
+            _logms = x[...,1]
+
+            all_p = []
+            for i in range(len(_zreds)):
+                new_x = x[i]
+                p = np.zeros_like(new_x)
+
+                logsfr_ratios = expe_logsfr_ratios(this_z=new_x[0], this_m=new_x[1], nbins_sfh=self.params['nbins_sfh'],
+                                                   logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                                                   logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
+                p[3:] = t.pdf(new_x[3:], df=2, loc=logsfr_ratios, scale=self.params['logsfr_ratio_tscale'])
+
+                all_p.append(p)
+
+            all_p = np.array(all_p)
+
+            with np.errstate(invalid='ignore', divide='ignore'):
+                lnp = np.log(all_p)
+
+            met_dists = [priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
+                                                    mu=loc_massmet(mass_i), sig=scale_massmet(mass_i)) for mass_i in x[...,1]]
+            lnp[...,0] = np.zeros(len(lnp[...,0]))
+            lnp[...,1] = self.mass_dist(_logms)
+            lnp[...,2] = [met_dists[i](met_i) for (i, met_i) in enumerate(x[...,2])]
+
+            return lnp
+
+    def sample(self, nsample=None, **kwargs):
+        """Draw a sample from the prior distribution.
+        Needed for minimizer.
+
+        :param nsample: (optional)
+            Unused. Will not work if nsample > 1 in draw_sample()!
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        # draw a zred from pdf(z)
+        zred = self.zred * 1
+
+        mass = self.mass_dist.sample()
+
+        # given mass from above, draw logzsol
+        met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
+                                              mu=loc_massmet(mass), sig=scale_massmet(mass))
+        met = met_dist.sample()
+
+        # sfh = sfrd
+        logsfr_ratios = expe_logsfr_ratios(this_z=zred, this_m=mass, nbins_sfh=self.params['nbins_sfh'],
+                                           logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                                           logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
+        logsfr_ratios_rvs = t.rvs(df=2, loc=logsfr_ratios, scale=self.params['logsfr_ratio_tscale'])
+        logsfr_ratios_rvs = np.clip(logsfr_ratios_rvs, a_min=self.params['logsfr_ratio_mini'], a_max=self.params['logsfr_ratio_maxi'])
+
+        return np.concatenate([np.atleast_1d(zred), np.atleast_1d(mass),
+                               np.atleast_1d(met), np.atleast_1d(logsfr_ratios_rvs)])
+
+    def unit_transform(self, x, **kwargs):
+        """Go from a value of the CDF (between 0 and 1) to the corresponding
+        parameter value.
+        Needed for nested sampling.
+
+        :param x:
+            A scalar or vector of same length as the Prior with values between
+            zero and one corresponding to the value of the CDF.
+
+        :returns theta:
+            The parameter value corresponding to the value of the CDF given by
+            `x`.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+
+        zred = self.zred * 1
+
+        mass = self.mass_dist.unit_transform(x[1])
+
+        met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
+                                              mu=loc_massmet(mass), sig=scale_massmet(mass))
+        met = met_dist.unit_transform(x[2])
+
+        # sfh = sfrd
+        logsfr_ratios = expe_logsfr_ratios(this_z=zred, this_m=mass, nbins_sfh=self.params['nbins_sfh'],
+                                           logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                                           logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
+
+        logsfr_ratios_ppf = np.zeros_like(logsfr_ratios)
+        for i in range(len(logsfr_ratios_ppf)):
+            logsfr_ratios_ppf[i] = self.logsfr_ratios_dist.unit_transform(x[3+i]) + logsfr_ratios[i]
+        logsfr_ratios_ppf = np.clip(logsfr_ratios_ppf, a_min=self.params['logsfr_ratio_mini'], a_max=self.params['logsfr_ratio_maxi'])
+        return np.concatenate([np.atleast_1d(zred), np.atleast_1d(mass),
+                               np.atleast_1d(met), np.atleast_1d(logsfr_ratios_ppf)])
+
+
 ####################### p(logM|z)p(Z*|logM) & SFH(M, z) #######################
 # mass function & Gaussian metallicity & SFH(M, z) priors
 # expectation value of the nonparametric SFH ~ Behroozi+19 cosmic SFRD
@@ -562,7 +749,7 @@ class PhiSFH(priors.Prior):
                     'const_phi'] # mass is in log10
 
     def __init__(self, parnames=[], name='', **kwargs):
-        """Overwrites __init__ in the base code Prior
+        """Overwrites __init__ in the base code priors.Prior
 
         Parameters
         ----------
@@ -581,16 +768,14 @@ class PhiSFH(priors.Prior):
         self.update(**kwargs)
 
         if self.params['const_phi']:
-            zreds, pdf_zred = np.loadtxt( file_pdf_of_z_l20, unpack=True)
+            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z_l20.txt'), unpack=True)
         else:
-            zreds, pdf_zred = np.loadtxt( file_pdf_of_z_l20t18, unpack=True)
+            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z.txt'), unpack=True)
 
         self.finterp_z_pdf, self.finterp_cdf_z = norm_pz(self.params['zred_mini'], self.params['zred_maxi'], zreds, pdf_zred)
 
         self.mgrid = np.linspace(self.params['mass_mini'], self.params['mass_maxi'], 101)
-
         self.zred_dist = priors.FastUniform(a=self.params['zred_mini'], b=self.params['zred_maxi'])
-
         self.logsfr_ratios_dist = priors.FastTruncatedEvenStudentTFreeDeg2(hw=self.params['logsfr_ratio_maxi'], sig=self.params['logsfr_ratio_tscale'])
 
     def __len__(self):
@@ -632,7 +817,8 @@ class PhiSFH(priors.Prior):
             # doing mcmc; x is [zred, logmass, logzsol]
             p = np.zeros_like(x)
             # p(m)
-            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'])
+            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
+
             # p(zsol)
             met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
                                                   mu=loc_massmet(x[1]), sig=scale_massmet(x[1]))
@@ -647,7 +833,7 @@ class PhiSFH(priors.Prior):
 
             # p(z)
             lnp[0] = self.zred_dist(x[0])
-            lnp[2] = met_dist(x[2]) # FastTruncatedNormal returns ln(p)
+            lnp[2] = met_dist(x[2]) # priors.FastTruncatedNormal returns ln(p)
 
             return lnp
 
@@ -662,7 +848,7 @@ class PhiSFH(priors.Prior):
             for i in range(len(_zreds)):
                 new_x = x[i]
                 p = np.zeros_like(new_x)
-                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'])
+                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
                 logsfr_ratios = expe_logsfr_ratios(this_z=new_x[0], this_m=new_x[1], nbins_sfh=self.params['nbins_sfh'],
                                                    logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
                                                    logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
@@ -695,7 +881,7 @@ class PhiSFH(priors.Prior):
         zred = self.zred_dist.sample()
 
         # draw from the mass function at the above zred
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'])
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
         mass = draw_sample(xs=self.mgrid, cdf=cdf_mass)
 
         # given mass from above, draw logzsol
@@ -731,7 +917,197 @@ class PhiSFH(priors.Prior):
 
         zred = self.zred_dist.unit_transform(x[0])
 
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'])
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
+        mass = ppf(x[1], self.mgrid, cdf=cdf_mass)
+
+        met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
+                                              mu=loc_massmet(mass), sig=scale_massmet(mass))
+        met = met_dist.unit_transform(x[2])
+
+        # sfh = sfrd
+        logsfr_ratios = expe_logsfr_ratios(this_z=zred, this_m=mass, nbins_sfh=self.params['nbins_sfh'],
+                                           logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                                           logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
+
+        logsfr_ratios_ppf = np.zeros_like(logsfr_ratios)
+        for i in range(len(logsfr_ratios_ppf)):
+            logsfr_ratios_ppf[i] = self.logsfr_ratios_dist.unit_transform(x[3+i]) + logsfr_ratios[i]
+        logsfr_ratios_ppf = np.clip(logsfr_ratios_ppf, a_min=self.params['logsfr_ratio_mini'], a_max=self.params['logsfr_ratio_maxi'])
+        return np.concatenate([np.atleast_1d(zred), np.atleast_1d(mass),
+                               np.atleast_1d(met), np.atleast_1d(logsfr_ratios_ppf)])
+
+
+################ p(logM|z)p(Z*|logM) & SFH(M, z) at FIXED ZRED ################
+# mass function & Gaussian metallicity & SFH(M, z) priors
+# expectation value of the nonparametric SFH ~ Behroozi+19 cosmic SFRD
+
+class PhiSFHfixZred(priors.Prior):
+
+    prior_params = ['zred', 'mass_mini', 'mass_maxi', 'z_mini', 'z_maxi',
+                    'logsfr_ratio_mini', 'logsfr_ratio_maxi', 'logsfr_ratio_tscale', 'nbins_sfh',
+                    'const_phi'] # mass is in log10
+
+    def __init__(self, parnames=[], name='', **kwargs):
+        """Overwrites __init__ in the base code priors.Prior
+
+        Parameters
+        ----------
+        parnames : sequence of strings
+            A list of names of the parameters, used to alias the intrinsic
+            parameter names.  This way different instances of the same Prior
+            can have different parameter names, in case they are being fit for....
+        """
+        if len(parnames) == 0:
+            parnames = self.prior_params
+        assert len(parnames) == len(self.prior_params)
+        self.alias = dict(zip(self.prior_params, parnames))
+        self.params = {}
+
+        self.name = name
+        self.update(**kwargs)
+
+        self.mgrid = np.linspace(self.params['mass_mini'], self.params['mass_maxi'], 101)
+        self.zred = self.params['zred']
+        self.logsfr_ratios_dist = priors.FastTruncatedEvenStudentTFreeDeg2(hw=self.params['logsfr_ratio_maxi'], sig=self.params['logsfr_ratio_tscale'])
+
+    def __len__(self):
+        """Hack to work with Prospector 0.3
+        """
+        return self.params['nbins_sfh']+2 # z, mass, met, + logsfr_ratios
+
+    @property
+    def range(self):
+        return (
+                (self.params['mass_mini'], self.params['mass_maxi']),\
+                (self.params['z_mini'], self.params['z_maxi']),\
+                (self.params['logsfr_ratio_mini'], self.params['logsfr_ratio_maxi'])
+               )
+
+    def bounds(self, **kwargs):
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return self.range
+
+    def __call__(self, x, **kwargs):
+        """Compute the value of the probability density function at x and
+        return the ln of that.
+
+        :params x: used to calculate the prior
+            x[0] = zred, x[1] = logmass, x[2] = logzsol, x[3:] = logsfr_ratios
+
+        :param kwargs: optional
+            All extra keyword arguments are used to update the `prior_params`.
+
+        :returns lnp:
+            The natural log of the prior probability at x, scalar or ndarray of
+            same length as the prior object.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+
+        if x.ndim == 1:
+            # doing mcmc; x is [zred, logmass, logzsol]
+            p = np.zeros_like(x)
+            # p(m)
+            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
+            # p(zsol)
+            met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
+                                                  mu=loc_massmet(x[1]), sig=scale_massmet(x[1]))
+            # sfh = sfrd
+            logsfr_ratios = expe_logsfr_ratios(this_z=x[0], this_m=x[1], nbins_sfh=self.params['nbins_sfh'],
+                                               logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                                               logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
+            p[3:] = t.pdf(x[3:], df=2, loc=logsfr_ratios, scale=self.params['logsfr_ratio_tscale'])
+
+            with np.errstate(invalid='ignore', divide='ignore'):
+                lnp = np.log(p)
+
+            lnp[0] = 0 # zred is fixed
+            lnp[2] = met_dist(x[2]) # priors.FastTruncatedNormal returns ln(p)
+
+            return lnp
+
+        else:
+            # write_hdf5. last step.
+            # in prior_product, x is of size (nsamples, npriors)
+            # Fast* is not vectorized?
+            # so just do a loop here
+            _zreds = x[...,0]
+
+            all_p = []
+            for i in range(len(_zreds)):
+                new_x = x[i]
+                p = np.zeros_like(new_x)
+                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
+                logsfr_ratios = expe_logsfr_ratios(this_z=new_x[0], this_m=new_x[1], nbins_sfh=self.params['nbins_sfh'],
+                                                   logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                                                   logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
+                p[3:] = t.pdf(new_x[3:], df=2, loc=logsfr_ratios, scale=self.params['logsfr_ratio_tscale'])
+
+                all_p.append(p)
+
+            all_p = np.array(all_p)
+
+            with np.errstate(invalid='ignore', divide='ignore'):
+                lnp = np.log(all_p)
+
+            met_dists = [priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
+                                                    mu=loc_massmet(mass_i), sig=scale_massmet(mass_i)) for mass_i in x[...,1]]
+            lnp[...,0] = np.zeros(len(lnp[...,0]))
+            lnp[...,2] = [met_dists[i](met_i) for (i, met_i) in enumerate(x[...,2])]
+
+            return lnp
+
+    def sample(self, nsample=None, **kwargs):
+        """Draw a sample from the prior distribution.
+        Needed for minimizer.
+
+        :param nsample: (optional)
+            Unused. Will not work if nsample > 1 in draw_sample()!
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        # draw a zred from pdf(z)
+        zred = self.zred * 1
+
+        # draw from the mass function at the above zred
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
+        mass = draw_sample(xs=self.mgrid, cdf=cdf_mass)
+
+        # given mass from above, draw logzsol
+        met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
+                                              mu=loc_massmet(mass), sig=scale_massmet(mass))
+        met = met_dist.sample()
+
+        # sfh = sfrd
+        logsfr_ratios = expe_logsfr_ratios(this_z=zred, this_m=mass, nbins_sfh=self.params['nbins_sfh'],
+                                           logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                                           logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
+        logsfr_ratios_rvs = t.rvs(df=2, loc=logsfr_ratios, scale=self.params['logsfr_ratio_tscale'])
+        logsfr_ratios_rvs = np.clip(logsfr_ratios_rvs, a_min=self.params['logsfr_ratio_mini'], a_max=self.params['logsfr_ratio_maxi'])
+
+        return np.concatenate([np.atleast_1d(zred), np.atleast_1d(mass),
+                               np.atleast_1d(met), np.atleast_1d(logsfr_ratios_rvs)])
+
+    def unit_transform(self, x, **kwargs):
+        """Go from a value of the CDF (between 0 and 1) to the corresponding
+        parameter value.
+        Needed for nested sampling.
+
+        :param x:
+            A scalar or vector of same length as the Prior with values between
+            zero and one corresponding to the value of the CDF.
+
+        :returns theta:
+            The parameter value corresponding to the value of the CDF given by
+            `x`.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+
+        zred = self.zred * 1
+
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
         mass = ppf(x[1], self.mgrid, cdf=cdf_mass)
 
         met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
@@ -762,7 +1138,7 @@ class NzSFH(priors.Prior):
                     'const_phi'] # mass is in log10
 
     def __init__(self, parnames=[], name='', **kwargs):
-        """Overwrites __init__ in the base code Prior
+        """Overwrites __init__ in the base code priors.Prior
 
         Parameters
         ----------
@@ -784,11 +1160,12 @@ class NzSFH(priors.Prior):
         # the tables were calculated in pdf_z_tables.ipynb
         # redshift range is 0 - 20
         if self.params['const_phi']:
-            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20, unpack=True)
+            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z_l20.txt'), unpack=True)
         else:
-            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20t18, unpack=True)
+            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z.txt'), unpack=True)
 
         self.finterp_z_pdf, self.finterp_cdf_z = norm_pz(self.params['zred_mini'], self.params['zred_maxi'], zreds, pdf_zred)
+
         self.mgrid = np.linspace(self.params['mass_mini'], self.params['mass_maxi'], 101)
         self.zred_dist = priors.FastUniform(a=self.params['zred_mini'], b=self.params['zred_maxi'])
         self.logsfr_ratios_dist = priors.FastTruncatedEvenStudentTFreeDeg2(hw=self.params['logsfr_ratio_maxi'], sig=self.params['logsfr_ratio_tscale'])
@@ -834,7 +1211,7 @@ class NzSFH(priors.Prior):
             # p(z)
             p[0] = self.finterp_z_pdf(x[0])
             # p(m)
-            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'])
+            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
             # p(zsol)
             met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
                                                   mu=loc_massmet(x[1]), sig=scale_massmet(x[1]))
@@ -847,7 +1224,7 @@ class NzSFH(priors.Prior):
             with np.errstate(invalid='ignore', divide='ignore'):
                 lnp = np.log(p)
 
-            lnp[2] = met_dist(x[2]) # FastTruncatedNormal returns ln(p)
+            lnp[2] = met_dist(x[2]) # priors.FastTruncatedNormal returns ln(p)
 
             return lnp
 
@@ -863,7 +1240,7 @@ class NzSFH(priors.Prior):
                 new_x = x[i]
                 p = np.zeros_like(new_x)
                 p[0] = self.finterp_z_pdf(new_x[0])
-                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'])
+                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
                 logsfr_ratios = expe_logsfr_ratios(this_z=new_x[0], this_m=new_x[1], nbins_sfh=self.params['nbins_sfh'],
                                                    logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
                                                    logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
@@ -896,7 +1273,7 @@ class NzSFH(priors.Prior):
         zred = self.finterp_cdf_z(u)
 
         # draw from the mass function at the above zred
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'])
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
         mass = draw_sample(xs=self.mgrid, cdf=cdf_mass)
 
         # given mass from above, draw logzsol
@@ -932,7 +1309,7 @@ class NzSFH(priors.Prior):
 
         zred = self.finterp_cdf_z(x[0])
 
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'])
+        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
         mass = ppf(x[1], self.mgrid, cdf=cdf_mass)
 
         met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
@@ -1101,23 +1478,27 @@ def high_z_mass_func(z0, this_m):
         phi = phi0*w[0] + phi1*w[1]
         return phi
 
-def mass_func_at_z(z, this_logm, const_phi=False):
+def mass_func_at_z(z, this_logm, const_phi=False, bounds=[6.0, 12.5]):
     '''
-    if const_phi == True: use mass funtions in Leja+20 only;
+    if const_phi == True: use mass functions in Leja+20 only;
                           no redshfit evolution outside the range 0.2 <= z <= 3.0;
         i.e.,
-        z<=0.2: use mass funtion at z=0.2;
+        z<=0.2: use mass function at z=0.2;
         0.2<=z<=3.0: defined in Leja+20;
-        z>=3: use mass funtion at z=3.0.
+        z>=3: use mass function at z=3.0.
     if const_phi == False: combine Leja+20 and Tacchella+18 mass functions;
         i.e.,
         z<=3: mass function in Leja+20; continuous in redshift.
         3<z<4: cos^2 weighted average of L20 mass function at z=3 and T18 mass function at z=4;
-               i.e., we weight the L20 mass funtion as cos^2(0, pi/2), and T18 as 1 - cos^2(0, pi/2).
+               i.e., we weight the L20 mass function as cos^2(0, pi/2), and T18 as 1 - cos^2(0, pi/2).
         4<=z<=12: T18 mass function; discreate in redshift by definition;
                   we take cos^2 weighted average in each bin, with zrange being the bin edges.
         z>12: T18 mass function at z=12.
     '''
+    if not hasattr(this_logm, "__len__"):
+        if this_logm < bounds[0] or this_logm > bounds[1]:
+            return np.zeros_like(this_logm)
+
     if const_phi:
         phi = low_z_mass_func(z, this_logm)
     else:
@@ -1133,28 +1514,31 @@ def mass_func_at_z(z, this_logm, const_phi=False):
         else:
             phi = high_z_mass_func(z0=12, this_m=10**this_logm)
 
+    phi[this_logm < bounds[0]] = 0
+    phi[this_logm > bounds[1]] = 0
     return np.squeeze(phi)
 
 
 ############ Empirical PDF & CDF ############
-def pdf_mass_func_at_z(z, logm, const_phi):
-    phi_50 = mass_func_at_z(z, logm, const_phi)
+def pdf_mass_func_at_z(z, logm, const_phi, bounds):
+    phi_50 = mass_func_at_z(z, logm, const_phi, bounds)
     p_phi_int = np.trapz(phi_50, logm)
     pdf_at_m = phi_50/p_phi_int
     return pdf_at_m
 
-def cdf_mass_func_at_z(z, logm, const_phi):
+def cdf_mass_func_at_z(z, logm, const_phi, bounds):
     '''
     logm: an array of [mass_mini, ..., mass_maxi], or a float
     '''
-    pdf_at_m = pdf_mass_func_at_z(z, logm=logm, const_phi=const_phi)
+    pdf_at_m = pdf_mass_func_at_z(z, logm=logm, const_phi=const_phi, bounds=bounds)
     cdf_of_m = np.cumsum(pdf_at_m)
     cdf_of_m /= max(cdf_of_m)
 
-    # may have small numerical errors; force cdf to start at 0
+    # may have small numerical errors; force cdf to be within [0, 1]
     clean = np.where(cdf_of_m < 0)
     cdf_of_m[clean] = 0
     cdf_of_m[0] = 0
+    cdf_of_m[-1] = 1
 
     return cdf_of_m
 
@@ -1162,7 +1546,7 @@ def ppf(x, xs, cdf):
     '''Go from a value x of the CDF (between 0 and 1) to
     the corresponding parameter value.
     '''
-    func_interp = interp1d(cdf, xs, bounds_error=False, fill_value="extrapolate")
+    func_interp = interp1d(cdf, xs, bounds_error=False, fill_value=0)
     param = func_interp(x)
     return param
 
@@ -1170,7 +1554,7 @@ def draw_sample(xs, cdf, nsample=None):
     '''Draw sample(s) from any cdf
     '''
     u = np.random.uniform(0, 1, size=nsample)
-    func_interp = interp1d(cdf, xs, bounds_error=False, fill_value="extrapolate")
+    func_interp = interp1d(cdf, xs, bounds_error=False, fill_value=0)
     sample = func_interp(u)
     return sample
 
@@ -1183,13 +1567,14 @@ def norm_pz(zred_mini, zred_maxi, zreds, pdf_zred):
     pdf_zred_inrange = pdf_zred[idx_zrange]/p_int
     invalid = np.where(pdf_zred_inrange<0)
     pdf_zred_inrange[invalid] = 0
-    finterp_z_pdf = interp1d(zreds_inrange, pdf_zred_inrange, bounds_error=False, fill_value="extrapolate")
+    finterp_z_pdf = interp1d(zreds_inrange, pdf_zred_inrange, bounds_error=False, fill_value=0)
 
     cdf_zred = np.cumsum(pdf_zred_inrange)
     cdf_zred /= max(cdf_zred)
     invalid = np.where(cdf_zred<0)
     cdf_zred[invalid] = 0
-    finterp_cdf_z = interp1d(cdf_zred, zreds_inrange, bounds_error=False, fill_value="extrapolate")
+    cdf_zred[-1] = 1
+    finterp_cdf_z = interp1d(cdf_zred, zreds_inrange, bounds_error=False, fill_value=0)
 
     return (finterp_z_pdf, finterp_cdf_z)
 
@@ -1232,6 +1617,7 @@ def z_to_agebins_rescale(zstart, nbins_sfh=7, amin=7.1295):
     agebins = np.array([agelims[:-1], agelims[1:]]).T
     return 10**agebins
 
+### functions needed for the SFH(M,z) prior
 def slope(x, y):
     return (y[1]-y[0])/(x[1]-x[0])
 
@@ -1260,7 +1646,6 @@ def expe_logsfr_ratios(this_z, this_m, logsfr_ratio_mini, logsfr_ratio_maxi,
     age_shifted = np.log10(cosmo.age(this_z).value) + delta_t_dex(this_m)
     age_shifted = 10**age_shifted
 
-    # introduce these limits for stability
     zmin_thres = 0.15
     zmax_thres = 10
     if age_shifted < age[-1]:
@@ -1275,6 +1660,7 @@ def expe_logsfr_ratios(this_z, this_m, logsfr_ratio_mini, logsfr_ratio_maxi,
         z_shifted = zmin_thres * 1
 
     agebins_shifted = z_to_agebins_rescale(zstart=z_shifted, nbins_sfh=nbins_sfh, amin=amin)
+
     nsfrbins = agebins_shifted.shape[0]
     sfr_shifted = np.zeros(nsfrbins)
     for i in range(nsfrbins):
