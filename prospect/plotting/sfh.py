@@ -151,7 +151,7 @@ def parametric_cmf(times=None, tage=1., **sfh):
     if times is None:
         times = np.array(sfh["tage"])
 
-    pset = parametric_pset(tage=tage**sfh)
+    pset = parametric_pset(tage=tage, **sfh)
     _, mass = compute_mass_formed(tage - times, pset)
     return mass
 
