@@ -18,17 +18,18 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
                smoothtype="vel", fftsmooth=True,
                min_wave_smooth=0, max_wave_smooth=np.inf, **kwargs):
     """
-    :param wave:
-        The wavelength vector of the input spectrum, ndarray.  Assumed
-        angstroms.
+    Parameters
+    ----------
+    wave : ndarray of shape ``(N_pix,)``
+        The wavelength vector of the input spectrum.  Assumed Angstroms.
 
-    :param spec:
-        The flux vector of the input spectrum, ndarray
+    spec : ndarray of shape ``(N_pix,)``
+        The flux vector of the input spectrum.
 
-    :param resolution:
+    resolution : float
         The smoothing parameter.  Units depend on ``smoothtype``.
 
-    :param outwave:
+    outwave : ``None`` or ndarray of shape ``(N_pix_out,)``
         The output wavelength vector.  If ``None`` then the input wavelength
         vector will be assumed, though if ``min_wave_smooth`` or
         ``max_wave_smooth`` are also specified, then the output spectrum may
@@ -36,41 +37,42 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         be strange outside of ``min_wave_smooth`` and ``max_wave_smooth``.
         Basically, always set ``outwave`` to be safe.
 
-    :param smoothtype: (optional default: "vel")
-        The type of smoothing to do.  One of:
+    smoothtype : string, optional, default: "vel"
+        The type of smoothing to perform.  One of:
 
-        * "vel" - velocity smoothing, ``resolution`` units are in km/s
+        + ``"vel"`` - velocity smoothing, ``resolution`` units are in km/s
           (dispersion not FWHM)
-        * "R" - resolution smoothing, ``resolution`` is in units of \lambda/
-          \sigma(\lambda) (where \sigma(\lambda) is dispersion, not FWHM)
-        * "lambda" - wavelength smoothing.  ``resolution`` is in units of \AA
-        * "lsf" - line-spread function.  Use an aribitrary line spread
+        + ``"R"`` - resolution smoothing, ``resolution`` is in units of
+          :math:`\lambda/ \sigma_\lambda` (where :math:`\sigma_\lambda` is
+          dispersion, not FWHM)
+        + ``"lambda"`` - wavelength smoothing.  ``resolution`` is in units of
+          Angstroms
+        + ``"lsf"`` - line-spread function.  Use an aribitrary line spread
           function, which can be given as a vector the same length as ``wave``
           that gives the dispersion (in AA) at each wavelength.  Alternatively,
           if ``resolution`` is ``None`` then a line-spread function must be
-          present as an additional ``lsf`` keyword.  In this case all
-          additional keywords as well as the ``wave`` vector will be passed to
-          this ``lsf`` function.
+          present as an additional ``lsf`` keyword.  In this case all additional
+          keywords as well as the ``wave`` vector will be passed to this ``lsf``
+          function.
 
-    :param fftsmooth: (optional, default: True)
+    fftsmooth : bool, optional, default: True
         Switch to use FFTs to do the smoothing, usually resulting in massive
-        speedups of all algorithms.
+        speedups of all algorithms.  However, edge effects may be present.
 
-    :param min_wave_smooth: (optional default: 0)
+    min_wave_smooth : float, optional default: 0
         The minimum wavelength of the input vector to consider when smoothing
         the spectrum.  If ``None`` then it is determined from the output
-        wavelength vector and padded by some multiple of the desired
-        resolution.
+        wavelength vector and padded by some multiple of the desired resolution.
 
-    :param max_wave_smooth: (optional default: Inf)
+    max_wave_smooth : float, optional, default: inf
         The maximum wavelength of the input vector to consider when smoothing
         the spectrum.  If None then it is determined from the output wavelength
         vector and padded by some multiple of the desired resolution.
 
-    :param inres: (optional)
+    inres : float, optional
         If given, this parameter specifies the resolution of the input.  This
-        resolution is subtracted in quadrature from the target output
-        resolution before the kernel is formed.
+        resolution is subtracted in quadrature from the target output resolution
+        before the kernel is formed.
 
         In certain cases this can be used to properly switch from resolution
         that is constant in velocity to one that is constant in wavelength,
@@ -85,12 +87,14 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         wavelength resolution, in which case the units of ``inres`` should be
         in units of lambda/sigma_lambda.
 
-    :param in_vel: (optional)
+    in_vel : float (optional)
         If supplied and True, the ``inres`` parameter is assumed to be in units
         of lambda/sigma_lambda. This parameter is ignored **unless** the
         ``smoothtype`` is ``"lambda"`` and ``fftsmooth`` is False.
 
-    :returns flux:
+    Returns
+    -------
+    flux : ndarray of shape ``(N_pix_out,)``
         The smoothed spectrum on the `outwave` grid, ndarray.
     """
     if smoothtype == 'vel':

@@ -1,6 +1,7 @@
 import numpy as np
 
-__all__ = ["Kernel", "Uncorrelated", "ExpSquared", "Matern", "PhotoCal"]
+__all__ = ["Kernel", "Uncorrelated", "ExpSquared", "Matern", "PhotoCal", 
+           "PhotSamples_MVN"]
 
 
 class Kernel(object):
@@ -99,11 +100,37 @@ class PhotoCal(Kernel):
     ndim = 2
     npars = 2
     kernel_params = ['amplitude', 'filter_names']
-    
+
     def construct_kernel(self, metric):
         """ This adds correlated noise in specified bands of photometry
         """
         k = np.array([f in self.params["filter_names"] for f in metric])
         K = k[:, None] * k[None, :]     # select off-diagonal elements
         return K * self.params["amplitude"]**2
+
+
+class PhotSamples_MVN(Kernel):
+    npars = 0
+    kernel_params = []
+
+    def __init__(self, cov, filter_names, parnames=[], name=''):
+
+        super().__init__(parnames=parnames, name=name)
+        assert cov.shape[0] == len(filter_names)
+        # if no covariance, set ndim = 1
+        if not np.count_nonzero(cov - np.diag(np.diagonal(cov))):
+            self.ndim = 1
+        else:
+            self.ndim = 2
+        self.cov_mat = cov
+        self.params["filter_names"] = filter_names
+
+    def construct_kernel(self, metric):
+        # we pull the rows of the covariance matrix corresponding to the filters listed in `metric`
+        band_index = np.array([self.params["filter_names"].index(f) for f in metric])
+        return self.cov_mat[band_index[:, None], band_index]
+
+    def __call__(self, metric, weights=None, ndim=2, **extras):
+        assert weights is None, "PhotCorrelated is not meant to be weighted by anything"
+        return super().__call__(metric, ndim=ndim, **extras)
 

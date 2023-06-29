@@ -31,7 +31,7 @@ class BlackBodyDustBasis(object):
         :param filters:
             A list of sedpy filter objects.
 
-        :param **params:
+        :param params:
             Keywords forming the parameter set.
 
         :returns spec:
@@ -59,7 +59,7 @@ class BlackBodyDustBasis(object):
         norm = self.normalization()
         spec, maggies = norm * spec, norm * maggies
         return spec, maggies, extra
-        
+
     def one_sed(self, icomp=0, wave=None, filters=None, **extras):
         """Pull out individual component parameters from the param dictionary
         and generate spectra for those components
@@ -91,7 +91,7 @@ def modified_BB(wave, T=20, beta=2.0, kappa0=1.92, lambda0=350, **extras):
     """
     term = (lambda0 / wave)**beta
     return planck(wave, T=T, **extras) * term * kappa0
-    
+
 
 def planck(wave, T=20.0, **extras):
     """Return planck function B_lambda (erg/s/micron) for a given T (in Kelvin) and

@@ -9,7 +9,7 @@ from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
 try:
     import fsps
     from sedpy.observate import getSED, vac2air, air2vac
-except(ImportError):
+except(ImportError, RuntimeError):
     pass
 
 __all__ = ["CSPSpecBasis", "MultiComponentCSPBasis",

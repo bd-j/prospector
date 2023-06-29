@@ -13,4 +13,4 @@ control redshifting, spectral smoothing, wavelength calibration, and other
 aspects of the model.
 
 .. automodule:: prospect.sources
-   :members: SSPBasis, CSPSpecBasis, FastStepBasis, FastSSPBasis,  BlackBodyDustBasis
+   :members: SSPBasis, CSPSpecBasis, FastStepBasis, BlackBodyDustBasis

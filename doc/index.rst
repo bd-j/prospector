@@ -15,6 +15,13 @@ Prospector allows you to:
 * Use spectra and/or photometry to constrain highly flexible star formation
   history treatments.
 
+.. image:: https://img.shields.io/badge/GitHub-bdj%2Fprospector-blue.svg
+    :target: https://github.com/bd-j/prospector
+.. image:: https://img.shields.io/badge/arXiv-2012.01426-b31b1b.svg
+    :target: https://arxiv.org/abs/2012.01426
+.. image:: https://img.shields.io/badge/license-MIT-blue.svg
+    :target: https://github.com/bd-j/prospector/blob/main/LICENSE
+
 
 .. toctree::
    :maxdepth: 2
@@ -24,12 +31,15 @@ Prospector allows you to:
    usage
    dataformat
    models
+   sfhs
+   nebular
    output
 
 .. toctree::
    :maxdepth: 1
    :caption: Demos & Tutorials
 
+   quickstart
    demo
    tutorial
    faq
@@ -48,12 +58,12 @@ Prospector allows you to:
 License and Attribution
 ------------------------------
 
-*Copyright 2014-2021 Benjamin D. Johnson and contributors.*
+*Copyright 2014-2022 Benjamin D. Johnson and contributors.*
 
 This code is available under the `MIT License
 <https://raw.github.com/bdj/prospector/blob/main/LICENSE>`_.
 
-If you use this code, please reference `this paper https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract`_:
+If you use this code, please reference `this paper <https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract>`_:
 
 .. code-block:: none
 
@@ -76,3 +86,7 @@ If you use this code, please reference `this paper https://ui.adsabs.harvard.edu
         adsnote = {Provided by the SAO/NASA Astrophysics Data System}
     }
 
+Changelog
+---------
+
+.. include:: ../CHANGELOG.rst

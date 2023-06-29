@@ -151,7 +151,7 @@ def parametric_cmf(times=None, tage=1., **sfh):
     if times is None:
         times = np.array(sfh["tage"])
 
-    pset = parametric_pset(tage=tage**sfh)
+    pset = parametric_pset(tage=tage, **sfh)
     _, mass = compute_mass_formed(tage - times, pset)
     return mass
 
@@ -260,8 +260,8 @@ def compute_mass_formed(times, pset):
     if pset.sfh == 3:
         raise NotImplementedError("This method does not support tabular SFH")
 
-    if tmass < 0:
-        raise ValueError("SF never started (tage - sf_start < 0)")
+    if np.any(tmass < 0):
+        raise ValueError("SF never started (tage - sf_start < 0) for at least one input")
 
     if (pset.const + pset.fburst) > 1:
         raise ValueError("Constant and burst fractions combine to be > 1")

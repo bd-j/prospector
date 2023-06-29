@@ -7,7 +7,9 @@ that can be used as a starting point and then combined or altered.
 
 from copy import deepcopy
 import numpy as np
+import os
 from . import priors
+from . import priors_beta
 from . import transforms
 
 __all__ = ["TemplateLibrary",
@@ -272,9 +274,22 @@ TemplateLibrary["nebular"] = (_nebular_,
 marginalize_elines = {'N': 1, 'isfree': False, 'init': True}
 use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
 nebemlineinspec = {'N': 1, 'isfree': False, 'init': False}  # can't be included w/ marginalization
+
 # marginalize over which of the 128 FSPS emission lines?
 # input is a list of emission line names matching $SPS_HOME/data/emlines_info.dat
-lines_to_fit = {'N': 1, 'isfree': False, 'init': []}
+SPS_HOME = os.getenv('SPS_HOME')
+try:
+    info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
+                     dtype=[('wave', 'f8'), ('name', '<U20')],
+                     delimiter=',')
+except OSError:
+    info = {'name':[]}
+except TypeError:
+    # SPS_HOME not defined
+    info = {'name':[]}
+
+# Fit all lines by default
+elines_to_fit = {'N': 1, 'isfree': False, 'init': np.array(info['name'])}
 eline_prior_width = {'N': 1, 'isfree': False,
                      'init': 0.2,
                      'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
@@ -291,7 +306,7 @@ eline_sigma = {'N': 1, 'isfree': True,
 _neb_marg_ = {"marginalize_elines": marginalize_elines,
               "use_eline_prior": use_eline_prior,
               "nebemlineinspec": nebemlineinspec,
-              "lines_to_fit": lines_to_fit,
+              "elines_to_fit": elines_to_fit,
               "eline_prior_width": eline_prior_width,
               "eline_sigma": eline_sigma
               }
@@ -305,6 +320,20 @@ TemplateLibrary["nebular_marginalization"] = (_neb_marg_,
 TemplateLibrary["fit_eline_redshift"] = (_fit_eline_redshift_,
                                               ("Fit for the redshift of the emission lines separately"
                                                "from the stellar redshift"))
+
+# ------------------------
+# --- AGN Nebular emission
+# ------------------------
+_agn_eline_ = {}
+_agn_eline_["agn_elum"] = dict(N=1, isfree=False, init=1e-4,
+                               prior=priors.Uniform(mini=1e-6, maxi=1e-2),
+                               units="L_Hbeta(Lsun) / Mformed")
+_agn_eline_["agn_eline_sigma"] = dict(N=1, isfree=False, init=100.0,
+                                      prior=priors.Uniform(mini=50, maxi=500))
+_agn_eline_["nebemlineinspec"] = dict(N=1, isfree=False, init=False)  # can't be included w/ AGN lines
+
+TemplateLibrary["agn_eline"] = (_agn_eline_,
+                                ("Add AGN emission lines"))
 
 # -------------------------
 # --- Outlier Templates ---
@@ -502,10 +531,10 @@ _nonpar_continuity_["agebins"]    = {'N': 3, 'isfree': False,
                                      'init': [[0.0, 8.0], [8.0, 9.0], [9.0, 10.0]],
                                      'units': 'log(yr)'}
 # This controls the distribution of SFR(t) / SFR(t+dt). It has NBINS-1 components.
-_nonpar_continuity_["logsfr_ratios"] = {'N': 2, 'isfree': True, 'init': [0.0,0.0],
-                                        'prior':priors.StudentT(mean=np.full(2,0.0),
-                                                                scale=np.full(2,0.3),
-                                                                df=np.full(2,2))}
+_nonpar_continuity_["logsfr_ratios"] = {'N': 2, 'isfree': True, 'init': [0.0, 0.0],
+                                        'prior': priors.StudentT(mean=np.full(2, 0.0),
+                                                                 scale=np.full(2, 0.3),
+                                                                 df=np.full(2, 2))}
 TemplateLibrary["continuity_sfh"] = (_nonpar_continuity_,
                                      "Non-parameteric SFH fitting for mass in fixed time bins with a smoothness prior")
 
@@ -547,6 +576,60 @@ _nonpar_continuity_flex_["agebins"]    = {'N': 4, 'isfree': False,
 TemplateLibrary["continuity_flex_sfh"] = (_nonpar_continuity_flex_,
                                           ("Non-parameteric SFH fitting for mass in flexible time "
                                            "bins with a smoothness prior"))
+
+# ----------------------------
+# --- PSB Continuity SFH ----
+# ----------------------------
+# A non-parametric SFH model of mass in Nfixed fixed bins and Nflex flexible time bins with a smoothness prior. Model described in detail in Suess et al. (2021).
+
+_nonpar_continuity_psb_ = TemplateLibrary["ssp"]
+_ = _nonpar_continuity_psb_.pop("tage")
+
+_nonpar_continuity_psb_["sfh"] = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+
+# This is the *total*  mass formed
+_nonpar_continuity_psb_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
+                                      "prior": priors.TopHat(mini=7, maxi=12)}
+
+# set up the total number of bins that we want in our SFH.
+# there are nfixed "oldest" bins, one "youngest" bin, and nflex flexible bins in between
+# the youngest bin has variable width tlast. tflex is specified by the user, and
+# sets the amount of time available for the flexible+youngest bins (e.g., t_lookback=tflex
+# is the time when the SFH transitions from fixed to flexible bins)
+_nonpar_continuity_psb_['tflex'] = {'name': 'tflex', 'N': 1, 'isfree': False, 'init': 2, 'units':'Gyr'}
+_nonpar_continuity_psb_['nflex'] = {'name': 'nflex', 'N': 1, 'isfree': False, 'init': 5}
+_nonpar_continuity_psb_['nfixed'] = {'name': 'nfixed', 'N': 1, 'isfree': False, 'init': 3}
+_nonpar_continuity_psb_['tlast'] = {'name': 'tlast', 'N': 1, 'isfree': True,
+                                    'init': 0.2, 'prior': priors.TopHat(mini=.01, maxi=1.5)}
+
+# These variables control the ratio of SFRs in adjacent bins
+# there is one for a fixed "youngest" bin, nfixed for nfixed "oldest" bins,
+# and (nflex-1) for nflex flexible bins in between
+_nonpar_continuity_psb_["logsfr_ratio_young"] = {'N': 1, 'isfree': True, 'init': 0.0, 'units': r'dlogSFR (dex)',
+                                                 'prior': priors.StudentT(mean=0.0, scale=0.3, df=2)}
+_nonpar_continuity_psb_["logsfr_ratio_old"] = {'N': 3, 'isfree': True, 'init': np.zeros(3), 'units': r'dlogSFR (dex)',
+                                               'prior': priors.StudentT(mean=np.zeros(3), scale=np.ones(3)*0.3, df=np.ones(3))}
+_nonpar_continuity_psb_["logsfr_ratios"] = {'N': 4, 'isfree': True, 'init': np.zeros(4), 'units': r'dlogSFR (dex)',
+                                            'prior': priors.StudentT(mean=np.zeros(4), scale=0.3*np.ones(4), df=np.ones(4))}
+
+# This will be the mass in each bin.  It depends on other free and fixed
+# parameters.  Its length needs to be modified based on the total number of
+# bins (including fixed young and old bin)
+_nonpar_continuity_psb_["mass"] = {'N': 9, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+                                   'depends_on': transforms.logsfr_ratios_to_masses_psb}
+# This gives the start and stop of each age bin.  The fixed bins can/should be adjusted and its
+# length must match the lenth of "mass"
+agelims = np.array([1, 0.2*1e9] +
+                   np.linspace((0.3 + .1)*1e9, 2e9, 5).tolist() +
+                   np.linspace(2e9, 13.6e9, 4)[1:].tolist())
+_nonpar_continuity_psb_["agebins"]    = {'N': 9, 'isfree': False,
+                                         'depends_on': transforms.psb_logsfr_ratios_to_agebins,
+                                         'init': np.array([np.log10(agelims[:-1]), np.log10(agelims[1:])]).T,
+                                         'units': 'log(yr)'}
+
+TemplateLibrary["continuity_psb_sfh"] = (_nonpar_continuity_psb_,
+                                         ("Non-parameteric SFH fitting for mass in Nfixed fixed bins "
+                                          "and Nflex flexible time bins with a smoothness prior"))
 
 # ----------------------------
 # --- Dirichlet SFH ----
@@ -611,3 +694,46 @@ _alpha_ = adjust_dirichlet_agebins(_alpha_, agelims=(np.log10(alpha_agelims) + 9
 
 TemplateLibrary["alpha"] = (_alpha_,
                             "The prospector-alpha model, Leja et al. 2017")
+
+
+# ----------------------------
+# --- Prospector-beta ---
+# ----------------------------
+
+_beta_nzsfh_ = TemplateLibrary["alpha"]
+_beta_nzsfh_.pop('z_fraction', None)
+_beta_nzsfh_.pop('total_mass', None)
+
+nbins_sfh = 7 # number of sfh bins
+_beta_nzsfh_['nzsfh'] = {'N': nbins_sfh+2, 'isfree': True, 'init': np.concatenate([[0.5,8,0.0], np.zeros(nbins_sfh-1)]),
+                         'prior': priors_beta.NzSFH(zred_mini=1e-3, zred_maxi=15.0,
+                                                    mass_mini=7.0, mass_maxi=12.5,
+                                                    z_mini=-1.98, z_maxi=0.19,
+                                                    logsfr_ratio_mini=-5.0, logsfr_ratio_maxi=5.0,
+                                                    logsfr_ratio_tscale=0.3, nbins_sfh=nbins_sfh,
+                                                    const_phi=True)}
+
+_beta_nzsfh_['zred'] = {'N': 1, 'isfree': False, 'init': 0.5,
+                        'depends_on': transforms.nzsfh_to_zred}
+
+_beta_nzsfh_['logmass'] = {'N': 1, 'isfree': False, 'init': 8.0, 'units': 'Msun',
+                           'depends_on': transforms.nzsfh_to_logmass}
+
+_beta_nzsfh_['logzsol'] = {'N': 1, 'isfree': False, 'init': -0.5, 'units': r'$\log (Z/Z_\odot)$',
+                           'depends_on': transforms.nzsfh_to_logzsol}
+
+# --- SFH ---
+_beta_nzsfh_["sfh"] = {'N': 1, 'isfree': False, 'init': 3}
+
+_beta_nzsfh_['logsfr_ratios'] = {'N': nbins_sfh-1, 'isfree': False, 'init': 0.0,
+                                 'depends_on': transforms.nzsfh_to_logsfr_ratios}
+
+_beta_nzsfh_["mass"] = {'N': nbins_sfh, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+                        'depends_on': transforms.logsfr_ratios_to_masses}
+
+_beta_nzsfh_['agebins'] = {'N': nbins_sfh, 'isfree': False,
+                           'init': transforms.zred_to_agebins_pbeta(np.atleast_1d(0.5), np.zeros(nbins_sfh)),
+                           'depends_on': transforms.zred_to_agebins_pbeta}
+
+TemplateLibrary["beta"] = (_beta_nzsfh_,
+                           "The prospector-beta model; Wang, Leja, et al. 2023")

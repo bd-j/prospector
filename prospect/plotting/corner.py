@@ -23,6 +23,7 @@ __all__ = ["allcorner", "show_extras", "prettify_axes", "corner",
 def allcorner(samples, labels, axes, weights=None, span=None,
               smooth=0.02, color="grey", qcolor=None, show_titles=False,
               hist_kwargs={"alpha": 0.5, "histtype": "stepfilled"},
+              prettify=True, upper=False,
               hist2d_kwargs={}, max_n_ticks=3,
               label_kwargs={"fontsize": 12}, tick_kwargs={"labelsize": 8},
               psamples=None, samples_kwargs={"marker": "o", "color": "k"}):
@@ -89,14 +90,15 @@ def allcorner(samples, labels, axes, weights=None, span=None,
     tick_kwargs : see `prettify_axes`
     """
     axes = corner(samples, axes, weights=weights, span=span,
-                  smooth=smooth, color=color,
+                  smooth=smooth, color=color, upper=upper,
                   hist_kwargs=hist_kwargs, hist2d_kwargs=hist2d_kwargs)
 
-    prettify_axes(axes, labels, max_n_ticks=max_n_ticks,
-                  label_kwargs=label_kwargs, tick_kwargs=tick_kwargs)
+    if prettify:
+        prettify_axes(axes, labels, max_n_ticks=max_n_ticks, upper=upper,
+                      label_kwargs=label_kwargs, tick_kwargs=tick_kwargs)
 
     if psamples is not None:
-        scatter(psamples, axes, zorder=10, **samples_kwargs)
+        scatter(psamples, axes, zorder=10, upper=upper, **samples_kwargs)
 
     if (qcolor is not None) | show_titles:
         show_extras(samples, labels, axes, weights=weights,
@@ -169,9 +171,11 @@ def show_extras(samples, labels, paxes, weights=None,
 
 
 def prettify_axes(paxes, labels=None, label_kwargs={}, tick_kwargs={},
-                  max_n_ticks=3, top_ticks=False, use_math_text=True):
+                  upper=False, max_n_ticks=3, top_ticks=False, use_math_text=True):
     """Set up cornerplot axis labels and ticks to look nice.
 
+    Parameters
+    ----------
     labels : iterable with shape (ndim,), optional
         A list of names for each parameter. If not provided, the default name
         used when plotting will follow :math:`x_i` style.
@@ -179,77 +183,81 @@ def prettify_axes(paxes, labels=None, label_kwargs={}, tick_kwargs={},
     max_n_ticks : int, optional
         Maximum number of ticks allowed. Default is `5`.
 
-    top_ticks : bool, optional
+    top_ticks : bool, optional (deprecated)
         Whether to label the top (rather than bottom) ticks. Default is
         `False`.
+
+    upper : bool, optional (default=False)
+        Set to true if the supplied axes should be formatted for an upper
+        triangular corner plot.
 
     use_math_text : bool, optional
         Whether the axis tick labels for very large/small exponents should be
         displayed as powers of 10 rather than using `e`. Default is `False`.
     """
 
+    if top_ticks:
+        raise(NotImplementedError("Top ticks not implemented in corner.prettify_axes"))
+
     ndim = len(paxes)
     for i in range(ndim):
-        ax = paxes[i, i]
-        # Setup axes
-        if max_n_ticks == 0:
-            ax.xaxis.set_major_locator(NullLocator())
-            ax.yaxis.set_major_locator(NullLocator())
-        else:
-            ax.xaxis.set_major_locator(MaxNLocator(max_n_ticks, prune="lower"))
-            ax.yaxis.set_major_locator(NullLocator())
-        # Label axes.
-        sf = ScalarFormatter(useMathText=use_math_text)
-        ax.xaxis.set_major_formatter(sf)
-        if i < ndim - 1:
-            if top_ticks:
-                ax.xaxis.set_ticks_position("top")
-                [l.set_rotation(45) for l in ax.get_xticklabels()]
-            else:
-                ax.set_xticklabels([])
-        else:
-            [l.set_rotation(45) for l in ax.get_xticklabels()]
-            ax.set_xlabel(labels[i], **label_kwargs)
-            ax.xaxis.set_label_coords(0.5, -0.3)
-            ax.tick_params(axis='both', which='major', **tick_kwargs)
-
         for j in range(ndim):
             ax = paxes[i, j]
-            if j > i:
+
+            if ((j < i) & upper) or ((j > i) & (not upper)):
+                # suppress upper triangular or lower triangular aces
                 ax.set_frame_on(False)
                 ax.set_xticks([])
                 ax.set_yticks([])
                 continue
-            if j == i:
-                continue
 
+            # Set up default tick spacing and format
+            sf = ScalarFormatter(useMathText=use_math_text)
+            ax.xaxis.set_major_formatter(sf)
+            ax.yaxis.set_major_formatter(sf)
             if max_n_ticks == 0:
                 ax.xaxis.set_major_locator(NullLocator())
                 ax.yaxis.set_major_locator(NullLocator())
             else:
                 ax.xaxis.set_major_locator(MaxNLocator(max_n_ticks, prune="lower"))
                 ax.yaxis.set_major_locator(MaxNLocator(max_n_ticks, prune="lower"))
-            # Label axes.
-            sf = ScalarFormatter(useMathText=use_math_text)
-            ax.xaxis.set_major_formatter(sf)
-            ax.yaxis.set_major_formatter(sf)
-            if i < ndim - 1:
-                ax.set_xticklabels([])
-            else:
+
+            ax.set_frame_on(True)
+            if ((j == i) & upper) or ((i == (ndim - 1)) & (not upper)):
+                # x-axis format for bottom valid plot in each column
                 [l.set_rotation(45) for l in ax.get_xticklabels()]
                 ax.set_xlabel(labels[j], **label_kwargs)
                 ax.xaxis.set_label_coords(0.5, -0.3)
-            if j > 0:
-                ax.set_yticklabels([])
+                ax.tick_params(axis='both', which='major', **tick_kwargs)
+                # TODO: this needs a separate if statement to choose the upper axes in each column
+                #if top_ticks:
+                #    ax.xaxis.set_ticks_position("top")
+                #    [l.set_rotation(45) for l in ax.get_xticklabels()]
             else:
-                [l.set_rotation(45) for l in ax.get_yticklabels()]
+                ax.set_xticklabels([])
+
+            if ((j == (ndim-1)) & (i < (ndim-1)) & upper) or ((j == 0) & (i > 0) & (not upper)):
+                # ylabels for edges
                 ax.set_ylabel(labels[i], **label_kwargs)
-                ax.yaxis.set_label_coords(-0.3, 0.5)
-            ax.tick_params(axis='both', which='major', **tick_kwargs)
+                if upper:
+                    ax.yaxis.set_label_position("right")
+                    ax.yaxis.tick_right()
+                else:
+                    ax.yaxis.set_label_coords(-0.3, 0.5)
+                [l.set_rotation(45) for l in ax.get_yticklabels()]
+                ax.tick_params(axis='both', which='major', **tick_kwargs)
+            else:
+                ax.set_yticklabels([])
+
+            if j == i:
+                # diagonal are marginals, suppress y-axis ticks
+                ax.yaxis.set_major_locator(NullLocator())
+
+    return paxes
 
 
 def corner(samples, paxes, weights=None, span=None, smooth=0.02,
-           color='black', hist_kwargs={}, hist2d_kwargs={}):
+           color='black', hist_kwargs={}, hist2d_kwargs={}, upper=False):
     """Make a smoothed cornerplot.
 
     :param samples: `~numpy.ndarray` of shape (ndim, nsample)
@@ -284,6 +292,10 @@ def corner(samples, paxes, weights=None, span=None, smooth=0.02,
         value for each subplot) used when plotting the histograms.
         Default is `'black'`.
 
+    upper : bool, optional (default=False)
+        Set to true if the supplied axes should be formatted for an upper
+        triangular corner plot.
+
     :param hist_kwargs: dict, optional
         Extra keyword arguments to send to the 1-D (smoothed) histograms.
 
@@ -316,7 +328,9 @@ def corner(samples, paxes, weights=None, span=None, smooth=0.02,
         for j, yy in enumerate(samples):
             y = yy.flatten()
             ax = paxes[i, j]
-            if j >= i:
+            if (j >= i) & (not upper):
+                continue
+            elif (j <= i) & upper:
                 continue
 
             sy = smooth[j]
@@ -422,7 +436,7 @@ def twodhist(x, y, ax=None, span=None, weights=None,
 
     # Smooth the results.
     if not np.all(svalues == 0.):
-        H = norm_kde(H, svalues)
+        H = norm_kde(H*1.0, svalues)
 
     # Compute the density levels.
     Hflat = H.flatten()
@@ -503,7 +517,7 @@ def marginal(x, ax=None, weights=None, span=None, smooth=0.02,
         bins = int(round(10. / smooth))
         n, b = np.histogram(x, bins=bins, weights=weights,
                             range=np.sort(span))
-        n = norm_kde(n, 10.)
+        n = norm_kde(n*1.0, 10.)
         b0 = 0.5 * (b[1:] + b[:-1])
         xx, bins, wght = b0, b, n
 
@@ -516,14 +530,18 @@ def marginal(x, ax=None, weights=None, span=None, smooth=0.02,
     ax.set_ylim([0., max(n) * 1.05])
 
 
-def scatter(samples, paxes, **scatter_kwargs):
+def scatter(samples, paxes, upper=False, **scatter_kwargs):
     """Overplot selected points on cornerplot.
+
+    Parameters
+    ----------
+    samples : shape (ndim, npts)
     """
     assert samples.ndim > 1
     for i, xx in enumerate(samples):
         x = xx.flatten()
-        for j, yy in enumerate(samples[:i]):
-            if j >= i:
+        for j, yy in enumerate(samples):
+            if ((j >= i) and (not upper)) or ((j <= i) and upper):
                 continue
             ax = paxes[i, j]
             y = yy.flatten()

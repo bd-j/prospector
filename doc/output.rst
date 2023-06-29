@@ -40,45 +40,11 @@ The results dictionary contains the information needed to regenerate the *sps* o
 
 		sps = reader.get_sps(res)
 
-It can sometimes be difficult to reconstitute the model object if it is complicated,
-for example if it was built by using or referencing files or data that are no longer available.
-For this reason it is suggested that references to filenames in parameter files be made command-line arguments
-
-Pickles
-----------------------
-It is possible to output prospector results as python "pickle" files.
-The results pickle is a serialization of the results dictionary,
-and has ``<timestamp>_mcmc`` appended onto the output file string specified when the code was run,
-where ``timestamp`` is in UT seconds.
-It uses only basic scientific python types (e.g. dictionaries, lists, and numpy arrays).
-It should therefore be readable on any system with Python and Numpy installed.
-This can be accomplished with
-
-.. code-block:: python
-
-		import pickle
-		filename = "<outfilestring>_<timestamp>_mcmc"
-		with open(filename, "rb") as f:
-		    result = pickle.load(f)
-		print(result.keys())
-
-A second pickle file containing the model object has the extension ``<timestamp>_model``.
-It is a direct serialization of the model object used during fitting, and is thus useful for regenerating posterior samples of the SED,
-or otherwise exploring properties of the model.
-
-However, this requires Python and a working |Codename| installation of a version compatible with the one used to generate the model pickle.
-If that is possible, then the following code will read the model pickle:
-
-.. code-block:: python
-
-		import pickle
-		model_file = "<outfilestring>_<timestamp>_model"
-		with open(model_file, 'rb') as mf:
-		    mod = pickle.load(mf)
-		print(type(mod))
-
-If Powell optimization was performed, this pickle also contains the optimization results (as a list of Scipy OptimizerResult objects).
-
+It can sometimes be difficult to reconstitute the model object if it is
+complicated, for example if it was built by referencing files or data that are
+no longer available. For this reason it is suggested that references to
+filenames in parameter files be made through command-line arguments that can be
+altered easily when reconsitituting the model.
 
 
 Basic diagnostic plots
@@ -119,8 +85,7 @@ Taking the MAP as an example, this would be accomplished by
 
 .. code-block:: python
 
-		import np
-
+        import numpy as np
         # Find the index of the maximum a posteriori sample
         ind_max = results["lnprobability"].argmax()
         if res["chain"].ndim > 2:
@@ -156,7 +121,6 @@ without the need to regenerate the ``sps`` object
 .. code-block:: python
 
         import matplotlib.pyplot as pl
-
 		best = res["bestfit"]
         a = model.params["zred"] + 1
         pl.plot(a * best["restframe_wavelengths"], best['spectrum'], label="MAP spectrum")

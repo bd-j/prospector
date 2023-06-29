@@ -1,4 +1,9 @@
 numpy >= 1.16
 scipy >= 1.1.0
 matplotlib >= 3.0
-sphinx>=1.7.5
+astropy
+h5py
+astro-sedpy
+sphinx-book-theme
+myst-nb
+numpydoc

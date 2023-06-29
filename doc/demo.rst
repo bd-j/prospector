@@ -1,8 +1,15 @@
-Demonstrations
-===============
-You can check out the Jupyter notebook demo at
+.. _demo:
 
-  * `InteractiveDemo <https://github.com/bd-j/prospector/blob/main/demo/InteractiveDemo.ipynb>`_
+Demonstrations
+==============
+
+You can check out the Jupyter notebook demo at the
+`InteractiveDemo <https://github.com/bd-j/prospector/blob/main/demo/InteractiveDemo.ipynb>`_
+
+Code used to make the fits and figures in the `prospector paper
+<https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract>`_
+is available in `this <https://github.com/bd-j/exspect>`_ github repository.
+
 
 Interactive Figure
 ------------------
