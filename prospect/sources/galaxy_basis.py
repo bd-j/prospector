@@ -161,6 +161,10 @@ class SSPBasis(object):
     def wavelengths(self):
         return self.ssp.wavelengths.copy()
 
+    @property
+    def spectral_resolution(self):
+        r = getattr(self.ssp, "resolutions", np.array(0))
+        return r
 
 class FastStepBasis(SSPBasis):
     """Subclass of :py:class:`SSPBasis` that implements a "nonparameteric"
