@@ -112,6 +112,8 @@ class SpecModel(ProspectorParams):
         eline_z = self.params.get("eline_delta_zred", 0.0)
         self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
         self._ln_eline_penalty = 0
+        # physical velocity smoothing of the whole UV/NIR spectrum
+        self._smooth_spec = self.velocity_smoothing(self._wave, self._norm_spec)
 
         # generate predictions for likelihood
         # this assumes all spectral datasets (if present) occur first
@@ -181,12 +183,10 @@ class SpecModel(ProspectorParams):
         self.cache_eline_parameters(obs)
 
         # --- smooth and put on output wavelength grid ---
-        # Physical smoothing of the whole spectrum
-        smooth_spec = self.velocity_smoothing(obs_wave, self._norm_spec)
         # Instrumental smoothing (accounting for library resolution)
         # Put onto the spec.wavelength grid.
-        smooth_spec = obs.instrumental_smoothing(obs_wave, smooth_spec,
-                                                 libres=self._library_resolution)
+        inst_spec = obs.instrumental_smoothing(obs_wave, self._smooth_spec,
+                                               libres=self._library_resolution)
 
         # --- add fixed lines if necessary ---
         emask = self._fix_eline_pixelmask
@@ -195,11 +195,11 @@ class SpecModel(ProspectorParams):
             espec = self.predict_eline_spec(line_indices=inds,
                                             wave=self._outwave[emask])
             self._fix_eline_spec = espec
-            smooth_spec[emask] += self._fix_eline_spec.sum(axis=1)
+            inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
 
         # --- calibration ---
-        self._speccal = self.spec_calibration(obs=obs, spec=smooth_spec, **extras)
-        calibrated_spec = smooth_spec * self._speccal
+        self._speccal = self.spec_calibration(obs=obs, spec=inst_spec, **extras)
+        calibrated_spec = inst_spec * self._speccal
 
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
@@ -636,8 +636,12 @@ class SpecModel(ProspectorParams):
         for details.
         """
         sigma = self.params.get("sigma_smooth", 300)
-        outspec = smoothspec(wave, spec, sigma, outwave=wave,
-                             smoothtype="vel", fft=True)
+        sel = (wave > 1.2e3) & (wave < 2.5e4)
+        # TODO: make a fast version of this that is also accurate
+        sm = smoothspec(wave, spec, sigma, outwave=wave[sel],
+                        smoothtype="vel", fft=True)
+        outspec = spec.copy()
+        outspec[sel] = sm
 
         return outspec
 

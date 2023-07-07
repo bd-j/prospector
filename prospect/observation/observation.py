@@ -13,6 +13,8 @@ __all__ = ["Observation", "Spectrum", "Photometry", "Lines"
            "from_oldstyle", "from_serial", "obstypes"]
 
 
+CKMS = 2.998e5
+
 class NumpyEncoder(json.JSONEncoder):
 
     def default(self, obj):
@@ -125,6 +127,14 @@ class Observation:
             return 0
         else:
             return len(self.wavelength)
+
+    @property
+    def wave_min(self):
+        return np.min(self.wavelength)
+
+    @property
+    def wave_max(self):
+        return np.max(self.wavelength)
 
     @property
     def metadata(self):
@@ -279,7 +289,18 @@ class Spectrum(Observation):
         self.resolution = resolution
         self.calibration = calibration
         self.instrument_smoothing_parameters = dict(smoothtype="vel", fftsmooth=True)
+        assert np.all(np.diff(self.wavelength) > 0)
+        self.pad_wavelength_array()
 
+    def pad_wavelength_array(self, lambda_pad=100):
+        #wave_min = self.wave_min * (1 - np.arange(npad, 0, -1) * Kdelta[0] / ckms)
+        low_pad = np.arange(lambda_pad, 1, (self.wavelength[0]-self.wavelength[1]))
+        hi_pad = np.arange(1, lambda_pad, (self.wavelength[-1]-self.wavelength[-2]))
+        wave_min = self.wave_min - low_pad
+        wave_max = self.wave_max + hi_pad
+        self.padded_wavelength = np.concatenate([wave_min, self.wavelength, wave_max])
+        self.padded_resolution = np.interp(self.padded_wavelength, self.wavelength, self.resolution)
+        self._unpadded_inds = slice(len(low_pad), -len(hi_pad))
 
     def smooth_lsf_fft(self, inwave, influx, outwave, sigma):
         dw = np.gradient(outwave)
@@ -301,48 +322,7 @@ class Spectrum(Observation):
         outflux = np.interp(outwave, lam, flux_conv)
         return outflux
 
-
-
     def instrumental_smoothing(self, wave_obs, influx, zred=0, libres=0):
-        # interpolate library resolution onto the observed frame wavelength grid
-        Klib = np.interp(self.wavelength, wave_obs, libres)
-        # quadrature difference of instrumental and library reolution
-        Kdelta = np.sqrt(self.resolution**2 - Klib**2)
-        Kdelta_lambda = Kdelta / ckms * self.wavelength
-
-        ckms = 2.998e5
-        npad = 5
-        # build wavelength sampling for this delta kernel.  one pixel every sigma
-        wave_min = self.wavelength.min() * (1 - np.arange(npad, 0, -1) * Kdelta[0] / ckms)
-        wave_max = self.wavelength.min() * (1 + np.arange(1, npad+1, 1) * Kdelta[-1] / ckms)
-        wave_padded = np.concatenate([wave_min, self.wwavelength, wave_max])
-        kdl_padded = np.concatenate([(npad * [Kdelta_lambda[0]]),
-                                     Kdelta_lambda,
-                                     (npad * [Kdelta_lambda[-1]])]
-                                    )
-
-        outspec_padded = self.smooth_lsf_fft(wave_obs,
-                                             influx,
-                                             wave_padded,
-                                             kdl_padded)
-
-        if False:
-            warr = [wave_min]
-            while warr[-1] < wave_max:
-                w = warr[-1]
-                dv = np.interp(w, self.wavelength, Kdelta)
-                warr.append((1 + dv / ckms) * w)
-            warr = np.array(warr)
-            flux_resampled = np.interp(warr, wave_obs, influx)
-            np.convolve(flux_resampled, )
-
-        return outspec_padded[npad:-npad]
-
-
-
-
-
-    def _junk_instrumental_smoothing(self, obswave, influx, zred=0, libres=0):
         """Smooth a spectrum by the instrumental resolution, optionally
         accounting (in quadrature) the intrinsic library resolution.
 
@@ -365,58 +345,27 @@ class Spectrum(Observation):
             the observed ``wavelength`` grid.  If resolution is None, this just
             passes ``influx`` right back again.
         """
-        # No spectrum
-        if (self.wavelength is None):
-                # no-op
-                out = influx
+        # interpolate library resolution onto the instrumental wavelength grid
+        Klib = np.interp(self.padded_wavelength, wave_obs, libres)
+        # quadrature difference of instrumental and library reolution
+        Kdelta = np.sqrt(self.padded_resolution**2 - Klib**2)
+        Kdelta_lambda = Kdelta / CKMS * self.padded_wavelength
 
-        # no smoothing
-        if self.resolution is None:
-            kernel = 0
-            smooth_type = smooth_vel_fft
+        outspec_padded = self.smooth_lsf_fft(wave_obs,
+                                             influx,
+                                             self.padded_wavelength,
+                                             Kdelta_lambda)
+        if False:
+            warr = [wave_min]
+            while warr[-1] < wave_max:
+                w = warr[-1]
+                dv = np.interp(w, self.wavelength, Kdelta)
+                warr.append((1 + dv / ckms) * w)
+            warr = np.array(warr)
+            flux_resampled = np.interp(warr, wave_obs, influx)
+            np.convolve(flux_resampled, )
 
-        if len(np.atleast_1d(self.resolution)) > 1:
-            instres = np.interp(obswave, self.wavelength, self.resolution)
-        else:
-            instres = self.resolution
-
-        kernel = np.sqrt(instres**2 - libres**2)
-        if len(np.unique(kernel)) == 1:
-            smooth_type = smooth_lsf_fft
-            linear = False
-            kernel = kernel[mask]
-        else:
-            smooth_type = smooth_vel_fft
-            linear = True
-        mask = mask_wave(wave, width=width, outwave=outwave, linear=linear)
-
-
-
-
-                out = np.interp(self.wavelength, obswave, influx)
-            return out
-
-        # instrument resolution
-        if ((len(np.atleast_1d(self.resolution)) > 1) &
-            (self.wavelength is not None)):
-            # as a vector interpolated to input wavelengths
-            instres = np.interp(obswave, self.wavelength, self.resolution)
-        else:
-            # as a scalar
-            instres = self.resolution
-
-
-            kernels = np.unique(kernel)
-            if len(kernels) == 1:
-                kernel = kernels[0]
-                assert self.instrument_smoothing_parameters["smoothtype"] == "vel"
-            else:
-                assert self.instrument_smoothing_parameters["smoothtype"] == "lsf"
-
-            out = smoothspec(obswave, influx, kernel,
-                             outwave=self.wavelength,
-                             **self.instrument_smoothing_parameters)
-        return out
+        return outspec_padded[self._unpadded_inds]
 
     def to_oldstyle(self):
         obs = {}
