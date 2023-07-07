@@ -639,7 +639,7 @@ class SpecModel(ProspectorParams):
         sel = (wave > 1.2e3) & (wave < 2.5e4)
         # TODO: make a fast version of this that is also accurate
         sm = smoothspec(wave, spec, sigma, outwave=wave[sel],
-                        smoothtype="vel", fft=True)
+                        smoothtype="vel", fftsmooth=True)
         outspec = spec.copy()
         outspec[sel] = sm
 
