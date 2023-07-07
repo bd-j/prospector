@@ -2,5 +2,5 @@
 
 from .observation import Photometry, Spectrum, Lines, from_oldstyle
 
-__all__ = ["Photometry", "Spectrum", "Lines",
+__all__ = ["Observation", "Photometry", "Spectrum", "Lines",
            "from_oldstyle"]

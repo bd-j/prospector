@@ -129,6 +129,8 @@ class SpecModel(ProspectorParams):
             prediction = self.predict_lines(obs)
         elif obs.kind == "photometry":
             prediction = self.predict_phot(obs.filterset)
+        else:
+            prediction = None
         return prediction
 
     def predict_spec(self, obs, **extras):
@@ -434,12 +436,17 @@ class SpecModel(ProspectorParams):
             self._fix_eline_pixelmask = np.array([], dtype=bool)
             return
 
-        # observed linewidths
+        # linewidths
         nline = self._ewave_obs.shape[0]
+        # physical linewidths
         self._eline_sigma_kms = np.atleast_1d(self.params.get('eline_sigma', 100.0))
         # what is this wierd construction for?
         self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
+        # instrumental linewidths
+        if obs.resolution is not None:
+            sigma_inst = np.interp(self._ewave_obs, obs.wavelength, obs.resolution)
+            self._eline_sigma_kms = np.hypot(self._eline_sigma_kms, sigma_inst)
 
         # --- get valid lines ---
         # fixed and fit lines specified by user, but remove any lines which do
