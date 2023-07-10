@@ -1,7 +1,20 @@
 .. :changelog:
 
-v1.1 (2022-02-20)
-+++++++++++++++++
+v1.2.0 (2022-12-31)
++++++++++++++++++++
+
+- Document, improvements, and bugfixes in ``LineSpecModel`` (h/t @kgarofali)
+- Add ``AGNSpecModel`` with a scalable, empirical AGN emission line template.
+- Fix floating point issue with Dirichlet SFH transforms.
+- Implement ``nested_target_n_effective`` as dynesty stopping criterion.
+- Fixes to the dynesty interface for dynesty >= 2.0 (h/t @mjastro)
+- Fix sign error in Powell minimization (h/t @blanton144)
+- Fix bugs in parameter template for emission line fitting.
+- numeropus documentation updates including nebular emission details.
+
+
+v1.1.0 (2022-02-20)
++++++++++++++++++++
 
 - Improved treatment of emission lines in ``SpecModel``, including ability to ignore
   selected lines entirely.
@@ -14,7 +27,7 @@ v1.1 (2022-02-20)
 - Several bugfixes including fixes to the "logm_sfh" parameter template, a fix
   for the nested sampling argument parsing, and bestfit spectrum saving.
 
-v1.0 (2021-12-02)
+v1.0 (2020-12-02)
 +++++++++++++++++
 
 Release to accompany submitted paper. Includes
@@ -23,7 +36,7 @@ Release to accompany submitted paper. Includes
 - Demonstrations of MPI usage with dynesty
 - Numerous small bugfixes.
 
-v0.4 (2021-07-08)
+v0.4 (2020-07-08)
 +++++++++++++++++
 
 - New ``models.SpecModel`` class that handles much of the conversion from FSPS

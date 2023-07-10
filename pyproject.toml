@@ -1,3 +1,41 @@
+[project]
+name = "astro-prospector"
+description = "Stellar Population Inference from Spectra and SEDs"
+authors = [
+    { name="Ben Johnson", email="benjamin.johnson@cfa.harvard.edu" },
+]
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT License" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Topic :: Scientific/Engineering :: Astronomy"
+]
+dynamic = ["version"]
+dependencies = ["numpy", "h5py"]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-xdist"]
+
+
+[tool.setuptools]
+packages = ["prospect",
+            "prospect.models", "prospect.sources",
+            "prospect.likelihood", "prospect.fitting",
+            "prospect.io", "prospect.plotting", "prospect.utils"]
+
+[project.urls]
+"Homepage" = "https://prospect.readthedocs.io/en/latest/"
+"Source" = "https://github.com/bd-j/prospector"
+"Bug Tracker" = "https://github.com/bd-j/prospector/issues"
+
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=42", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "prospect/_version.py"

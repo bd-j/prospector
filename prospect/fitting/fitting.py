@@ -105,7 +105,8 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     if phot_noise is not None:
         phot_noise.update(**model.params)
         vectors.update({'phot_unc': obs.get('maggies_unc', None),
-                        'phot': obs.get('maggies', None)})
+                        'phot': obs.get('maggies', None),
+                        'filter_names': obs.get('filter_names', None)})
 
     # --- Generate mean model ---
     try:

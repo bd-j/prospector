@@ -102,8 +102,12 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         units = 'km/s'
         sigma = resolution
         fwhm = sigma * sigma_to_fwhm
-        Rsigma = ckms / sigma
-        R = ckms / fwhm
+        if sigma == 0.0:
+            Rsigma = np.infty
+            R = np.infty
+        else:
+            Rsigma = ckms / sigma
+            R = ckms / fwhm
         width = Rsigma
         assert np.size(sigma) == 1, "`resolution` must be scalar for `smoothtype`='vel'"
 
