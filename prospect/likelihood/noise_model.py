@@ -51,7 +51,7 @@ class NoiseModel:
             var_bad = var * (self.n_sigma_outlier**2)
             lnp_bad = -0.5*((delta**2 / var_bad) + np.log(2*np.pi*var_bad))
             lnp_tot = np.logaddexp(lnp + np.log(1 - self.f_outlier), lnp_bad + np.log(self.f_outlier))
-            return lnp_tot
+            return np.sum(lnp_tot)
         else:
             raise ValueError("f_outlier must be >= 0")
 
