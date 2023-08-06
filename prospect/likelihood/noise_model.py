@@ -25,6 +25,11 @@ class NoiseModel:
         self.nsigma_out_name = nsigma_out_name
         self.kernels = []
 
+    def _available_parameters(self):
+        new_pars = [(self.frac_out_name, "Fraction of data points that are outliers"),
+                    (self.nsigma_out_name, "Dispersion of the outlier distribution, in units of chi")]
+        return new_pars
+
     def update(self, **params):
         self.f_outlier = params.get(self.frac_out_name, 0)
         self.n_sigma_outlier = params.get(self.nsigma_out_name, 50)
@@ -99,6 +104,13 @@ class NoiseModel1D(NoiseModel):
         self.kernels = kernels
         self.metric_name = metric_name
         self.mask_name = mask_name
+
+    def _available_parameters(self):
+        new_pars = [(self.frac_out_name, "Fraction of data points that are outliers"),
+                    (self.nsigma_out_name, "Dispersion of the outlier distribution, in units of chi")]
+        for kernel in self.kernels:
+            new_pars += getattr(kernel, "_available_parameters", [])
+        return new_pars
 
     def construct_covariance(self, **vectors):
         """Construct a covariance matrix from a metric, a list of kernel
