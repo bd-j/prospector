@@ -293,14 +293,17 @@ class Spectrum(Observation):
         self.pad_wavelength_array()
 
     def pad_wavelength_array(self, lambda_pad=100):
+        if self.wavelength is None:
+            return
         #wave_min = self.wave_min * (1 - np.arange(npad, 0, -1) * Kdelta[0] / ckms)
         low_pad = np.arange(lambda_pad, 1, (self.wavelength[0]-self.wavelength[1]))
         hi_pad = np.arange(1, lambda_pad, (self.wavelength[-1]-self.wavelength[-2]))
         wave_min = self.wave_min - low_pad
         wave_max = self.wave_max + hi_pad
         self.padded_wavelength = np.concatenate([wave_min, self.wavelength, wave_max])
-        self.padded_resolution = np.interp(self.padded_wavelength, self.wavelength, self.resolution)
         self._unpadded_inds = slice(len(low_pad), -len(hi_pad))
+        if self.resolution is not None:
+            self.padded_resolution = np.interp(self.padded_wavelength, self.wavelength, self.resolution)
 
     def smooth_lsf_fft(self, inwave, influx, outwave, sigma):
         dw = np.gradient(outwave)
@@ -328,23 +331,29 @@ class Spectrum(Observation):
 
         Parameters
         ----------
-        obswave : ndarray of shape (N_pix_model,)
-            Observed frame wavelengths, in units of AA for the model
+        wave_obs : ndarray of shape (N_pix_model,)
+            Observed frame wavelengths, in units of AA for the *model*
 
         influx : ndarray of shape (N_pix_model,)
-            Flux array
+            Flux array corresponding to the observed frame wavelengths
 
         libres : float or ndarray of shape (N_pix_model,)
-            Library resolution in units of km/s (dispersion) to be subtracted from the smoothing kernel.
-            This should be in the observed frame and *on the same wavelength grid as obs.wavelength*
+            Library resolution in units of km/s (dispersion) to be subtracted
+            from the smoothing kernel. This should be in the observed frame and
+            on the same wavelength grid as obswave
 
         Returns
         -------
         outflux : ndarray of shape (ndata,)
             If instrument resolution is not None, this is the smoothed flux on
-            the observed ``wavelength`` grid.  If resolution is None, this just
-            passes ``influx`` right back again.
+            the observed ``wavelength`` grid.  If wavelength is None, this just
+            passes ``influx`` right back again.  If ``resolution`` is None then
+            ``influx`` is simply interpolated onto the wavelength grid
         """
+        if self.wavelength is None:
+            return influx
+        if self.resolution is None:
+            return np.interp(self.wavelength, wave_obs, influx)
         # interpolate library resolution onto the instrumental wavelength grid
         Klib = np.interp(self.padded_wavelength, wave_obs, libres)
         # quadrature difference of instrumental and library reolution

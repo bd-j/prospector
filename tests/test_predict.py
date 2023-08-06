@@ -97,9 +97,21 @@ def lnlike_testing(build_sps):
 
     from prospect.likelihood.likelihood import compute_lnlike
     from prospect.fitting import lnprobfn
-    lnp = lnprobfn(model.theta, model=model, observations=obslist, sps=sps)
 
-    #%timeit model.prior_product(model.theta)
-    #%timeit predictions, x = model.predict(model.theta + np.random.uniform(0, 3) * arr, observations=obslist, sps=sps)
-    #%timeit lnp_data = [compute_lnlike(pred, obs, vectors={}) for pred, obs in zip(predictions, observations)]
-    #%timeit lnp = lnprobfn(model.theta + np.random.uniform(0, 3) * arr, model=model, observations=obslist, sps=sps)
+    predictions, x = model.predict(model.theta, observations, sps=sps)
+    lnp_data = [compute_lnlike(pred, obs, vectors={}) for pred, obs
+                in zip(predictions, observations)]
+    assert np.all([np.isscalar(p) for p in lnp_data])
+    assert len(lnp_data) == len(observations)
+
+    lnp = lnprobfn(model.theta, model=model, observations=observations, sps=sps)
+
+    assert np.isscalar(lnp)
+
+    # %timeit model.prior_product(model.theta)
+    # arr = np.zeros(model.ndim)
+    # arr[-1] = 1
+    # theta = model.theta.copy()
+    # %timeit predictions, x = model.predict(theta + np.random.uniform(-0.1, 0.1) * arr, observations=observations, sps=sps)
+    # %timeit lnp_data = [compute_lnlike(pred, obs, vectors={}) for pred, obs in zip(predictions, observations)]
+    # %timeit lnp = lnprobfn(theta + np.random.uniform(0, 3) * arr, model=model, observations=observations, sps=sps)
