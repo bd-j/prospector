@@ -293,6 +293,9 @@ class Spectrum(Observation):
         self.pad_wavelength_array()
 
     def pad_wavelength_array(self, lambda_pad=100):
+        """Pad the wavelength and, if present, resolution arrays so that FFTs
+        can be used on the models without edge effects.
+        """
         if self.wavelength is None:
             return
         #wave_min = self.wave_min * (1 - np.arange(npad, 0, -1) * Kdelta[0] / ckms)
@@ -356,10 +359,10 @@ class Spectrum(Observation):
             return np.interp(self.wavelength, wave_obs, influx)
         # interpolate library resolution onto the instrumental wavelength grid
         Klib = np.interp(self.padded_wavelength, wave_obs, libres)
-        # quadrature difference of instrumental and library reolution
+        # quadrature difference of instrumental and library resolution
+        assert np.all(self.padded_resolution >= Klib), "data higher resolution than library"
         Kdelta = np.sqrt(self.padded_resolution**2 - Klib**2)
         Kdelta_lambda = Kdelta / CKMS * self.padded_wavelength
-
         outspec_padded = self.smooth_lsf_fft(wave_obs,
                                              influx,
                                              self.padded_wavelength,
