@@ -4,6 +4,7 @@ except(ImportError):
     pass
 
 from . import models
+from . import observation
 from . import fitting
 from . import io
 from . import sources

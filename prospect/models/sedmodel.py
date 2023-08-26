@@ -572,7 +572,7 @@ class SpecModel(ProspectorParams):
 
         # Cache the ln-penalty
         # FIXME this needs to be acumulated if there are multiple spectra
-        self._ln_eline_penalty = K
+        self._ln_eline_penalty += K
 
         # Store fitted emission line luminosities in physical units
         self._eline_lum[idx] = alpha_bar / linecal

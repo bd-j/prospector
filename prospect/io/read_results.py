@@ -183,17 +183,17 @@ def read_hdf5(filename, **extras):
         res.update(groups['sampling'])
         res["bestfit"] = groups["bestfit"]
         res["optimization"] = groups["optimization"]
+        # do observations
         if 'observations' in hf:
             obs = obs_from_h5(hf['observations'])
         else:
             obs = None
-        #res['obs'] = obs
 
     return res, obs
 
 
 def obs_from_h5(obsgroup):
-    from ..data.observation import from_serial
+    from ..observation import from_serial
     observations = []
     for obsname, dset in obsgroup.items():
         arr, meta = dset[:], dict(dset.attrs)

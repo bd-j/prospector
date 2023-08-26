@@ -39,8 +39,8 @@ class Observation:
 
     logify_spectrum = False
     alias = {}
-    _meta = ["kind", "name"]
-    _data = ["wavelength", "flux", "uncertainty", "mask"]
+    _meta = ("kind", "name")
+    _data = ("wavelength", "flux", "uncertainty", "mask")
 
     def __init__(self,
                  flux=None,
@@ -147,14 +147,23 @@ class Observation:
         """Convert data to a structured array
         """
         self._automask()
-        dtype = np.dtype([(c, data_dtype) for c in self._data])
-        struct = np.zeros(self.ndata, dtype=dtype)
+        cols = []
         for c in self._data:
+            dat = getattr(self, c)
+            if (dat is None):
+                continue
+            if (len(dat) != self.ndata):
+                continue
+                #raise ValueError(f"The {c} attribute of the {self.name} observation has the wrong length ({len(dat)} instead of {self.ndata})")
+            cols += [(c, dat.dtype)]
+        dtype = np.dtype(cols)
+        struct = np.zeros(self.ndata, dtype=dtype)
+        for c in dtype.names:
             data = getattr(self, c)
-            try:
+            if c is not None:
                 struct[c] = data
-            except(ValueError):
-                pass
+            #except(ValueError):
+            #    pass
         return struct
 
     def to_fits(self, filename=""):
@@ -176,8 +185,16 @@ class Observation:
         serial = json.dumps(obs, cls=NumpyEncoder)
         return serial
 
+    def to_oldstyle(self):
+        obs = {}
+        obs.update(vars(self))
+        for k, v in self.alias.items():
+            obs[k] = self[v]
+            _ = obs.pop(v)
+        return obs
+
     @property
-    def to_nJy(self):
+    def maggies_to_nJy(self):
         return 1e9 * 3631
 
 
@@ -188,7 +205,7 @@ class Photometry(Observation):
                  maggies_unc="uncertainty",
                  filters="filters",
                  phot_mask="mask")
-    _meta = ["kind", "name", "filternames"]
+    _meta =  ("kind", "name", "filternames")
 
     def __init__(self, filters=[], name="PhotA", **kwargs):
         """On Observation object that holds photometric data
@@ -211,6 +228,8 @@ class Photometry(Observation):
         super(Photometry, self).__init__(name=name, **kwargs)
 
     def set_filters(self, filters):
+
+        # TODO: Make this less convoluted
         if (len(filters) == 0) or (filters is None):
             self.filters = filters
             self.filternames = []
@@ -235,13 +254,7 @@ class Photometry(Observation):
         return np.array([f.wave_effective for f in self.filters])
 
     def to_oldstyle(self):
-        obs = {}
-        obs.update(vars(self))
-        for k, v in self.alias.items():
-            obs[k] = self[v]
-            _ = obs.pop(v)
-        #obs.update({k: self[v] for k, v in self.alias.items()})
-        #_ = [obs.pop(k) for k in ["flux", "uncertainty", "mask"]]
+        obs = super(Photometry, self).to_oldstyle()
         obs["phot_wave"] = self.wavelength
         return obs
 
@@ -254,14 +267,16 @@ class Spectrum(Observation):
                  wavelength="wavelength",
                  mask="mask")
 
-    data = ["wavelength", "flux", "uncertainty", "mask",
-            "resolution", "calibration"]
+    _meta = ("kind", "name", "lambda_pad")
+    _data = ("wavelength", "flux", "uncertainty", "mask",
+             "resolution", "calibration")
 
     def __init__(self,
                  wavelength=None,
                  resolution=None,
                  calibration=None,
                  name="SpecA",
+                 lambda_pad=100,
                  **kwargs):
 
         """
@@ -290,17 +305,18 @@ class Spectrum(Observation):
         self.calibration = calibration
         self.instrument_smoothing_parameters = dict(smoothtype="vel", fftsmooth=True)
         assert np.all(np.diff(self.wavelength) > 0)
+        self.lambda_pad = lambda_pad
         self.pad_wavelength_array()
 
-    def pad_wavelength_array(self, lambda_pad=100):
+    def pad_wavelength_array(self):
         """Pad the wavelength and, if present, resolution arrays so that FFTs
         can be used on the models without edge effects.
         """
         if self.wavelength is None:
             return
-        #wave_min = self.wave_min * (1 - np.arange(npad, 0, -1) * Kdelta[0] / ckms)
-        low_pad = np.arange(lambda_pad, 1, (self.wavelength[0]-self.wavelength[1]))
-        hi_pad = np.arange(1, lambda_pad, (self.wavelength[-1]-self.wavelength[-2]))
+
+        low_pad = np.arange(self.lambda_pad, 1, (self.wavelength[0]-self.wavelength[1]))
+        hi_pad = np.arange(1, self.lambda_pad, (self.wavelength[-1]-self.wavelength[-2]))
         wave_min = self.wave_min - low_pad
         wave_max = self.wave_max + hi_pad
         self.padded_wavelength = np.concatenate([wave_min, self.wavelength, wave_max])
@@ -308,7 +324,7 @@ class Spectrum(Observation):
         if self.resolution is not None:
             self.padded_resolution = np.interp(self.padded_wavelength, self.wavelength, self.resolution)
 
-    def smooth_lsf_fft(self, inwave, influx, outwave, sigma):
+    def _smooth_lsf_fft(self, inwave, influx, outwave, sigma):
         dw = np.gradient(outwave)
         sigma_per_pixel = (dw / sigma)
         cdf = np.cumsum(sigma_per_pixel)
@@ -357,35 +373,22 @@ class Spectrum(Observation):
             return influx
         if self.resolution is None:
             return np.interp(self.wavelength, wave_obs, influx)
+
         # interpolate library resolution onto the instrumental wavelength grid
         Klib = np.interp(self.padded_wavelength, wave_obs, libres)
-        # quadrature difference of instrumental and library resolution
         assert np.all(self.padded_resolution >= Klib), "data higher resolution than library"
+
+        # quadrature difference of instrumental and library resolution
         Kdelta = np.sqrt(self.padded_resolution**2 - Klib**2)
         Kdelta_lambda = Kdelta / CKMS * self.padded_wavelength
-        outspec_padded = self.smooth_lsf_fft(wave_obs,
-                                             influx,
-                                             self.padded_wavelength,
-                                             Kdelta_lambda)
-        if False:
-            warr = [wave_min]
-            while warr[-1] < wave_max:
-                w = warr[-1]
-                dv = np.interp(w, self.wavelength, Kdelta)
-                warr.append((1 + dv / ckms) * w)
-            warr = np.array(warr)
-            flux_resampled = np.interp(warr, wave_obs, influx)
-            np.convolve(flux_resampled, )
+
+        # Smooth by the difference kernel
+        outspec_padded = self._smooth_lsf_fft(wave_obs,
+                                              influx,
+                                              self.padded_wavelength,
+                                              Kdelta_lambda)
 
         return outspec_padded[self._unpadded_inds]
-
-    def to_oldstyle(self):
-        obs = {}
-        obs.update(vars(self))
-        for k, v in self.alias.items():
-            obs[k] = self[v]
-            _ = obs.pop(v)
-        return obs
 
 
 class Lines(Spectrum):
@@ -397,8 +400,9 @@ class Lines(Spectrum):
                  mask="mask",
                  line_inds="line_ind")
 
-    data = ["wavelength", "flux", "uncertainty", "mask",
-            "resolution", "calibration", "line_ind"]
+    _meta = ("name", "kind")
+    _data = ("wavelength", "flux", "uncertainty", "mask",
+             "resolution", "calibration", "line_ind")
 
     def __init__(self,
                  line_ind=None,
@@ -428,7 +432,7 @@ class Lines(Spectrum):
         :param calibration:
             not sure yet ....
         """
-        super(Lines, self).__init__(name=name, **kwargs)
+        super(Lines, self).__init__(name=name, resolution=None, **kwargs)
         assert (line_ind is not None), "You must identify the lines by their index in the FSPS emission line array"
         self.line_ind = np.array(line_ind).as_type(int)
 
@@ -449,11 +453,19 @@ def from_oldstyle(obs, **kwargs):
 
 
 def from_serial(arr, meta):
+    kind = obstypes[meta.pop("kind")]
+
     adict = {a:arr[a] for a in arr.dtype.names}
-    adict["name"] = meta.get("name", "")
+    adict["name"] = meta.pop("name", "")
     if 'filters' in meta:
-        adict["filters"] = meta["filters"].split(",")
-    obs = obstypes[meta["kind"]](**adict)
-    #[setattr(obs, m, v) for m, v in meta.items()]
+        adict["filters"] = meta.pop("filters").split(",")
+
+    obs = kind(**adict)
+
+    # set other metadata as attributes? No, needs to be during instantiation
+    #for k, v in meta.items():
+    #    if k in kind._meta:
+    #        setattr(obs, k, v)
+
     return obs
 
