@@ -5,6 +5,7 @@ import numpy as np
 
 from sedpy.observate import FilterSet
 from sedpy.smoothing import smooth_fft
+from sedpy.observate import rebin
 
 from ..likelihood.noise_model import NoiseModel
 
@@ -311,19 +312,22 @@ class Spectrum(Observation):
             not sure yet ....
         """
         super(Spectrum, self).__init__(name=name, **kwargs)
-        self.wavelength = wavelength
+        self.lambda_pad = lambda_pad
         self.resolution = resolution
         self.calibration = calibration
         self.instrument_smoothing_parameters = dict(smoothtype="vel", fftsmooth=True)
-        self.lambda_pad = lambda_pad
-        if self.wavelength is not None:
-            self.set_wavelength(self.wavelength)
-
-    # TODO make this a proper settr/gettr for wavelenth attribute
-    def set_wavelength(self, wavelength):
         self.wavelength = wavelength
-        assert np.all(np.diff(self.wavelength) > 0)
-        self.pad_wavelength_array()
+
+    @property
+    def wavelength(self):
+        return self._wavelength
+
+    @wavelength.setter
+    def wavelength(self, wave):
+        self._wavelength = wave
+        if self._wavelength is not None:
+            assert np.all(np.diff(self._wavelength) > 0)
+            self.pad_wavelength_array()
 
     def pad_wavelength_array(self):
         """Pad the wavelength and, if present, resolution arrays so that FFTs
@@ -406,6 +410,34 @@ class Spectrum(Observation):
                                               Kdelta_lambda)
 
         return outspec_padded[self._unpadded_inds]
+
+
+class UndersampledSpectrum(Spectrum):
+
+    def _smooth_lsf_fft(self, inwave, influx, outwave, sigma):
+        raise NotImplementedError
+        # TODO does this need to be changed if outwave is undersampled?
+        # TODO testing
+        dw = np.gradient(outwave)
+        sigma_per_pixel = (dw / sigma)
+        cdf = np.cumsum(sigma_per_pixel)
+        cdf /= cdf.max()
+        # check: do we need this?
+        x_per_pixel = np.gradient(cdf)
+        x_per_sigma = np.nanmedian(x_per_pixel / sigma_per_pixel)
+        pix_per_sigma = 1
+        N = pix_per_sigma / x_per_sigma
+        nx = int(2**np.ceil(np.log2(N)))
+        # now evenly sample in the x coordinate
+        x = np.linspace(0, 1, nx)
+        dx = 1.0 / nx
+        # convert x to wave
+        lam = np.interp(x, cdf, outwave)
+        newflux = np.interp(lam, inwave, influx)
+        flux_conv = smooth_fft(dx, newflux, x_per_sigma)
+        # TODO - does this do the right thing regarding edge/center of pixels?
+        outflux = rebin(outwave, lam, flux_conv)
+        return outflux
 
 
 class Lines(Spectrum):
