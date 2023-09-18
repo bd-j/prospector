@@ -4,7 +4,7 @@ import json
 import numpy as np
 
 from sedpy.observate import FilterSet
-from sedpy.smoothing import smoothspec, smooth_fft
+from sedpy.smoothing import smooth_fft
 
 from ..likelihood.noise_model import NoiseModel
 
@@ -14,6 +14,7 @@ __all__ = ["Observation", "Spectrum", "Photometry", "Lines"
 
 
 CKMS = 2.998e5
+
 
 class NumpyEncoder(json.JSONEncoder):
 
@@ -37,6 +38,7 @@ class Observation:
     noise :
     """
 
+    kind = "observation"
     logify_spectrum = False
     alias = {}
     _meta = ("kind", "name")
@@ -47,7 +49,7 @@ class Observation:
                  uncertainty=None,
                  mask=slice(None),
                  noise=NoiseModel(),
-                 name="ObsA",
+                 name=None,
                  **kwargs
                  ):
 
@@ -55,8 +57,15 @@ class Observation:
         self.uncertainty = np.array(uncertainty)
         self.mask = mask
         self.noise = noise
-        self.name = name
         self.from_oldstyle(**kwargs)
+        if name is None:
+            addr = f"{id(self):04x}"
+            self.name = f"{self.kind[:5]}-{addr[:6]}"
+        else:
+            self.name = name
+
+    def __str__(self):
+        return f"{self.kind} ({self.name})"
 
     def __getitem__(self, item):
         """Dict-like interface for backwards compatibility
@@ -207,7 +216,9 @@ class Photometry(Observation):
                  phot_mask="mask")
     _meta =  ("kind", "name", "filternames")
 
-    def __init__(self, filters=[], name="PhotA", **kwargs):
+    def __init__(self, filters=[],
+                 name=None,
+                 **kwargs):
         """On Observation object that holds photometric data
 
         Parameters
@@ -275,7 +286,7 @@ class Spectrum(Observation):
                  wavelength=None,
                  resolution=None,
                  calibration=None,
-                 name="SpecA",
+                 name=None,
                  lambda_pad=100,
                  **kwargs):
 
@@ -304,8 +315,14 @@ class Spectrum(Observation):
         self.resolution = resolution
         self.calibration = calibration
         self.instrument_smoothing_parameters = dict(smoothtype="vel", fftsmooth=True)
-        assert np.all(np.diff(self.wavelength) > 0)
         self.lambda_pad = lambda_pad
+        if self.wavelength is not None:
+            self.set_wavelength(self.wavelength)
+
+    # TODO make this a proper settr/gettr for wavelenth attribute
+    def set_wavelength(self, wavelength):
+        self.wavelength = wavelength
+        assert np.all(np.diff(self.wavelength) > 0)
         self.pad_wavelength_array()
 
     def pad_wavelength_array(self):
@@ -406,7 +423,7 @@ class Lines(Spectrum):
 
     def __init__(self,
                  line_ind=None,
-                 name="SpecA",
+                 name=None,
                  **kwargs):
 
         """
