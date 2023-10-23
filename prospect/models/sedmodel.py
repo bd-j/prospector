@@ -378,6 +378,7 @@ class SpecModel(ProspectorParams):
         # This part has to go in every call
         linewidth = nsigma * self._ewave_obs / ckms * self._eline_sigma_kms
         pixel_mask = (np.abs(self._outwave - self._ewave_obs[:, None]) < linewidth[:, None])
+        pixel_mask = pixel_mask & obs.get("mask")[None, :]
         self._valid_eline = pixel_mask.any(axis=1) & self._use_eline
 
         # --- wavelengths corresponding to valid lines ---
