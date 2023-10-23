@@ -38,15 +38,15 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'prospector'
-copyright = '2014-2022, Benjamin Johnson and Contributors'
+copyright = '2014-2023, Benjamin Johnson and Contributors'
 author = 'Benjamin Johnson'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 # The short X.Y version.
-version = '1.1'
-release = '1.1'
+version = '1.2'
+release = '1.2'
 
 language = None
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']

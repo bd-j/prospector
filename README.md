@@ -2,6 +2,7 @@
 ==========
 
 [![Docs](https://readthedocs.org/projects/prospect/badge/?version=latest)](https://readthedocs.org/projects/prospect/badge/?version=latest)
+[![Tests](https://github.com/bd-j/prospector/workflows/Tests/badge.svg)](https://github.com/bd-j/prospector/actions?query=workflow%3ATests)
 [![arXiv](https://img.shields.io/badge/arXiv-2012.01426-b31b1b.svg)](https://arxiv.org/abs/2012.01426)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/bd-j/prospector/blob/main/LICENSE)
 
