@@ -5,7 +5,7 @@
 
 import numpy as np
 from numpy.fft import fft, ifft, fftfreq, rfftfreq
-
+import spectres
 __all__ = ["smoothspec", "smooth_wave", "smooth_vel", "smooth_lsf",
            "smooth_wave_fft", "smooth_vel_fft", "smooth_fft", "smooth_lsf_fft",
            "mask_wave", "resample_wave"]
@@ -156,12 +156,12 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
     if smoothtype == 'lsf':
         if fftsmooth:
             smooth_method = smooth_lsf_fft
-            if sigma is not None:
+            if sigma != np.array(None): # is not None:
                 # mask the resolution vector
                 sigma = resolution[mask]
         else:
             smooth_method = smooth_lsf
-            if sigma is not None:
+            if sigma != np.array(None): # is not None:
                 # convert to resolution on the output wavelength grid
                 sigma = np.interp(outwave, wave, resolution)
     elif linear:
@@ -488,7 +488,7 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
         function.  Same length as ``outwave``.
     """
     # This is sigma vs lambda
-    if sigma is None:
+    if sigma == None:
         sigma = lsf(wave, **kwargs)
 
     # Now we need the CDF of 1/sigma, which provides the relationship between x and lambda
@@ -540,7 +540,10 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
 
     # And now we get the spectrum at the lambda coordinates of the even grid in x
     lam = np.interp(x, cdf, wave)
-    newspec = np.interp(lam, wave, spec)
+    ### TN: Change here to account for the large downsampling errors in np.interp     
+    ###newspec = np.interp(lam, wave, spec)
+    newspec = spectres.spectres(lam, wave, spec)
+
 
     # And now we convolve.
     # If we did not know sigma in terms of x we could estimate it here
@@ -551,7 +554,7 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
     spec_conv = smooth_fft(dx, newspec, x_per_sigma)
 
     # and interpolate back to the output wavelength grid.
-    return np.interp(outwave, lam, spec_conv)
+    return spectres.spectres(outwave, lam, spec_conv) # np.interp(outwave, lam, spec_conv)
 
 
 def smooth_fft(dx, spec, sigma):
