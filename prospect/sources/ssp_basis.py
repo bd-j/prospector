@@ -242,7 +242,7 @@ class SSPBasis(object):
                                      outwave=outwave, **self.params)
         elif outwave is not wa:
             # Just interpolate
-            smspec = spectres.spectres(outwave, wa, sa, left=0, right=0)
+            smspec = spectres.spectres(outwave, wa, sa)
         else:
             # no interpolation necessary
             smspec = sa
