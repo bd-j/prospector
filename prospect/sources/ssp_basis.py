@@ -1,6 +1,7 @@
 from copy import deepcopy
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
+import spectres
 
 from ..utils.smoothing import smoothspec
 from .constants import cosmo, lightspeed, jansky_cgs, to_cgs_at_10pc
@@ -241,7 +242,7 @@ class SSPBasis(object):
                                      outwave=outwave, **self.params)
         elif outwave is not wa:
             # Just interpolate
-            smspec = np.interp(outwave, wa, sa, left=0, right=0)
+            smspec = spectres.spectres(outwave, wa, sa, left=0, right=0)
         else:
             # no interpolation necessary
             smspec = sa
