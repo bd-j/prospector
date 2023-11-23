@@ -368,7 +368,7 @@ def smooth_wave_fft(wavelength, spectrum, outwave, sigma_out=1.0,
     # The kernel width for the convolution.
     sigma = np.sqrt(sigma_out**2 - inres**2)
     if sigma < 0:
-        return np.interp(wave, outwave, flux)
+        return spectres.spectres_numba(wave, outwave, flux ,verbose=False, fill=0)
 
     # get grid resolution (*not* the resolution of the input spectrum) and make
     # sure it's nearly constant.  Should be by design (see resample_wave)
@@ -380,7 +380,7 @@ def smooth_wave_fft(wavelength, spectrum, outwave, sigma_out=1.0,
     spec_conv = smooth_fft(dw, spec, sigma)
     # interpolate onto output grid
     if outwave is not None:
-        spec_conv = np.interp(outwave, wave, spec_conv)
+        spec_conv = spectres.spectres_numba(outwave, wave, spec_conv , verbose=False, fill=0)
     return spec_conv
 
 
@@ -421,7 +421,7 @@ def smooth_lsf(wave, spec, outwave, sigma=None, lsf=None, return_kernel=False,
         The broadened spectrum, same length as ``outwave``.
     """
     if (lsf is None) and (sigma is None):
-        return np.interp(outwave, wave, spec)
+        return spectres.spectres_numba(outwave, wave, spec)
     dw = np.gradient(wave)
     if sigma is None:
         sigma = lsf(outwave, **kwargs)
@@ -542,7 +542,7 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
     lam = np.interp(x, cdf, wave)
     ### TN: Change here to account for the large downsampling errors in np.interp     
     ###newspec = np.interp(lam, wave, spec)
-    newspec = spectres.spectres(lam, wave, spec)
+    newspec = spectres.spectres_numba(lam, wave, spec, fill=0, verbose=False)
 
 
     # And now we convolve.
@@ -554,7 +554,7 @@ def smooth_lsf_fft(wave, spec, outwave, sigma=None, lsf=None, pix_per_sigma=2,
     spec_conv = smooth_fft(dx, newspec, x_per_sigma)
 
     # and interpolate back to the output wavelength grid.
-    return spectres.spectres(outwave, lam, spec_conv) # np.interp(outwave, lam, spec_conv)
+    return spectres.spectres_numba(outwave, lam, spec_conv, fill=0, verbose=False) # TN: Replaced-->np.interp(outwave, lam, spec_conv)
 
 
 def smooth_fft(dx, spec, sigma):
@@ -620,7 +620,7 @@ def resample_wave(wavelength, spectrum, linear=False):
         w = np.exp(lnlam)
     # Make sure the resolution really is nearly constant
     #assert Rgrid.max() / Rgrid.min() < 1.05
-    s = np.interp(w, wavelength, spectrum)
+    s = spectres.spectres_numba(w, wavelength, spectrum, verbose=false, fill=0)
     return w, s
 
 
