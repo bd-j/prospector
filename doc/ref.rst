@@ -33,7 +33,7 @@ If you use this code, please reference `this paper <https://ui.adsabs.harvard.ed
 and `Leja et al 2019 <https://ui.adsabs.harvard.edu/abs/2017ApJ...837..170L/abstract>`_
 
 
-Please also see the reference requirements for dependencies
+Please also see the reference requirements for any dependencies that are used
 
 * `FSPS <https://github.com/cconroy20/fsps#references>`_
 * `python-fsps <https://python-fsps.readthedocs.io/en/latest/#license>`_
