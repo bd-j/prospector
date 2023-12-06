@@ -908,15 +908,18 @@ class AGNSpecModel(SpecModel):
 
     def init_aline_info(self):
         """AGN line spectrum. Based on data as reported in Richardson et al.
-        2014 (Table 3, the 'a42' dataset) and normalized to Hbeta.index=48 is Hbeta
+        2014 (Table 3, the 'a42' dataset) and normalized to Hbeta.
+
+        index=59 is Hbeta
         """
-        ainds = np.array([31, 33, 34, 35, 37, 42, 43, 44, 48,
-                          49, 50, 52, 56, 57, 58, 60, 61, 62,
-                          63, 64, 65, 66, 68])
+        ainds = np.array([38, 40, 41, 43, 45, 50, 51, 52, 59,
+                          61, 62, 64, 68, 69, 70, 72, 73, 74,
+                          75, 76, 77, 78, 80])
         afluxes = np.array([2.96, 0.06, 0.1 , 1.  , 0.2 , 0.25, 0.48, 0.13, 1.,
                             2.87, 8.53, 0.07, 0.02, 0.1 , 0.33, 0.09, 0.79, 2.86,
                             2.13, 0.03, 0.77, 0.65, 0.19])
-        self._aline_lum = np.zeros(128)
+        self._aline_lum = np.zeros(len(self.emline_info))
+        assert np.abs(self.emline_info["wave"][59] - 4863) < 2
         self._aline_lum[ainds] = afluxes
 
     def predict_spec(self, obs, sigma_spec=None, **extras):

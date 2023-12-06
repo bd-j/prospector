@@ -34,6 +34,7 @@ Prospector allows you to:
    sfhs
    nebular
    output
+   ref
 
 .. toctree::
    :maxdepth: 1
@@ -54,37 +55,6 @@ Prospector allows you to:
    api/io_api
    api/plotting_api
    api/utils_api
-
-License and Attribution
-------------------------------
-
-*Copyright 2014-2022 Benjamin D. Johnson and contributors.*
-
-This code is available under the `MIT License
-<https://raw.github.com/bdj/prospector/blob/main/LICENSE>`_.
-
-If you use this code, please reference `this paper <https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract>`_:
-
-.. code-block:: none
-
-    @ARTICLE{2021ApJS..254...22J,
-        author = {{Johnson}, Benjamin D. and {Leja}, Joel and {Conroy}, Charlie and {Speagle}, Joshua S.},
-            title = "{Stellar Population Inference with Prospector}",
-        journal = {\apjs},
-        keywords = {Galaxy evolution, Spectral energy distribution, Astronomy data modeling, 594, 2129, 1859, Astrophysics - Astrophysics of Galaxies, Astrophysics - Instrumentation and Methods for Astrophysics},
-            year = 2021,
-            month = jun,
-        volume = {254},
-        number = {2},
-            eid = {22},
-            pages = {22},
-            doi = {10.3847/1538-4365/abef67},
-    archivePrefix = {arXiv},
-        eprint = {2012.01426},
-    primaryClass = {astro-ph.GA},
-        adsurl = {https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J},
-        adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-    }
 
 Changelog
 ---------

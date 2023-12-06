@@ -91,7 +91,7 @@ Get a 'Source'
 Now we need an object that will actually generate the galaxy spectrum using
 stellar population synthesis.  For this we will use an object that wraps FSPS
 allowing access to all the parameterized SFHs.  We will also just check which
-spectral and isochrone librariews are being used.
+spectral and isochrone libraries are being used.
 
 .. code:: python
 
