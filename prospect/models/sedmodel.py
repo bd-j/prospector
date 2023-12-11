@@ -659,9 +659,8 @@ class PolySpecModel(SpecModel):
         """Implements a Chebyshev polynomial calibration model. This uses
         least-squares to find the maximum-likelihood Chebyshev polynomial of a
         certain order describing the ratio of the observed spectrum to the model
-        spectrum, conditional on all other parameters, using least squares. If
-        emission lines are being marginalized out, they are excluded from the
-        least-squares fit.
+        spectrum, conditional on all other parameters. If emission lines are
+        being marginalized out, they are excluded from the least-squares fit.
 
         :returns cal:
            A polynomial given by :math:`\sum_{m=0}^M a_{m} * T_m(x)`.
@@ -670,11 +669,10 @@ class PolySpecModel(SpecModel):
             self.set_parameters(theta)
 
         # norm = self.params.get('spec_norm', 1.0)
-        polyopt = ((self.params.get('polyorder', 0) > 0) &
+        order = np.squeeze(self.params.get('polyorder', 0))
+        polyopt = ((order > 0) &
                    (obs.get('spectrum', None) is not None))
         if polyopt:
-            order = self.params['polyorder']
-
             # generate mask
             # remove region around emission lines if doing analytical marginalization
             mask = obs.get('mask', np.ones_like(obs['wavelength'], dtype=bool)).copy()
@@ -1225,10 +1223,10 @@ class PolySedModel(SedModel):
             self.set_parameters(theta)
 
         norm = self.params.get('spec_norm', 1.0)
-        polyopt = ((self.params.get('polyorder', 0) > 0) &
+        order = np.squeeze(self.params.get('polyorder', 0))
+        polyopt = ((order > 0) &
                    (obs.get('spectrum', None) is not None))
         if polyopt:
-            order = self.params['polyorder']
             mask = obs.get('mask', slice(None))
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
