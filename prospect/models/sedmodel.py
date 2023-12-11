@@ -689,7 +689,7 @@ class PolySpecModel(SpecModel):
             ATA = np.dot(A.T, A / yvar[:, None])
             reg = self.params.get('poly_regularization', 0.)
             if np.any(reg > 0):
-                ATA += reg**2 * np.eye(order)
+                ATA += reg**2 * np.eye(order+1)
             ATAinv = np.linalg.inv(ATA)
             c = np.dot(ATAinv, np.dot(A.T, y / yvar))
             Afull = chebvander(x, order)
