@@ -184,7 +184,7 @@ def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None,
     time.
     """
     nbins = agebins.shape[0]
-    sratios = 10**np.clip(logsfr_ratios, -100, 100)  # numerical issues...
+    sratios = 10**np.clip(logsfr_ratios, -10, 10)  # numerical issues...
     dt = (10**agebins[:, 1] - 10**agebins[:, 0])
     coeffs = np.array([ (1. / np.prod(sratios[:i])) * (np.prod(dt[1: i+1]) / np.prod(dt[: i]))
                         for i in range(nbins)])
@@ -209,8 +209,8 @@ def logsfr_ratios_to_sfrs(logmass=None, logsfr_ratios=None, agebins=None, **extr
 def logsfr_ratios_to_masses_flex(logmass=None, logsfr_ratios=None,
                                  logsfr_ratio_young=None, logsfr_ratio_old=None,
                                  **extras):
-    logsfr_ratio_young = np.clip(logsfr_ratio_young, -100, 100)
-    logsfr_ratio_old = np.clip(logsfr_ratio_old, -100, 100)
+    logsfr_ratio_young = np.clip(logsfr_ratio_young, -10, 10)
+    logsfr_ratio_old = np.clip(logsfr_ratio_old, -10, 10)
 
     abins = logsfr_ratios_to_agebins(logsfr_ratios=logsfr_ratios, **extras)
 
@@ -236,7 +236,7 @@ def logsfr_ratios_to_agebins(logsfr_ratios=None, agebins=None, **extras):
     """
 
     # numerical stability
-    logsfr_ratios = np.clip(logsfr_ratios, -100, 100)
+    logsfr_ratios = np.clip(logsfr_ratios, -10, 10)
 
     # calculate delta(t) for oldest, youngest bins (fixed)
     lower_time = (10**agebins[0, 1] - 10**agebins[0, 0])
