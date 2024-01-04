@@ -25,6 +25,7 @@ def test_agn_elines():
                     flux=np.ones(1000),
                     uncertainty=np.ones(1000)*0.1)
     obs = [spec, phot]
+    [ob.rectify() for ob in obs]
 
     # --- model ---
     model_pars = TemplateLibrary["parametric_sfh"]
