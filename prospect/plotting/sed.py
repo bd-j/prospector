@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from ..utils.smoothing import smoothspec
+from sedpy.smoothing import smoothspec
 
 __all__ = ["convolve_spec", "to_nufnu"]
 

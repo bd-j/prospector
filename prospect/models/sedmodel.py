@@ -10,19 +10,20 @@ import os
 
 from numpy.polynomial.chebyshev import chebval, chebvander
 from scipy.interpolate import splrep, BSpline
-from scipy.stats import multivariate_normal as mvn
+from scipy.signal import medfilt
 
 from sedpy.observate import getSED
+from sedpy.smoothing import smoothspec
 
 from .parameters import ProspectorParams
 from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
-from ..utils.smoothing import smoothspec
 
 
-__all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",
-           "LineSpecModel", "AGNSpecModel",
-           "SedModel", "PolySedModel", "PolyFitModel"]
+__all__ = ["SpecModel",
+           "PolySpecModel", "SplineSpecModel",
+           "AGNSpecModel",
+           "PolyFitModel"]
 
 
 class SpecModel(ProspectorParams):
@@ -39,7 +40,9 @@ class SpecModel(ProspectorParams):
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
+
         self.init_eline_info()
+        self.parse_elines()
 
     def _available_parameters(self):
         new_pars = [("sigma_smooth", ""),
@@ -51,69 +54,90 @@ class SpecModel(ProspectorParams):
                     ("eline_sigma", ""),
                     ("use_eline_priors", ""),
                     ("eline_prior_width", "")]
-        relevant_pars = [("mass", ""),
-                         ("lumdist", ""),
-                         ("zred", ""),
-                         ("nebemlineinspec", ""),
-                         ("add_neb_emission")]
+
+        referenced_pars = [("mass", ""),
+                           ("lumdist", ""),
+                           ("zred", ""),
+                           ("nebemlineinspec", ""),
+                           ("add_neb_emission")]
 
         return new_pars
 
-    def predict(self, theta, obs=None, sps=None, sigma_spec=None, **extras):
+    def predict(self, theta, observations=None, sps=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
 
-        :param theta:
-            ndarray of parameter values, of shape ``(ndim,)``
+        Parameters
+        ----------
+        theta : ndarray of shape ``(ndim,)``
+            Vector of free model parameter values.
 
-        :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:func:`utils.obsutils.rectify_obs`
+        observations : A list of `Observation` instances (e.g. instance of )
+            The data to predict
 
-        :param sps:
+        sps :
             An `sps` object to be used in the model generation.  It must have
             the :py:func:`get_galaxy_spectrum` method defined.
 
-        :param sigma_spec: (optional)
-            The covariance matrix for the spectral noise. It is only used for
-            emission line marginalization.
+        Returns
+        -------
+        predictions: (list of ndarrays)
+            List of predictions for the given list of observations.
 
-        :returns spec:
-            The model spectrum for these parameters, at the wavelengths
-            specified by ``obs['wavelength']``, including multiplication by the
-            calibration vector.  Units of maggies
+            If the observation kind is "spectrum" then this is the model spectrum for these
+            parameters, at the wavelengths specified by ``obs['wavelength']``,
+            including multiplication by the calibration vector.  Units of
+            maggies
 
-        :returns phot:
-            The model photometry for these parameters, for the filters
-            specified in ``obs['filters']``.  Units of maggies.
+            If the observation kind is "photometry" then this is the model
+            photometry for these parameters, for the filters specified in
+            ``obs['filters']``.  Units of maggies.
 
-        :returns extras:
+        extras :
             Any extra aspects of the model that are returned.  Typically this
             will be `mfrac` the ratio of the surviving stellar mass to the
             stellar mass formed.
         """
-        # generate and cache model spectrum and info
+
+        # generate and cache intrinsic model spectrum and info
         self.set_parameters(theta)
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
         self._zred = self.params.get('zred', 0)
         self._eline_wave, self._eline_lum = sps.get_galaxy_elines()
+        self._library_resolution = getattr(sps, "spectral_resolution", 0.0) # restframe
 
         # Flux normalize
         self._norm_spec = self._spec * self.flux_norm()
 
-        # generate spectrum and photometry for likelihood
-        # predict_spec should be called before predict_phot
-        # because in principle it can modify the emission line parameters
-        # and also needs some things done in 'cache_eline_parameters`
-        # especially _ewave_obs and _use_elines
-        spec = self.predict_spec(obs, sigma_spec=sigma_spec)
-        phot = self.predict_phot(obs.get('filters', None))
+        # cache eline observed wavelengths
+        eline_z = self.params.get("eline_delta_zred", 0.0)
+        self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
+        # cache eline mle info
+        self._ln_eline_penalty = 0
+        self._eline_lum_var = np.zeros_like(self._eline_wave)
 
-        return spec, phot, self._mfrac
+        # physical velocity smoothing of the whole UV/NIR spectrum
+        self._smooth_spec = self.velocity_smoothing(self._wave, self._norm_spec)
 
-    def predict_spec(self, obs, sigma_spec=None, **extras):
+        # generate predictions for likelihood
+        # this assumes all spectral datasets (if present) occur first
+        # because they can change the line strengths during marginalization.
+        predictions = [self.predict_obs(obs) for obs in observations]
+
+        return predictions, self._mfrac
+
+    def predict_obs(self, obs):
+        if obs.kind == "spectrum":
+            prediction = self.predict_spec(obs)
+        elif obs.kind == "lines":
+            prediction = self.predict_lines(obs)
+        elif obs.kind == "photometry":
+            prediction = self.predict_phot(obs.filterset)
+        else:
+            prediction = None
+        return prediction
+
+    def predict_spec(self, obs, **extras):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct
@@ -136,13 +160,12 @@ class SpecModel(ProspectorParams):
             spectroscopic calibration factor included.
 
         Numerous quantities related to the emission lines are also cached (see
-        ``cache_eline_parameters()`` and ``fit_el()`` for details.)
+        ``cache_eline_parameters()`` and ``fit_mle_elines()`` for details.)
 
         :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:meth:`utils.obsutils.rectify_obs`
+            An instance of `Spectrum`, containing the output wavelength array,
+            the observed fluxes and uncertainties thereon.  Assumed to be the
+            result of :py:meth:`utils.obsutils.rectify_obs`
 
         :param sigma_spec: (optional)
             The covariance matrix for the spectral noise. It is only used for
@@ -154,17 +177,22 @@ class SpecModel(ProspectorParams):
             including multiplication by the calibration vector.
             ndarray of shape ``(nwave,)`` in units of maggies.
         """
-        # redshift wavelength
+        # redshift model wavelength
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
-        self._outwave = obs.get('wavelength', obs_wave)
+
+        # get output wavelength vector
+        self._outwave = obs.wavelength
         if self._outwave is None:
             self._outwave = obs_wave
 
-        # --- cache eline parameters ---
+        # Set up for emission lines
         self.cache_eline_parameters(obs)
 
         # --- smooth and put on output wavelength grid ---
-        smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+        # Instrumental smoothing (accounting for library resolution)
+        # Put onto the spec.wavelength grid.
+        inst_spec = obs.instrumental_smoothing(obs_wave, self._smooth_spec,
+                                               libres=self._library_resolution)
 
         # --- add fixed lines if necessary ---
         emask = self._fix_eline_pixelmask
@@ -173,16 +201,21 @@ class SpecModel(ProspectorParams):
             espec = self.predict_eline_spec(line_indices=inds,
                                             wave=self._outwave[emask])
             self._fix_eline_spec = espec
-            smooth_spec[emask] += self._fix_eline_spec.sum(axis=1)
+            inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
 
         # --- calibration ---
-        self._speccal = self.spec_calibration(obs=obs, spec=smooth_spec, **extras)
-        calibrated_spec = smooth_spec * self._speccal
+        self._speccal = self.spec_calibration(obs=obs, spec=inst_spec, **extras)
+        calibrated_spec = inst_spec * self._speccal
 
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
         if emask.any():
-            self._fit_eline_spec = self.fit_el(obs, calibrated_spec, sigma_spec)
+            # We need the spectroscopic covariance matrix to do emission line optimization and marginalization
+            sigma_spec = None
+            # FIXME: do this only if the noise model is non-trivial, and make sure masking is consistent
+            #vectors = obs.noise.populate_vectors(obs)
+            #sigma_spec = obs.noise.construct_covariance(**vectors)
+            self._fit_eline_spec = self.fit_mle_elines(obs, calibrated_spec, sigma_spec)
             calibrated_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
         # --- cache intrinsic spectrum ---
@@ -190,7 +223,58 @@ class SpecModel(ProspectorParams):
 
         return calibrated_spec
 
-    def predict_phot(self, filters):
+    def predict_lines(self, obs, **extras):
+        """Generate a prediction for the observed nebular line fluxes.  This method assumes
+        that the model parameters have been set, that any adjustments to the
+        emission line fluxes based on ML fitting have been applied, and that the
+        following attributes are present and correct
+          + ``_wave`` - The SPS restframe wavelength array
+          + ``_zred`` - Redshift
+          + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
+        It generates the following attributes
+          + ``_outwave`` - Wavelength grid (observed frame)
+          + ``_speccal`` - Calibration vector
+          + ``line_norm`` - the conversion from FSPS line luminosities to the
+                            observed line luminosities, including scaling fudge_factor
+          + ``_predicted_line_inds`` - the indices of the line that are predicted
+
+        Numerous quantities related to the emission lines are also cached (see
+        ``cache_eline_parameters()`` and ``fit_mle_elines()`` for details) including
+        ``_predicted_line_inds`` which is the indices of the line that are predicted.
+        ``cache_eline_parameters()`` and ``fit_elines()`` for details).
+
+
+        :param obs:
+            A ``data.observation.Lines()`` instance, with the attributes
+            + ``"wavelength"`` - the observed frame wavelength of the lines.
+            + ``"line_ind"`` - a set of indices identifying the observed lines in
+            the fsps line array
+
+        :returns elum:
+            The prediction for the observed frame nebular emission line flux these
+            parameters, at the wavelengths specified by ``obs['wavelength']``,
+            ndarray of shape ``(nwave,)`` in units of erg/s/cm^2.
+        """
+        obs_wave = self.observed_wave(self._eline_wave, do_wavecal=False)
+        self._outwave = obs.get('wavelength', obs_wave)
+        assert len(self._outwave) <= len(self.emline_info)
+
+        # --- cache eline parameters ---
+        self.cache_eline_parameters(obs)
+
+        # find the indices of the observed emission lines
+        #dw = np.abs(self._ewave_obs[:, None] - self._outwave[None, :])
+        #self._predicted_line_inds = np.argmin(dw, axis=0)
+        self._predicted_line_inds = obs.get("line_ind")
+        self._speccal = 1.0
+
+        self.line_norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
+        self.line_norm *= self.params.get("linespec_scaling", 1.0)
+        elums = self._eline_lum[self._predicted_line_inds] * self.line_norm
+
+        return elums
+
+    def predict_phot(self, filterset):
         """Generate a prediction for the observed photometry.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct:
@@ -210,19 +294,17 @@ class SpecModel(ProspectorParams):
             ndarray of shape ``(len(filters),)``, in units of maggies.
             If ``filters`` is None, this returns 0.0
         """
-        if filters is None:
+        if filterset is None:
             return 0.0
 
         # generate photometry w/o emission lines
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
         flambda = self._norm_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
-        phot = 10**(-0.4 * np.atleast_1d(getSED(obs_wave, flambda, filters)))
-        # TODO: below is faster for sedpy > 0.2.0
-        #phot = np.atleast_1d(getSED(obs_wave, flambda, filters, linear_flux=True))
+        phot = np.atleast_1d(getSED(obs_wave, flambda, filterset, linear_flux=True))
 
         # generate emission-line photometry
         if (self._want_lines & self._need_lines):
-            phot += self.nebline_photometry(filters)
+            phot += self.nebline_photometry(filterset)
 
         return phot
 
@@ -262,13 +344,13 @@ class SpecModel(ProspectorParams):
 
     @property
     def _need_lines(self):
-        return (not (bool(self.params.get("nebemlineinspec", True))))
+        return (not (bool(np.any(self.params.get("nebemlineinspec", True)))))
 
     @property
     def _want_lines(self):
         return bool(self.params.get('add_neb_emission', False))
 
-    def nebline_photometry(self, filters, elams=None, elums=None):
+    def nebline_photometry(self, filterset, elams=None, elums=None):
         """Compute the emission line contribution to photometry.  This requires
         several cached attributes:
           + ``_ewave_obs``
@@ -299,13 +381,13 @@ class SpecModel(ProspectorParams):
             elums = self._eline_lum[self._use_eline] * self.line_norm
 
         # loop over filters
-        flux = np.zeros(len(filters))
+        flux = np.zeros(len(filterset))
         try:
             # TODO: Since in this case filters are on a grid, there should be a
             # faster way to look up the transmission than the later loop
-            flist = filters.filters
+            flist = filterset.filters
         except(AttributeError):
-            flist = filters
+            flist = filterset
         for i, filt in enumerate(flist):
             # calculate transmission at line wavelengths
             trans = np.interp(elams, filt.wavelength, filt.transmission,
@@ -340,37 +422,35 @@ class SpecModel(ProspectorParams):
         redshift - first looks for ``eline_delta_zred``, and defaults to ``zred``
         sigma - first looks for ``eline_sigma``, defaults to 100 km/s
 
+        N.B. This must be run separately for each `Observation` instance at each
+        likelihood call!!!
+
+        param
+
         :param nsigma: (float, optional, default: 5.)
             Number of sigma from a line center to use for defining which lines
             to fit and useful spectral elements for the fitting.  float.
         """
-
-        # observed wavelengths
-        eline_z = self.params.get("eline_delta_zred", 0.0)
-        self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
-        self._eline_lum_var = np.zeros_like(self._eline_wave)
-
-        # masks for lines to be treated in various ways.
-        # always run this becuase it's need for spec *and* phot if adding lines
-        # by hand
-        self.parse_elines()
-
         # exit gracefully if not adding lines.  We also exit if only fitting
         # photometry, for performance reasons
         hasspec = obs.get('spectrum', None) is not None
+        #hasspec = True
         if not (self._want_lines & self._need_lines & hasspec):
-            self._fit_eline = None
             self._fit_eline_pixelmask = np.array([], dtype=bool)
             self._fix_eline_pixelmask = np.array([], dtype=bool)
-            self._fix_eline = None
             return
 
-        # observed linewidths
+        # linewidths
         nline = self._ewave_obs.shape[0]
+        # physical linewidths
         self._eline_sigma_kms = np.atleast_1d(self.params.get('eline_sigma', 100.0))
         # what is this wierd construction for?
         self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
+        # instrumental linewidths
+        if obs.resolution is not None:
+            sigma_inst = np.interp(self._ewave_obs, obs.wavelength, obs.resolution)
+            self._eline_sigma_kms = np.hypot(self._eline_sigma_kms, sigma_inst)
 
         # --- get valid lines ---
         # fixed and fit lines specified by user, but remove any lines which do
@@ -378,7 +458,7 @@ class SpecModel(ProspectorParams):
         # This part has to go in every call
         linewidth = nsigma * self._ewave_obs / ckms * self._eline_sigma_kms
         pixel_mask = (np.abs(self._outwave - self._ewave_obs[:, None]) < linewidth[:, None])
-        pixel_mask = pixel_mask & obs.get("mask")[None, :]
+        pixel_mask = pixel_mask & obs.get("mask", np.ones_like(self._outwave))[None, :]
         self._valid_eline = pixel_mask.any(axis=1) & self._use_eline
 
         # --- wavelengths corresponding to valid lines ---
@@ -414,7 +494,7 @@ class SpecModel(ProspectorParams):
             self._use_eline = ~np.isin(self.emline_info["name"],
                                        self.params["elines_to_ignore"])
 
-    def fit_el(self, obs, calibrated_spec, sigma_spec=None):
+    def fit_mle_elines(self, obs, calibrated_spec, sigma_spec=None):
         """Compute the maximum likelihood and, optionally, MAP emission line
         amplitudes for lines that fall within the observed spectral range. Also
         compute and cache the analytic penalty to log-likelihood from
@@ -497,7 +577,8 @@ class SpecModel(ProspectorParams):
             K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
 
         # Cache the ln-penalty
-        self._ln_eline_penalty = K
+        # FIXME this needs to be acumulated if there are multiple spectra
+        self._ln_eline_penalty += K
 
         # Store fitted emission line luminosities in physical units
         self._eline_lum[idx] = alpha_bar / linecal
@@ -564,12 +645,17 @@ class SpecModel(ProspectorParams):
 
         return eline_gaussians
 
-    def smoothspec(self, wave, spec):
+    def velocity_smoothing(self, wave, spec):
         """Smooth the spectrum.  See :py:func:`prospect.utils.smoothing.smoothspec`
         for details.
         """
-        sigma = self.params.get("sigma_smooth", 100)
-        outspec = smoothspec(wave, spec, sigma, outwave=self._outwave, **self.params)
+        sigma = self.params.get("sigma_smooth", 300)
+        sel = (wave > 1.2e3) & (wave < 2.5e4)
+        # TODO: make a fast version of this that is also accurate
+        sm = smoothspec(wave, spec, sigma, outwave=wave[sel],
+                        smoothtype="vel", fftsmooth=True)
+        outspec = spec.copy()
+        outspec[sel] = sm
 
         return outspec
 
@@ -598,7 +684,7 @@ class SpecModel(ProspectorParams):
     def spec_calibration(self, **kwargs):
         return np.ones_like(self._outwave)
 
-    def absolute_rest_maggies(self, filters):
+    def absolute_rest_maggies(self, filterset):
         """Return absolute rest-frame maggies (=10**(-0.4*M)) of the last
         computed spectrum.
 
@@ -620,24 +706,17 @@ class SpecModel(ProspectorParams):
         fmaggies = self._norm_spec / (1 + self._zred) * (ld / 10)**2
         # convert to erg/s/cm^2/AA for sedpy and get absolute magnitudes
         flambda = fmaggies * lightspeed / self._wave**2 * (3631*jansky_cgs)
-        abs_rest_maggies = 10**(-0.4 * np.atleast_1d(getSED(self._wave, flambda, filters)))
-        # TODO: below is faster for sedpy > 0.2.0
-        #abs_rest_maggies = np.atleast_1d(getSED(self._wave, flambda, filters, linear_flux=True))
+        abs_rest_maggies = np.atleast_1d(getSED(self._wave, flambda, filterset, linear_flux=True))
 
         # add emission lines
         if bool(self.params.get('nebemlineinspec', False)) is False:
             eline_z = self.params.get("eline_delta_zred", 0.0)
             elams = (1 + eline_z) * self._eline_wave
             elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs) * (ld / 10)**2
-            emaggies = self.nebline_photometry(filters, elams=elams, elums=elums)
+            emaggies = self.nebline_photometry(filterset, elams=elams, elums=elums)
             abs_rest_maggies += emaggies
 
         return abs_rest_maggies
-
-    def mean_model(self, theta, obs, sps=None, sigma=None, **extras):
-        """Legacy wrapper around predict()
-        """
-        return self.predict(theta, obs, sps=sps, sigma_spec=sigma, **extras)
 
 
 class PolySpecModel(SpecModel):
@@ -650,7 +729,8 @@ class PolySpecModel(SpecModel):
 
     def _available_parameters(self):
         pars = [("polyorder", "order of the polynomial to fit"),
-                ("poly_regularization", "vector of length `polyorder` providing regularization for each polynomial term")
+                ("poly_regularization", "vector of length `polyorder` providing regularization for each polynomial term"),
+                ("median_polynomial", "if > 0, median smooth with a kernel of width order/range/median_polynomial before fitting")
                 ]
 
         return pars
@@ -662,7 +742,16 @@ class PolySpecModel(SpecModel):
         spectrum, conditional on all other parameters. If emission lines are
         being marginalized out, they are excluded from the least-squares fit.
 
-        :returns cal:
+        Parameters
+        ----------
+        obs :  Instance of `Spectrum`
+
+        spec : ndarray of shape (nwave,)
+            The model spectrum.
+
+        Returns
+        -------
+        cal : ndarray of shape (nwave,)
            A polynomial given by :math:`\sum_{m=0}^M a_{m} * T_m(x)`.
         """
         if theta is not None:
@@ -683,6 +772,12 @@ class PolySpecModel(SpecModel):
             # masked wavelengths may have x>1, x<-1
             x = self.wave_to_x(obs["wavelength"], mask)
             y = (obs['spectrum'] / spec)[mask] - 1.0
+
+            if self.params.get('median_polynomial', 0) > 0:
+                kernel_factor = self.params["median_polynomial"]
+                knl = int((x.max() - x.min()) / order / kernel_factor)
+                knl += int((knl % 2) == 0)
+                y = medfilt(y, knl)
             yerr = (obs['unc'] / spec)[mask]
             yvar = yerr**2
             A = chebvander(x[mask], order)
@@ -774,118 +869,6 @@ class SplineSpecModel(SpecModel):
         return mask, wrange
 
 
-class LineSpecModel(SpecModel):
-
-    """This is a sublcass of SpecModel that predicts emission line fluxes
-    instead of a full spectrum, useful when the continuum is not detected or is
-    otherwise uninformative.
-    """
-
-    def _available_parameters(self):
-        pars = [("linespec_scaling", "This float scales the predicted nebular "
-                 "emission line luminosities, for example to accxount for a "
-                 "(constant in wavelengtrh) slit loss"),
-                ]
-
-        return pars
-
-    def predict_spec(self, obs, **extras):
-        """Generate a prediction for the observed nebular line fluxes.  This method assumes
-        that the model parameters have been set and that the following
-        attributes are present and correct
-          + ``_wave`` - The SPS restframe wavelength array
-          + ``_zred`` - Redshift
-          + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies
-          + ``_eline_wave`` and ``_eline_lum`` - emission line parameters from the SPS model
-        It generates the following attributes
-          + ``_outwave`` - Wavelength grid (observed frame)
-          + ``_speccal`` - Calibration vector
-
-        Numerous quantities related to the emission lines are also cached (see
-        ``cache_eline_parameters()`` and ``fit_el()`` for details) including
-        ``_predicted_line_inds`` which is the indices of the line that are predicted.
-
-        :param obs:
-            An observation dictionary, containing the keys
-            + ``"wavelength"`` - the observed frame wavelength of the lines.
-            + ``"line_ind"`` - a set of indices identifying the observed lines in
-            the fsps line array
-            Assumed to be the result of :py:meth:`utils.obsutils.rectify_obs`
-
-        :returns spec:
-            The prediction for the observed frame nebular emission line flux these
-            parameters, at the wavelengths specified by ``obs['wavelength']``,
-            ndarray of shape ``(nwave,)`` in units of erg/s/cm^2.
-        """
-        obs_wave = self.observed_wave(self._eline_wave, do_wavecal=False)
-        self._outwave = obs.get('wavelength', obs_wave)
-        assert len(self._outwave) <= len(self.emline_info)
-
-        # --- cache eline parameters ---
-        self.cache_eline_parameters(obs)
-
-        # find the indices of the observed emission lines
-        #dw = np.abs(self._ewave_obs[:, None] - self._outwave[None, :])
-        #self._predicted_line_inds = np.argmin(dw, axis=0)
-        self._predicted_line_inds = obs.get("line_ind")
-        self._speccal = 1.0
-
-        self.line_norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
-        self.line_norm *= self.params.get("linespec_scaling", 1.0)
-        elums = self._eline_lum[self._predicted_line_inds] * self.line_norm
-
-        return elums
-
-    def nebline_photometry(self, filters, elams=None, elums=None):
-        """Compute the emission line contribution to photometry.  This requires
-        several cached attributes:
-          + ``_ewave_obs``
-          + ``_eline_lum``
-
-        :param filters:
-            Instance of :py:class:`sedpy.observate.FilterSet` or list of
-            :py:class:`sedpy.observate.Filter` objects
-
-        :param elams: (optional)
-            The emission line wavelength in angstroms.  If not supplied uses the
-            cached ``_ewave_obs`` attribute.
-
-        :param elums: (optional)
-            The emission line flux in erg/s/cm^2.  If not supplied uses  the
-            cached ``_eline_lum`` attribute and applies appropriate distance
-            dimming and unit conversion.
-
-        :returns nebflux:
-            The flux of the emission line through the filters, in units of
-            maggies. ndarray of shape ``(len(filters),)``
-        """
-        if (elams is None) or (elums is None):
-            elams = self._ewave_obs[self._use_eline]
-            # We have to remove the extra (1+z) since this is flux, not a flux density
-            # Also we convert to cgs
-            self.line_norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)
-            elums = self._eline_lum[self._use_eline] * self.line_norm
-
-        # loop over filters
-        flux = np.zeros(len(filters))
-        try:
-            # TODO: Since in this case filters are on a grid, there should be a
-            # faster way to look up the transmission than the later loop
-            flist = filters.filters
-        except(AttributeError):
-            flist = filters
-        for i, filt in enumerate(flist):
-            # calculate transmission at line wavelengths
-            trans = np.interp(elams, filt.wavelength, filt.transmission,
-                              left=0., right=0.)
-            # include all lines where transmission is non-zero
-            idx = (trans > 0)
-            if True in idx:
-                flux[i] = (trans[idx]*elams[idx]*elums[idx]).sum() / filt.ab_zero_counts
-
-        return flux
-
-
 class AGNSpecModel(SpecModel):
 
     def __init__(self, *args, **kwargs):
@@ -920,7 +903,7 @@ class AGNSpecModel(SpecModel):
         assert np.abs(self.emline_info["wave"][59] - 4863) < 2
         self._aline_lum[ainds] = afluxes
 
-    def predict_spec(self, obs, sigma_spec=None, **extras):
+    def predict_spec(self, obs, **extras):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct
@@ -943,7 +926,7 @@ class AGNSpecModel(SpecModel):
             spectroscopic calibration factor included.
 
         Numerous quantities related to the emission lines are also cached (see
-        ``cache_eline_parameters()`` and ``fit_el()`` for details.)
+        ``cache_eline_parameters()`` and ``fit_mle_elines()`` for details.)
 
         :param obs:
             An observation dictionary, containing the output wavelength array,
@@ -972,7 +955,9 @@ class AGNSpecModel(SpecModel):
         self.cache_eline_parameters(obs, nsigma=nsigma)
 
         # --- smooth and put on output wavelength grid ---
-        smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+        smooth_spec = self.velocity_smoothing(obs_wave, self._norm_spec)
+        smooth_spec = obs.instrumental_smoothing(obs_wave, smooth_spec,
+                                                 libres=self._library_resolution)
 
         # --- add fixed lines ---
         assert self.params["nebemlineinspec"] == False, "must add agn and nebular lines within prospector"
@@ -1000,6 +985,30 @@ class AGNSpecModel(SpecModel):
         self._sed = calibrated_spec / self._speccal
 
         return calibrated_spec
+
+    def predict_lines(self, obs, **extras):
+        """Generate a prediction for the observed nebular line fluxes, including
+        AGN.
+
+        :param obs:
+            A ``data.observation.Lines()`` instance, with the attributes
+            + ``"wavelength"`` - the observed frame wavelength of the lines.
+            + ``"line_ind"`` - a set of indices identifying the observed lines in
+            the fsps line array
+
+        :returns elum:
+            The prediction for the observed frame nebular + AGN emission line
+            flux these parameters, at the wavelengths specified by
+            ``obs['wavelength']``, ndarray of shape ``(nwave,)`` in units of
+            erg/s/cm^2.
+        """
+        sflums = super().predict_lines(obs, **extras)
+        anorm = self.params.get('agn_elum', 1.0) * self.line_norm
+        alums = self._aline_lum[self._predicted_line_inds] * anorm
+
+        elums = sflums + alums
+
+        return elums
 
     def predict_phot(self, filters):
         """Generate a prediction for the observed photometry.  This method assumes
@@ -1059,201 +1068,10 @@ class AGNSpecModel(SpecModel):
         return aline_spec
 
 
-class SedModel(ProspectorParams):
+class PolyFitModel(SpecModel):
 
-    """A subclass of :py:class:`ProspectorParams` that passes the models
-    through to an ``sps`` object and returns spectra and photometry, including
-    optional spectroscopic calibration and sky emission.
-    """
-
-    def predict(self, theta, obs=None, sps=None, **extras):
-        """Given a ``theta`` vector, generate a spectrum, photometry, and any
-        extras (e.g. stellar mass), including any calibration effects.
-
-        :param theta:
-            ndarray of parameter values, of shape ``(ndim,)``
-
-        :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:func:`utils.obsutils.rectify_obs`
-
-        :param sps:
-            An `sps` object to be used in the model generation.  It must have
-            the :py:func:`get_spectrum` method defined.
-
-        :param sigma_spec: (optional, unused)
-            The covariance matrix for the spectral noise. It is only used for
-            emission line marginalization.
-
-        :returns spec:
-            The model spectrum for these parameters, at the wavelengths
-            specified by ``obs['wavelength']``, including multiplication by the
-            calibration vector.  Units of maggies
-
-        :returns phot:
-            The model photometry for these parameters, for the filters
-            specified in ``obs['filters']``.  Units of maggies.
-
-        :returns extras:
-            Any extra aspects of the model that are returned.  Typically this
-            will be `mfrac` the ratio of the surviving stellar mass to the
-            stellar mass formed.
-        """
-        s, p, x = self.sed(theta, obs, sps=sps, **extras)
-        self._speccal = self.spec_calibration(obs=obs, **extras)
-        if obs.get('logify_spectrum', False):
-            s = np.log(s) + np.log(self._speccal)
-        else:
-            s *= self._speccal
-        return s, p, x
-
-    def sed(self, theta, obs=None, sps=None, **kwargs):
-        """Given a vector of parameters ``theta``, generate a spectrum, photometry,
-        and any extras (e.g. surviving mass fraction), ***not** including any
-        instrument calibration effects.  The intrinsic spectrum thus produced is
-        cached in `_spec` attribute
-
-        :param theta:
-            ndarray of parameter values.
-
-        :param obs:
-            An observation dictionary, containing the output wavelength array,
-            the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:func:`utils.obsutils.rectify_obs`
-
-        :param sps:
-            An `sps` object to be used in the model generation.  It must have
-            the :py:func:`get_spectrum` method defined.
-
-        :returns spec:
-            The model spectrum for these parameters, at the wavelengths
-            specified by ``obs['wavelength']``.  Default units are maggies, and
-            the calibration vector is **not** applied.
-
-        :returns phot:
-            The model photometry for these parameters, for the filters
-            specified in ``obs['filters']``. Units are maggies.
-
-        :returns extras:
-            Any extra aspects of the model that are returned.  Typically this
-            will be `mfrac` the ratio of the surviving stellar mass to the
-            steallr mass formed.
-        """
-        self.set_parameters(theta)
-        spec, phot, extras = sps.get_spectrum(outwave=obs['wavelength'],
-                                              filters=obs['filters'],
-                                              component=obs.get('component', -1),
-                                              lnwavegrid=obs.get('lnwavegrid', None),
-                                              **self.params)
-
-        spec *= obs.get('normalization_guess', 1.0)
-        # Remove negative fluxes.
-        try:
-            tiny = 1.0 / len(spec) * spec[spec > 0].min()
-            spec[spec < tiny] = tiny
-        except:
-            pass
-        spec = (spec + self.sky(obs))
-        self._spec = spec.copy()
-        return spec, phot, extras
-
-    def sky(self, obs):
-        """Model for the *additive* sky emission/absorption"""
-        return 0.
-
-    def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """Implements an overall scaling of the spectrum, given by the
-        parameter ``'spec_norm'``
-
-        :returns cal: (float)
-          A scalar multiplicative factor that gives the ratio between the true
-          spectrum and the observed spectrum
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        return 1.0 * self.params.get('spec_norm', 1.0)
-
-    def wave_to_x(self, wavelength=None, mask=slice(None), **extras):
-        """Map unmasked wavelengths to the interval (-1, 1). Masked wavelengths may have x>1, x<-1
-
-        :param wavelength:
-            The input wavelengths.  ndarray of shape ``(nwave,)``
-
-        :param mask: optional
-            The mask.  slice or boolean array with ``True`` for unmasked elements.
-            The interval (-1, 1) will be defined only by unmasked wavelength points
-
-        :returns x:
-            The wavelength vector, remapped to the interval (-1, 1).
-            ndarray of same shape as  ``wavelength``
-        """
-        x = wavelength - (wavelength[mask]).min()
-        x = 2.0 * (x / (x[mask]).max()) - 1.0
-        return x
-
-    def mean_model(self, theta, obs, sps=None, sigma_spec=None, **extras):
-        """Legacy wrapper around predict()
-        """
-        return self.predict(theta, obs, sps=sps, sigma=sigma_spec, **extras)
-
-
-class PolySedModel(SedModel):
-
-    """This is a subclass of SedModel that replaces the calibration vector with
-    the maximum likelihood chebyshev polynomial describing the difference
-    between the observed and the model spectrum.
-    """
-
-    def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """Implements a Chebyshev polynomial calibration model. This uses
-        least-squares to find the maximum-likelihood Chebyshev polynomial of a
-        certain order describing the ratio of the observed spectrum to the
-        model spectrum, conditional on all other parameters, using least
-        squares.  The first coefficient is always set to 1, as the overall
-        normalization is controlled by ``spec_norm``.
-
-        :returns cal:
-           A polynomial given by 'spec_norm' * (1 + \sum_{m=1}^M a_{m} * T_m(x)).
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        norm = self.params.get('spec_norm', 1.0)
-        order = np.squeeze(self.params.get('polyorder', 0))
-        polyopt = ((order > 0) &
-                   (obs.get('spectrum', None) is not None))
-        if polyopt:
-            mask = obs.get('mask', slice(None))
-            # map unmasked wavelengths to the interval -1, 1
-            # masked wavelengths may have x>1, x<-1
-            x = self.wave_to_x(obs["wavelength"], mask)
-            y = (obs['spectrum'] / self._spec)[mask] / norm - 1.0
-            yerr = (obs['unc'] / self._spec)[mask] / norm
-            yvar = yerr**2
-            A = chebvander(x[mask], order)[:, 1:]
-            ATA = np.dot(A.T, A / yvar[:, None])
-            reg = self.params.get('poly_regularization', 0.)
-            if np.any(reg > 0):
-                ATA += reg**2 * np.eye(order)
-            ATAinv = np.linalg.inv(ATA)
-            c = np.dot(ATAinv, np.dot(A.T, y / yvar))
-            Afull = chebvander(x, order)[:, 1:]
-            poly = np.dot(Afull, c)
-            self._poly_coeffs = c
-        else:
-            poly = 0.0
-
-        return (1.0 + poly) * norm
-
-
-class PolyFitModel(SedModel):
-
-    """This is a subclass of *SedModel* that generates the multiplicative
-    calibration vector as a Chebyshev polynomial described by the
+    """This is a subclass of :py:class:`SpecModel` that generates the
+    multiplicative calibration vector as a Chebyshev polynomial described by the
     ``'poly_coeffs'`` parameter of the model, which may be free (fittable)
     """
 
@@ -1273,8 +1091,7 @@ class PolyFitModel(SedModel):
 
         :returns cal:
            If ``params["cal_type"]`` is ``"poly"``, a polynomial given by
-           ``'spec_norm'`` :math:`\times (1 + \Sum_{m=1}^M```'poly_coeffs'[m-1]``:math:` \times T_n(x))`.
-           Otherwise, the exponential of a Chebyshev polynomial.
+           :math:`\times (\Sum_{m=0}^M```'poly_coeffs'[m]``:math:` \times T_n(x))`.
         """
         if theta is not None:
             self.set_parameters(theta)
@@ -1284,20 +1101,12 @@ class PolyFitModel(SedModel):
             # map unmasked wavelengths to the interval -1, 1
             # masked wavelengths may have x>1, x<-1
             x = self.wave_to_x(obs["wavelength"], mask)
-            # get coefficients.  Here we are setting the first term to 0 so we
-            # can deal with it separately for the exponential and regular
-            # multiplicative cases
-            c = np.insert(self.params['poly_coeffs'], 0, 0)
+            # get coefficients.
+            c = self.params['poly_coeffs']
             poly = chebval(x, c)
-            # switch to have spec_norm be multiplicative or additive depending
-            # on whether the calibration model is multiplicative in exp^poly or
-            # just poly
-            if self.params.get('cal_type', 'exp_poly') == 'poly':
-                return (1.0 + poly) * self.params.get('spec_norm', 1.0)
-            else:
-                return np.exp(self.params.get('spec_norm', 0) + poly)
+            return poly
         else:
-            return 1.0 * self.params.get('spec_norm', 1.0)
+            return 1.0
 
 
 def ln_mvn(x, mean=None, cov=None):
