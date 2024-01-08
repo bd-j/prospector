@@ -441,12 +441,13 @@ def run_emcee(obs, model, sps, noise, lnprobfn=lnprobfn,
     """
     q = model.theta.copy()
 
-    postkwargs = {"obs": obs,
-                  "model": model,
-                  "sps": sps,
-                  "noise": noise,
-                  "nested": False,
-                  }
+    postkwargs = {}
+    for item in ['obs', 'model', 'sps', 'noise']:
+        val = eval(item)
+        if val is not None:
+            postkwargs[item] = val
+    
+    postkwargs['nested'] = False
 
     # Could try to make signatures for these two methods the same....
     if initial_positions is not None:
