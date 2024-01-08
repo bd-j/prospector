@@ -59,16 +59,23 @@ def test_eline_parsing():
     assert model._fit_eline.sum() == (len(model._use_eline) - len(fix_lines))
 
 
-def test_nebline_phot_addition(get_sps):
-    fnames = [f"sdss_{b}0" for b in "ugriz"]
-    filts = observate.load_filters(fnames)
-
+def build_obs(filts):
     obs = dict(filters=filts,
                wavelength=np.linspace(3000, 9000, 1000),
                spectrum=np.ones(1000),
-               unc=np.ones(1000)*0.1)
+               unc=np.ones(1000)*0.1,
+               maggies=np.ones(len(filts))*1e-7,
+               maggies_unc=np.ones(len(filts))*1e-8)
     sdat, pdat = from_oldstyle(obs)
     obslist = [sdat, pdat]
+    [obs.rectify() for obs in obslist]
+    return obslist
+
+
+def test_nebline_phot_addition(get_sps):
+    fnames = [f"sdss_{b}0" for b in "ugriz"]
+    filts = observate.load_filters(fnames)
+    obslist = build_obs(filts)
 
     sps = get_sps
 
@@ -104,13 +111,8 @@ def test_filtersets(get_sps):
     """
     fnames = [f"sdss_{b}0" for b in "ugriz"]
     flist = observate.load_filters(fnames)
-
-    obs = dict(wavelength=np.linspace(3000, 9000, 1000),
-               spectrum=np.ones(1000),
-               unc=np.ones(1000)*0.1,
-               filters=fnames)
-    sdat, pdat = from_oldstyle(obs)
-    obslist = [sdat, pdat]
+    obslist = build_obs(flist)
+    sdat, pdat = obslist
 
     sps = get_sps
 
@@ -149,13 +151,7 @@ def test_eline_implementation(get_sps):
     test_eline_parsing()
 
     filters = observate.load_filters([f"sdss_{b}0" for b in "ugriz"])
-    obs = dict(filters=filters,
-               wavelength=np.linspace(3000, 9000, 1000),
-               spectrum=np.ones(1000),
-               unc=np.ones(1000)*0.1,
-               maggies=np.ones(len(filters))*1e-7,
-               maggies_unc=np.ones(len(filters))*1e-8)
-    obslist = from_oldstyle(obs)
+    obslist = build_obs(filters)
 
     model_pars = TemplateLibrary["parametric_sfh"]
     model_pars.update(TemplateLibrary["nebular"])
