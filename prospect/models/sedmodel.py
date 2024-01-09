@@ -112,9 +112,12 @@ class SpecModel(ProspectorParams):
         # cache eline observed wavelengths
         eline_z = self.params.get("eline_delta_zred", 0.0)
         self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
+
         # cache eline mle info
         self._ln_eline_penalty = 0
-        self._eline_lum_var = np.zeros_like(self._eline_wave)
+        self._eline_lum_mle = self._eline_lum.copy()
+        self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
+                                         self._eline_lum)**2)
 
         # physical velocity smoothing of the whole UV/NIR spectrum
         self._smooth_spec = self.velocity_smoothing(self._wave, self._norm_spec)
@@ -510,7 +513,7 @@ class SpecModel(ProspectorParams):
         :param calibrated_spec:
             The predicted (so far) observer-frame spectrum in the same units as
             the observed spectrum, ndarray of shape ``(n_wave,)``  Should
-            include pixed lines but not lines to be fit
+            include fixed lines but not lines to be fit
 
         :param sigma_spec:
             Spectral covariance matrix, if using a non-trivial noise model.
@@ -553,16 +556,24 @@ class SpecModel(ProspectorParams):
         else:
             sigma_inv = np.diag(1. / sigma_spec)
 
-        # calculate ML emission line amplitudes and covariance matrix
+        # Calculate ML emission line amplitudes and covariance matrix
         # FIXME: nebopt: do this with a solve
         sigma_alpha_hat = np.linalg.pinv(np.dot(eline_gaussians.T, np.dot(sigma_inv, eline_gaussians)))
         alpha_hat = np.dot(sigma_alpha_hat, np.dot(eline_gaussians.T, np.dot(sigma_inv, delta)))
 
-        # generate likelihood penalty term (and MAP amplitudes)
-        # FIXME: Cache line amplitude covariance matrices?
-        if self.params.get('use_eline_prior', False):
-            # Incorporate gaussian priors on the amplitudes
-            sigma_alpha_breve = np.diag((self.params['eline_prior_width'] * np.abs(alpha_breve)))**2
+        # Generate likelihood penalty term (and MAP amplitudes)
+
+        # grab current covar matrix for these lines
+        sigma_alpha_breve = self._eline_lum_covar[np.ix_(idx, idx)]
+
+        if np.any(sigma_alpha_breve > 0):
+            # Incorporate gaussian "priors" on the amplitudes
+            # these can come from cloudy model & uncertainty, or fit from previous dataset
+
+            # first account for calibration vector
+            sigma_alpha_breve = sigma_alpha_breve * linecal[:, None] * linecal[None, :]
+
+            # combine covar matrices
             M = np.linalg.pinv(sigma_alpha_hat + sigma_alpha_breve)
             alpha_bar = (np.dot(sigma_alpha_breve, np.dot(M, alpha_hat)) +
                          np.dot(sigma_alpha_hat, np.dot(M, alpha_breve)))
@@ -576,15 +587,16 @@ class SpecModel(ProspectorParams):
             sigma_alpha_bar = sigma_alpha_hat
             K = ln_mvn(alpha_hat, mean=alpha_hat, cov=sigma_alpha_hat)
 
-        # Cache the ln-penalty
-        # FIXME this needs to be acumulated if there are multiple spectra
+        # Cache the ln-penalty, accumulating (in case there are multiple spectra)
         self._ln_eline_penalty += K
 
-        # Store fitted emission line luminosities in physical units
+        # Store fitted emission line luminosities in physical units, including prior
         self._eline_lum[idx] = alpha_bar / linecal
-        self._eline_lum_var[idx] = np.diag(sigma_alpha_bar) / linecal**2
+        # store new Gaussian uncertainties in physical units
+        self._eline_lum_var[np.ix_(idx, idx)] = sigma_alpha_bar / linecal[:, None] / linecal[None, :]
 
-        # return the maximum-likelihood line spectrum in observed units
+        # return the maximum-likelihood line spectrum for this observation in observed units
+        self._eline_lum_mle[idx] = alpha_hat / linecal
         return alpha_hat * eline_gaussians
 
     def predict_eline_spec(self, line_indices=slice(None), wave=None):

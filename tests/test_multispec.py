@@ -86,6 +86,15 @@ def test_multispec(build_sps):
     #        ax.plot(o.wavelength, p)
 
 
+def test_multiline():
+    """The goal is combine all constraints on the emission line luminosities.
+    
+    
+    
+    """
+
+
+
 def test_multires():
     # Test the smoothing of multiple spectra to different resolutions
     # - give the same wavelength array different instrumental resolutions, assert similar but different, and that smoothing by the difference gives the right answer
