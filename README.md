@@ -17,20 +17,20 @@ Work to do includes:
 - [x] Put responsibility for Noise Models including outlier modeling in individual Observation instances
 - [x] Make predictions even when there is no fittable data (e.g. model spectra when fitting photometry only)
 - [x] Store Observation objects in HDF5, FITS, etc as structured arrays with metadata
-- [ ] Test multi-spectral calibration
-- [ ] Test multi-spectral instrumental & physical smoothing
-- [ ] Test smoothing accounting for library resolution
-- [ ] Test multi-spectra noise modeling
-- [ ] Catch (and handle?) emission line marginalization if spectra overlap.
-- [x] Update demo scripts
-- [x] Update docs
-- [ ] Update notebooks
+- [x] Catch (and handle) emission line marginalization if spectra overlap.
 - [x] Structured ndarray for output chains and lnlikehoods
-- [ ] Test i/o with structured arrays
-- [ ] Structured ndarray for derived parameters
-- [ ] Store samples of spectra, photometry, and mfrac
+- [x] Update docs
+- [x] Update demo scripts
+- [ ] Account for undersampled spectra via a square convolution in pixel space (or explicit rebinning)
+- [ ] Update notebooks
 - [ ] Update plotting module
+- [ ] Test i/o with structured arrays
+- [ ] Test multi-spectral calibration, smoothing, and noise modeling
+- [ ] Test smoothing accounting for library, instrumental & physical smoothing
+- [ ] Structured ndarray for derived parameters
+- [ ] Store samples of spectra, photometry, and mfrac (blobs)
 - [ ] Implement an emulator-based SpecModel class
+- [ ] Implement UltraNest and Nautilus backends
 
 
 Purpose
