@@ -75,7 +75,7 @@ photometry).  These parameters are:
 
 In all cases the line names to use in these lists are those given in the FSPS
 emission line line information table, ``$SPS_HOME/data/emlines_info.dat``, e.g.
-``"Ly alpha 1216"`` for the Lyman-alpha 1216 Angstrom line.
+``"Ly-alpha 1215"`` for the Lyman-alpha 1216 Angstrom line.
 
 Nebular Parameter Templates
 ---------------------------

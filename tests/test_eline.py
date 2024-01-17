@@ -19,12 +19,12 @@ def test_eline_parsing():
     model_pars.update(TemplateLibrary["nebular"])
 
     # test ignoring a line
-    lya = "Ly alpha 1216"
+    lya = "Ly-alpha 1215"
     model_pars["elines_to_ignore"] = dict(init=lya, isfree=False)
     model = SpecModel(model_pars)
     model.parse_elines()
     assert not np.isin(lya, model.emline_info["name"][model._use_eline])
-    assert np.isin("H alpha 6563", model.emline_info["name"][model._use_eline])
+    assert np.isin("Ba-alpha 6563", model.emline_info["name"][model._use_eline])
     assert np.all(model._fix_eline)
     assert model._use_eline.sum() == len(model._use_eline) - 1
     assert len(model._use_eline) == len(model.emline_info)
@@ -36,7 +36,7 @@ def test_eline_parsing():
     assert model._fit_eline.sum() == len(model._use_eline)
 
     # test fitting just a line or two
-    fit_lines = ["[OIII]5007"]
+    fit_lines = ["[O III] 5007"]
     model_pars["elines_to_fit"] = dict(init=fit_lines)
     model = SpecModel(model_pars)
     model.parse_elines()
@@ -173,7 +173,7 @@ def test_eline_implementation():
     spec, phot, mfrac = model.predict(model.theta, obs=obs, sps=sps)
 
     # test ignoring a line
-    lya = "Ly alpha 1216"
+    lya = "Ly-alpha 1215"
     model_pars["elines_to_ignore"] = dict(init=lya, isfree=False)
     model = SpecModel(model_pars)
     spec_nolya, phot_nolya, mfrac = model.predict(model.theta, obs=obs, sps=sps)
