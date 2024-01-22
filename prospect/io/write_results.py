@@ -338,8 +338,8 @@ def write_obs_to_h5(hf, obs):
 
 def optresultlist_to_ndarray(results):
     npar, nout = len(results[0].x), len(results[0].fun)
-    dt = [("success", np.bool), ("message", "S50"), ("nfev", np.int),
-          ("x", (np.float, npar)), ("fun", (np.float, nout))]
+    dt = [("success", bool), ("message", "U50"), ("nfev", int),
+          ("x", (float, npar)), ("fun", (float, nout))]
     out = np.zeros(len(results), dtype=np.dtype(dt))
     for i, r in enumerate(results):
         for f in out.dtype.names:
