@@ -53,7 +53,8 @@ class SpecModel(ProspectorParams):
                     ("eline_delta_zred", ""),
                     ("eline_sigma", ""),
                     ("use_eline_priors", ""),
-                    ("eline_prior_width", "")]
+                    ("eline_prior_width", ""),
+                    ("dla_logNh", "log_10 HI column density for damped Lyman-alpha absorption")]
 
         referenced_pars = [("mass", ""),
                            ("lumdist", ""),
@@ -121,6 +122,8 @@ class SpecModel(ProspectorParams):
 
         # physical velocity smoothing of the whole UV/NIR spectrum
         self._smooth_spec = self.velocity_smoothing(self._wave, self._norm_spec)
+        # DLA absorption
+        self._smooth_spec = self.add_dla(self._wave, self._smooth_spec)
 
         # generate predictions for likelihood
         # this assumes all spectral datasets (if present) occur first
@@ -671,6 +674,15 @@ class SpecModel(ProspectorParams):
 
         return outspec
 
+    def add_dla(self, wave_rest, spec):
+        logN = self.params.get("dla_logNh", None)
+        if logN is None:
+            return spec
+        tau = voigt_profile(wave_rest, 10**logN)
+        spec *= np.exp(-tau)
+        return spec
+
+
     def observed_wave(self, wave, do_wavecal=False):
         """Convert the restframe wavelngth grid to the observed frame wavelength
         grid, optionally including wavelength calibration adjustments.  Requires
@@ -1164,3 +1176,72 @@ def gauss(x, mu, A, sigma):
     mu, A, sigma = np.atleast_2d(mu), np.atleast_2d(A), np.atleast_2d(sigma)
     val = A / (sigma * np.sqrt(np.pi * 2)) * np.exp(-(x[:, None] - mu)**2 / (2 * sigma**2))
     return val.sum(axis=-1)
+
+
+def H(a, x):
+    """Voigt Profile Approximation from T. Tepper-Garcia (2006, 2007).
+    Valid to a fractional error of ~ 1e-7 * (N_h/10^22) for Lyman-alpha (a~1e-4)"""
+    P = x**2
+    H0 = np.exp(-x**2)
+    Q = 1.5/x**2
+    return H0 - a/np.sqrt(np.pi)/P * (H0*H0*(4.*P*P + 7.*P + 4. + Q) - Q - 1)
+
+
+def voigt_profile(wave_rest, N, bkms=40, l0=1215.6696, f=4.16e-1, gamma=6.265e8):
+    """
+    Calculate the optical depth Voigt profile.
+    Default values of the atomic constants f, l0, and gamma are for Lyman-alpha.
+    Following Krogager 2018
+
+    Parameters
+    ----------
+    wave_rest : array_like, shape (N)
+        Restframe wavelength grid in Angstroms at which to evaluate the optical depth.
+
+    l0 : float
+        Rest frame transition wavelength in Angstroms.
+
+    f : float
+        Oscillator strength.
+
+    N : float
+        Column density in units of cm^-2.
+
+    bkms : float
+        Velocity width of the Voigt profile in km/s.
+
+    gamma : float
+        Radiation damping constant, or Einstein constant (A_ul)
+
+    Returns
+    -------
+    tau : array_like, shape (N)
+        Optical depth array evaluated at the input grid wavelengths `l`.
+    """
+    # Units & constants
+    c = 2.99792e10        # cm/s
+    const = 0.0149736082  # sqrt(pi) * e**2/(c * m_e) (cgs)
+    l0_cm = (l0*1.e-8)
+    b = bkms * 1e5
+
+    # Calculate Profile
+    C_a = const * f * l0_cm / b
+    a = l0_cm * gamma / (4.*np.pi*b)
+
+    x = (c / b) * (1. - l0 / wave_rest)
+    tau = np.float64(C_a) * N * H(a, x)
+
+    return tau
+
+
+def Voigt(x, alpha, gamma):
+    """
+    Return the Voigt line shape at x with Lorentzian component HWHM gamma
+    and Gaussian component HWHM alpha.
+
+    """
+    from scipy.special import wofz
+    sigma = alpha / np.sqrt(2 * np.log(2))
+
+    return np.real(wofz((x + 1j*gamma)/sigma/np.sqrt(2))) / sigma\
+                                                           /np.sqrt(2*np.pi)
