@@ -305,7 +305,7 @@ class SpecModel(ProspectorParams):
 
         # generate photometry w/o emission lines
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
-        flambda = self._norm_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
+        flambda = self._smooth_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
         phot = np.atleast_1d(getSED(obs_wave, flambda, filterset, linear_flux=True))
 
         # generate emission-line photometry
