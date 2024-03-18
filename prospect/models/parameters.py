@@ -13,6 +13,9 @@ import numpy as np
 import json, pickle
 from . import priors
 from .templates import describe
+import scipy
+from gp_sfh import *
+import gp_sfh_kernels
 
 __all__ = ["ProspectorParams"]
 
@@ -166,6 +169,7 @@ class ProspectorParams(object):
             The natural log of the prior probability at ``theta``
         """
         lpp = self._prior_product(theta)
+        # print(lpp)
         if nested & np.any(np.isfinite(lpp)):
             return 0.0
         return lpp
@@ -184,11 +188,41 @@ class ProspectorParams(object):
             parameter values.
         """
         lnp_prior = 0
-        for k, inds in list(self.theta_index.items()):
-
-            func = self.config_dict[k]['prior']
-            this_prior = np.sum(func(theta[..., inds]), axis=-1)
+        
+        hyper_params = ['sigma_reg', 'tau_eq', 'tau_in', 'sigma_dyn', 'tau_dyn']
+        psd_params = np.zeros(len(hyper_params))
+        
+        if any(hp in self.theta_index.keys() for hp in hyper_params):
+            for i, p in enumerate(hyper_params):
+                if self.config_dict[p]['isfree']:
+                    inds = self.theta_index[p]
+                    psd_params[i] = theta[..., inds][0]
+                    func = self.config_dict[p]['prior']
+                    this_prior = np.sum(func(theta[..., inds]), axis=-1)
+                    lnp_prior += this_prior
+                else:
+                    psd_params[i] = self.config_dict[p]['init']
+                    
+            sfr_covar_matrix = get_sfr_covar(psd_params, agebins=self.config_dict['agebins']['init'])
+            sfr_ratio_covar_matrix = sfr_covar_to_sfr_ratio_covar(sfr_covar_matrix)
+            nbins = len(self.config_dict['agebins']['init'])
+            logsfr_ratio_prior = scipy.stats.multivariate_normal(mean=[0.]*(nbins-1), cov=sfr_ratio_covar_matrix)
+            inds = self.theta_index['logsfr_ratios']
+            this_prior = np.sum(np.log(logsfr_ratio_prior.pdf(theta[..., inds])))
+            #this_prior = np.sum(logsfr_ratio_prior(theta[..., inds]), axis=-1)
             lnp_prior += this_prior
+        
+            for k, inds in list(self.theta_index.items()):
+                if (k in hyper_params) or (k == 'logsfr_ratios'):
+                    continue
+                func = self.config_dict[k]['prior']
+                this_prior = np.sum(func(theta[..., inds]), axis=-1)
+                lnp_prior += this_prior
+        else:
+            for k, inds in list(self.theta_index.items()):
+                func = self.config_dict[k]['prior']
+                this_prior = np.sum(func(theta[..., inds]), axis=-1)
+                lnp_prior += this_prior
 
         return lnp_prior
 
@@ -203,9 +237,41 @@ class ProspectorParams(object):
             corresponding to ``unit_coords``. ndarray of shape ``(ndim,)``
         """
         theta = np.zeros(len(unit_coords))
-        for k, inds in list(self.theta_index.items()):
-            func = self.config_dict[k]['prior'].unit_transform
-            theta[inds] = func(unit_coords[inds])
+        
+        hyper_params = ['sigma_reg', 'tau_eq', 'tau_in', 'sigma_dyn', 'tau_dyn']
+        psd_params = np.zeros(len(hyper_params))
+        
+        
+        if any(hp in self.theta_index.keys() for hp in hyper_params):
+        
+            for i, p in enumerate(hyper_params):
+                if self.config_dict[p]['isfree']:
+                    func = self.config_dict[p]['prior'].unit_transform
+                    inds = self.theta_index[p]
+                    psd_params[i] = func(unit_coords[inds])
+                    theta[inds] = psd_params[i]
+                else:
+                    psd_params[i] = self.config_dict[p]['init']
+                
+            sfr_covar_matrix = get_sfr_covar(psd_params, agebins=self.config_dict['agebins']['init'])#, **self.params)
+            sfr_ratio_covar_matrix = sfr_covar_to_sfr_ratio_covar(sfr_covar_matrix)
+            logsfr_ratio_prior = priors.MultiVariateNormal(mean=0, Sigma=sfr_ratio_covar_matrix)
+            x = unit_coords[self.theta_index['logsfr_ratios']]
+            logsfr_ratios = logsfr_ratio_prior.unit_transform(x)
+            theta[self.theta_index['logsfr_ratios']] = logsfr_ratios
+                        
+            for k, inds in list(self.theta_index.items()):
+                if (k in hyper_params) or (k == 'logsfr_ratios'):
+                    continue
+                func = self.config_dict[k]['prior'].unit_transform
+                theta[inds] = func(unit_coords[inds])
+            
+        else:
+
+            for k, inds in list(self.theta_index.items()):
+                func = self.config_dict[k]['prior'].unit_transform
+                theta[inds] = func(unit_coords[inds])
+        
         return theta
 
     def propagate_parameter_dependencies(self):
@@ -408,4 +474,32 @@ def pdict_to_plist(pdict, order=None):
         v['name'] = k
         plist += [v]
     return plist
+
+
+def get_sfr_covar(psd_params, agebins=[], **extras):
+
+    bincenters = np.array([np.mean(agebins[i]) for i in range(len(agebins))])
+    bincenters = (10**bincenters)/1e9
+    case1 = simple_GP_sfh()
+    case1.tarr = bincenters
+    case1.kernel = gp_sfh_kernels.extended_regulator_model_kernel_paramlist
+    covar_matrix = case1.get_covariance_matrix(kernel_params = psd_params, show_prog=False)
+
+    return covar_matrix
+
+
+def sfr_covar_to_sfr_ratio_covar(covar_matrix):
+    
+    dim = covar_matrix.shape[0]
+    
+    sfr_ratio_covar = []
+    
+    for i in range(dim-1):
+        row = []
+        for j in range(dim-1):
+            cov = covar_matrix[i][j] - covar_matrix[i+1][j] - covar_matrix[i][j+1] + covar_matrix[i+1][j+1]
+            row.append(cov)
+        sfr_ratio_covar.append(row)
+    
+    return np.array(sfr_ratio_covar)
 
