@@ -13,13 +13,17 @@ from ..sources.constants import cosmo
 from gp_sfh import *
 import gp_sfh_kernels
 
+
 __all__ = ["stellar_logzsol", "delogify_mass",
            "tburst_from_fage", "tage_from_tuniv", "zred_to_agebins",
            "dustratio_to_dust1",
            "logsfr_ratios_to_masses", "logsfr_ratios_to_sfrs",
            "logsfr_ratios_to_masses_flex", "logsfr_ratios_to_agebins",
            "zfrac_to_masses", "zfrac_to_sfrac", "zfrac_to_sfr", "masses_to_zfrac",
-           "sfratio_to_sfr", "sfratio_to_mass", "get_sfr_covar", "sfr_covar_to_sfr_ratio_covar"]
+           "sfratio_to_sfr", "sfratio_to_mass", "get_sfr_covar", "sfr_covar_to_sfr_ratio_covar",
+           "zred_to_agebins_pbeta",
+           "zredmassmet_to_zred", "zredmassmet_to_logmass", "zredmassmet_to_mass", "zredmassmet_to_logzsol",
+           "nzsfh_to_zred", "nzsfh_to_logmass", "nzsfh_to_mass", "nzsfh_to_logzsol", "nzsfh_to_logsfr_ratios"]
 
 
 # --------------------------------------
@@ -183,7 +187,8 @@ def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None,
     time.
     """
     nbins = agebins.shape[0]
-    sratios = 10**np.clip(logsfr_ratios, -100, 100)  # numerical issues...
+    sratios = 10**np.clip(logsfr_ratios, -10, 10)  # numerical issues...
+    #sratios = 10**np.clip(logsfr_ratios, -100, 100)  # numerical issues...
     dt = (10**agebins[:, 1] - 10**agebins[:, 0])
     coeffs = np.array([ (1. / np.prod(sratios[:i])) * (np.prod(dt[1: i+1]) / np.prod(dt[: i]))
                         for i in range(nbins)])
@@ -208,8 +213,10 @@ def logsfr_ratios_to_sfrs(logmass=None, logsfr_ratios=None, agebins=None, **extr
 def logsfr_ratios_to_masses_flex(logmass=None, logsfr_ratios=None,
                                  logsfr_ratio_young=None, logsfr_ratio_old=None,
                                  **extras):
-    logsfr_ratio_young = np.clip(logsfr_ratio_young, -100, 100)
-    logsfr_ratio_old = np.clip(logsfr_ratio_old, -100, 100)
+    logsfr_ratio_young = np.clip(logsfr_ratio_young, -10, 10)
+    logsfr_ratio_old = np.clip(logsfr_ratio_old, -10, 10)
+    #logsfr_ratio_young = np.clip(logsfr_ratio_young, -100, 100)
+    #logsfr_ratio_old = np.clip(logsfr_ratio_old, -100, 100)
 
     abins = logsfr_ratios_to_agebins(logsfr_ratios=logsfr_ratios, **extras)
 
@@ -235,7 +242,8 @@ def logsfr_ratios_to_agebins(logsfr_ratios=None, agebins=None, **extras):
     """
 
     # numerical stability
-    logsfr_ratios = np.clip(logsfr_ratios, -100, 100)
+    logsfr_ratios = np.clip(logsfr_ratios, -10, 10)
+    #logsfr_ratios = np.clip(logsfr_ratios, -100, 100)
 
     # calculate delta(t) for oldest, youngest bins (fixed)
     lower_time = (10**agebins[0, 1] - 10**agebins[0, 0])
@@ -489,6 +497,70 @@ def sfratio_to_sfr(sfr_ratio=None, sfr0=None, **extras):
 
 def sfratio_to_mass(sfr_ratio=None, sfr0=None, agebins=None, **extras):
     raise(NotImplementedError)
+
+
+# --------------------------------------
+# --- Transforms for prospector-beta ---
+# --------------------------------------
+
+def zred_to_agebins_pbeta(zred=None, agebins=[], **extras):
+    """New agebin scheme, refined so that none of the bins is overly wide when the universe is young.
+    
+    Parameters
+    ----------
+    zred : float
+        Cosmological redshift.  This sets the age of the universe.
+    agebins :  ndarray of shape ``(nbin, 2)``
+        The SFH bin edges in log10(years).
+    
+    Returns
+    -------
+    agebins : ndarray of shape ``(nbin, 2)``
+        The new SFH bin edges.
+    """
+    amin = 7.1295
+    nbins_sfh = len(agebins)
+    tuniv = cosmo.age(zred)[0].value*1e9 # because input zred is atleast_1d
+    tbinmax = (tuniv*0.9)
+    if (zred <= 3.):
+        agelims = [0.0,7.47712] + np.linspace(8.0,np.log10(tbinmax),nbins_sfh-2).tolist() + [np.log10(tuniv)]
+    else:
+        agelims = np.linspace(amin,np.log10(tbinmax),nbins_sfh).tolist() + [np.log10(tuniv)]
+        agelims[0] = 0
+        
+    agebins = np.array([agelims[:-1], agelims[1:]])
+    return agebins.T
+
+# separates a theta vector of [zred, mass, met] into individual parameters
+# can be used with PhiMet & ZredMassMet
+def zredmassmet_to_zred(zredmassmet=None, **extras):
+    return zredmassmet[0]
+
+def zredmassmet_to_logmass(zredmassmet=None, **extras):
+    return zredmassmet[1]
+
+def zredmassmet_to_mass(zredmassmet=None, **extras):
+    return 10**zredmassmet[1]
+
+def zredmassmet_to_logzsol(zredmassmet=None, **extras):
+    return zredmassmet[2]
+
+# separates a theta vector of [zred, mass, met, logsfr_ratios] into individual parameters
+# can be used with PhiSFH & NzSFH
+def nzsfh_to_zred(nzsfh=None, **extras):
+    return nzsfh[0]
+
+def nzsfh_to_logmass(nzsfh=None, **extras):
+    return nzsfh[1]
+
+def nzsfh_to_mass(nzsfh=None, **extras):
+    return 10**nzsfh[1]
+
+def nzsfh_to_logzsol(nzsfh=None, **extras):
+    return nzsfh[2]
+
+def nzsfh_to_logsfr_ratios(nzsfh=None, **extras):
+    return nzsfh[3:]
     
     
 # --------------------------------------

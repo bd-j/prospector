@@ -9,6 +9,7 @@ from copy import deepcopy
 import numpy as np
 import os
 from . import priors
+from . import priors_beta
 from . import transforms
 
 __all__ = ["TemplateLibrary",
@@ -304,6 +305,9 @@ try:
                      dtype=[('wave', 'f8'), ('name', '<U20')],
                      delimiter=',')
 except OSError:
+    info = {'name':[]}
+except TypeError:
+    # SPS_HOME not defined
     info = {'name':[]}
 
 # Fit all lines by default
@@ -764,3 +768,46 @@ _alpha_ = adjust_dirichlet_agebins(_alpha_, agelims=(np.log10(alpha_agelims) + 9
 
 TemplateLibrary["alpha"] = (_alpha_,
                             "The prospector-alpha model, Leja et al. 2017")
+
+
+# ----------------------------
+# --- Prospector-beta ---
+# ----------------------------
+
+_beta_nzsfh_ = TemplateLibrary["alpha"]
+_beta_nzsfh_.pop('z_fraction', None)
+_beta_nzsfh_.pop('total_mass', None)
+
+nbins_sfh = 7 # number of sfh bins
+_beta_nzsfh_['nzsfh'] = {'N': nbins_sfh+2, 'isfree': True, 'init': np.concatenate([[0.5,8,0.0], np.zeros(nbins_sfh-1)]),
+                         'prior': priors_beta.NzSFH(zred_mini=1e-3, zred_maxi=15.0,
+                                                    mass_mini=7.0, mass_maxi=12.5,
+                                                    z_mini=-1.98, z_maxi=0.19,
+                                                    logsfr_ratio_mini=-5.0, logsfr_ratio_maxi=5.0,
+                                                    logsfr_ratio_tscale=0.3, nbins_sfh=nbins_sfh,
+                                                    const_phi=True)}
+
+_beta_nzsfh_['zred'] = {'N': 1, 'isfree': False, 'init': 0.5,
+                        'depends_on': transforms.nzsfh_to_zred}
+
+_beta_nzsfh_['logmass'] = {'N': 1, 'isfree': False, 'init': 8.0, 'units': 'Msun',
+                           'depends_on': transforms.nzsfh_to_logmass}
+
+_beta_nzsfh_['logzsol'] = {'N': 1, 'isfree': False, 'init': -0.5, 'units': r'$\log (Z/Z_\odot)$',
+                           'depends_on': transforms.nzsfh_to_logzsol}
+
+# --- SFH ---
+_beta_nzsfh_["sfh"] = {'N': 1, 'isfree': False, 'init': 3}
+
+_beta_nzsfh_['logsfr_ratios'] = {'N': nbins_sfh-1, 'isfree': False, 'init': 0.0,
+                                 'depends_on': transforms.nzsfh_to_logsfr_ratios}
+
+_beta_nzsfh_["mass"] = {'N': nbins_sfh, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+                        'depends_on': transforms.logsfr_ratios_to_masses}
+
+_beta_nzsfh_['agebins'] = {'N': nbins_sfh, 'isfree': False,
+                           'init': transforms.zred_to_agebins_pbeta(np.atleast_1d(0.5), np.zeros(nbins_sfh)),
+                           'depends_on': transforms.zred_to_agebins_pbeta}
+
+TemplateLibrary["beta"] = (_beta_nzsfh_,
+                           "The prospector-beta model; Wang, Leja, et al. 2023")
