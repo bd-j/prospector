@@ -19,8 +19,8 @@ ingrediants; for more realistic usage see :ref:`demo` or the :ref:`tutorial`.
 Build an observation
 --------------------
 
-First we'll get some data, using ``astroquery`` to get SDSS photometry of a galaxy.  We'll also
-get spectral data so we know the redshift.
+First we'll get some data, using ``astroquery`` to get SDSS photometry of a
+galaxy.  We'll also get spectral data so we know the redshift.
 
 .. code:: python
 
@@ -49,7 +49,7 @@ for this example we do *not* attempt to fit the spectrum at the same time.
     filters = load_filters([f"sdss_{b}0" for b in bands])
     maggies = np.array([10**(-0.4 * cat[0][f"cModelMag_{b}"]) for b in bands])
     magerr = np.array([cat[0][f"cModelMagErr_{b}"] for b in bands])
-    magerr = np.clip(magerr, 0.05, np.inf)
+    magerr = np.hypot(magerr, 0.05)
 
     obs = dict(wavelength=None, spectrum=None, unc=None, redshift=shdus[2].data[0]["z"],
                maggies=maggies, maggies_unc=magerr * maggies / 1.086, filters=filters)
@@ -78,7 +78,8 @@ should be replaced or adjusted depending on your particular science question.
     print(model)
 
 In principle we could also add noise models for the spectral and photometric
-data, but we'll make the default assumption of independent Gaussian noise for the moment.
+data, but we'll make the default assumption of independent Gaussian noise for
+the moment.
 
 .. code:: python
 

@@ -1,7 +1,8 @@
 Installation
 ============
 
-|Codename| itself is is pure python.  To install a released version of just |Codename|, use ``pip``
+|Codename| itself is is pure python.  To install a released version of just
+|Codename|, use ``pip``
 
 .. code-block:: shell
 
@@ -52,7 +53,8 @@ environment, use the following procedure:
 Requirements
 ------------
 
-|Codename| works with Python3, and requires `numpy <http://www.numpy.org>`_ and `SciPy <http://www.scipy.org>`_
+|Codename| works with ``python>=3.9``, and requires `numpy
+<http://www.numpy.org>`_ and `SciPy <http://www.scipy.org>`_
 
 You will also need:
 
