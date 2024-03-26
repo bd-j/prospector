@@ -1,18 +1,7 @@
 name: Release
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - "*"
-  # pull_request:
-  workflow_dispatch:
-    inputs:
-      prerelease:
-        description: "Run a pre-release, testing the build"
-        required: false
-        type: boolean
-        default: false
+  release:
+    types: [created]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -34,8 +23,6 @@ jobs:
         with:
           name: binary-${{ matrix.os }}
           path: ./wheelhouse/*.whl
-
-
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
