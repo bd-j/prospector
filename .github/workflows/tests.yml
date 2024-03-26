@@ -16,13 +16,13 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: Clone the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Clone fsps
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: cconroy20/fsps
           path: fsps
@@ -31,7 +31,7 @@ jobs:
           python -m pip install -U pip pytest
           python -m pip install -U fsps astro-sedpy astropy
           python -m pip install -U scipy
-          python -m pip install -U six dynesty
+          python -m pip install -U dynesty
           python -m pip install .
         env:
           SPS_HOME: ${{ github.workspace }}/fsps

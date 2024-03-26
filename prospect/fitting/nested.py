@@ -1,7 +1,6 @@
 import sys, time
 import numpy as np
 from numpy.random import normal, multivariate_normal
-from six.moves import range
 
 try:
     import nestle
