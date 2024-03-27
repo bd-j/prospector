@@ -5,11 +5,13 @@
 When called these return the ln-prior-probability, and they can also be used to
 construct prior transforms (for nested sampling) and can be sampled from.
 """
+
 import numpy as np
 import scipy.stats
 from scipy.special import erf, erfinv
 
-__all__ = ["Prior", "Uniform", "TopHat", "Normal", "ClippedNormal",
+
+__all__ = ["Prior", "Uniform", "TopHat", "Normal", "MultiVariateNormal", "ClippedNormal",
            "LogNormal", "LogUniform", "Beta",
            "StudentT", "SkewNormal",
            "FastUniform", "FastTruncatedNormal",
@@ -38,7 +40,7 @@ class Prior(object):
         A list of names of the parameters, used to alias the intrinsic
         parameter names.  This way different instances of the same Prior can
         have different parameter names, in case they are being fit for....
-
+    
     Attributes
     ----------
     params : dictionary
@@ -106,18 +108,22 @@ class Prior(object):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
+            
         pdf = self.distribution.pdf
+        
         try:
             p = pdf(x, *self.args, loc=self.loc, scale=self.scale)
-        except(ValueError):
+            
+        except(ValueError):#, TypeError):
             # Deal with `x` vectors of shape (nsamples, len(prior))
             # for pdfs that don't broadcast nicely.
             p = [pdf(_x, *self.args, loc=self.loc, scale=self.scale)
-                 for _x in x]
+                 for _x in x]           
             p = np.array(p)
 
         with np.errstate(invalid='ignore'):
             lnp = np.log(p)
+            
         return lnp
 
     def sample(self, nsample=None, **kwargs):
@@ -258,6 +264,64 @@ class Normal(Prior):
         #if len(kwargs) > 0:
         #    self.update(**kwargs)
         return (-np.inf, np.inf)
+
+
+class MultiVariateNormal(Prior):
+    prior_params = ["mean", 'Sigma']
+    distribution = scipy.stats.norm
+
+    @property
+    def scale(self):
+        return self.params['Sigma']
+
+    @property
+    def loc(self):
+        return self.params['mean']
+
+    @property
+    def range(self):
+        nsig = 4
+        return (self.params['mean'] - nsig * self.params['Sigma'],
+                self.params['mean'] + nsig * self.params['Sigma'])
+
+    def bounds(self, **kwargs):
+        #if len(kwargs) > 0:
+        #    self.update(**kwargs)
+        return (-np.inf, np.inf)
+    
+    def sample(self, nsample=None, **kwargs):
+        prior = scipy.stats.multivariate_normal(mean=self.loc, cov=self.scale)
+        return prior.rvs(size = nsample)
+
+    def unit_transform(self, x, **kwargs):
+        """Go from a value of the CDF (between 0 and 1) to the corresponding
+        parameter value.
+
+        :param x:
+            A scalar or vector of same length as the Prior with values between
+            zero and one corresponding to the value of the CDF.
+
+        :returns theta:
+            The parameter value corresponding to the value of the CDF given by
+            `x`.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        z = self.distribution.ppf(x, *self.args, loc=0, scale=1)
+        #print(z)
+        sqrtS = np.linalg.cholesky(self.params['Sigma']) #, lower=True)
+        #print(sqrtS)
+        #theta = np.matmul(z, sqrtS)
+        theta = np.matmul(sqrtS, z)
+        return theta
+    
+    def inverse_unit_transform(self, x, **kwargs):
+        """Go from the parameter value to the unit coordinate using the cdf.
+        """
+        if len(kwargs) > 0:
+            self.update(**kwargs)
+        return scipy.stats.multivariate_normal.cdf(x, *self.args,
+                                                   mean=0., cov=self.params['Sigma'])
 
 
 class ClippedNormal(Prior):
@@ -522,6 +586,7 @@ class StudentT(Prior):
 
     def bounds(self, **kwargs):
         return (-np.inf, np.inf)
+
 
 # fast versions to the above priors
 # essentially rewriting the numpy/scipy functions
