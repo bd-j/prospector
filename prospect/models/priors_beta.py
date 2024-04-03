@@ -223,9 +223,9 @@ class ZredMassMet(priors.Prior):
         self.update(**kwargs)
 
         if self.params['const_phi']:
-            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z_l20.txt'), unpack=True)
+            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20, unpack=True)
         else:
-            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z.txt'), unpack=True)
+            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20t18, unpack=True)
 
         self.finterp_z_pdf, self.finterp_cdf_z = norm_pz(self.params['zred_mini'], self.params['zred_maxi'], zreds, pdf_zred)
         self.mgrid = np.linspace(self.params['mass_mini'], self.params['mass_maxi'], 101)
@@ -768,9 +768,9 @@ class PhiSFH(priors.Prior):
         self.update(**kwargs)
 
         if self.params['const_phi']:
-            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z_l20.txt'), unpack=True)
+            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20, unpack=True)
         else:
-            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z.txt'), unpack=True)
+            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20t18, unpack=True)
 
         self.finterp_z_pdf, self.finterp_cdf_z = norm_pz(self.params['zred_mini'], self.params['zred_maxi'], zreds, pdf_zred)
 
@@ -1160,9 +1160,9 @@ class NzSFH(priors.Prior):
         # the tables were calculated in pdf_z_tables.ipynb
         # redshift range is 0 - 20
         if self.params['const_phi']:
-            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z_l20.txt'), unpack=True)
+            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20, unpack=True)
         else:
-            zreds, pdf_zred = np.loadtxt(os.path.join(prior_data_dir, 'pdf_of_z.txt'), unpack=True)
+            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20t18, unpack=True)
 
         self.finterp_z_pdf, self.finterp_cdf_z = norm_pz(self.params['zred_mini'], self.params['zred_maxi'], zreds, pdf_zred)
 
@@ -1514,8 +1514,9 @@ def mass_func_at_z(z, this_logm, const_phi=False, bounds=[6.0, 12.5]):
         else:
             phi = high_z_mass_func(z0=12, this_m=10**this_logm)
 
-    phi[this_logm < bounds[0]] = 0
-    phi[this_logm > bounds[1]] = 0
+    if hasattr(this_logm, "__len__"):
+        phi[this_logm < bounds[0]] = 0
+        phi[this_logm > bounds[1]] = 0
     return np.squeeze(phi)
 
 
