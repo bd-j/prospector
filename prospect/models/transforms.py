@@ -10,8 +10,8 @@ They can be used as ``"depends_on"`` entries in parameter specifications.
 
 import numpy as np
 from ..sources.constants import cosmo
-from gp_sfh import *
-import gp_sfh_kernels
+#from gp_sfh import *
+#import gp_sfh_kernels
 
 
 __all__ = ["stellar_logzsol", "delogify_mass",
@@ -20,7 +20,8 @@ __all__ = ["stellar_logzsol", "delogify_mass",
            "logsfr_ratios_to_masses", "logsfr_ratios_to_sfrs",
            "logsfr_ratios_to_masses_flex", "logsfr_ratios_to_agebins",
            "zfrac_to_masses", "zfrac_to_sfrac", "zfrac_to_sfr", "masses_to_zfrac",
-           "sfratio_to_sfr", "sfratio_to_mass", "get_sfr_covar", "sfr_covar_to_sfr_ratio_covar",
+           "sfratio_to_sfr", "sfratio_to_mass", 
+           #"get_sfr_covar", "sfr_covar_to_sfr_ratio_covar",
            "zred_to_agebins_pbeta",
            "zredmassmet_to_zred", "zredmassmet_to_logmass", "zredmassmet_to_mass", "zredmassmet_to_logzsol",
            "nzsfh_to_zred", "nzsfh_to_logmass", "nzsfh_to_mass", "nzsfh_to_logzsol", "nzsfh_to_logsfr_ratios"]
@@ -567,46 +568,46 @@ def nzsfh_to_logsfr_ratios(nzsfh=None, **extras):
 # --- Transforms for stochastic SFH prior ---
 # --------------------------------------
 
-def get_sfr_covar(psd_params, agebins=[], **extras):
+# def get_sfr_covar(psd_params, agebins=[], **extras):
     
-    """
-    Caluclates SFR covariance matrix for a given set of PSD parameters and agebins
-    PSD parameters must be in the order: [sigma_reg, tau_eq, tau_in, sigma_dyn, tau_dyn]
+#     """
+#     Caluclates SFR covariance matrix for a given set of PSD parameters and agebins
+#     PSD parameters must be in the order: [sigma_reg, tau_eq, tau_in, sigma_dyn, tau_dyn]
     
-    Returns
-    -------
-    covar_matrix: (Nbins, Nbins)-dim array of covariance values for SFR
-    """
+#     Returns
+#     -------
+#     covar_matrix: (Nbins, Nbins)-dim array of covariance values for SFR
+#     """
+
+#     bincenters = np.array([np.mean(agebins[i]) for i in range(len(agebins))])
+#     bincenters = (10**bincenters)/1e9
+#     case1 = simple_GP_sfh()
+#     case1.tarr = bincenters
+#     case1.kernel = gp_sfh_kernels.extended_regulator_model_kernel_paramlist
+#     covar_matrix = case1.get_covariance_matrix(kernel_params = psd_params, show_prog=False)
     
-    bincenters = np.array([np.mean(agebins[i]) for i in range(len(agebins))])
-    bincenters = (10**bincenters)/1e9
-    case1 = simple_GP_sfh()
-    case1.tarr = bincenters
-    case1.kernel = gp_sfh_kernels.extended_regulator_model_kernel_paramlist
-    covar_matrix = case1.get_covariance_matrix(kernel_params = psd_params, show_prog=False)
-    
-    return covar_matrix
+#     return covar_matrix
 
 
-def sfr_covar_to_sfr_ratio_covar(covar_matrix):
+# def sfr_covar_to_sfr_ratio_covar(covar_matrix):
     
-    """
-    Caluclates log SFR ratio covariance matrix from SFR covariance matrix
+#     """
+#     Caluclates log SFR ratio covariance matrix from SFR covariance matrix
     
-    Returns
-    -------
-    sfr_ratio_covar: (Nbins-1, Nbins-1)-dim array of covariance values for log SFR
-    """
+#     Returns
+#     -------
+#     sfr_ratio_covar: (Nbins-1, Nbins-1)-dim array of covariance values for log SFR
+#     """
     
-    dim = covar_matrix.shape[0]
+#     dim = covar_matrix.shape[0]
     
-    sfr_ratio_covar = []
+#     sfr_ratio_covar = []
     
-    for i in range(dim-1):
-        row = []
-        for j in range(dim-1):
-            cov = covar_matrix[i][j] - covar_matrix[i+1][j] - covar_matrix[i][j+1] + covar_matrix[i+1][j+1]
-            row.append(cov)
-        sfr_ratio_covar.append(row)
+#     for i in range(dim-1):
+#         row = []
+#         for j in range(dim-1):
+#             cov = covar_matrix[i][j] - covar_matrix[i+1][j] - covar_matrix[i][j+1] + covar_matrix[i+1][j+1]
+#             row.append(cov)
+#         sfr_ratio_covar.append(row)
     
-    return np.array(sfr_ratio_covar)
+#     return np.array(sfr_ratio_covar)

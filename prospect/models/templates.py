@@ -10,7 +10,7 @@ import numpy as np
 import os
 from . import priors
 from . import priors_beta
-from . import transforms
+from . import transforms, hyperparam_transforms
 
 __all__ = ["TemplateLibrary",
            "describe",
@@ -140,8 +140,8 @@ def adjust_stochastic_params(parset, tuniv=13.7):
     mean = np.zeros(ncomp - 1)
     psd_params = [parset['sigma_reg']['init'], parset['tau_eq']['init'], parset['tau_in']['init'],
                   parset['sigma_dyn']['init'], parset['tau_dyn']['init']]
-    sfr_covar = transforms.get_sfr_covar(psd_params, agebins=agebins)
-    sfr_ratio_covar = transforms.sfr_covar_to_sfr_ratio_covar(sfr_covar)
+    sfr_covar = hyperparam_transforms.get_sfr_covar(psd_params, agebins=agebins)
+    sfr_ratio_covar = hyperparam_transforms.sfr_covar_to_sfr_ratio_covar(sfr_covar)
     rprior = priors.MultiVariateNormal(mean=mean, Sigma=sfr_ratio_covar)
     
     parset['mass']['N'] = ncomp
@@ -720,14 +720,18 @@ _stochastic_["sigma_dyn"] = {'name': 'sigma_dyn', 'N': 1, 'isfree': True, 'init'
 _stochastic_["tau_dyn"] = {'name': 'tau_dyn', 'N': 1, 'isfree': True, 'init': 0.025, 
                            'prior': priors.ClippedNormal(mini=0.005, maxi=0.2, mean=0.01, sigma=0.02), 'units': 'Gyr'}
 
+_stochastic_["logsfr_ratios"] = {'N': 7, 'isfree': True, 'init': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                 'prior': None}
+
+_stochastic_ = adjust_stochastic_params(_stochastic_)
 # calculates covariance matrix from the initial PSD parameter values to be used in log SFR ratios prior
-psd_params = [0.3, 2.5, 1.0, 0.01, 0.025]
-sfr_covar = transforms.get_sfr_covar(psd_params, agebins=agebins)
-sfr_ratio_covar = transforms.sfr_covar_to_sfr_ratio_covar(sfr_covar)
+# psd_params = [0.3, 2.5, 1.0, 0.01, 0.025]
+# sfr_covar = hyperparam_transforms.get_sfr_covar(psd_params, agebins=agebins)
+# sfr_ratio_covar = hyperparam_transforms.sfr_covar_to_sfr_ratio_covar(sfr_covar)
 
 # This controls the distribution of SFR(t) / SFR(t+dt). It has NBINS-1 components.
-_stochastic_["logsfr_ratios"] = {'N': 7, 'isfree': True, 'init': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                                 'prior': priors.MultiVariateNormal(mean=[0.]*7, Sigma=sfr_ratio_covar)}
+# _stochastic_["logsfr_ratios"] = {'N': 7, 'isfree': True, 'init': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+#                                  'prior': priors.MultiVariateNormal(mean=[0.]*7, Sigma=sfr_ratio_covar)}
 
 TemplateLibrary["stochastic_sfh"] = (_stochastic_,
                                      "Stochastic SFH which correlates the SFRs between time bins based on model in TFC2020")
