@@ -15,6 +15,7 @@ from scipy.stats import multivariate_normal as mvn
 from sedpy.observate import getSED
 
 from .parameters import ProspectorParams
+from .hyperparameters import ProspectorHyperParams
 from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 from ..utils.smoothing import smoothspec
@@ -22,7 +23,8 @@ from ..utils.smoothing import smoothspec
 
 __all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",
            "LineSpecModel", "AGNSpecModel",
-           "SedModel", "PolySedModel", "PolyFitModel"]
+           "SedModel", "PolySedModel", "PolyFitModel",
+           "HyperSpecModel", "HyperPolySpecModel"]
 
 
 class SpecModel(ProspectorParams):
@@ -697,7 +699,7 @@ class PolySpecModel(SpecModel):
             self._poly_coeffs = c
         else:
             poly = np.zeros_like(self._outwave)
-
+            
         return (1.0 + poly)
 
 
@@ -1298,6 +1300,14 @@ class PolyFitModel(SedModel):
                 return np.exp(self.params.get('spec_norm', 0) + poly)
         else:
             return 1.0 * self.params.get('spec_norm', 1.0)
+        
+        
+class HyperSpecModel(ProspectorHyperParams, SpecModel):
+    pass
+
+class HyperPolySpecModel(ProspectorHyperParams, PolySpecModel):
+    pass
+
 
 
 def ln_mvn(x, mean=None, cov=None):

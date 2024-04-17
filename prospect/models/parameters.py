@@ -13,6 +13,10 @@ import numpy as np
 import json, pickle
 from . import priors
 from .templates import describe
+import scipy
+from . import hyperparam_transforms as transforms
+#from gp_sfh import *
+#import gp_sfh_kernels
 
 __all__ = ["ProspectorParams"]
 
@@ -184,8 +188,8 @@ class ProspectorParams(object):
             parameter values.
         """
         lnp_prior = 0
+        
         for k, inds in list(self.theta_index.items()):
-
             func = self.config_dict[k]['prior']
             this_prior = np.sum(func(theta[..., inds]), axis=-1)
             lnp_prior += this_prior
@@ -203,9 +207,12 @@ class ProspectorParams(object):
             corresponding to ``unit_coords``. ndarray of shape ``(ndim,)``
         """
         theta = np.zeros(len(unit_coords))
+
         for k, inds in list(self.theta_index.items()):
+            
             func = self.config_dict[k]['prior'].unit_transform
             theta[inds] = func(unit_coords[inds])
+        
         return theta
 
     def propagate_parameter_dependencies(self):
@@ -408,4 +415,32 @@ def pdict_to_plist(pdict, order=None):
         v['name'] = k
         plist += [v]
     return plist
+
+
+# def get_sfr_covar(psd_params, agebins=[], **extras):
+
+#     bincenters = np.array([np.mean(agebins[i]) for i in range(len(agebins))])
+#     bincenters = (10**bincenters)/1e9
+#     case1 = simple_GP_sfh()
+#     case1.tarr = bincenters
+#     case1.kernel = gp_sfh_kernels.extended_regulator_model_kernel_paramlist
+#     covar_matrix = case1.get_covariance_matrix(kernel_params = psd_params, show_prog=False)
+
+#     return covar_matrix
+
+
+# def sfr_covar_to_sfr_ratio_covar(covar_matrix):
+    
+#     dim = covar_matrix.shape[0]
+    
+#     sfr_ratio_covar = []
+    
+#     for i in range(dim-1):
+#         row = []
+#         for j in range(dim-1):
+#             cov = covar_matrix[i][j] - covar_matrix[i+1][j] - covar_matrix[i][j+1] + covar_matrix[i+1][j+1]
+#             row.append(cov)
+#         sfr_ratio_covar.append(row)
+    
+#     return np.array(sfr_ratio_covar)
 
