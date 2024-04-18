@@ -699,7 +699,7 @@ class PolySpecModel(SpecModel):
             self._poly_coeffs = c
         else:
             poly = np.zeros_like(self._outwave)
-            
+
         return (1.0 + poly)
 
 
@@ -1300,8 +1300,8 @@ class PolyFitModel(SedModel):
                 return np.exp(self.params.get('spec_norm', 0) + poly)
         else:
             return 1.0 * self.params.get('spec_norm', 1.0)
-        
-        
+
+
 class HyperSpecModel(ProspectorHyperParams, SpecModel):
     pass
 

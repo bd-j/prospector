@@ -4,6 +4,10 @@
 """hyperparam_transforms.py -- This module contains parameter transformations that are
 used in the stochastic SFH prior.
 
+These are taken from the implementation of
+https://ui.adsabs.harvard.edu/abs/2024ApJ...961...53I/abstract given in
+https://github.com/kartheikiyer/GP-SFH
+
 They can be used as ``"depends_on"`` entries in parameter specifications.
 """
 
@@ -11,8 +15,8 @@ import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 
 __all__ = ["get_sfr_covar", "sfr_covar_to_sfr_ratio_covar"]
-           
-           
+
+
 # --------------------------------------
 # --- Functions/transforms for stochastic SFH prior ---
 # --------------------------------------
@@ -26,6 +30,8 @@ class simple_GP_sfh():
     """
     A class that creates and holds information about a specific
     kernel, and can generate samples from it.
+
+    From https://github.com/kartheikiyer/GP-SFH
 
     Attributes
     ----------
@@ -108,6 +114,7 @@ def extended_regulator_model_kernel_paramlist(delta_t, kernel_params, base_e_to_
     sigma_gmc: gmc variability
     tau_l: cloud lifetime
 
+    from https://github.com/kartheikiyer/GP-SFH
     """
 
     sigma, tau_eq, tau_in, sigma_gmc, tau_gmc = kernel_params
@@ -132,11 +139,11 @@ def extended_regulator_model_kernel_paramlist(delta_t, kernel_params, base_e_to_
 
 
 def get_sfr_covar(psd_params, agebins=[], **extras):
-    
-    """
-    Caluclates SFR covariance matrix for a given set of PSD parameters and agebins
+    """Caluclates SFR covariance matrix for a given set of PSD parameters and agebins
     PSD parameters must be in the order: [sigma_reg, tau_eq, tau_in, sigma_dyn, tau_dyn]
-    
+
+    from https://github.com/kartheikiyer/GP-SFH
+
     Returns
     -------
     covar_matrix: (Nbins, Nbins)-dim array of covariance values for SFR
@@ -148,29 +155,29 @@ def get_sfr_covar(psd_params, agebins=[], **extras):
     case1.tarr = bincenters
     case1.kernel = extended_regulator_model_kernel_paramlist
     covar_matrix = case1.get_covariance_matrix(kernel_params = psd_params, show_prog=False)
-    
+
     return covar_matrix
 
 
 def sfr_covar_to_sfr_ratio_covar(covar_matrix):
-    
-    """
-    Caluclates log SFR ratio covariance matrix from SFR covariance matrix
-    
+    """Caluclates log SFR ratio covariance matrix from SFR covariance matrix
+
+    from https://github.com/kartheikiyer/GP-SFH
+
     Returns
     -------
     sfr_ratio_covar: (Nbins-1, Nbins-1)-dim array of covariance values for log SFR
     """
-    
+
     dim = covar_matrix.shape[0]
-    
+
     sfr_ratio_covar = []
-    
+
     for i in range(dim-1):
         row = []
         for j in range(dim-1):
             cov = covar_matrix[i][j] - covar_matrix[i+1][j] - covar_matrix[i][j+1] + covar_matrix[i+1][j+1]
             row.append(cov)
         sfr_ratio_covar.append(row)
-    
+
     return np.array(sfr_ratio_covar)
