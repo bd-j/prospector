@@ -148,8 +148,8 @@ This SFH (hyper-)prior uses the power spectrum of SFH fluctuations -- the
 parameters of which can be sampled -- to determine the covariance matrix between
 (adjacent and non-adjacent) temporal bins of SFR. See `Wan et al. 24 <>`_ for
 details.  This prior is adapted from the Extended Regulator model developed in
-`Caplar & Tacchella (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.487.3845C/abstract>`_ and `Tacchella, Forbes & Caplar (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.497..698T/abstract>`_, in
-conjunction with the GP implementation of `Iyer & Speagle et al. (2024) <https://ui.adsabs.harvard.edu/abs/2024ApJ...961...53I/abstract>`_.
+`Caplar & Tacchella (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.487.3845C/abstract>`_ and `Tacchella, Forbes & Caplar (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.497..698T/abstract>`_ , in
+conjunction with the GP implementation of `Iyer & Speagle et al. (2024) <https://ui.adsabs.harvard.edu/abs/2024ApJ...961...53I/abstract>`_ taken from `this module <https://github.com/kartheikiyer/GP-SFH>`_ .
 
 
 
