@@ -14,7 +14,7 @@ def build_sps():
     return sps
 
 
-def build_model(free_dla=True):
+def build_model(free_dla=True, damping_wing=False):
     model_params = templates.TemplateLibrary["parametric_sfh"]
     model_params["zred"]["isfree"] = True
     model_params.update(templates.TemplateLibrary["nebular"])
@@ -29,6 +29,10 @@ def build_model(free_dla=True):
     # Add the dla column density parameter
     model_params["dla_logNh"] = dict(N=1, isfree=free_dla, init=18,
                                      prior=priors.Uniform(mini=18, maxi=23))
+
+    # Add damping wing switch
+    model_params["igm_damping"] = dict(N=1, isfree=False, init=damping_wing)
+
 
     return SpecModel(model_params)
 
@@ -61,6 +65,7 @@ def test_dla(build_sps, plot=False):
     model.params["dla_logNh"] = 0
     model.params["tage"] = 0.4
     model.params["tau"] = 0.2
+    model.params["dust2"] = 0.0
     theta1 = model.theta.copy()
 
     pred1 = model.predict(theta1, obs, sps)
@@ -89,3 +94,41 @@ def test_dla(build_sps, plot=False):
         ax.set_xlabel(r"$\lambda (\mu{\rm m})$")
         ax.set_ylabel(r"$f_\nu$")
         fig.savefig("prospector_dla.png")
+
+
+def test_damping(build_sps, plot=False):
+
+    sps = build_sps
+
+    obs = build_obs()
+    model = build_model(damping_wing=False)
+
+    model.params["zred"] = 13
+    model.params["dla_logNh"] = 0
+    model.params["tage"] = 0.4
+    model.params["tau"] = 0.2
+    model.params["dust2"] = 0.0
+    model.params["igm_damping"] = False
+    theta1 = model.theta.copy()
+
+    pred1 = model.predict(theta1, obs, sps)
+    (spec1, phot1), mfrac = pred1
+    model.params["igm_damping"] = True
+    pred2 = model.predict(theta1, obs, sps)
+    (spec2, phot2), mfrac = pred2
+    assert np.any(phot2 < phot1)
+    assert np.any(spec2 < spec1)
+
+    if plot:
+        import matplotlib.pyplot as pl
+        fig, axes = pl.subplots(2, 1, sharex=True)
+        ax = axes[0]
+        ax.plot(obs[0].wavelength/1e4, spec2/spec1, label="e^{-tau}")
+        ax.legend()
+        ax = axes[1]
+        ax.plot(obs[0].wavelength/1e4, spec1, label="No damping wing")
+        ax.plot(obs[0].wavelength/1e4, spec2, label="with Damping wing")
+        ax.legend()
+        ax.set_xlabel(r"$\lambda (\mu{\rm m})$")
+        ax.set_ylabel(r"$f_\nu$")
+        fig.savefig("prospector_damping_wing.png")

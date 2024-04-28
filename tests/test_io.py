@@ -49,12 +49,13 @@ def build_obs(multispec=True):
 
 
 def test_observation_io(build_sps, plot=False):
-    sps = build_sps
+    #sps = build_sps
+    #model = build_model(add_neb=True)
 
     obslist = build_obs(multispec=True)
-    model = build_model(add_neb=True)
 
-    fn = "./test.h5"
+    r = np.random.int(0, 10000) #HAAACK
+    fn = f"./test-{r}.h5"
     # obs writing
     with h5py.File(fn, "w") as hf:
         write_obs_to_h5(hf, obslist)

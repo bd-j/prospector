@@ -54,7 +54,8 @@ class SpecModel(ProspectorParams):
                     ("eline_sigma", ""),
                     ("use_eline_priors", ""),
                     ("eline_prior_width", ""),
-                    ("dla_logNh", "log_10 HI column density for damped Lyman-alpha absorption")]
+                    ("dla_logNh", "log_10 HI column density for damped Lyman-alpha absorption"),
+                    ("igm_damping", "boolean switch to turn on IGM damping wing redward of 1216 rest")]
 
         referenced_pars = [("mass", ""),
                            ("lumdist", ""),
@@ -122,8 +123,10 @@ class SpecModel(ProspectorParams):
 
         # physical velocity smoothing of the whole UV/NIR spectrum
         self._smooth_spec = self.velocity_smoothing(self._wave, self._norm_spec)
-        # DLA absorption
+
+        # Ly-alpha absorption
         self._smooth_spec = self.add_dla(self._wave, self._smooth_spec)
+        self._smooth_spec = self.add_damping_wing(self._wave, self._smooth_spec)
 
         # generate predictions for likelihood
         # this assumes all spectral datasets (if present) occur first
@@ -683,7 +686,11 @@ class SpecModel(ProspectorParams):
         return spec
 
     def add_damping_wing(self, wave_rest, spec):
-        pass
+        if np.any(self.params.get("igm_damping", False)):
+            x_HI = self.params.get("igm_factor", 1.0)
+            tau = tau_damping(wave_rest, self._zred, x_HI, cosmo=cosmo)
+            spec *= np.exp(-tau)
+        return spec
 
     def observed_wave(self, wave, do_wavecal=False):
         """Convert the restframe wavelngth grid to the observed frame wavelength
@@ -1180,6 +1187,9 @@ def gauss(x, mu, A, sigma):
     return val.sum(axis=-1)
 
 
+# TODO: Move the below to a separate IGM module
+
+
 def H(a, x):
     """Voigt Profile Approximation from T. Tepper-Garcia (2006, 2007).
     Valid to a fractional error of ~ 1e-7 * (N_h/10^22) for Lyman-alpha (a~1e-4)"""
@@ -1247,3 +1257,78 @@ def Voigt(x, alpha, gamma):
 
     return np.real(wofz((x + 1j*gamma)/sigma/np.sqrt(2))) / sigma\
                                                            /np.sqrt(2*np.pi)
+
+
+def tau_damping(wave_rest, zred, x_HI, zmin=5, cosmo=cosmo, Y=0.25, l0=1215.6696):
+    """Compute the optical depth redward of restframe Ly-alpha due to the IGM
+    damping wing.  Fiollows Mirald-Escude 1998 and Totani 2006 in assuming a
+    uniform IGM below the object redshift.
+
+    Parameters
+    ----------
+    wave_rest : array_like, shape (N)
+        Restframe wavelength grid in Angstroms at which to evaluate the optical depth.
+
+    zred : float
+        The object redshift.  We also assume this is the maximum redshift of the
+        IGM integral
+
+    x_HI : float
+        The neutral fraction of the IGM.  Can be greater than 1 to approximate
+        local overdensity.
+
+    zmin : float
+        The minimum redshift for the uniform IGM integral
+
+    cosmo : astropy.cosmology.Cosmology() instance
+        The cosmology to use for the calculation
+
+    Y : float
+        The helium fraction of the universe
+
+    l0 : float
+        Rest frame transition wavelength in Angstroms.
+
+    Returns
+    -------
+    tau_damping : array_like, shape (N)
+        The optical depth due to the damping wing.  Will be zero blueward of l0.
+
+    """
+    R_alpha = 2.02e-8
+
+    wave_obs = wave_rest * (1 + zred)
+    zobs = wave_obs / l0 - 1
+    red = (zobs - zred) / (1+zobs) > (100 * R_alpha)
+
+    tau_damp = np.zeros_like(wave_rest)
+    xx = Ix((1 + zred) / (1 + zobs[red])) - Ix((1 + zmin) / (1 + zobs[red]))
+
+    tau = R_alpha/np.pi * x_HI * tau_gp(cosmo, zred, Y=Y)
+    tau = tau * ((1 + zobs[red]) / (1 + zred))**(3/2) * xx
+    tau_damp[red] = tau
+    return tau_damp
+
+
+def tau_gp(cosmo, zred, Y=0.25):
+    # totani 2006
+    # with scaling by omega_baryon * (1-Y) * h / sqrt(Omega_m)
+    #factor = 3.88e5
+    #scale = ((1-Y)/0.75) * (cosmo.Ob0/0.044) * (cosmo.Om0/0.27)**(-1/2) * (cosmo.h/0.71)
+
+    # Also Miralda-Escude substituting 1/sqrt(Omega_m) = Ho/Hz * (1+z)^(3/2))
+    factor = 2.6e5
+    scale = (1-Y) * cosmo.h * cosmo.Om0**(-0.5) * (cosmo.Ob0/0.03)
+
+    # Hertz 2024 relies on Becker 01/wikipedia and is not the same (missing 1-Y ?)
+    # factor = 1.8
+    # scale = cosmo.h * cosmo.Om0**(-0.5) * (cosmo.Ob0/0.02)
+
+    tau_gp = factor * scale * ((1 + zred) / 7)**(3/2)
+    return tau_gp
+
+
+def Ix(x):
+    v = x**(9/2)/(1-x) + 9/7 * x**(3.5) + 9/5*x**(2.5) + 3*x**(1.5) + 9 * x**(0.5)
+    v -= 9/2 * np.log((1+x**0.5) / (1-x**0.5))
+    return v
