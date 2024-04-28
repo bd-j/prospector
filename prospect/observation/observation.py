@@ -10,7 +10,7 @@ from sedpy.observate import rebin
 from ..likelihood.noise_model import NoiseModel
 
 
-__all__ = ["Observation", "Spectrum", "Photometry", "Lines"
+__all__ = ["Observation", "Spectrum", "Photometry", "Lines",
            "from_oldstyle", "from_serial", "obstypes"]
 
 
@@ -126,6 +126,11 @@ class Observation:
         raise(NotImplementedError)
 
     @property
+    def kind(self):
+        # make 'kind' private
+        return self._kind
+
+    @property
     def ndof(self):
         # TODO: cache this?
         return int(np.sum(np.ones(self.ndata)[self.mask]))
@@ -210,7 +215,7 @@ class Observation:
 
 class Photometry(Observation):
 
-    kind = "photometry"
+    _kind = "photometry"
     alias = dict(maggies="flux",
                  maggies_unc="uncertainty",
                  filters="filters",
@@ -273,7 +278,7 @@ class Photometry(Observation):
 
 class Spectrum(Observation):
 
-    kind = "spectrum"
+    _kind = "spectrum"
     alias = dict(spectrum="flux",
                  unc="uncertainty",
                  wavelength="wavelength",
@@ -442,7 +447,7 @@ class UndersampledSpectrum(Spectrum):
 
 class Lines(Spectrum):
 
-    kind = "lines"
+    _kind = "lines"
     alias = dict(spectrum="flux",
                  unc="uncertainty",
                  wavelength="wavelength",
