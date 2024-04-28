@@ -7,7 +7,7 @@ The `Observation` class
 
 |Codename| expects the data in the form of list of ``Observations``, preferably
 returned by :py:meth:`build_obs` (see below). Each Observation instance
-corresponds to single dataset, and is basically a namespace that also supports
+corresponds to a single dataset, and is basically a namespace that also supports
 dict-like accessing of important attributes.  In addition to holding data and
 uncertainties thereon, they tell prospector what data to predict, contain
 dataset-specific information for how to predict that data, and can even store
@@ -58,7 +58,8 @@ models, jitter terms, or covariant noise.
 
 - ``name``
   A string that can be used to identify the dataset.  This can be useful for
-  dataset-specfic parameters.
+  dataset-specfic parameters.  By default the name is constructed from the
+  `kind` and the memory location of the object.
 
 - ``resolution``
    For a `Spectrum` this defines the instrumental resolution.  Analagously to

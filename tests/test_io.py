@@ -54,8 +54,14 @@ def test_observation_io(build_sps, plot=False):
     obslist = build_obs(multispec=True)
     model = build_model(add_neb=True)
 
+    fn = "./test.h5"
     # obs writing
-    with h5py.File("test.h5", "w") as hf:
+    with h5py.File(fn, "w") as hf:
         write_obs_to_h5(hf, obslist)
-    with h5py.File("test.h5", "r") as hf:
+    # obs reading
+    with h5py.File(fn, "r") as hf:
         obsr = obs_from_h5(hf["observations"])
+
+    # cleanup?
+    import os
+    os.remove(fn)

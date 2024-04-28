@@ -682,6 +682,9 @@ class SpecModel(ProspectorParams):
         spec *= np.exp(-tau)
         return spec
 
+    def add_damping_wing(self, wave_rest, spec):
+        pass
+
     def observed_wave(self, wave, do_wavecal=False):
         """Convert the restframe wavelngth grid to the observed frame wavelength
         grid, optionally including wavelength calibration adjustments.  Requires
