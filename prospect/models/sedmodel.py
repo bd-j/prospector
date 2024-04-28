@@ -682,7 +682,6 @@ class SpecModel(ProspectorParams):
         spec *= np.exp(-tau)
         return spec
 
-
     def observed_wave(self, wave, do_wavecal=False):
         """Convert the restframe wavelngth grid to the observed frame wavelength
         grid, optionally including wavelength calibration adjustments.  Requires
@@ -733,7 +732,7 @@ class SpecModel(ProspectorParams):
         abs_rest_maggies = np.atleast_1d(getSED(self._wave, flambda, filterset, linear_flux=True))
 
         # add emission lines
-        if bool(self.params.get('nebemlineinspec', False)) is False:
+        if (self._want_lines & self._need_lines):
             eline_z = self.params.get("eline_delta_zred", 0.0)
             elams = (1 + eline_z) * self._eline_wave
             elums = self._eline_lum * self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs) * (ld / 10)**2
