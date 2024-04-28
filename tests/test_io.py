@@ -54,7 +54,7 @@ def test_observation_io(build_sps, plot=False):
 
     obslist = build_obs(multispec=True)
 
-    r = np.random.int(0, 10000) #HAAACK
+    r = np.random.randint(0, 10000) #HAAACK
     fn = f"./test-{r}.h5"
     # obs writing
     with h5py.File(fn, "w") as hf:
