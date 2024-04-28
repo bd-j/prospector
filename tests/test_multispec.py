@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 import numpy as np
-
 import pytest
 
-from sedpy.observate import load_filters
 from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
 from prospect.observation import Spectrum, Photometry
@@ -47,52 +44,10 @@ def build_obs(multispec=True):
     return obslist
 
 
-def test_prediction_nodata(build_sps):
-    sps = build_sps
-    model = build_model(add_neb=True)
-    sobs, pobs = build_obs(multispec=False)
-    pobs.flux = None
-    pobs.uncertainty = None
-    sobs.wavelength = None
-    sobs.flux = None
-    sobs.uncertainty = None
-    pred, mfrac = model.predict(model.theta, observations=[sobs, pobs], sps=sps)
-    assert len(pred[0]) == len(sps.wavelengths)
-    assert len(pred[1]) == len(pobs.filterset)
-
-
-def test_multispec(build_sps):
-    sps = build_sps
-
-    obslist_single = build_obs(multispec=False)
-    obslist_multi = build_obs(multispec=True)
-    model = build_model(add_neb=True)
-
-    preds_single, mfrac = model.predict(model.theta, observations=obslist_single, sps=sps)
-    preds_multi, mfrac = model.predict(model.theta, observations=obslist_multi, sps=sps)
-
-    assert len(preds_single) == 2
-    assert len(preds_multi) == 3
-    assert np.allclose(preds_single[-1], preds_multi[-1])
-
-    # TODO: turn this plot into an actual test
-    #import matplotlib.pyplot as pl
-    #fig, ax = pl.subplots()
-    #ax.plot(obslist_single[0].wavelength, predictions_single[0])
-    #for p, o in zip(predictions, obslist):
-    #    if o.kind == "photometry":
-    #        ax.plot(o.wavelength, p, "o")
-    #    else:
-    #        ax.plot(o.wavelength, p)
-
-
 def test_multiline():
     """The goal is combine all constraints on the emission line luminosities.
-    
-    
-    
     """
-
+    pass
 
 
 def test_multires():

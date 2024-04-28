@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 import numpy as np
-
 import pytest
 
-from sedpy.observate import load_filters
 from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
 from prospect.observation import Spectrum, Photometry
@@ -63,7 +60,7 @@ def test_prediction_nodata(build_sps):
     assert np.any(np.isfinite(pred[1]))
 
 
-def test_multispec(build_sps):
+def test_multispec(build_sps, plot=False):
     sps = build_sps
 
     obslist_single = build_obs(multispec=False)
@@ -78,14 +75,15 @@ def test_multispec(build_sps):
     assert np.allclose(preds_single[-1], preds_multi[-1])
 
     # TODO: turn this plot into an actual test
-    #import matplotlib.pyplot as pl
-    #fig, ax = pl.subplots()
-    #ax.plot(obslist_single[0].wavelength, predictions_single[0])
-    #for p, o in zip(predictions, obslist):
-    #    if o.kind == "photometry":
-    #        ax.plot(o.wavelength, p, "o")
-    #    else:
-    #        ax.plot(o.wavelength, p)
+    if plot:
+        import matplotlib.pyplot as pl
+        fig, ax = pl.subplots()
+        ax.plot(obslist_single[0].wavelength, preds_single[0])
+        for p, o in zip(preds_multi, obslist_multi):
+           if o.kind == "photometry":
+               ax.plot(o.wavelength, p, "o")
+           else:
+               ax.plot(o.wavelength, p)
 
 
 def lnlike_testing(build_sps):

@@ -7,7 +7,7 @@ import pytest
 
 from sedpy import observate
 
-from prospect.observation import Photometry, Spectrum, from_oldstyle
+from prospect.observation import from_oldstyle
 from prospect.models.templates import TemplateLibrary
 from prospect.models.sedmodel import SpecModel
 from prospect.sources import CSPSpecBasis
@@ -146,7 +146,7 @@ def test_filtersets(get_sps):
         # We always use filtersets now
 
 
-def test_eline_implementation(get_sps):
+def test_eline_implementation(get_sps, plot=False):
 
     test_eline_parsing()
 
@@ -179,11 +179,12 @@ def test_eline_implementation(get_sps):
     (phot_nolya_2,), mfrac = model.predict(model.theta, [obslist[1]], sps=sps)
     assert np.all(phot_nolya == phot_nolya_2)
 
-    #import matplotlib.pyplot as pl
-    #pl.ion()
-    #fig, ax = pl.subplots()
-    #ax.plot(obs["wavelength"], spec)
-    #ax.plot(obs["wavelength"], spec_nolya)
+    if plot:
+        import matplotlib.pyplot as pl
+        pl.ion()
+        fig, ax = pl.subplots()
+        ax.plot(obslist[0]["wavelength"], spec)
+        ax.plot(obslist[0]["wavelength"], spec_nolya)
 
 
 #def test_marginalizing_lines():
