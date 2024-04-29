@@ -7,14 +7,15 @@ The `Observation` class
 
 |Codename| expects the data in the form of list of ``Observations``, preferably
 returned by :py:meth:`build_obs` (see below). Each Observation instance
-corresponds to single dataset, and is basically a namespace that also supports
+corresponds to a single dataset, and is basically a namespace that also supports
 dict-like accessing of important attributes.  In addition to holding data and
 uncertainties thereon, they tell prospector what data to predict, contain
 dataset-specific information for how to predict that data, and can even store
 methods for computing likelihoods in the case of complicated, dataset-specific
 noise models. There are two fundamental kinds of data, `Photometry` and
-`Spectrum` that are each subclasses of `Observation`.  They have the following
-attributes, most of which can be also accessed as dictionary keys.
+`Spectrum` that are each subclasses of `Observation`. There is also also a
+`Lines` class for integrated emission line fluxes. They have the following
+attributes, most of which can also be accessed as dictionary keys.
 
 
 - ``wavelength``
@@ -30,7 +31,9 @@ attributes, most of which can be also accessed as dictionary keys.
     apparent magnitude. That is, 1 maggie is the flux density in Janskys divided
     by 3631. If absolute spectrophotometry is available, the units for a
     `Spectrum`` should also be maggies, otherwise photometry must be present and
-    a calibration vector must be supplied or fit.
+    a calibration vector must be supplied or fit.  Note that for convenience
+    there is a `maggies_to_nJy` attribute of `Observation` that gives the
+    conversion factor.
 
 - ``uncertainty``
     The uncertainty vector (sigma), in same units as ``flux``, ndarray of same
@@ -44,6 +47,9 @@ attributes, most of which can be also accessed as dictionary keys.
    For a `Photometry`, this is a list of strings corresponding to filter names
    in `sedpy <https://github.com/bd-j/sedpy>`_
 
+- ``line_ind``
+  For a `Lines` instance, the (zero-based) index of the emission line in the
+  FSPS emission line table.
 
 In addition to these attributes, several additional aspects of an observation
 are used to help predict data or to compute likelihoods.  The latter is
@@ -52,7 +58,8 @@ models, jitter terms, or covariant noise.
 
 - ``name``
   A string that can be used to identify the dataset.  This can be useful for
-  dataset-specfic parameters.
+  dataset-specfic parameters.  By default the name is constructed from the
+  `kind` and the memory location of the object.
 
 - ``resolution``
    For a `Spectrum` this defines the instrumental resolution.  Analagously to
@@ -73,8 +80,7 @@ For a single observation, you might do something like:
 
         def build_obs(N):
             from prospect.data import Spectrum
-            # dummy observation dictionary with just a spectrum
-            N = 1000
+            N = 1000  # number of wavelength points
             spec = Spectrum(wavelength=np.linspace(3000, 5000, N), flux=np.zeros(N), uncertainty=np.ones(N))
             # ensure that this is a valid observation for fitting
             spec = spec.rectify()
@@ -84,6 +90,20 @@ For a single observation, you might do something like:
 
 Note that `build_obs` returns a *list* even if there is only one dataset.
 
+For photometry this might look like:
+
+.. code-block:: python
+
+        def build_obs(N):
+            from prospect.data import Photometry
+            # valid sedpy filter names
+            fnames = list([f"sdss_{b}0" for b in "ugriz"])
+            Nf = len(fnames)
+            phot = [Photometry(filters=fnames, flux=np.ones(Nf), uncertainty=np.ones(Nf)/10)]
+            # ensure that this is a valid observation for fitting
+            phot = phot.rectify()
+            observations = [phot]
+            return observations
 
 Converting from old style obs dictionaries
 ------------------------------------------

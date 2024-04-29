@@ -4,9 +4,13 @@
 import numpy as np
 import pytest
 
-from prospect.sources import CSPSpecBasis
+import h5py
+
 from prospect.models import SpecModel, templates
-from prospect.observation import Spectrum, Photometry
+from prospect.sources import CSPSpecBasis
+from prospect.observation import Photometry, Spectrum
+from prospect.io.write_results import write_obs_to_h5
+from prospect.io.read_results import obs_from_h5
 
 
 @pytest.fixture(scope="module")
@@ -44,23 +48,21 @@ def build_obs(multispec=True):
     return obslist
 
 
-def test_multiline():
-    """The goal is combine all constraints on the emission line luminosities.
-    """
-    pass
+def test_observation_io(build_sps, plot=False):
+    #sps = build_sps
+    #model = build_model(add_neb=True)
 
+    obslist = build_obs(multispec=True)
 
-def test_multires():
-    # Test the smoothing of multiple spectra to different resolutions
-    # - give the same wavelength array different instrumental resolutions, assert similar but different, and that smoothing by the difference gives the right answer
-    # Test the use of two differernt smoothings, physical and instrumental
-    # - give an obs with no instrument smoothing and one with, make sure they are different
-    pass
+    r = np.random.randint(0, 10000) #HAAACK
+    fn = f"./test-{r}.h5"
+    # obs writing
+    with h5py.File(fn, "w") as hf:
+        write_obs_to_h5(hf, obslist)
+    # obs reading
+    with h5py.File(fn, "r") as hf:
+        obsr = obs_from_h5(hf["observations"])
 
-
-def test_multinoise():
-    pass
-
-
-def test_multical():
-    pass
+    # cleanup?
+    import os
+    os.remove(fn)

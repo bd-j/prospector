@@ -106,7 +106,7 @@ def write_hdf5(hfile, run_params, model, obs,
         generate and store
     """
     # If ``hfile`` is not a file object, assume it is a filename and open
-    if type(hfile) is str:
+    if isinstance(hfile, str):
         hf = h5py.File(hfile, "w")
     else:
         hf = hfile
@@ -123,6 +123,11 @@ def write_hdf5(hfile, run_params, model, obs,
     hf.flush()
 
     # ----------------------
+    # Observational data
+    write_obs_to_h5(hf, obs)
+    hf.flush()
+
+    # ----------------------
     # High level parameter and version info
     meta = metadata(run_params, model, write_model_params=write_model_params)
     for k, v in meta.items():
@@ -136,11 +141,6 @@ def write_hdf5(hfile, run_params, model, obs,
         out = optresultlist_to_ndarray(optimize_result_list)
         mgroup = hf.create_group('optimization')
         mdat = mgroup.create_dataset('optimizer_results', data=out)
-
-    # ----------------------
-    # Observational data
-    write_obs_to_h5(hf, obs)
-    hf.flush()
 
     # ---------------
     # Best fitting model in space of data
