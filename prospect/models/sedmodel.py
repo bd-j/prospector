@@ -55,6 +55,7 @@ class SpecModel(ProspectorParams):
                     ("use_eline_priors", ""),
                     ("eline_prior_width", ""),
                     ("dla_logNh", "log_10 HI column density for damped Lyman-alpha absorption"),
+                    ("dla_redshift", "redshift of the DLA; if greater than zred then no absorption occurs"),
                     ("igm_damping", "boolean switch to turn on IGM damping wing redward of 1216 rest")]
 
         referenced_pars = [("mass", ""),
@@ -681,6 +682,12 @@ class SpecModel(ProspectorParams):
         logN = self.params.get("dla_logNh", None)
         if logN is None:
             return spec
+        # Shift spectrum to the restframe of the DLA
+        dla_z = self.params.get("dla_redshift", self._zred)
+        dz = self._zred - dla_z
+        if dz < 0:
+            return spec
+        wave_rest = wave_rest * (1 + dz)
         tau = voigt_profile(wave_rest, 10**logN)
         spec *= np.exp(-tau)
         return spec
@@ -693,7 +700,7 @@ class SpecModel(ProspectorParams):
         return spec
 
     def observed_wave(self, wave, do_wavecal=False):
-        """Convert the restframe wavelngth grid to the observed frame wavelength
+        """Convert the restframe wavelength grid to the observed frame wavelength
         grid, optionally including wavelength calibration adjustments.  Requires
         that the ``_zred`` attribute is already set.
 
