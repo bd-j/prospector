@@ -684,10 +684,9 @@ class SpecModel(ProspectorParams):
             return spec
         # Shift spectrum to the restframe of the DLA
         dla_z = self.params.get("dla_redshift", self._zred)
-        dz = self._zred - dla_z
-        if dz < 0:
+        if dla_z > self._zred:
             return spec
-        wave_rest = wave_rest * (1 + dz)
+        wave_rest = wave_rest * (1 + dla_z) / (1 + self._zred)
         tau = voigt_profile(wave_rest, 10**logN)
         spec *= np.exp(-tau)
         return spec
