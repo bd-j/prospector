@@ -15,6 +15,7 @@ from scipy.stats import multivariate_normal as mvn
 from sedpy.observate import getSED
 
 from .parameters import ProspectorParams
+from .hyperparameters import ProspectorHyperParams
 from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 from ..utils.smoothing import smoothspec
@@ -22,7 +23,8 @@ from ..utils.smoothing import smoothspec
 
 __all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",
            "LineSpecModel", "AGNSpecModel",
-           "SedModel", "PolySedModel", "PolyFitModel"]
+           "SedModel", "PolySedModel", "PolyFitModel",
+           "HyperSpecModel", "HyperPolySpecModel"]
 
 
 class SpecModel(ProspectorParams):
@@ -404,6 +406,8 @@ class SpecModel(ProspectorParams):
             # unless some are explicitly fixed
             lnames_to_fit = self.params.get('elines_to_fit', all_lines)
             lnames_to_fix = self.params.get('elines_to_fix', np.array([]))
+            assert np.all(np.isin(lnames_to_fit, all_lines)), f"Some lines to fit ({lnames_to_fit})are not in the cloudy grid; see $SPS_HOME/data/emlines_info.dat for accepted names"
+            assert np.all(np.isin(lnames_to_fix, all_lines)), f"Some fixed lines ({lnames_to_fix}) are not in the cloudy grid; see $SPS_HOME/data/emlines_info.dat for accepted names"
             self._fit_eline = np.isin(all_lines, lnames_to_fit) & ~np.isin(all_lines, lnames_to_fix)
         else:
             self._fit_eline = np.zeros(len(all_lines), dtype=bool)
@@ -411,6 +415,8 @@ class SpecModel(ProspectorParams):
         self._fix_eline = ~self._fit_eline
 
         if self.params.get("elines_to_ignore", []):
+            assert np.all(np.isin(self.params["elines_to_ignore"], self.emline_info["name"])), f"Some ignored lines lines ({self.params['elines_to_ignore']}) are not in the cloudy grid; see $SPS_HOME/data/emlines_info.dat for accepted names"
+
             self._use_eline = ~np.isin(self.emline_info["name"],
                                        self.params["elines_to_ignore"])
 
@@ -1298,6 +1304,14 @@ class PolyFitModel(SedModel):
                 return np.exp(self.params.get('spec_norm', 0) + poly)
         else:
             return 1.0 * self.params.get('spec_norm', 1.0)
+
+
+class HyperSpecModel(ProspectorHyperParams, SpecModel):
+    pass
+
+class HyperPolySpecModel(ProspectorHyperParams, PolySpecModel):
+    pass
+
 
 
 def ln_mvn(x, mean=None, cov=None):

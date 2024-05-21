@@ -77,8 +77,8 @@ Continuity SFH
 ^^^^^^^^^^^^^^
 See `leja19 <https://ui.adsabs.harvard.edu/abs/2019ApJ...876....3L/abstract>`_,
 `johnson21 <https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract>`_
-for more details. A set of propsector parameters implementing this treatment
-with 3 bins is available as the ``"continuity_sfh"`` entry of
+for more details. A basic set of prospector parameters implementing this
+treatment with 3 bins is available as the ``"continuity_sfh"`` entry of
 :py:class:`prospect.models.templates.TemplateLibrary`.
 
 In this parameterization, the SFR of each bin is derived from sampling a vector
@@ -86,7 +86,8 @@ of parameters describing the *ratio* of SFRs in adjacent temporal bins.  By
 default, a Student-t prior distribution (like a Gaussian but with heavier tails)
 is placed on the log of these ratios.  This results in a prior SFH that tends
 toward constant SFR, and down-weights drmamtic changes in the SFR between
-adjacent bins.  The overall normalization is provided by the ``logmass``
+adjacent bins.  The width of the distribution can be ajusted to produce smoother
+or burstier SFHs.The overall normalization is provided by the ``logmass``
 parameter.
 
 In detail, the SFR in each timetime is computed as
@@ -139,6 +140,18 @@ these fixed bins. These are designed to efficiently produce the flexibility
 required to model post-starburst SFHs. A set of prospector parameters
 implementing this treatment is available as the ``"continuity_psb_sfh"`` entry
 of :py:class:`prospect.models.templates.TemplateLibrary`
+
+
+'Stochastic' SFH
+^^^^^^^^^^^^^^^^
+This SFH (hyper-)prior uses the power spectrum of SFH fluctuations -- the
+parameters of which can be sampled -- to determine the covariance matrix between
+(adjacent and non-adjacent) temporal bins of SFR. See `Wan et al. 24 <https://ui.adsabs.harvard.edu/abs/2024arXiv240414494W/abstract>`_ for
+details.  This prior is adapted from the Extended Regulator model developed in
+`Caplar & Tacchella (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.487.3845C/abstract>`_ and `Tacchella, Forbes & Caplar (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.497..698T/abstract>`_ , in
+conjunction with the GP implementation of `Iyer & Speagle et al. (2024) <https://ui.adsabs.harvard.edu/abs/2024ApJ...961...53I/abstract>`_ taken from `this module <https://github.com/kartheikiyer/GP-SFH>`_ .
+
+
 
 Dirichlet SFH
 ^^^^^^^^^^^^^
