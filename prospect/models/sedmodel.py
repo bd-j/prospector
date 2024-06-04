@@ -201,6 +201,15 @@ class SpecModel(ProspectorParams):
         # --- smooth and put on output wavelength grid ---
         # Instrumental smoothing (accounting for library resolution)
         # Put onto the spec.wavelength grid.
+
+        # HACK to change the spectral resolution on the fly
+        if hasattr(obs, "resolution_jitter_parameter"):
+            parn = getattr(obs, "resolution_jitter_parameter")
+            res_jitter = self.params.get(parn)
+            obs.padded_resolution = np.interp(obs.padded_wavelength,
+                                              obs.wavelength,
+                                              obs.resolution * res_jitter)
+
         inst_spec = obs.instrumental_smoothing(obs_wave, self._smooth_spec,
                                                libres=self._library_resolution)
 
