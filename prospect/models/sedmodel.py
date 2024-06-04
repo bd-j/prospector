@@ -414,7 +414,7 @@ class SpecModel(ProspectorParams):
 
         self._fix_eline = ~self._fit_eline
 
-        if self.params.get("elines_to_ignore", []):
+        if np.any(self.params.get("elines_to_ignore", [])):
             assert np.all(np.isin(self.params["elines_to_ignore"], self.emline_info["name"])), f"Some ignored lines lines ({self.params['elines_to_ignore']}) are not in the cloudy grid; see $SPS_HOME/data/emlines_info.dat for accepted names"
 
             self._use_eline = ~np.isin(self.emline_info["name"],
