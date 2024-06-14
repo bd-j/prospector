@@ -5,6 +5,7 @@
 observed spectra and photometry from them, given a Source object.
 """
 
+from copy import deepcopy
 import numpy as np
 import os
 
@@ -105,6 +106,9 @@ class SpecModel(ProspectorParams):
         # Flux normalize
         self._norm_spec = self._spec * self.flux_norm()
 
+        # Smooth and put on the output wavelength grid
+        self._smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+
         # generate spectrum and photometry for likelihood
         # predict_spec should be called before predict_phot
         # because in principle it can modify the emission line parameters
@@ -165,8 +169,8 @@ class SpecModel(ProspectorParams):
         # --- cache eline parameters ---
         self.cache_eline_parameters(obs)
 
-        # --- smooth and put on output wavelength grid ---
-        smooth_spec = self.smoothspec(obs_wave, self._norm_spec)
+        # --- copy smooth_spec ---
+        smooth_spec = deepcopy(self._smooth_spec)
 
         # --- add fixed lines if necessary ---
         emask = self._fix_eline_pixelmask
@@ -198,7 +202,7 @@ class SpecModel(ProspectorParams):
         present and correct:
           + ``_wave`` - The SPS restframe wavelength array
           + ``_zred`` - Redshift
-          + ``_norm_spec`` - Observed frame spectral fluxes, in units of maggies.
+          + ``_smooth_spec`` - Smoothed observed frame spectral fluxes, in units of maggies.
           + ``_ewave_obs`` and ``_eline_lum`` - emission line parameters from
             the SPS model
 
@@ -217,7 +221,7 @@ class SpecModel(ProspectorParams):
 
         # generate photometry w/o emission lines
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
-        flambda = self._norm_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
+        flambda = self._smooth_spec * lightspeed / obs_wave**2 * (3631*jansky_cgs)
         phot = 10**(-0.4 * np.atleast_1d(getSED(obs_wave, flambda, filters)))
         # TODO: below is faster for sedpy > 0.2.0
         #phot = np.atleast_1d(getSED(obs_wave, flambda, filters, linear_flux=True))
