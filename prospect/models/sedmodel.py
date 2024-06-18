@@ -123,7 +123,7 @@ class SpecModel(ProspectorParams):
                                          self._eline_lum)**2)
 
         # physical velocity smoothing of the whole UV/NIR spectrum
-        self._smooth_spec = self.velocity_smoothing(self._wave, self._norm_spec)
+        self._smooth_spec = self.losvd_smoothing(self._wave, self._norm_spec)
 
         # Ly-alpha absorption
         self._smooth_spec = self.add_dla(self._wave, self._smooth_spec)
@@ -159,7 +159,7 @@ class SpecModel(ProspectorParams):
 
         It generates the following attributes
 
-          + ``_outwave`` - Wavelength grid (observed frame)
+          + ``_outwave`` - Wavelength grid (instrument frame)
           + ``_speccal`` - Calibration vector
           + ``_sed`` - Intrinsic spectrum (before cilbration vector applied but including emission lines)
 
@@ -172,20 +172,24 @@ class SpecModel(ProspectorParams):
         Numerous quantities related to the emission lines are also cached (see
         ``cache_eline_parameters()`` and ``fit_mle_elines()`` for details.)
 
-        :param obs:
-            An instance of `Spectrum`, containing the output wavelength array,
-            the observed fluxes and uncertainties thereon.  Assumed to be the
-            result of :py:meth:`utils.obsutils.rectify_obs`
+        Parameters
+        ----------
+        obs : Instance of :py:class:`observation.Spectrum`
+            Must contain the output wavelength array, the observed fluxes and
+            uncertainties thereon.  Assumed to be the result of
+            :py:meth:`utils.obsutils.rectify_obs`
 
-        :param sigma_spec: (optional)
+        sigma_spec : (optional)
             The covariance matrix for the spectral noise. It is only used for
             emission line marginalization.
 
-        :returns spec:
+        Returns
+        -------
+        spec : ndarray of shape ``(nwave,)``
             The prediction for the observed frame spectral flux these
             parameters, at the wavelengths specified by ``obs['wavelength']``,
-            including multiplication by the calibration vector.
-            ndarray of shape ``(nwave,)`` in units of maggies.
+            including multiplication by the calibration vector. in units of
+            maggies.
         """
         # redshift model wavelength
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
@@ -230,11 +234,11 @@ class SpecModel(ProspectorParams):
         emask = self._fit_eline_pixelmask
         if emask.any():
             # We need the spectroscopic covariance matrix to do emission line optimization and marginalization
-            sigma_spec = None
+            spec_unc = None
             # FIXME: do this only if the noise model is non-trivial, and make sure masking is consistent
             #vectors = obs.noise.populate_vectors(obs)
-            #sigma_spec = obs.noise.construct_covariance(**vectors)
-            self._fit_eline_spec = self.fit_mle_elines(obs, calibrated_spec, sigma_spec)
+            #spec_unc = obs.noise.construct_covariance(**vectors)
+            self._fit_eline_spec = self.fit_mle_elines(obs, calibrated_spec, spec_unc)
             calibrated_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
         # --- cache intrinsic spectrum ---
@@ -262,17 +266,20 @@ class SpecModel(ProspectorParams):
         ``_predicted_line_inds`` which is the indices of the line that are predicted.
         ``cache_eline_parameters()`` and ``fit_elines()`` for details).
 
-
-        :param obs:
-            A ``data.observation.Lines()`` instance, with the attributes
+        Parameters
+        ----------
+        obs : Instance of :py:class:``observation.Lines``
+            Must have the attributes:
             + ``"wavelength"`` - the observed frame wavelength of the lines.
             + ``"line_ind"`` - a set of indices identifying the observed lines in
             the fsps line array
 
-        :returns elum:
-            The prediction for the observed frame nebular emission line flux these
-            parameters, at the wavelengths specified by ``obs['wavelength']``,
-            ndarray of shape ``(nwave,)`` in units of erg/s/cm^2.
+        Returns
+        -------
+        elum : ndarray of shape ``(nwave,)``
+            The prediction for the observed frame nebular emission line flux
+            these parameters, at the wavelengths specified by
+            ``obs['wavelength']``, in units of erg/s/cm^2.
         """
         obs_wave = self.observed_wave(self._eline_wave, do_wavecal=False)
         self._outwave = obs.get('wavelength', obs_wave)
@@ -303,15 +310,17 @@ class SpecModel(ProspectorParams):
           + ``_ewave_obs`` and ``_eline_lum`` - emission line parameters from
             the SPS model
 
-        :param filters:
-            Instance of :py:class:`sedpy.observate.FilterSet` or list of
+        Parameters
+        ----------
+        filters : Instance of :py:class:`sedpy.observate.FilterSet` or list of
             :py:class:`sedpy.observate.Filter` objects. If there is no
             photometry, ``None`` should be supplied.
 
-        :returns phot:
-            Observed frame photometry of the model SED through the given filters.
-            ndarray of shape ``(len(filters),)``, in units of maggies.
-            If ``filters`` is None, this returns 0.0
+        Returns
+        -------
+        phot : ndarray of shape ``(len(filters),)``
+            Observed frame photometry of the model SED through the given filters,
+            in units of maggies. If ``filters`` is None, this returns 0.0
         """
         if filterset is None:
             return 0.0
@@ -331,7 +340,9 @@ class SpecModel(ProspectorParams):
         """Compute the scaling required to go from Lsun/Hz/Msun to maggies.
         Note this includes the (1+z) factor required for flux densities.
 
-        :returns norm: (float)
+        Returns
+        -------
+        norm : (float)
             The normalization factor, scalar float.
         """
         # distance factor
@@ -444,7 +455,9 @@ class SpecModel(ProspectorParams):
         N.B. This must be run separately for each `Observation` instance at each
         likelihood call!!!
 
-        param
+        :param obs: observation.Spectrum() subclass
+            If given, provides the instrumental resolution for broadening the
+            emission lines.
 
         :param nsigma: (float, optional, default: 5.)
             Number of sigma from a line center to use for defining which lines
@@ -673,12 +686,12 @@ class SpecModel(ProspectorParams):
 
         return eline_gaussians
 
-    def velocity_smoothing(self, wave, spec):
-        """Smooth the spectrum.  See :py:func:`prospect.utils.smoothing.smoothspec`
-        for details.
+    def losvd_smoothing(self, wave, spec):
+        """Smooth the spectrum in velocity space.
+        See :py:func:`prospect.utils.smoothing.smoothspec` for details.
         """
         sigma = self.params.get("sigma_smooth", 300)
-        sel = (wave > 1.2e3) & (wave < 2.5e4)
+        sel = (wave > 0.912e3) & (wave < 2.5e4)
         # TODO: make a fast version of this that is also accurate
         sm = smoothspec(wave, spec, sigma, outwave=wave[sel],
                         smoothtype="vel", fftsmooth=True)
@@ -1003,7 +1016,7 @@ class AGNSpecModel(SpecModel):
         self.cache_eline_parameters(obs, nsigma=nsigma)
 
         # --- smooth and put on output wavelength grid ---
-        smooth_spec = self.velocity_smoothing(obs_wave, self._norm_spec)
+        smooth_spec = self.losvd_smoothing(obs_wave, self._norm_spec)
         smooth_spec = obs.instrumental_smoothing(obs_wave, smooth_spec,
                                                  libres=self._library_resolution)
 
