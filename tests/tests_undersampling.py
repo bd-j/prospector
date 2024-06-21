@@ -42,17 +42,31 @@ def build_obs(undersampling=4):
                     uncertainty=np.ones(len(wave)) / 10,
                     resolution=resolution,
                     mask=slice(None),
-                    name="Oversampled")
+                    name="Oversampled no pixelization")
+
+    full_pix = UndersampledSpectrum(wavelength=wave.copy(),
+                    flux=np.ones(len(wave)),
+                    uncertainty=np.ones(len(wave)) / 10,
+                    resolution=resolution,
+                    mask=slice(None),
+                    name="Oversampled but pixelized")
+
     wave = np.arange(wmin, wmax, dl_u)
     resolution = (fwhm/2.355) / wave * 2.998e5  # in km/s
-    under = UndersampledSpectrum(wavelength=wave.copy(),
+    under_pix = UndersampledSpectrum(wavelength=wave.copy(),
                                  flux=np.ones(len(wave)),
                                  uncertainty=np.ones(len(wave)) / 10,
                                  resolution=resolution,
                                  mask=slice(None),
-                                 name="Undersampled")
+                                 name="Undersampled and pixelized")
+    under = Spectrum(wavelength=wave.copy(),
+                                 flux=np.ones(len(wave)),
+                                 uncertainty=np.ones(len(wave)) / 10,
+                                 resolution=resolution,
+                                 mask=slice(None),
+                                 name="Undersampled no pixelization")
 
-    obslist = [full, under]
+    obslist = [full, full_pix, under, under_pix]
     [obs.rectify() for obs in obslist]
     return obslist
 
@@ -70,12 +84,20 @@ if __name__ == "__main__":
     # TODO: turn this plot into an actual test
     if plot:
         import matplotlib.pyplot as pl
-        fig, ax = pl.subplots()
-        ax.plot(model.observed_wave(model._wave), model._smooth_spec, label="intrinsic")
+        fig, axes = pl.subplots(2, 1, sharex=True)
+        ax = axes[0]
+        ax.plot(model.observed_wave(model._wave), model._smooth_spec, label="LOSVD only")
         for p, o in zip(preds, obslist):
            if o.kind == "photometry":
                ax.plot(o.wavelength, p, "o")
            else:
                ax.step(o.wavelength, p, where="mid", label=o.name)
+        ax.legend()
+
+        ax = axes[1]
+        ax.plot(obslist[0].wavelength, preds[0]/preds[1], label="Oversampled")
+        ax.plot(obslist[2].wavelength, preds[2]/preds[3], label="Undersampled")
+        ax.set_ylabel("Ratio of pixel-unconvolved to pixel-convolved flux")
+        ax.legend()
 
         ax.set_xlim(o.wavelength.min(), o.wavelength.max())
