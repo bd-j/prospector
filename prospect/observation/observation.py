@@ -12,7 +12,7 @@ from ..likelihood.noise_model import NoiseModel
 
 __all__ = ["Observation",
            "Spectrum", "Photometry", "Lines",
-           "UndersampledSpectrum",
+           "UndersampledSpectrum", "IntrinsicSpectrum",
            "from_oldstyle", "from_serial", "obstypes"]
 
 
@@ -435,9 +435,24 @@ class Spectrum(Observation):
 
 
 class UndersampledSpectrum(Spectrum):
+    """
+    As for Spectrum, but account for pixelization effects when pixels
+    undersamplesthe instrumental LSF.
+    """
 
     def _pixelize(self, outwave, inwave, influx):
         return rebin(outwave, inwave, influx)
+
+
+class IntrinsicSpectrum(Spectrum):
+
+    """
+    As for Spectrum, but predictions for this object type will not include
+    polynomial fitting or fitting of the emission line strengths (previously fit
+    and cached emission luminosities will be used.)
+    """
+
+    _kind = "intrinsic"
 
 
 class Lines(Spectrum):

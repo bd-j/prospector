@@ -143,9 +143,67 @@ class SpecModel(ProspectorParams):
             prediction = self.predict_lines(obs)
         elif obs.kind == "photometry":
             prediction = self.predict_phot(obs.filterset)
+        elif obs.kind == "intrinsic":
+            prediction = self.predict_intrinsic(obs)
         else:
             prediction = None
         return prediction
+
+    def predict_intrinsic(self, obs_dummy, continuum_only=True, **extras):
+        """Generate a prediction for the observed spectrum.  This method assumes
+        that the parameters have been set and predict_spec has previously been called.
+
+        Parameters
+        ----------
+        obs : Instance of :py:class:`observation.Spectrum`
+            Must contain the output wavelength array, the observed fluxes and
+            uncertainties thereon.  Assumed to be the result of
+            :py:meth:`utils.obsutils.rectify_obs`
+
+        Returns
+        -------
+        spec : ndarray of shape ``(nwave,)``
+            The prediction for the observed frame spectral flux these
+            parameters, at the wavelengths specified by ``obs['wavelength']``,
+            including multiplication by the calibration vector. in units of
+            maggies.
+        """
+        obs = obs_dummy
+
+        # redshift model wavelength
+        obs_wave = self.observed_wave(self._wave, do_wavecal=False)
+
+        # get output wavelength vector
+        self._outwave = obs.wavelength
+        if self._outwave is None:
+            self._outwave = obs_wave
+
+        # Set up for emission lines
+        self.cache_eline_parameters(obs)
+
+        # --- smooth and put on output wavelength grid ---
+        # Instrumental smoothing (accounting for library resolution)
+        # Put onto the spec.wavelength grid.
+        inst_spec = obs.instrumental_smoothing(obs_wave, self._smooth_spec,
+                                               libres=self._library_resolution)
+
+        # --- add fixed lines if necessary ---
+        emask = self._fix_eline_pixelmask
+        if emask.any() & (~continuum_only):
+            inds = self._fix_eline & self._valid_eline
+            espec = self.predict_eline_spec(line_indices=inds,
+                                            wave=self._outwave[emask])
+            self._fix_eline_spec = espec
+            inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
+
+
+        # --- add (previously) fitted lines if necessary ---
+        emask = self._fit_eline_pixelmask
+        if emask.any() (~continuum_only):
+            inst_spec[emask] += self._fit_eline_spec.sum(axis=1)
+
+        return inst_spec
+
 
     def predict_spec(self, obs, **extras):
         """Generate a prediction for the observed spectrum.  This method assumes
@@ -226,9 +284,9 @@ class SpecModel(ProspectorParams):
             self._fix_eline_spec = espec
             inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
 
-        # --- calibration ---
+        # --- (de-) apply calibration ---
         self._speccal = self.spec_calibration(obs=obs, spec=inst_spec, **extras)
-        calibrated_spec = inst_spec * self._speccal
+        inst_spec = inst_spec * self._speccal
 
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
@@ -238,13 +296,13 @@ class SpecModel(ProspectorParams):
             # FIXME: do this only if the noise model is non-trivial, and make sure masking is consistent
             #vectors = obs.noise.populate_vectors(obs)
             #spec_unc = obs.noise.construct_covariance(**vectors)
-            self._fit_eline_spec = self.fit_mle_elines(obs, calibrated_spec, spec_unc)
-            calibrated_spec[emask] += self._fit_eline_spec.sum(axis=1)
+            self._fit_eline_spec = self.fit_mle_elines(obs, inst_spec, spec_unc)
+            inst_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
-        # --- cache intrinsic spectrum ---
-        self._sed = calibrated_spec / self._speccal
+        # --- cache intrinsic spectrum for this observation ---
+        self._sed = inst_spec / self._speccal
 
-        return calibrated_spec
+        return inst_spec
 
     def predict_lines(self, obs, **extras):
         """Generate a prediction for the observed nebular line fluxes.  This method assumes
