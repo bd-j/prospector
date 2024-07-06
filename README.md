@@ -1,13 +1,47 @@
 <img src="doc/_static/logo_name_kh.png" height=75/>  <!-- . -->
 ==========
 
+Version 2.0! (in progress)
+--------------------------
+
+This is a major refactor to allow for multiple datasets (i.e. multiple spectra)
+with different noise models and instrument parameters to constrain a single
+galaxy model.  It will also include substantial updates to the outputs to allow
+samples of the spectra (and mfrac) generated during sampling to be saved as well
+as as cleaner parameter sample output. It may include emulator models and
+gradient based sampling.
+
+Work to do includes:
+
+- [x] Convert to/from old style observation dictionaries
+- [x] Put responsibility for Noise Models including outlier modeling in individual Observation instances
+- [x] Make predictions even when there is no fittable data (e.g. model spectra when fitting photometry only)
+- [x] Store Observation objects in HDF5, FITS, etc as structured arrays with metadata
+- [x] Catch (and handle) emission line marginalization if spectra overlap.
+- [x] Structured ndarray for output chains and lnlikehoods
+- [x] Update docs
+- [x] Update demo scripts
+- [ ] Account for undersampled spectra via a square convolution in pixel space (or explicit rebinning)
+- [ ] Update notebooks
+- [ ] Update plotting module
+- [ ] Test i/o with structured arrays
+- [ ] Test multi-spectral calibration, smoothing, and noise modeling
+- [ ] Test smoothing accounting for library, instrumental & physical smoothing
+- [ ] Structured ndarray for derived parameters
+- [ ] Store samples of spectra, photometry, and mfrac (blobs)
+- [ ] Implement an emulator-based SpecModel class
+- [ ] Implement UltraNest and Nautilus backends
+
+
+Purpose
+-------
+
 [![Docs](https://readthedocs.org/projects/prospect/badge/?version=latest)](https://readthedocs.org/projects/prospect/badge/?version=latest)
 [![Tests](https://github.com/bd-j/prospector/workflows/Tests/badge.svg)](https://github.com/bd-j/prospector/actions?query=workflow%3ATests)
 [![arXiv](https://img.shields.io/badge/arXiv-2012.01426-b31b1b.svg)](https://arxiv.org/abs/2012.01426)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/bd-j/prospector/blob/main/LICENSE)
 
-Purpose
--------
+
 Conduct principled inference of stellar population properties from photometric
 and/or spectroscopic data.  Prospector allows you to:
 

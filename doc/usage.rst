@@ -42,31 +42,43 @@ writes output.
             from prospect.io import write_results as writer
 		    from prospect import prospect_args
 
-            # Get the default argument parser
+            # --- Get the default argument parser ---
             parser = prospect_args.get_parser()
             # Add custom arguments that controll the build methods
             parser.add_argument("--custom_argument_1", ...)
-            # Parse the supplied arguments, convert to a dictionary, and add this file for logging purposes
+
+            # --- Configure ---
             args = parser.parse_args()
-            run_params = vars(args)
-            run_params["param_file"] = __file__
+            config = vars(args)
+            config["param_file"] = __file__
 
-            # build the fit ingredients
-            obs, model, sps, noise = build_all(**run_params)
-            run_params["sps_libraries"] = sps.ssp.libraries
+            # --- Get fitting ingredients ---
+            obs, model, sps = build_all(**config)
+            config["sps_libraries"] = sps.ssp.libraries
+            print(model)
 
-            # Set up an output file name and run the fit
+            if args.debug:
+                sys.exit()
+
+            # --- Set up output ---
             ts = time.strftime("%y%b%d-%H.%M", time.localtime())
-            hfile = "{0}_{1}_mcmc.h5".format(args.outfile, ts)
-            output = fit_model(obs, model, sps, noise, **run_params)
+            hfile = f"{args.outfile}_{ts}_result.h5"
 
-            # Write results to output file
+            #  --- Run the actual fit ---
+            output = fit_model(obs, model, sps, **config)
+
+            print("writing to {}".format(hfile))
             writer.write_hdf5(hfile, run_params, model, obs,
-                              output["sampling"][0], output["optimization"][0],
-                              tsample=output["sampling"][1],
-                              toptimize=output["optimization"][1],
-                              sps=sps)
+                                output["sampling"][0], output["optimization"][0],
+                                tsample=output["sampling"][1],
+                                toptimize=output["optimization"][1],
+                                sps=sps
+                                )
 
+            try:
+                hfile.close()
+            except(AttributeError):
+                pass
 
 
 Command Line Options and Custom Arguments
@@ -100,7 +112,7 @@ The required methods in a **parameter file** for building the data and model are
 
 1. :py:meth:`build_obs`:
    This function will take the command line arguments dictionary as keyword arguments
-   and returns on obs dictionary (see :doc:`dataformat` .)
+   and returns a list of `Observation` instances (see :doc:`dataformat` .)
 
 2. :py:meth:`build_model`:
    This function will take the command line arguments dictionary dictionary as keyword arguments
@@ -115,9 +127,11 @@ The required methods in a **parameter file** for building the data and model are
     building code and as such has a large memory footprint.
 
 4.  :py:meth:`build_noise`:
-    This function should return a :py:class:`NoiseModel` object for the spectroscopy and/or
-    photometry. Either or both can be ``None`` (the default)  in which case the likelihood
-    will not include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
+    This function, if present, should add a :py:class:`NoiseModel` object to the
+    spectroscopy and/or photometry. If not present the likelihood will not
+    include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
+
+
 
 Using MPI
 ---------

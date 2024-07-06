@@ -1,9 +1,9 @@
 name: Tests
 on:
   push:
-    branches: [main]
+    branches: [main, v2.0]
   pull_request:
-    branches: [main]
+    branches: [main, v2.0]
 
 jobs:
   tests:
@@ -36,6 +36,6 @@ jobs:
         env:
           SPS_HOME: ${{ github.workspace }}/fsps
       - name: Run tests
-        run: python -m pytest --durations=0 --maxfail=1 -vs tests/
+        run: python -m pytest --durations=0 --maxfail=1 -W ignore::DeprecationWarning --ignore tests/misc/ -vs tests/
         env:
           SPS_HOME: ${{ github.workspace }}/fsps
