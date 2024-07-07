@@ -116,8 +116,8 @@ def write_hdf5(hfile, run_params, model, obs,
     # Sampling info
     if run_params.get("emcee", False):
         chain, extras = emcee_to_struct(sampler, model)
-    elif run_params.get("dynesty", False):
-        chain, extras = dynesty_to_struct(sampler, model)
+    elif run_params.get("nested", False):
+        chain, extras = nested_to_struct(sampler, model)
     else:
         chain, extras = None, None
     write_sampling_h5(hf, chain, extras)
@@ -200,20 +200,16 @@ def emcee_to_struct(sampler, model):
     return chaincat, extras
 
 
-def dynesty_to_struct(dyout, model):
+def nested_to_struct(nested_out, model):
     # preamble
-    lnprior = model.prior_product(dyout['samples'])
+    lnprior = model.prior_product(nested_out['points'])
 
     # chaincat & extras
-    chaincat = chain_to_struct(dyout["samples"], model=model)
-    extras = dict(weights=np.exp(dyout['logwt']-dyout['logz'][-1]),
-                  lnprobability=dyout['logl'] + lnprior,
-                  lnlike=dyout['logl'],
-                  efficiency=np.atleast_1d(dyout['eff']),
-                  logz=np.atleast_1d(dyout['logz']),
-                  ncall=np.atleast_1d(dyout['ncall'])
-                  #ncall=json.dumps(dyout['ncall'].tolist())
-                 )
+    chaincat = chain_to_struct(nested_out['points'], model=model)
+    extras = dict(weights=np.exp(nested_out['log_weight']),
+                  lnprobability=nested_out['log_like'] + lnprior,
+                  lnlike=nested_out['log_like']
+                  )
     return chaincat, extras
 
 
