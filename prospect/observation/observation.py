@@ -296,6 +296,7 @@ class Spectrum(Observation):
                  calibration=None,
                  name=None,
                  lambda_pad=100,
+                 polyorder=0.
                  **kwargs):
 
         """
@@ -324,6 +325,8 @@ class Spectrum(Observation):
         self.calibration = calibration
         self.instrument_smoothing_parameters = dict(smoothtype="vel", fftsmooth=True)
         self.wavelength = wavelength
+        self.polynomial_order = polyorder
+        self.polynomial_regularization = 0.
 
     @property
     def wavelength(self):

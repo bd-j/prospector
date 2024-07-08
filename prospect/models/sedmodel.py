@@ -852,6 +852,7 @@ class PolySpecModel(SpecModel):
     """
 
     def _available_parameters(self):
+        # These should both be attached to the Observation instance as attributes
         pars = [("polyorder", "order of the polynomial to fit"),
                 ("poly_regularization", "vector of length `polyorder` providing regularization for each polynomial term"),
                 ("median_polynomial", "if > 0, median smooth with a kernel of width order/range/median_polynomial before fitting")
@@ -881,8 +882,9 @@ class PolySpecModel(SpecModel):
         if theta is not None:
             self.set_parameters(theta)
 
-        # norm = self.params.get('spec_norm', 1.0)
-        order = np.squeeze(self.params.get('polyorder', 0))
+        #order = np.squeeze(self.params.get('polyorder', 0))
+        order = np.squeeze(getattr(obs, "polynomial_order", 0))
+        reg = np.squeeze(getattr(obs, "poly_regularization", 0))
         polyopt = ((order > 0) &
                    (obs.get('spectrum', None) is not None))
         if polyopt:
@@ -906,7 +908,6 @@ class PolySpecModel(SpecModel):
             yvar = yerr**2
             A = chebvander(x[mask], order)
             ATA = np.dot(A.T, A / yvar[:, None])
-            reg = self.params.get('poly_regularization', 0.)
             if np.any(reg > 0):
                 ATA += reg**2 * np.eye(order+1)
             ATAinv = np.linalg.inv(ATA)
