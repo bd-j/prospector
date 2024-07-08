@@ -3,19 +3,18 @@ import numpy as np
 
 from .fitting import lnprobfn
 
-try:
-    import dynesty
-    from dynesty.utils import *
-except(ImportError):
-    pass
-
 
 __all__ = ["run_nested", "run_dynesty_sampler"]
 
 
+def run_nested(model,
+               lnprobfn=lnprobfn,
+               fitter="dynesty",
+               **kwargs):
 
-def run_nested(observations, model, sps, lnprobfn=lnprobfn, fitter="dynesty",
-                pool=None, nested_target_n_effective=10000, **kwargs):
+    """We give a model -- parameter discription and prior transform -- and a
+    likelihood function. We get back samples, weights, and likelihood values.
+    """
 
     go = time.time()
 
@@ -94,6 +93,7 @@ def run_nested(observations, model, sps, lnprobfn=lnprobfn, fitter="dynesty",
     return (points, log_w, log_like)
 
 
+from dynesty.dynamicsampler import stopping_function, weight_function
 def run_dynesty_sampler(lnprobfn, prior_transform, ndim,
                         verbose=True,
                         # sampler kwargs
@@ -120,9 +120,8 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim,
                         # overall kwargs
                         nested_maxcall=None,
                         nested_maxiter=None,
-                        nested_first_update={},
-                        stop_function=None,
-                        wt_function=None,
+                        stop_function=stopping_function,
+                        wt_function=weight_function,
                         nested_weight_kwargs={'pfrac': 1.0},
                         nested_stop_kwargs={},
                         nested_save_bounds=False,
@@ -130,7 +129,6 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim,
                         **extras):
 
     from dynesty import DynamicNestedSampler
-
 
     # instantiate sampler
     dsampler = DynamicNestedSampler(lnprobfn, prior_transform, ndim,
