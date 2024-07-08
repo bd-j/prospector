@@ -133,6 +133,7 @@ def write_hdf5(hfile, run_params, model, obs,
     for k, v in meta.items():
         hf.attrs[k] = v
     hf.flush()
+    hf.attrs['sampling_duration'] = json.dumps(tsample)
 
     # -----------------
     # Optimizer info
@@ -209,7 +210,8 @@ def dynesty_to_struct(dyout, model):
                   lnlike=dyout['logl'],
                   efficiency=np.atleast_1d(dyout['eff']),
                   logz=np.atleast_1d(dyout['logz']),
-                  ncall=json.dumps(dyout['ncall'].tolist())
+                  ncall=np.atleast_1d(dyout['ncall'])
+                  #ncall=json.dumps(dyout['ncall'].tolist())
                  )
     return chaincat, extras
 
