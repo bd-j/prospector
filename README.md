@@ -6,10 +6,8 @@ Version 2.0! (in progress)
 
 This is a major refactor to allow for multiple datasets (i.e. multiple spectra)
 with different noise models and instrument parameters to constrain a single
-galaxy model.  It will also include substantial updates to the outputs to allow
-samples of the spectra (and mfrac) generated during sampling to be saved as well
-as as cleaner parameter sample output. It may include emulator models and
-gradient based sampling.
+galaxy model.  Other updates may include cleaner stored outputs, interfaces with
+additional nested samplers, and improved tretments of smoothing.
 
 Work to do includes:
 
@@ -21,7 +19,8 @@ Work to do includes:
 - [x] Structured ndarray for output chains and lnlikehoods
 - [x] Update docs
 - [x] Update demo scripts
-- [ ] Account for undersampled spectra via a square convolution in pixel space (or explicit rebinning)
+- [x] Account for undersampled spectra via explicit rebinning.
+- [ ] Account for undersampled spectra via a square convolution in pixel space.
 - [ ] Update notebooks
 - [ ] Update plotting module
 - [ ] Test i/o with structured arrays
@@ -31,6 +30,44 @@ Work to do includes:
 - [ ] Store samples of spectra, photometry, and mfrac (blobs)
 - [ ] Implement an emulator-based SpecModel class
 - [ ] Implement UltraNest and Nautilus backends
+
+
+Migration from < v2.0
+---------------------
+
+For most users the primary difference from v1.X will be that the data to predict
+and fit is now specified as a list of `prospect.observation.Observation()`
+instances, instead of a single 'obs' dictionary.  There is a new convenience
+method to convert from the old 'obs' dictionary format to the new specification.
+This can be used with existing scripts as follows:
+
+```py
+# old build_obs function giving a dictionary
+obs_dict = build_obs(**run_params)
+# get convenience method
+from prospect.observation import from_oldstyle
+# make a new list of Observation instances from the dictionary
+observations = from_oldstyle(obs_dict)
+# verify and prepare for fitting; similar to 'obsutils.fix_obs()'
+[obs.rectify() for obs in observations]
+print(observations)
+```
+
+It is recommended to do the conversion within the `build_obs()` method, if
+possible. This list of observations is then supplied to `fit_model`.  Because
+noise models are now attached explicitly to each observation, they do not need
+to be generated separately or supplied to `fit_model()`, which no longer accepts
+a `noise=` argument.
+
+```py
+from prospect.fitting import fit_model
+output = fit_model(observations, model, sps, **config)
+```
+
+Finally, the output chain or samples is now stored as a structured array, where
+each row corresponds to a sample, and each column is a parameter (possibly
+multidimensional).  Additional information (such as sample weights, likelihoods,
+and poster probabilities) are stored as additional datasets in the output.
 
 
 Purpose
@@ -48,9 +85,9 @@ and/or spectroscopic data.  Prospector allows you to:
 * Infer high-dimensional stellar population properties using parametric or
   highly flexible SFHs (with nested or ensemble Monte Carlo sampling)
 
-* Combine photometric and spectroscopic data from the UV to Far-IR rigorously
-  using a flexible spectroscopic calibration model and forward modeling many
-  aspects of spectroscopic data analysis.
+* Combine multiple photometric, spectroscopic, and/or line flux datasets from
+  the UV to Far-IR rigorously using a flexible spectroscopic calibration model
+  and forward modeling many aspects of spectroscopic data analysis.
 
 Read the [documentation](http://prospect.readthedocs.io/en/latest/) and the
 code [paper](https://ui.adsabs.harvard.edu/abs/2021ApJS..254...22J/abstract).
