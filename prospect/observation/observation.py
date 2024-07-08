@@ -504,6 +504,70 @@ class Lines(Spectrum):
         self.line_ind = np.array(line_ind).as_type(int)
 
 
+
+class PolyCal:
+
+    def spec_calibration(self, theta=None, obs=None, spec=None, **kwargs):
+        """Implements a Chebyshev polynomial calibration model. This uses
+        least-squares to find the maximum-likelihood Chebyshev polynomial of a
+        certain order describing the ratio of the observed spectrum to the model
+        spectrum, conditional on all other parameters. If emission lines are
+        being marginalized out, they are excluded from the least-squares fit.
+
+        Parameters
+        ----------
+        obs :  Instance of `Spectrum`
+
+        spec : ndarray of shape (nwave,)
+            The model spectrum.
+
+        Returns
+        -------
+        cal : ndarray of shape (nwave,)
+           A polynomial given by :math:`\sum_{m=0}^M a_{m} * T_m(x)`.
+        """
+        if theta is not None:
+            self.set_parameters(theta)
+
+        #order = np.squeeze(self.params.get('polyorder', 0))
+        order = np.squeeze(getattr(obs, "polynomial_order", 0))
+        reg = np.squeeze(getattr(obs, "poly_regularization", 0))
+        polyopt = ((order > 0) &
+                   (obs.get('spectrum', None) is not None))
+        if polyopt:
+            # generate mask
+            # remove region around emission lines if doing analytical marginalization
+            mask = obs.get('mask', np.ones_like(obs['wavelength'], dtype=bool)).copy()
+            if self.params.get('marginalize_elines', False):
+                mask[self._fit_eline_pixelmask] = 0
+
+            # map unmasked wavelengths to the interval -1, 1
+            # masked wavelengths may have x>1, x<-1
+            x = self.wave_to_x(obs["wavelength"], mask)
+            y = (obs['spectrum'] / spec)[mask] - 1.0
+
+            if self.params.get('median_polynomial', 0) > 0:
+                kernel_factor = self.params["median_polynomial"]
+                knl = int((x.max() - x.min()) / order / kernel_factor)
+                knl += int((knl % 2) == 0)
+                y = medfilt(y, knl)
+            yerr = (obs['unc'] / spec)[mask]
+            yvar = yerr**2
+            A = chebvander(x[mask], order)
+            ATA = np.dot(A.T, A / yvar[:, None])
+            if np.any(reg > 0):
+                ATA += reg**2 * np.eye(order+1)
+            ATAinv = np.linalg.inv(ATA)
+            c = np.dot(ATAinv, np.dot(A.T, y / yvar))
+            Afull = chebvander(x, order)
+            poly = np.dot(Afull, c)
+            self._poly_coeffs = c
+        else:
+            poly = np.zeros_like(self._outwave)
+
+        return (1.0 + poly)
+
+
 obstypes = dict(photometry=Photometry,
                 spectrum=Spectrum,
                 lines=Lines)

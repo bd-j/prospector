@@ -285,8 +285,9 @@ class SpecModel(ProspectorParams):
             inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
 
         # --- (de-) apply calibration ---
-        self._speccal = self.spec_calibration(obs=obs, spec=inst_spec, **extras)
-        inst_spec = inst_spec * self._speccal
+        #self._speccal = self.spec_calibration(obs=obs, spec=inst_spec, **extras)
+        response = obs.get_calibration_vector(spec=inst_spec)
+        inst_spec = inst_spec * response
 
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
@@ -300,7 +301,7 @@ class SpecModel(ProspectorParams):
             inst_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
         # --- cache intrinsic spectrum for this observation ---
-        self._sed = inst_spec / self._speccal
+        self._sed.append(inst_spec / response)
 
         return inst_spec
 
