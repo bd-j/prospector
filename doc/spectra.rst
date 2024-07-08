@@ -39,13 +39,17 @@ over the polynomial coefficients (this allows you to place priors on the
 accuracy of the spectrophotometric calibration). Or you can just take the
 spectrum as perfectly calibrated.
 
-Particular treatments can be implemented using different mix-in classes, e.g.
+Particular treatments can be implemented using different mix-in classes for the
+:py:class:`Spectrum` observational data, e.g. for optimization of a 5th order
+polynomial calibration vector at each likelihood call, use
+:py:class:`PolyOptCal` as follows
 
 .. code-block:: python
 
         from prospect.observation import Spectrum, PolyOptCal
-        class PolySpectrum(PolyOptCal, Spectrum):
+        class PolySpectrum(PolyOptCal, Spectrum):  # order matters
             pass
+
         spec = PolySpectrum(wavelength=np.linspace(3000, 5000, N),
                             flux=np.zeros(N),
                             uncertainty=np.ones(N),

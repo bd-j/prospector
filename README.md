@@ -35,11 +35,12 @@ Work to do includes:
 Migration from < v2.0
 ---------------------
 
-For most users the primary difference from v1.X will be that the data to predict
-and fit is now specified as a list of `prospect.observation.Observation()`
-instances, instead of a single 'obs' dictionary.  There is a new convenience
-method to convert from the old 'obs' dictionary format to the new specification.
-This can be used with existing scripts as follows:
+For many users the primary difference from v1.X will be that the data to predict
+and fit a model to is now specified as a list of
+`prospect.observation.Observation()` instances, instead of a single 'obs'
+dictionary.  There is a new convenience method to convert from the old 'obs'
+dictionary format to the new specification. This can be used with existing
+scripts as follows:
 
 ```py
 # old build_obs function giving a dictionary
@@ -63,6 +64,10 @@ a `noise=` argument.
 from prospect.fitting import fit_model
 output = fit_model(observations, model, sps, **config)
 ```
+
+Another change is that spectral response functions (i.e. calibration vectors) are now handled by specialized sub-classes of these `Observation` classes.  See `spectra`_ for details.
+
+.. _spectra: docs/spectra.rst
 
 Finally, the output chain or samples is now stored as a structured array, where
 each row corresponds to a sample, and each column is a parameter (possibly
