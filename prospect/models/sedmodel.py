@@ -853,8 +853,8 @@ class PolySpecModel(SpecModel):
 
     def _available_parameters(self):
         # These should both be attached to the Observation instance as attributes
-        pars = [("polyorder", "order of the polynomial to fit"),
-                ("poly_regularization", "vector of length `polyorder` providing regularization for each polynomial term"),
+        pars = [("polynomial_order", "order of the polynomial to fit"),
+                ("polynomial_regularization", "vector of length `polyorder` providing regularization for each polynomial term"),
                 ("median_polynomial", "if > 0, median smooth with a kernel of width order/range/median_polynomial before fitting")
                 ]
 
@@ -930,7 +930,7 @@ class SplineSpecModel(SpecModel):
     """
 
     def _available_parameters(self):
-        pars = [("spline_knot_wave", "vector of wavelengths for the location ot he spline knots"),
+        pars = [("spline_knot_wave", "vector of wavelengths for the location of the spline knots"),
                 ("spline_knot_spacing", "spacing between knots, in units of wavelength"),
                 ("spline_knot_n", "number of interior knots between minimum and maximum unmasked wavelength")
                 ]
