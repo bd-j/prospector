@@ -198,7 +198,6 @@ class SpecModel(ProspectorParams):
             self._fix_eline_spec = espec
             inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
 
-
         # --- add (previously) fitted lines if necessary ---
         emask = self._fit_eline_pixelmask
         if emask.any() (~continuum_only):
@@ -882,9 +881,12 @@ class PolySpecModel(SpecModel):
         if theta is not None:
             self.set_parameters(theta)
 
-        #order = np.squeeze(self.params.get('polyorder', 0))
+        # polynomial order and regularization, from the obs object or overridden from the model params
         order = np.squeeze(getattr(obs, "polynomial_order", 0))
-        reg = np.squeeze(getattr(obs, "poly_regularization", 0))
+        order = np.squeeze(self.params.get('polyorder', order))
+        reg = np.squeeze(getattr(obs, "polynomial_regularization", 0.))
+        reg = self.params.get('poly_regularization', reg)
+
         polyopt = ((order > 0) &
                    (obs.get('spectrum', None) is not None))
         if polyopt:
