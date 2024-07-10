@@ -205,7 +205,7 @@ class SpecModel(ProspectorParams):
 
         return inst_spec
 
-    def predict_spec(self, obs, **extras):
+    def predict_spec(self, obs):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct
@@ -285,8 +285,9 @@ class SpecModel(ProspectorParams):
             inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
 
         # --- (de-) apply calibration ---
-        #self._speccal = self.spec_calibration(obs=obs, spec=inst_spec, **extras)
-        response = obs.get_calibration_vector(spec=inst_spec)
+        response = obs.compute_response(spec=inst_spec,
+                                        extra_mask=self._fit_eline_pixelmask,
+                                        **self.params)
         inst_spec = inst_spec * response
 
         # --- fit and add lines if necessary ---
@@ -805,9 +806,6 @@ class SpecModel(ProspectorParams):
         x = 2.0 * (x / (x[mask]).max()) - 1.0
         return x
 
-    def spec_calibration(self, **kwargs):
-        return np.ones_like(self._outwave)
-
     def absolute_rest_maggies(self, filterset):
         """Return absolute rest-frame maggies (=10**(-0.4*M)) of the last
         computed spectrum.
@@ -841,160 +839,6 @@ class SpecModel(ProspectorParams):
             abs_rest_maggies += emaggies
 
         return abs_rest_maggies
-
-
-class PolySpecModel(SpecModel):
-
-    """This is a subclass of *SpecModel* that generates the multiplicative
-    calibration vector at each model `predict` call as the maximum likelihood
-    chebyshev polynomial describing the ratio between the observed and the model
-    spectrum.
-    """
-
-    def _available_parameters(self):
-        # These should both be attached to the Observation instance as attributes
-        pars = [("polynomial_order", "order of the polynomial to fit"),
-                ("polynomial_regularization", "vector of length `polyorder` providing regularization for each polynomial term"),
-                ("median_polynomial", "if > 0, median smooth with a kernel of width order/range/median_polynomial before fitting")
-                ]
-
-        return pars
-
-    def spec_calibration(self, theta=None, obs=None, spec=None, **kwargs):
-        """Implements a Chebyshev polynomial calibration model. This uses
-        least-squares to find the maximum-likelihood Chebyshev polynomial of a
-        certain order describing the ratio of the observed spectrum to the model
-        spectrum, conditional on all other parameters. If emission lines are
-        being marginalized out, they are excluded from the least-squares fit.
-
-        Parameters
-        ----------
-        obs :  Instance of `Spectrum`
-
-        spec : ndarray of shape (nwave,)
-            The model spectrum.
-
-        Returns
-        -------
-        cal : ndarray of shape (nwave,)
-           A polynomial given by :math:`\sum_{m=0}^M a_{m} * T_m(x)`.
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        # polynomial order and regularization, from the obs object or overridden from the model params
-        order = np.squeeze(getattr(obs, "polynomial_order", 0))
-        order = np.squeeze(self.params.get('polyorder', order))
-        reg = np.squeeze(getattr(obs, "polynomial_regularization", 0.))
-        reg = self.params.get('poly_regularization', reg)
-
-        polyopt = ((order > 0) &
-                   (obs.get('spectrum', None) is not None))
-        if polyopt:
-            # generate mask
-            # remove region around emission lines if doing analytical marginalization
-            mask = obs.get('mask', np.ones_like(obs['wavelength'], dtype=bool)).copy()
-            if self.params.get('marginalize_elines', False):
-                mask[self._fit_eline_pixelmask] = 0
-
-            # map unmasked wavelengths to the interval -1, 1
-            # masked wavelengths may have x>1, x<-1
-            x = self.wave_to_x(obs["wavelength"], mask)
-            y = (obs['spectrum'] / spec)[mask] - 1.0
-
-            if self.params.get('median_polynomial', 0) > 0:
-                kernel_factor = self.params["median_polynomial"]
-                knl = int((x.max() - x.min()) / order / kernel_factor)
-                knl += int((knl % 2) == 0)
-                y = medfilt(y, knl)
-            yerr = (obs['unc'] / spec)[mask]
-            yvar = yerr**2
-            A = chebvander(x[mask], order)
-            ATA = np.dot(A.T, A / yvar[:, None])
-            if np.any(reg > 0):
-                ATA += reg**2 * np.eye(order+1)
-            ATAinv = np.linalg.inv(ATA)
-            c = np.dot(ATAinv, np.dot(A.T, y / yvar))
-            Afull = chebvander(x, order)
-            poly = np.dot(Afull, c)
-            self._poly_coeffs = c
-        else:
-            poly = np.zeros_like(self._outwave)
-
-        return (1.0 + poly)
-
-
-class SplineSpecModel(SpecModel):
-
-    """This is a subclass of *SpecModel* that generates the multiplicative
-    calibration vector at each model `predict` call as the maximum likelihood
-    cubic spline describing the ratio between the observed and the model
-    spectrum.
-    """
-
-    def _available_parameters(self):
-        pars = [("spline_knot_wave", "vector of wavelengths for the location of the spline knots"),
-                ("spline_knot_spacing", "spacing between knots, in units of wavelength"),
-                ("spline_knot_n", "number of interior knots between minimum and maximum unmasked wavelength")
-                ]
-
-        return pars
-
-    def spec_calibration(self, theta=None, obs=None, spec=None, **kwargs):
-        """Implements a spline calibration model.  This fits a cubic spline with
-        determined knot locations to the ratio of the observed spectrum to the
-        model spectrum.  If emission lines are being marginalized out, they are
-        excluded from the least-squares fit.
-
-        The knot locations must be specified as model parameters, either
-        explicitly or via a number of knots or knot spacing (in angstroms)
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        splineopt = True
-        if splineopt:
-            mask, (wlo, whi) = self.obs_to_mask(obs)
-            y = (obs['spectrum'] / spec)[mask] - 1.0
-            yerr = (obs['unc'] / spec)[mask]  # HACK
-            knots_x = self.make_knots(wlo, whi, as_x=True, **self.params)
-            x = 2.0 * (obs["wavelength"] - wlo) / (whi - wlo) - 1.0
-            tck = splrep(x[mask], y[mask], w=1/yerr[mask], k=3, task=-1, t=knots_x)
-            self._spline_coeffs = tck
-            spl = BSpline(*tck)
-            spline = spl(x)
-        else:
-            spline = np.zeros_like(self._outwave)
-        return (1.0 + spline)
-
-    def make_knots(self, wlo, whi, as_x=True, **params):
-        """
-        """
-        if "spline_knot_wave" in params:
-            knots = np.squeeze(params["spline_knot_wave"])
-        elif "spline_knot_spacing" in params:
-            s = np.squeeze(params["spline_knot_spacing"])
-            # we drop the start so knots are interior
-            knots = np.arange(wlo, whi, s)[1:]
-        elif "spline_knot_n" in params:
-            n = np.squeeze(params["spline_knot_n"])
-            # we need to drop the endpoints so knots are interior
-            knots = np.linspace(wlo, whi, n)[1:-1]
-        else:
-            raise KeyError("No valid spline knot specification in self.params")
-
-        if as_x:
-            knots = 2.0 * (knots - wlo) / (whi - wlo) - 1.0
-
-        return knots
-
-    def obs_to_mask(self, obs):
-        mask = obs.get('mask', np.ones_like(obs['wavelength'], dtype=bool)).copy()
-        if self.params.get('marginalize_elines', False):
-            mask[self._fit_eline_pixelmask] = 0
-        w = obs["wavelength"]
-        wrange = w[mask].min(), w[mask].max()
-        return mask, wrange
 
 
 class AGNSpecModel(SpecModel):
@@ -1034,7 +878,7 @@ class AGNSpecModel(SpecModel):
         assert np.abs(self.emline_info["wave"][59] - 4863) < 2
         self._aline_lum[ainds] = afluxes
 
-    def predict_spec(self, obs, **extras):
+    def predict_spec(self, obs):
         """Generate a prediction for the observed spectrum.  This method assumes
         that the parameters have been set and that the following attributes are
         present and correct
@@ -1110,13 +954,13 @@ class AGNSpecModel(SpecModel):
             smooth_spec[emask] += self._agn_eline_spec
 
         # --- calibration ---
-        self._speccal = self.spec_calibration(obs=obs, spec=smooth_spec, **extras)
-        calibrated_spec = smooth_spec * self._speccal
+        response = obs.compute_response(spec=smooth_spec, **self.params)
+        inst_spec = smooth_spec * response
 
         # --- cache intrinsic spectrum ---
-        self._sed = calibrated_spec / self._speccal
+        self._sed = inst_spec / response
 
-        return calibrated_spec
+        return inst_spec
 
     def predict_lines(self, obs, **extras):
         """Generate a prediction for the observed nebular line fluxes, including
@@ -1200,53 +1044,8 @@ class AGNSpecModel(SpecModel):
         return aline_spec
 
 
-class PolyFitModel(SpecModel):
-
-    """This is a subclass of :py:class:`SpecModel` that generates the
-    multiplicative calibration vector as a Chebyshev polynomial described by the
-    ``'poly_coeffs'`` parameter of the model, which may be free (fittable)
-    """
-
-    def spec_calibration(self, theta=None, obs=None, **kwargs):
-        """Implements a Chebyshev polynomial calibration model.  This only
-        occurs if ``"poly_coeffs"`` is present in the :py:attr:`params`
-        dictionary, otherwise the value of ``params["spec_norm"]`` is returned.
-
-        :param theta: (optional)
-            If given, set :py:attr:`params` using this vector before
-            calculating the calibration polynomial. ndarray of shape
-            ``(ndim,)``
-
-        :param obs:
-            A dictionary of observational data, must contain the key
-            ``"wavelength"``
-
-        :returns cal:
-           If ``params["cal_type"]`` is ``"poly"``, a polynomial given by
-           :math:`\times (\Sum_{m=0}^M```'poly_coeffs'[m]``:math:` \times T_n(x))`.
-        """
-        if theta is not None:
-            self.set_parameters(theta)
-
-        if ('poly_coeffs' in self.params):
-            mask = obs.get('mask', slice(None))
-            # map unmasked wavelengths to the interval -1, 1
-            # masked wavelengths may have x>1, x<-1
-            x = self.wave_to_x(obs["wavelength"], mask)
-            # get coefficients.
-            c = self.params['poly_coeffs']
-            poly = chebval(x, c)
-            return poly
-        else:
-            return 1.0
-
-
 class HyperSpecModel(ProspectorHyperParams, SpecModel):
     pass
-
-class HyperPolySpecModel(ProspectorHyperParams, PolySpecModel):
-    pass
-
 
 
 def ln_mvn(x, mean=None, cov=None):
