@@ -46,7 +46,7 @@ class Observation:
     noise :
     """
 
-    kind = "observation"
+    _kind = "observation"
     logify_spectrum = False
     alias = {}
     _meta = ("kind", "name")
