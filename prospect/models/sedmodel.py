@@ -22,10 +22,8 @@ from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 
 
 __all__ = ["SpecModel",
-           "PolySpecModel", "SplineSpecModel",
-           "HyperSpecModel", "HyperPolySpecModel",
-           "AGNSpecModel",
-           "PolyFitModel"]
+           "HyperSpecModel",
+           "AGNSpecModel"]
 
 
 class SpecModel(ProspectorParams):
@@ -103,7 +101,28 @@ class SpecModel(ProspectorParams):
             will be `mfrac` the ratio of the surviving stellar mass to the
             stellar mass formed.
         """
+        self.predict_init(theta, sps)
 
+        # generate predictions for likelihood
+        # this assumes all spectral datasets (if present) occur first
+        # because they can change the line strengths during marginalization.
+        predictions = [self.predict_obs(obs) for obs in observations]
+
+        return predictions, self._mfrac
+
+    def predict_init(self, theta, sps):
+        """Generate the physical model on the model wavelength grid, and cache
+        many quantities used in common for all kinds of predictions.
+
+        Parameters
+        ----------
+        theta : ndarray of shape ``(ndim,)``
+            Vector of free model parameter values.
+
+        sps :
+            An `sps` object to be used in the model generation.  It must have
+            the :py:func:`get_galaxy_spectrum` method defined.
+        """
         # generate and cache intrinsic model spectrum and info
         self.set_parameters(theta)
         self._wave, self._spec, self._mfrac = sps.get_galaxy_spectrum(**self.params)
@@ -130,13 +149,6 @@ class SpecModel(ProspectorParams):
         # Ly-alpha absorption
         self._smooth_spec = self.add_dla(self._wave, self._smooth_spec)
         self._smooth_spec = self.add_damping_wing(self._wave, self._smooth_spec)
-
-        # generate predictions for likelihood
-        # this assumes all spectral datasets (if present) occur first
-        # because they can change the line strengths during marginalization.
-        predictions = [self.predict_obs(obs) for obs in observations]
-
-        return predictions, self._mfrac
 
     def predict_obs(self, obs):
         if obs.kind == "spectrum":
@@ -253,6 +265,7 @@ class SpecModel(ProspectorParams):
         obs_wave = self.observed_wave(self._wave, do_wavecal=False)
 
         # get output wavelength vector
+        # TODO: remove this and require all Spectrum instances to have a wavelength array
         self._outwave = obs.wavelength
         if self._outwave is None:
             self._outwave = obs_wave
@@ -285,15 +298,19 @@ class SpecModel(ProspectorParams):
             inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
 
         # --- (de-) apply calibration ---
+        extra_mask = self._fit_eline_pixelmask
+        if not extra_mask.any():
+            extra_mask = True  # all pixels are ok
         response = obs.compute_response(spec=inst_spec,
-                                        extra_mask=self._fit_eline_pixelmask,
+                                        extra_mask=extra_mask,
                                         **self.params)
         inst_spec = inst_spec * response
 
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
         if emask.any():
-            # We need the spectroscopic covariance matrix to do emission line optimization and marginalization
+            # We need the spectroscopic covariance matrix to do emission line
+            # optimization and marginalization
             spec_unc = None
             # FIXME: do this only if the noise model is non-trivial, and make sure masking is consistent
             #vectors = obs.noise.populate_vectors(obs)
@@ -302,7 +319,8 @@ class SpecModel(ProspectorParams):
             inst_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
         # --- cache intrinsic spectrum for this observation ---
-        self._sed.append(inst_spec / response)
+        self._sed = inst_spec / response
+        self._speccal = response
 
         return inst_spec
 
@@ -635,6 +653,7 @@ class SpecModel(ProspectorParams):
 
         # generate line amplitudes in observed flux units
         units_factor = self.flux_norm() / (1 + self._zred)
+        # FIXME: use obs.response instead of _speccal, remove all references to speccal
         calib_factor = np.interp(self._ewave_obs[idx], nebwave, self._speccal[emask])
         linecal = units_factor * calib_factor
         alpha_breve = self._eline_lum[idx] * linecal
@@ -959,6 +978,7 @@ class AGNSpecModel(SpecModel):
 
         # --- cache intrinsic spectrum ---
         self._sed = inst_spec / response
+        self._speccal = response
 
         return inst_spec
 

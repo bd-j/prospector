@@ -447,7 +447,6 @@ class Spectrum(Observation):
             return 1.0
 
 
-
 class Lines(Spectrum):
 
     _kind = "lines"
@@ -532,10 +531,10 @@ class PolyOptCal:
                  polynomial_regularization=0,
                  median_polynomial=0,
                  **kwargs):
-        super(PolyOptCal, self).__init(*args, **kwargs)
+        super(PolyOptCal, self).__init__(*args, **kwargs)
         self.polynomial_order = polynomial_order
         self.polynomial_regularization = polynomial_regularization
-        self.median_molynomial = median_polynomial
+        self.median_polynomial = median_polynomial
 
     def _available_parameters(self):
         # These should both be attached to the Observation instance as attributes
@@ -573,7 +572,8 @@ class PolyOptCal:
         assert (self.mask.sum() > order), f"Not enough points to constrain polynomial of order {order}"
 
         polyopt = (order > 0)
-        if ~polyopt:
+        if (not polyopt):
+            print("no polynomial")
             self.response = np.ones_like(self.wavelength)
             return self.response
 
@@ -614,7 +614,7 @@ class SplineOptCal:
                  spline_knot_spacing=None,
                  spline_knot_n=None,
                  **kwargs):
-        super(SplineOptCal, self).__init(*args, **kwargs)
+        super(SplineOptCal, self).__init__(*args, **kwargs)
 
         self.params = {}
         if spline_knot_wave is not None:
