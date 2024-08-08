@@ -440,7 +440,7 @@ class Spectrum(Observation):
         return outspec_padded[self._unpadded_inds]
 
 
-    def instrumental_response(self, **extras):
+    def compute_response(self, **extras):
         if self.response is not None:
             return self.response
         else:

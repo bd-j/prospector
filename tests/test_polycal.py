@@ -54,7 +54,7 @@ def build_obs(multispec=False):
     return obslist
 
 
-def test_polycal(plot=False):
+def test_polycal(get_sps, plot=False):
     """Make sure the polynomial optimization works
     """
     sps = get_sps
