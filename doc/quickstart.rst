@@ -45,7 +45,7 @@ include an empty Spectrum data set to force a prediction of the full spectrum.
 .. code:: python
 
     from sedpy.observate import load_filters
-    from prospect.data import Photometry, Spectrum
+    from prospect.observation import Photometry, Spectrum
 
     filters = load_filters([f"sdss_{b}0" for b in bands])
     maggies = np.array([10**(-0.4 * cat[0][f"cModelMag_{b}"]) for b in bands])
@@ -59,6 +59,7 @@ include an empty Spectrum data set to force a prediction of the full spectrum.
     for obs in observations:
         obs.redshift = shdus[2].data[0]["z"]
 
+
 In principle we could also add noise models for the spectral and photometric
 data (e.g. to fit for the photometric noise floor), but we'll make the default
 assumption of iid Gaussian noise for the moment.
@@ -69,18 +70,25 @@ Build a Model
 
 Here we will get a default parameter set for a simple parametric SFH, and add a
 set of parameters describing nebular emission.  We'll also fix the redshift to
-the value given by SDSS. This model has 5 free parameters, each of which has a
-an associated prior distribution.  These default prior distributions can and
-should be replaced or adjusted depending on your particular science question.
+the value given by SDSS. This model has 5 free parameters, each of which has an
+associated prior distribution.  These default prior distributions can and should
+be replaced or adjusted depending on your particular science question. Here
+we'll just change the prior distribution for stellar mass, as an example.
 
 .. code:: python
 
+    # Get a baseline set of model parameters
     from prospect.models.templates import TemplateLibrary
     from prospect.models import SpecModel
     model_params = TemplateLibrary["parametric_sfh"]
     model_params.update(TemplateLibrary["nebular"])
     model_params["zred"]["init"] = obs["redshift"]
 
+    # Adjust the prior for mass, giving a wider range
+    from prospect.models import priors
+    model_params["mass"]["prior"] = priors.LogUniform(mini=1e6, maxi=1e13)
+
+    # Instantiate the model using this parameter dictionary
     model = SpecModel(model_params)
     assert len(model.free_params) == 5
     print(model)
@@ -100,13 +108,15 @@ spectral and isochrone libraries are being used.
     sps = CSPSpecBasis(zcontinuous=1)
     print(sps.ssp.libraries)
 
+For piecewise constant and other flexible SFHs use `FastStepBasis` instead of
+`CSPSpecBasis`.
 
 Make a prediction
 -----------------
 
 We can now predict our data for any set of parameters.  This will take a little
 time because fsps is building and caching the SSPs.  Subsequent calls to predict
-will be faster.  Here we'll just make the predicition for the current value of
+will be faster.  Here we'll just make the prediction for the current value of
 the free parameters.
 
 .. code:: python
@@ -114,23 +124,36 @@ the free parameters.
     current_parameters = ",".join([f"{p}={v}" for p, v in zip(model.free_params, model.theta)])
     print(current_parameters)
     (spec, phot), mfrac = model.predict(model.theta, observations, sps=sps)
-    print(phot / obs["maggies"])
+    print("filter,observed,predicted")
+    for i, f in enumerate(obs["filters"]):
+        print(f"{f.name},{obs['maggies'][i]},{phot[i]}")
 
 
 Run a fit
 ---------
 
-Since we can make predictions and we have data and uncertainties, we should be
-able to construct a likelihood function.  Here we'll use the pre-defined default
+Since we can make predictions and we have (photometric) data and uncertainties,
+we should be able to construct a likelihood function, and then combine with the
+priors to sample the posterior.  Here we'll use the pre-defined default
 posterior probability function.  We also set some sampling related keywords to
-make the fit go a little faster, though it should still take of order tens of
-minutes.
+make the fit go a little faster (but give rougher posterior estimates), though
+it should still take of order tens of minutes.
 
 .. code:: python
 
     from prospect.fitting import lnprobfn, fit_model
+
+    # just the photometry
+    obs = [observations[1]]
+
+    # posterior probability of the initial parameters given the photometry
+    lnp = lnprobfn(model.theta, model, observations=obs, sps=sps)
+
+    # now do the posterior sampling
     fitting_kwargs = dict(nlive_init=400, nested_method="rwalk", nested_target_n_effective=10000, nested_dlogz_init=0.05)
-    output = fit_model(obs, model, sps, optimize=False, dynesty=True, lnprobfn=lnprobfn, **fitting_kwargs)
+    output = fit_model(obs, model, sps, lnprobfn=lnprobfn,
+                       optimize=False, dynesty=True,
+                       **fitting_kwargs)
     result, duration = output["sampling"]
 
 The ``result`` is a dictionary with keys giving the Monte Carlo samples of
@@ -146,7 +169,7 @@ as follows:
 
     from prospect.io import write_results as writer
     hfile = "./quickstart_dynesty_mcmc.h5"
-    writer.write_hdf5(hfile, {}, model, obs,
+    writer.write_hdf5(hfile, {}, model, observations,
                      output["sampling"][0], None,
                      sps=sps,
                      tsample=output["sampling"][1],
@@ -179,7 +202,7 @@ We'll mark the highest probablity posterior sample as well.
     from prospect.plotting import corner
     nsamples, ndim = out["chain"].shape
     cfig, axes = pl.subplots(ndim, ndim, figsize=(10,9))
-    axes = corner.allcorner(out["chain"].T, out["theta_labels"], axes, weights=out["weights"], color="royalblue", show_titles=True)
+    #axes = corner.allcorner(out["chain"].T, out["theta_labels"], axes, weights=out["weights"], color="royalblue", show_titles=True)
 
     from prospect.plotting.utils import best_sample
     pbest = best_sample(out)

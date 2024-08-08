@@ -14,14 +14,18 @@ velocity dispersion and instrumental resolution) or spectral points outside this
 range cannot yet be fit.
 
 Prospector includes methods for FFT based smoothing of the spectra, assuming a
-gaussian LSF (in either wavelength or velocity space). There is also the
+Gaussian LSF (in either wavelength or velocity space). There is also the
 possibility of FFT based smoothing for wavelength dependent Gaussian dispersion
 (i.e. sigma_lambda = f(lambda) with f possibly a polynomial of lambda). In
-practice the smoothed spectra will be a combination of the library resolution
+practice the smoothed model spectra will be a combination of the library resolution
 plus whatever FFT smoothing is applied. Hopefully this can be made to match your
 actual data resolution, which is a combination of the physical velocity
 dispersion and the instrumental resolution. The smoothing is controlled by the
 parameters `sigma_smooth`, `smooth_type`, and `fftsmooth`
+
+For undersampled spectra, a special :py:class:`UnderSampledSpectrum` class
+exists that will integrate the model (smoothed by velocity dispersion and
+intrumental resolution) over the supplied pixels.
 
 
 Instrumental Response & Spectrophotometric Calibration
@@ -35,17 +39,17 @@ over the polynomial coefficients (this allows you to place priors on the
 accuracy of the spectrophotometric calibration). Or you can just take the
 spectrum as perfectly calibrated.
 
-Particular treatments can be implemented using different mixin classes, e.g.
+Particular treatments can be implemented using different mix-in classes, e.g.
 
 .. code-block:: python
 
         from prospect.observation import Spectrum, PolyOptCal
-        class PolySpect(PolyOptCal, Spectrum):
+        class PolySpectrum(PolyOptCal, Spectrum):
             pass
-        spec = PolySpect(wavelength=np.linspace(3000, 5000, N),
-                         flux=np.zeros(N),
-                         uncertainty=np.ones(N),
-                         polynomial_order=5)
+        spec = PolySpectrum(wavelength=np.linspace(3000, 5000, N),
+                            flux=np.zeros(N),
+                            uncertainty=np.ones(N),
+                            polynomial_order=5)
 
 
 Nebular emission
