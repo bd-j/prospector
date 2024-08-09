@@ -79,7 +79,7 @@ For a single observation, you might do something like:
 .. code-block:: python
 
         def build_obs(N):
-            from prospect.data import Spectrum
+            from prospect.observation import Spectrum
             N = 1000  # number of wavelength points
             spec = Spectrum(wavelength=np.linspace(3000, 5000, N), flux=np.zeros(N), uncertainty=np.ones(N))
             # ensure that this is a valid observation for fitting
@@ -95,7 +95,7 @@ For photometry this might look like:
 .. code-block:: python
 
         def build_obs(N):
-            from prospect.data import Photometry
+            from prospect.observation import Photometry
             # valid sedpy filter names
             fnames = list([f"sdss_{b}0" for b in "ugriz"])
             Nf = len(fnames)
@@ -113,7 +113,7 @@ A tool exists to convert old combined observation dictionaries to a list of
 
 .. code-block:: python
 
-        from prospect.data import from_oldstyle
+        from prospect.observation import from_oldstyle
         # dummy observation dictionary with just a spectrum
         N = 1000
         obs = dict(wavelength=np.linspace(3000, 5000, N), spectrum=np.zeros(N), unc=np.ones(N),
@@ -129,7 +129,7 @@ The :py:meth:`build_obs` function
 
 The :py:meth:`build_obs` function in the parameter file is written by the user.
 It should take a dictionary of command line arguments as keyword arguments. It
-should return a list of :py:class:`prospect.data.Observation` instances,
+should return a list of :py:class:`prospect.observation.Observation` instances,
 described above.
 
 Other than that, the contents can be anything. Within this function you might
@@ -142,7 +142,7 @@ The point of this function is that you don't have to *externally* convert your
 data format to be what |Codename| expects and keep another version of files
 lying around: the conversion happens *within* the code itself. Again, the only
 requirement is that the function can take a ``run_params`` dictionary as keyword
-arguments and that it return :py:class:`prospect.data.Observation` instances, as
+arguments and that it return :py:class:`prospect.observation.Observation` instances, as
  described above.  Each observation instance should correspond to a particular
  dataset (e.g. a broadband photomtric SED, the spectrum from a particular
  instrument, or the spectrum from a particular night) that shares instrumental

@@ -240,9 +240,9 @@ def get_sps(res):
                   "same as the FSPS libraries that you are using now ({})".format(flib, rlib))
         # If fitting and reading in are happening in different python versions,
         # ensure string comparison doesn't throw error:
-        if type(flib[0]) == 'bytes':
+        if isinstance(flib[0], bytes):
             flib = [i.decode() for i in flib]
-        if type(rlib[0]) == 'bytes':
+        if isinstance(rlib[0], bytes):
             rlib = [i.decode() for i in rlib]
         assert (flib[0] == rlib[0]) and (flib[1] == rlib[1]), liberr
 

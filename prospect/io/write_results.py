@@ -279,7 +279,7 @@ def chain_to_struct(chain, model=None, names=None, **extras):
     struct :
         A structured ndarray of parameter values.
     """
-    indict = type(chain) == dict
+    indict = isinstance(chain, dict)
     if indict:
         return dict_to_struct(chain)
     else:

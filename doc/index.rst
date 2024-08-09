@@ -30,6 +30,7 @@ Prospector allows you to:
    installation
    usage
    dataformat
+   spectra
    models
    sfhs
    nebular
