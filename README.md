@@ -65,9 +65,7 @@ from prospect.fitting import fit_model
 output = fit_model(observations, model, sps, **config)
 ```
 
-Another change is that spectral response functions (i.e. calibration vectors) are now handled by specialized sub-classes of these `Observation` classes.  See `spectra`_ for details.
-
-.. _spectra: docs/spectra.rst
+Another change is that spectral response functions (i.e. calibration vectors) are now handled by specialized sub-classes of these `Observation` classes.  See the [spectroscopy docs](docs/spectra.rst) for details.
 
 Finally, the output chain or samples is now stored as a structured array, where
 each row corresponds to a sample, and each column is a parameter (possibly

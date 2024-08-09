@@ -5,10 +5,11 @@
 to HDF5 files as well as to pickles.
 """
 
-import os, time, warnings
-from copy import deepcopy
-import pickle, json, base64
+import warnings
+import pickle, json
 import numpy as np
+from numpy.lib.recfunctions import structured_to_unstructured, unstructured_to_structured
+
 try:
     import h5py
     _has_h5py_ = True
@@ -223,6 +224,11 @@ def write_sampling_h5(hf, chain, extras):
         sdat = hf.create_group('sampling')
 
     sdat.create_dataset('chain', data=chain)
+    try:
+        uchain = structured_to_unstructured(chain)
+        sdat.create_dataset("unstructured_chain", data=uchain)
+    except:
+        pass
     for k, v in extras.items():
         try:
             sdat.create_dataset(k, data=v)
@@ -279,8 +285,7 @@ def chain_to_struct(chain, model=None, names=None, **extras):
     struct :
         A structured ndarray of parameter values.
     """
-    indict = isinstance(chain, dict)
-    if indict:
+    if isinstance(chain, dict):
         return dict_to_struct(chain)
     else:
         n = np.prod(chain.shape[:-1])
@@ -296,6 +301,7 @@ def chain_to_struct(chain, model=None, names=None, **extras):
 
     dt += [(str(k), "<f8") for k in extras.keys()]
 
+    # TODO: replace with unstructured_to_structured
     struct = np.zeros(n, dtype=np.dtype(dt))
     for i, p in enumerate(names):
         if model is not None:
