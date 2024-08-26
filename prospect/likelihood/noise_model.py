@@ -7,7 +7,7 @@ try:
 except(ImportError):
     pass
 
-__all__ = ["NoiseModel", "NoiseModel1D", "NoiseModelCov", "NoiseModelKDE"]
+__all__ = ["NoiseModel", "NoiseModel2D", "FittableNoiseModel", "NoiseModelKDE"]
 
 
 class NoiseModel:
@@ -19,7 +19,8 @@ class NoiseModel:
     f_outlier = 0
     n_sigma_outlier = 50
 
-    def __init__(self, frac_out_name="f_outlier",
+    def __init__(self,
+                 frac_out_name="f_outlier",
                  nsigma_out_name="nsigma_outlier"):
         self.frac_out_name = frac_out_name
         self.nsigma_out_name = nsigma_out_name
@@ -28,6 +29,8 @@ class NoiseModel:
     def _available_parameters(self):
         new_pars = [(self.frac_out_name, "Fraction of data points that are outliers"),
                     (self.nsigma_out_name, "Dispersion of the outlier distribution, in units of chi")]
+        for kernel in self.kernels:
+            new_pars += getattr(kernel, "_available_parameters", [])
         return new_pars
 
     def update(self, **params):
@@ -35,115 +38,160 @@ class NoiseModel:
         self.n_sigma_outlier = params.get(self.nsigma_out_name, 50)
         [k.update(**params) for k in self.kernels]
 
-    def lnlike(self, pred, obs, vectors={}):
+    def populate_vectors(self, obs, vectors={}):
+        # update vectors
+        vectors["mask"] = obs.mask
+        vectors["uncertainty"] = obs.uncertainty
+        return vectors
 
+    def factorize_1d(self, Sigma):
+        self.Sigma = Sigma
+        self.factorized_Sigma = np.sqrt(Sigma)
+        self.log_det = np.sum(np.log(self.Sigma))
+        if self.f_outlier > 0:
+            self.factorized_Sigma_outlier = self.factorized_Sigma * self.n_sigma_outlier
+            #self.Sigma_outlier = self.Sigma * (self.n_sigma_outlier**2)
+
+    def construct_covariance(self, uncertainty=[], mask=slice(None), **other_vectors):
+        """Simple 1D uncertainty vector.
+
+        Must produce:
+        * self.factorized_Sigma
+        * self.Sigma
+        * self.log_det
+        Optionally produce
+        * self.factorized_Sigma_outlier
+        """
+        Sigma = uncertainty[mask]**2
+        self.factorize_1d(Sigma)
+
+    def lnlikelihood_1d(self, pred, data, factorized_Sigma):
+        """Simple ln-likelihood for diagonal covariance matrix.
+
+        Returns
+        -------
+        lnp : ndarray of shape (ndata,)
+        """
+        delta = data - pred
+        exparg = -0.5 * (delta / factorized_Sigma)**2
+        log_norm = np.log(np.sqrt(2*np.pi) * factorized_Sigma)
+        return exparg - log_norm
+
+    def lnlike(self, pred, obs, vectors={}):
+        """This is the method called during fitting, after a call to self.update()
+
+        Returns
+        -------
+        lnlike : float
+            The total likelihood of the observed data given the prediction.
+        """
         # populatate vectors used as metrics and weight functions.
         vectors = self.populate_vectors(obs)
-        # Construct Sigma (and factorize if 2d)
-        self.compute(**vectors)
+        # Construct Sigma (and Sigma_outlier) and their sqrt/factorizations
+        self.construct_covariance(**vectors)
 
-        # Compute likelihood
+        # Compute likelihood of inliers
+        lnp = self.lnlikelihood_1d(pred[obs.mask], obs.flux[obs.mask],
+                                     self.factorized_Sigma)
         if (self.f_outlier == 0.0):
-            # Let the noise model do it
-            lnp = self.lnlikelihood(pred[obs.mask], obs.flux[obs.mask])
-            return lnp
+            return np.sum(lnp)
+
         elif self.f_outlier > 0:
-            # Use the noise model variance, but otherwise compute on our own
-            assert self.Sigma.ndim == 1, "Outlier modeling only available for uncorrelated errors"
-            delta = obs.flux[obs.mask] - pred[obs.mask]
-            var = self.Sigma
-            lnp = -0.5*((delta**2 / var) + np.log(2*np.pi*var))
-            var_bad = var * (self.n_sigma_outlier**2)
-            lnp_bad = -0.5*((delta**2 / var_bad) + np.log(2*np.pi*var_bad))
-            lnp_tot = np.logaddexp(lnp + np.log(1 - self.f_outlier), lnp_bad + np.log(self.f_outlier))
+            # Mixture model
+            lnp_out = self.lnlikelihood_1d(pred[obs.mask], obs.flux[obs.mask],
+                                             self.factorized_Sigma_outlier)
+            lnp_tot = np.logaddexp(lnp + np.log(1 - self.f_outlier),
+                                   lnp_out + np.log(self.f_outlier))
             return np.sum(lnp_tot)
         else:
-            raise ValueError("f_outlier must be >= 0")
+            raise ValueError(f"Outlier fraction ({self.f_outlier}) cannot be negative")
+
+
+class NoiseModel2D(NoiseModel):
+
+    """Fixed 2D covariance matrix for data
+    """
+
+    def __init__(self, Sigma=None, mask=slice(None), **kwargs):
+        super(NoiseModel2D, self).__init__(**kwargs)
+        if Sigma is not None:
+            self.factorize_2d(Sigma[mask, :][:, mask])
+
+    def factorize_2d(self, Sigma):
+        self.Sigma = Sigma
+        #self.factorized_Sigma = np.linalg.cholesky(self.Sigma)
+        self.factorized_Sigma = cho_factor(self.Sigma, check_finite=True)
+        self.log_det = np.log(np.prod(np.diag(self.factorized_Sigma[0])))
+
+    def construct_covariance(self, **other_vectors):
+        """Sigma is fixed at instantiation
+        """
+        pass
+
+    def lnlikelihood_2d(self, y, mu, factorized_Sigma):
+        """Compute the Gaussian likelihood of the data points y given the mean mu
+        and factorized covariance matrix L.
+        """
+        n = y.shape[0]
+        delta = y - mu
+
+        # L = factorized_Sigma
+        # Solve L * z = diff for z (forward substitution)
+        #z = np.linalg.solve(L, delta.T)
+        # Solve L^T * w = z for w (backward substitution)
+        #w = np.linalg.solve(L.T, z)
+        # Compute the exponent term: exp(-0.5 * w.T * w)
+        #exparg = -0.5 * np.sum(w**2, axis=0)
+
+        # faster
+        exparg = -0.5 * np.dot(delta, cho_solve(factorized_Sigma, delta))
+
+        # Normalization factor
+        log_norm = 0.5 * (n * np.log(np.sqrt(2 * np.pi)) + self.log_det)
+
+        return exparg - log_norm
+
+    def lnlike(self, pred, obs, vectors={}):
+        """This is the method called during fitting
+        """
+        # populate vectors used as metrics and weight functions.
+        vectors = self.populate_vectors(obs)
+        # Construct Sigma and factorize
+        self.construct_covariance(**vectors)
+
+        lnp = self.lnlikelihood_2d(pred[obs.mask], obs.flux[obs.mask], self.factorized_Sigma)
+        if self.f_outlier > 0:
+            raise ValueError("Outlier modeling not available with 2d covariances")
+
+        return lnp
+
+
+class FittableNoiseModel(NoiseModel):
+    """This object allows for fitting noise properties constructed from kernels
+    """
+
+    # TODO: metric names should be the responsibility of kernels, not noise models
+    def __init__(self,
+                 metric_name='',
+                 mask_name='mask',
+                 kernels=[],
+                 **kwargs):
+
+        super(FittableNoiseModel, self).__init__(**kwargs)
+        self.kernels = kernels
+        self.metric_name = metric_name
+        self.mask_name = mask_name
 
     def populate_vectors(self, obs, vectors={}):
         # update vectors
         vectors["mask"] = obs.mask
-        vectors["wavelength"] = obs.wavelength
         vectors["uncertainty"] = obs.uncertainty
+        vectors["wavelength"] = obs.wavelength
         vectors["flux"] = obs.flux
         if obs.kind == "photometry":
             vectors["filternames"] = obs.filternames
             vectors["phot_samples"] = obs.get("phot_samples", None)
         return vectors
-
-    def construct_covariance(self, uncertainty=[], mask=slice(None), **other_vectors):
-        self.Sigma = np.atleast_1d(uncertainty[mask]**2)
-
-    def compute(self, **vectors):
-        """Make a boring diagonal Covariance array
-        """
-        self.construct_covariance(**vectors)
-        self.log_det = np.sum(np.log(self.Sigma))
-
-    def lnlikelihood(self, pred, data):
-        """Simple ln-likihood for diagonal covariance matrix.
-        """
-        delta = data - pred
-        lnp = -0.5*(np.dot(delta**2, np.log(2*np.pi) / self.Sigma) +
-                    self.log_det)
-        return lnp.sum()
-
-
-class NoiseModel1D(NoiseModel):
-    """This class allows for 1D (diagonal) kernels
-    """
-
-    # TODO: metric names should be the responsibility of kernels, not noise models
-    def __init__(self, frac_out_name="f_outlier",
-                 nsigma_out_name="nsigma_outlier",
-                 metric_name='',
-                 mask_name='mask',
-                 kernels=[]):
-        self.frac_out_name = frac_out_name
-        self.nsigma_out_name = nsigma_out_name
-        self.kernels = kernels
-        self.metric_name = metric_name
-        self.mask_name = mask_name
-
-    def _available_parameters(self):
-        new_pars = [(self.frac_out_name, "Fraction of data points that are outliers"),
-                    (self.nsigma_out_name, "Dispersion of the outlier distribution, in units of chi")]
-        for kernel in self.kernels:
-            new_pars += getattr(kernel, "_available_parameters", [])
-        return new_pars
-
-    def construct_covariance(self, **vectors):
-        """Construct a covariance matrix from a metric, a list of kernel
-        objects, and a list of weight vectors (of same length as the metric)
-        """
-        metric = vectors[self.metric_name]
-        mask = vectors.get(self.mask_name, slice(None))
-
-        # 1 = uncorrelated errors, 2 = covariance matrix, >2 undefined
-        ndmax = 1
-        Sigma = np.zeros(metric[mask].shape[0])
-
-        for kernel in self.kernels:
-            wght = vectors.get(kernel.weight_by, None)
-            Sigma += kernel(metric[mask], weights=wght[mask], ndim=ndmax)
-        return Sigma
-
-
-class NoiseModelCov(NoiseModel1D):
-    """This object allows for 1d or 2d covariance matrices constructed from
-    kernels.
-    """
-
-    def __init__(self, frac_out_name="f_outlier", nsigma_out_name="nsigma_outlier",
-                 metric_name='', mask_name='mask', kernels=[], weight_by=[]):
-
-        super().__init__(frac_out_name=frac_out_name,
-                         nsigma_out_name=nsigma_out_name)
-        assert len(kernels) == len(weight_by)
-        self.kernels = kernels
-        self.weight_names = weight_by
-        self.metric_name = metric_name
-        self.mask_name = mask_name
 
     def construct_covariance(self, **vectors):
         """Construct a covariance matrix from a metric, a list of kernel
@@ -156,52 +204,18 @@ class NoiseModelCov(NoiseModel1D):
         ndmax = np.array([k.ndim for k in self.kernels]).max()
         Sigma = np.zeros(ndmax * [metric[mask].shape[0]])
 
+        # loop over Kernels
         for kernel in self.kernels:
             wght = vectors.get(kernel.weight_by, None)
             Sigma += kernel(metric[mask], weights=wght[mask], ndim=ndmax)
-        return Sigma
 
-    def compute(self, check_finite=False, **vectors):
-        """Build and cache the covariance matrix, and if it is 2-d factorize it
-        and cache that.  Also cache ``log_det``.
-        """
-        self.Sigma = self.construct_covariance(**vectors)
-        if self.Sigma.ndim == 1:
-            self.log_det = np.sum(np.log(self.Sigma))
-        else:
-            self.factorized_Sigma = cho_factor(self.Sigma, overwrite_a=True, check_finite=check_finite)
-            self.log_det = 2 * np.sum(np.log(np.diag(self.factorized_Sigma[0])))
-            assert np.isfinite(self.log_det)
+        # Compute the things we need
+        if Sigma.ndim == 1:
+            self.factorize_1d(Sigma)
 
-    def lnlikelihood(self, prediction, data, check_finite=False):
-        """Compute the ln of the likelihood, using the current cached (and
-        factorized if non-diagonal) covariance matrix.
+        elif Sigma.ndim == 2:
+            self.factorize_2d(Sigma)
 
-        Parameters
-        ----------
-        prediction : ndarray of float
-            Model flux, same units as `data`.
-
-        data : ndarray of float
-            Observed flux, in linear flux units (i.e. maggies).
-
-        Returns
-        -------
-        lnlike : float
-            The likelihood fo the data
-        """
-        residual = data - prediction
-        n = len(residual)
-        assert n == self.Sigma.shape[0]
-        if self.Sigma.ndim == 1:
-            first_term = np.dot(residual**2, 1.0 / self.Sigma)
-        else:
-            CinvD = cho_solve(self.factorized_Sigma, residual, check_finite=check_finite)
-            first_term = np.dot(residual, CinvD)
-
-        lnlike = -0.5 * (first_term + self.log_det + n * np.log(2.*np.pi))
-
-        return lnlike
 
 
 class NoiseModelKDE:
