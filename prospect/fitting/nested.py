@@ -1,35 +1,34 @@
 import time
 import numpy as np
 
-
 __all__ = ["run_nested_sampler", "parse_nested_kwargs"]
 
 
-def parse_nested_kwargs(fitter=None, **kwargs):
+def parse_nested_kwargs(nested_sampler=None, **kwargs):
 
-    # todo:
+    # TODO:
     #   something like 'enlarge'
     #   something like 'bootstrap' or N_networks or?
 
     sampler_kwargs = {}
     run_kwargs = {}
 
-    if fitter == "dynesty":
+    if nested_sampler == "dynesty":
         sampler_kwargs["bound"] = kwargs["nested_bound"]
-        sampler_kwargs["method"] = kwargs["nested_sample"]
+        sampler_kwargs["sample"] = kwargs["nested_sample"]
         sampler_kwargs["walks"] = kwargs["nested_walks"]
         run_kwargs["dlogz_init"] = kwargs["nested_dlogz"]
 
-    elif fitter == "ultranest":
+    elif nested_sampler == "ultranest":
         #run_kwargs["dlogz"] = kwargs["nested_dlogz"]
         pass
 
-    elif fitter == "nautilus":
+    elif nested_sampler == "nautilus":
         pass
 
     else:
         # say what?
-        raise ValueError(f"{fitter} not a valid fitter")
+        raise ValueError(f"{nested_sampler} not a valid fitter")
 
     return sampler_kwargs, run_kwargs
 
@@ -37,7 +36,7 @@ def parse_nested_kwargs(fitter=None, **kwargs):
 
 def run_nested_sampler(model,
                        likelihood_function,
-                       fitter="dynesty",
+                       nested_sampler="dynesty",
                        nested_nlive=1000,
                        nested_neff=1000,
                        verbose=False,
@@ -45,29 +44,41 @@ def run_nested_sampler(model,
                        nested_sampler_kwargs={}):
     """We give a model -- parameter discription and prior transform -- and a
     likelihood function. We get back samples, weights, and likelihood values.
+
+    Returns
+    -------
+    samples : 3-tuple of ndarrays (loc, logwt, loglike)
+        Loctions, log-weights, and log-likelihoods for the samples
+
+    obj : Object
+        The sampling object.  This will depend on the nested sampler being used.
     """
 
     go = time.time()
 
     # --- Nautilus ---
-    if fitter == "nautilus":
+    if nested_sampler == "nautilus":
         from nautilus import Sampler
 
         sampler = Sampler(model.prior_transform,
                           likelihood_function,
+                          n_dim=model.ndim,
                           pass_dict=False, # likelihood expects array, not dict
                           n_live=nested_nlive,
                           **nested_sampler_kwargs)
         sampler.run(n_eff=nested_neff,
                     verbose=verbose,
                     **nested_run_kwargs)
+        obj = sampler
+
         points, log_w, log_like = sampler.posterior()
 
     # --- Ultranest ---
-    if fitter == "ultranest":
+    if nested_sampler == "ultranest":
 
         from ultranest import ReactiveNestedSampler
-        sampler = ReactiveNestedSampler(model.theta_labels,
+        parameter_names = model.theta_labels()
+        sampler = ReactiveNestedSampler(parameter_names,
                                         likelihood_function,
                                         model.prior_transform,
                                         **nested_sampler_kwargs)
@@ -75,13 +86,14 @@ def run_nested_sampler(model,
                              min_num_live_points=nested_nlive,
                              show_status=verbose,
                              **nested_run_kwargs)
+        obj = result
 
         points = np.array(result['weighted_samples']['points'])
         log_w = np.log(np.array(result['weighted_samples']['weights']))
         log_like = np.array(result['weighted_samples']['logl'])
 
     # --- Dynesty ---
-    if fitter == "dynesty":
+    if nested_sampler == "dynesty":
         from dynesty import DynamicNestedSampler
 
         sampler = DynamicNestedSampler(likelihood_function,
@@ -92,18 +104,20 @@ def run_nested_sampler(model,
         sampler.run_nested(n_effective=nested_neff,
                            print_progress=verbose,
                            **nested_run_kwargs)
+        obj = sampler
 
         points = sampler.results["samples"]
         log_w = sampler.results["logwt"]
         log_like = sampler.results["logl"]
 
     # --- Nestle ---
-    if fitter == "nestle":
+    if nested_sampler == "nestle":
         import nestle
         result = nestle.sample(likelihood_function,
                                model.prior_transform,
                                model.ndim,
                                **nested_sampler_kwargs)
+        obj = result
 
         points = result["samples"]
         log_w = result["logwt"]
@@ -111,12 +125,11 @@ def run_nested_sampler(model,
 
     dur = time.time() - go
 
-    return dict(points=points, log_weight=log_w, log_like=log_like)
+    return dict(points=points, log_weight=log_w, log_like=log_like, duration=dur), obj
 
 
 # OMG
-SAMPLER_KWARGS = {
-
+NESTED_KWARGS = {
 "dynesty_sampler_kwargs" : dict(nlive=None,
                                 bound='multi',
                                 sample='auto',

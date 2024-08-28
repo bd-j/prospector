@@ -185,13 +185,18 @@ def fit_model(observations, model, sps, lnprobfn=lnprobfn,
     # Make sure obs has required keys
     [obs.rectify() for obs in observations]
 
+    if (emcee) & (bool(nested_sampler)):
+        msg = ("Cannot run both emcee and nested fits "
+               "in a single call to fit_model")
+        raise(ValueError, msg)
+
     if (not bool(emcee)) & (not bool(nested_sampler)) & (not optimize):
         msg = ("No sampling or optimization routine "
                "specified by user; returning empty results")
         warnings.warn(msg)
 
-    output = {"optimization": (None, 0.),
-              "sampling": (None, 0.)}
+    output = {"optimization": None,
+              "sampling": None}
 
     if optimize:
         optres, topt, best = run_minimize(observations, model, sps,
@@ -204,7 +209,8 @@ def fit_model(observations, model, sps, lnprobfn=lnprobfn,
         run_sampler = run_ensemble
     elif nested_sampler:
         run_sampler = run_nested
-        kwargs["fitter"] = nested_sampler
+        # put nested_sampler back into kwargs for lower level functions
+        kwargs["nested_sampler"] = nested_sampler
     else:
         return output
 
@@ -412,14 +418,20 @@ def run_ensemble(observations, model, sps, lnprobfn=lnprobfn,
         sampler, burn_loc0, burn_prob0 = out
         ts = time.time() - go
 
-    return sampler, ts
+    try:
+        sampler.duration = ts
+    except:
+        pass
+
+    return sampler
 
 
 def run_nested(observations, model, sps,
                lnprobfn=lnprobfn,
-               fitter="dynesty",
+               nested_sampler="dynesty",
                nested_nlive=1000,
                nested_neff=1000,
+               verbose=False,
                **kwargs):
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_nested_sampler`
 
@@ -457,18 +469,16 @@ def run_nested(observations, model, sps,
     likelihood = wrap_lnp(lnprobfn, observations, model, sps, nested=True)
 
     # which keywords do we have for this fitter?
-    ns_kwargs, nr_kwargs = parse_nested_kwargs(fitter=fitter,
-                                               **kwargs)
+    ns_kwargs, nr_kwargs = parse_nested_kwargs(nested_sampler=nested_sampler,**kwargs)
 
-    go = time.time()
     output = run_nested_sampler(model,
                                 likelihood,
-                                fitter=fitter,
-                                verbose=False,
+                                nested_sampler=nested_sampler,
+                                verbose=verbose,
                                 nested_nlive=nested_nlive,
                                 nested_neff=nested_neff,
                                 nested_sampler_kwargs=ns_kwargs,
                                 nested_run_kwargs=nr_kwargs)
-    ts = time.time() - go
+    info, result_obj = output
 
-    return output, ts
+    return info

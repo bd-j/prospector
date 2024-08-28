@@ -164,25 +164,26 @@ that for now.
 
 Running a fit
 ----------------------
-There are two kinds of fitting packages that can be used with |Codename|. The
-first is ``emcee`` which implements ensemble MCMC sampling, and the second is
-``dynesty``, which implements dynamic nested sampling. It is also possible to
-perform optimization. If ``emcee`` is used, the result of the optimization will
-be used to initalize the ensemble of walkers.
+There are a few kinds of fitting packages that can be used with |Codename|. The
+first is ``emcee`` which implements ensemble MCMC sampling. A number of nested
+samplers are also available (``dynesty``, ``nautilus``, and ``ultranest``). It
+is also possible to perform optimization. If ``emcee`` is used, the result of
+the optimization will be used to initalize the ensemble of walkers.
 
 The choice of which fitting algorithms to use is based on command line flags
-(``--optimization``, ``--emcee``, and ``--dynesty``.) If no flags are set the
-model and data objects will be generated and stored in the output file, but no
-fitting will take place. To run the fit on object number 0 using ``emcee`` after
-an initial optimization, we would do the following at the command line
+(``--optimization``, ``--emcee``, and ``--nested_sampler <dynesty|nautilus|ultranest>``.)
+If no flags are set the model and data objects will be generated and stored in
+the output file, but no fitting will take place. To run the fit on object number
+0 using ``emcee`` after an initial optimization, we would do the following at
+the command line
 
 .. code-block:: shell
 
 		python demo_params.py --objid=0 --emcee --optimize \
 		--outfile=demo_obj0_emcee
 
-If we wanted to change something about the MCMC parameters, or fit a different object,
-we could also do that at the command line
+If we wanted to change something about the MCMC parameters, or fit a different
+object, we could also do that at the command line
 
 .. code-block:: shell
 
@@ -193,7 +194,7 @@ And if we want to use nested sampling with ``dynesty`` we would do the following
 
 .. code-block:: shell
 
-		python demo_params.py --objid=0  --dynesty \
+		python demo_params.py --objid=0  --nested_sampler dynesty \
 		--outfile=demo_obj0_dynesty
 
 Finally, it is sometimes useful to run the script from the interpreter to do
