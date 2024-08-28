@@ -40,12 +40,12 @@ def make_agebins(nbin=5, minage=7.0, **extras):
     allages = np.linspace(minage, np.log10(tuniv), nbin)
     allages = np.insert(allages, 0, 0.)
     agebins = np.array([allages[:-1], allages[1:]]).T
-    return agebins    
+    return agebins
 
 
 
 if __name__ == "__main__":
-    
+
     step_params = {'agebins':[[]],
                    'mass': [],
                    'tage': np.array([13.7]),
@@ -63,8 +63,8 @@ if __name__ == "__main__":
     zlist = [1, 2]
     nlist = [False, True]
 
-    print("Using {} isochrones and {} spectra.\nAsking for single ages.".format(*libs)) 
-    
+    print("Using {} isochrones and {} spectra.\nAsking for single ages.".format(*libs))
+
     # FSPS
     string = "StellarPopulation takes {:7.5f}s per call {} nebular emission and zcontinuous={}."
     params = deepcopy(csp_params)
@@ -84,7 +84,7 @@ if __name__ == "__main__":
             sps = CSPBasis(zcontinuous=zcont)
             dur = call_duration(sps, ntry, add_neb_emission=[neb], **params)
             print(string.format(dur, w[int(neb)], zcont))
-            
+
     # Step SFH
     nbin = 10
 
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     params['agebins'] = make_agebins(nbin)
     params['mass'] = np.ones(nbin) * 1.0
     string = "FastStepBasis ({} bins) takes {:7.5f}s per call {} nebular emission and zcontinuous={}."
-    
+
     for zcont in zlist:
         print("\n")
         for neb in nlist:
@@ -101,12 +101,12 @@ if __name__ == "__main__":
             #print(sps.params, sps.ssp.params['add_neb_emission'])
             print(string.format(nbin, dur, w[int(neb)], zcont))
 
-    
 
-    
+
+
    # sys.exit()
 
-    
+
     # Now time calls for random Z (which always causes dirtiness=1)
     #setup = "from __main__ import test; import numpy as np"
     #call = "out=get_model(sps, logzsol=[np.random.uniform(-1, 0)], **params)"

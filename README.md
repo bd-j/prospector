@@ -70,10 +70,10 @@ output = fit_model(observations, model, sps, **config)
 
 Another change is that spectral response functions (i.e. calibration vectors)
 are now handled by specialized sub-classes of these `Observation` classes.  See
-the [spectroscopy docs](docs/spectra.rst) for details.
+the [spectroscopy docs](doc/spectra.rst) for details.
 
 The interface to `write_model` has been changed and simplified.  See
-[usage](docs/usage.rst) for details.
+[usage](doc/usage.rst) for details.
 
 Finally, the output chain or samples is now stored as a structured array, where
 each row corresponds to a sample, and each column is a parameter (possibly

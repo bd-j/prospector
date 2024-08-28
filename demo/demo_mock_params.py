@@ -92,7 +92,7 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     :param add_noise: (optional, boolean, default: True)
         If True, add a realization of the noise to the mock spectrum
     """
-    from prospect.data.observation import Photometry, Spectrum
+    from prospect.observation import Photometry, Spectrum
 
     # We'll put the mock data in this dictionary, just as we would for real
     # data.  But we need to know which bands (and wavelengths if doing
@@ -228,12 +228,15 @@ if __name__ == '__main__':
     output = fit_model(obs, model, sps, **config)
 
     print("writing to {}".format(hfile))
-    writer.write_hdf5(hfile, run_params, model, obs,
-                      output["sampling"][0], output["optimization"][0],
-                      tsample=output["sampling"][1],
-                      toptimize=output["optimization"][1],
+    writer.write_hdf5(hfile,
+                      config,
+                      model,
+                      obs,
+                      output["sampling"],
+                      output["optimization"],
                       sps=sps
                       )
+
 
     try:
         hfile.close()
