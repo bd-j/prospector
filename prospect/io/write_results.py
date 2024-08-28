@@ -70,41 +70,43 @@ def paramfile_string(param_file=None, **extras):
     return pstr
 
 
-
-def write_hdf5(hfile, run_params, model, obs,
-               sampler=None,
-               optimize_result_list=None,
-               tsample=0.0, toptimize=0.0,
-               sampling_initial_center=[],
+def write_hdf5(hfile,
+               config={},
+               model=None,
+               obs=None,
+               sampling_result=None,
+               optimize_result_tuple=None,
                write_model_params=True,
-               sps=None, **extras):
+               sps=None,
+               **extras):
     """Write output and information to an HDF5 file object (or
     group).
 
-    :param hfile:
+    hfile : string or `h5py.File`
         File to which results will be written.  Can be a string name or an
         `h5py.File` object handle.
 
-    :param run_params:
+    run_params : dict-like
         The dictionary of arguments used to build and fit a model.
 
-    :param model:
-        The `prospect.models.SedModel` object.
+    model : Instance of :py:class:`prospect.models.SpecModel`
+        The  object.
 
-    :param obs:
-        The dictionary of observations that were fit.
+    obs : list of Observation() instances
+        The observations that were fit.
 
-    :param sampler:
-        The `emcee` or `dynesty` sampler object used to draw posterior samples.
-        Can be `None` if only optimization was performed.
+    sampling_result : EnsembleSampler() or dict
+        The `emcee` sampler used to draw posterior samples or nested sampler
+        output. Can be `None` if only optimization was performed.
 
-    :param optimize_result_list:
+    optimize_result_tuple : 2-tuple of (list, float)
         A list of `scipy.optimize.OptimizationResult` objects generated during
-        the optimization stage.  Can be `None` if no optimization is performed
+        the optimization stage, and a float giving the duration of sampling. Can
+        be `None` if no optimization is performed
 
-    param sps: (optional, default: None)
+    sps : instance of :py:class:`prospect.sources.SSPBasis` (optional, default: None)
         If a `prospect.sources.SSPBasis` object is supplied, it will be used to
-        generate and store
+        generate and store best fit values (not implemented)
     """
     # If ``hfile`` is not a file object, assume it is a filename and open
     if isinstance(hfile, str):
@@ -112,12 +114,15 @@ def write_hdf5(hfile, run_params, model, obs,
     else:
         hf = hfile
 
+    assert (model is not None), "Must pass a prospector model"
+    run_params = config
+
     # ----------------------
     # Sampling info
     if run_params.get("emcee", False):
-        chain, extras = emcee_to_struct(sampler, model)
-    elif run_params.get("dynesty", False):
-        chain, extras = dynesty_to_struct(sampler, model)
+        chain, extras = emcee_to_struct(sampling_result, model)
+    elif bool(run_params.get("nested_sampler", False)):
+        chain, extras = nested_to_struct(sampling_result, model)
     else:
         chain, extras = None, None
     write_sampling_h5(hf, chain, extras)
@@ -125,8 +130,9 @@ def write_hdf5(hfile, run_params, model, obs,
 
     # ----------------------
     # Observational data
-    write_obs_to_h5(hf, obs)
-    hf.flush()
+    if obs is not None:
+        write_obs_to_h5(hf, obs)
+        hf.flush()
 
     # ----------------------
     # High level parameter and version info
@@ -134,15 +140,15 @@ def write_hdf5(hfile, run_params, model, obs,
     for k, v in meta.items():
         hf.attrs[k] = v
     hf.flush()
-    hf.attrs['sampling_duration'] = json.dumps(tsample)
 
     # -----------------
     # Optimizer info
-    hf.attrs['optimizer_duration'] = json.dumps(toptimize)
-    if optimize_result_list is not None:
-        out = optresultlist_to_ndarray(optimize_result_list)
-        mgroup = hf.create_group('optimization')
-        mdat = mgroup.create_dataset('optimizer_results', data=out)
+    if optimize_result_tuple is not None:
+        optimize_list, toptimize = optimize_result_tuple
+        optarr = optresultlist_to_ndarray(optimize_list)
+        opt = hf.create_group('optimization')
+        _ = opt.create_dataset('optimizer_results', data=optarr)
+        opt.attrs["optimizer_duration"] = json.dumps(toptimize)
 
     # ---------------
     # Best fitting model in space of data
@@ -151,7 +157,7 @@ def write_hdf5(hfile, run_params, model, obs,
             pass
             #from ..plotting.utils import best_sample
             #pbest = best_sample(hf["sampling"])
-            #spec, phot, mfrac = model.predict(pbest, obs=obs, sps=sps)
+            #predictions, mfrac = model.predict(pbest, obs=obs, sps=sps)
             #best = hf.create_group("bestfit")
             #best.create_dataset("spectrum", data=spec)
             #best.create_dataset("photometry", data=phot)
@@ -168,6 +174,8 @@ def write_hdf5(hfile, run_params, model, obs,
 
 
 def metadata(run_params, model, write_model_params=True):
+    """Generate a metadata dictionary, with serialized entries.
+    """
     meta = dict(run_params=run_params,
                 paramfile_text=paramfile_string(**run_params))
     if write_model_params:
@@ -188,32 +196,31 @@ def emcee_to_struct(sampler, model):
     # preamble
     samples = sampler.get_chain(flat=True)
     lnprior = model.prior_product(samples)
+    lnpost = sampler.get_log_prob(flat=True)
 
     # chaincat & extras
     chaincat = chain_to_struct(samples, model=model)
     extras = dict(weights=None,
-                  lnprobability=sampler.get_log_prob(flat=True),
-                  lnlike=sampler.get_log_prob(flat=True) - lnprior,
+                  lnprobability=lnpost,
+                  lnlike=lnpost - lnprior,
                   acceptance=sampler.acceptance_fraction,
-                  rstate=sampler.random_state)
+                  rstate=sampler.random_state,
+                  duration=sampler.getattr("duration", 0.0))
 
     return chaincat, extras
 
 
-def dynesty_to_struct(dyout, model):
+def nested_to_struct(nested_out, model):
     # preamble
-    lnprior = model.prior_product(dyout['samples'])
+    lnprior = model.prior_product(nested_out['points'])
 
     # chaincat & extras
-    chaincat = chain_to_struct(dyout["samples"], model=model)
-    extras = dict(weights=np.exp(dyout['logwt']-dyout['logz'][-1]),
-                  lnprobability=dyout['logl'] + lnprior,
-                  lnlike=dyout['logl'],
-                  efficiency=np.atleast_1d(dyout['eff']),
-                  logz=np.atleast_1d(dyout['logz']),
-                  ncall=np.atleast_1d(dyout['ncall'])
-                  #ncall=json.dumps(dyout['ncall'].tolist())
-                 )
+    chaincat = chain_to_struct(nested_out['points'], model=model)
+    extras = dict(weights=np.exp(nested_out['log_weight']),
+                  lnprobability=nested_out['log_like'] + lnprior,
+                  lnlike=nested_out['log_like'],
+                  duration=nested_out.get("duration", 0.0)
+                  )
     return chaincat, extras
 
 

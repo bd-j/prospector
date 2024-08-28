@@ -10,13 +10,9 @@ and computing parameter dependencies and prior probabilities.
 from copy import deepcopy
 import warnings
 import numpy as np
-import json, pickle
 from . import priors
 from .templates import describe
-import scipy
-from . import hyperparam_transforms as transforms
-#from gp_sfh import *
-#import gp_sfh_kernels
+
 
 __all__ = ["ProspectorParams"]
 
@@ -67,10 +63,10 @@ class ProspectorParams(object):
         """
         self.init_config = deepcopy(configuration)
         self.parameter_order = param_order
-        if type(configuration) == list:
+        if isinstance(configuration, list):
             self.config_list = configuration
             self.config_dict = plist_to_pdict(self.config_list)
-        elif type(configuration) == dict:
+        elif isinstance(configuration, dict):
             self.config_dict = configuration
             self.config_list = pdict_to_plist(self.config_dict, order=param_order)
         else:
@@ -188,7 +184,7 @@ class ProspectorParams(object):
             parameter values.
         """
         lnp_prior = 0
-        
+
         for k, inds in list(self.theta_index.items()):
             func = self.config_dict[k]['prior']
             this_prior = np.sum(func(theta[..., inds]), axis=-1)
@@ -209,10 +205,10 @@ class ProspectorParams(object):
         theta = np.zeros(len(unit_coords))
 
         for k, inds in list(self.theta_index.items()):
-            
+
             func = self.config_dict[k]['prior'].unit_transform
             theta[inds] = func(unit_coords[inds])
-        
+
         return theta
 
     def propagate_parameter_dependencies(self):

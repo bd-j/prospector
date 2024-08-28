@@ -15,12 +15,12 @@ import warnings
 
 from .minimizer import minimize_wrapper, minimizer_ball
 from .ensemble import run_emcee_sampler
-from .nested import run_dynesty_sampler
+from .nested import run_nested_sampler, parse_nested_kwargs
 from ..likelihood.likelihood import compute_chi, compute_lnlike
 
 
 __all__ = ["lnprobfn", "fit_model",
-           "run_minimize", "run_emcee", "run_dynesty"
+           "run_minimize", "run_ensemble", "run_nested"
            ]
 
 
@@ -72,7 +72,7 @@ def lnprobfn(theta, model=None, observations=None, sps=None,
     """
     if residuals:
         ndof = np.sum([obs["ndof"] for obs in observations])
-        lnnull = np.zeros(ndof) - 1e18  # -np.infty
+        lnnull = np.zeros(ndof) - 1e18  # -np.inf
     else:
         lnnull = -np.inf
 
@@ -123,7 +123,8 @@ def wrap_lnp(lnpfn, observations, model, sps, **lnp_kwargs):
 
 
 def fit_model(observations, model, sps, lnprobfn=lnprobfn,
-              optimize=False, emcee=False, dynesty=True, **kwargs):
+              optimize=False, emcee=False, nested_sampler="",
+              **kwargs):
     """Fit a model to observations using a number of different methods
 
     Parameters
@@ -167,7 +168,7 @@ def fit_model(observations, model, sps, lnprobfn=lnprobfn,
         + ``hfile``: an open h5py.File file handle for writing result incrementally
 
         Many additional emcee parameters can be provided here, see
-        :py:func:`run_emcee` for details.
+        :py:func:`run_ensemble` for details.
 
     dynesty : bool (optional, default: True)
         If ``True``, sample from the posterior using dynesty.  Additonal
@@ -184,17 +185,18 @@ def fit_model(observations, model, sps, lnprobfn=lnprobfn,
     # Make sure obs has required keys
     [obs.rectify() for obs in observations]
 
-    if emcee & dynesty:
-        msg = ("Cannot run both emcee and dynesty fits "
+    if (emcee) & (bool(nested_sampler)):
+        msg = ("Cannot run both emcee and nested fits "
                "in a single call to fit_model")
         raise(ValueError, msg)
-    if (not emcee) & (not dynesty) & (not optimize):
+
+    if (not bool(emcee)) & (not bool(nested_sampler)) & (not optimize):
         msg = ("No sampling or optimization routine "
                "specified by user; returning empty results")
         warnings.warn(msg)
 
-    output = {"optimization": (None, 0.),
-              "sampling": (None, 0.)}
+    output = {"optimization": None,
+              "sampling": None}
 
     if optimize:
         optres, topt, best = run_minimize(observations, model, sps,
@@ -204,14 +206,17 @@ def fit_model(observations, model, sps, lnprobfn=lnprobfn,
         output["optimization"] = (optres, topt)
 
     if emcee:
-        run_sampler = run_emcee
-    elif dynesty:
-        run_sampler = run_dynesty
+        run_sampler = run_ensemble
+    elif nested_sampler:
+        run_sampler = run_nested
+        # put nested_sampler back into kwargs for lower level functions
+        kwargs["nested_sampler"] = nested_sampler
     else:
         return output
 
     output["sampling"] = run_sampler(observations, model, sps,
-                                     lnprobfn=lnprobfn, **kwargs)
+                                     lnprobfn=lnprobfn,
+                                     **kwargs)
     return output
 
 
@@ -305,8 +310,8 @@ def run_minimize(observations=None, model=None, sps=None, lnprobfn=lnprobfn,
     return results, tm, best
 
 
-def run_emcee(observations, model, sps, lnprobfn=lnprobfn,
-              hfile=None, initial_positions=None, **kwargs):
+def run_ensemble(observations, model, sps, lnprobfn=lnprobfn,
+                 hfile=None, initial_positions=None, **kwargs):
     """Run emcee, optionally including burn-in and convergence checking.  Thin
     wrapper on :py:class:`prospect.fitting.ensemble.run_emcee_sampler`
 
@@ -387,6 +392,7 @@ def run_emcee(observations, model, sps, lnprobfn=lnprobfn,
     q = model.theta.copy()
 
     postkwargs = {}
+    # Hack for MPI pools to access the global namespace
     for item in ['observations', 'model', 'sps']:
         val = eval(item)
         if val is not None:
@@ -396,26 +402,38 @@ def run_emcee(observations, model, sps, lnprobfn=lnprobfn,
     # Could try to make signatures for these two methods the same....
     if initial_positions is not None:
         raise NotImplementedError
-        meth = restart_emcee_sampler
-        t = time.time()
-        out = meth(lnprobfn, initial_positions, hdf5=hfile,
-                   postkwargs=postkwargs, **kwargs)
+        go = time.time()
+        out = restart_emcee_sampler(lnprobfn, initial_positions,
+                                    hdf5=hfile,
+                                    postkwargs=postkwargs,
+                                    **kwargs)
         sampler = out
-        ts = time.time() - t
+        ts = time.time() - go
     else:
-        meth = run_emcee_sampler
-        t = time.time()
-        out = meth(lnprobfn, q, model, hdf5=hfile,
-                   postkwargs=postkwargs, **kwargs)
-        sampler, burn_p0, burn_prob0 = out
-        ts = time.time() - t
+        go = time.time()
+        out = run_emcee_sampler(lnprobfn, q, model,
+                                hdf5=hfile,
+                                postkwargs=postkwargs,
+                                **kwargs)
+        sampler, burn_loc0, burn_prob0 = out
+        ts = time.time() - go
 
-    return sampler, ts
+    try:
+        sampler.duration = ts
+    except:
+        pass
+
+    return sampler
 
 
-def run_dynesty(observations, model, sps, lnprobfn=lnprobfn,
-                pool=None, nested_target_n_effective=10000, **kwargs):
-    """Thin wrapper on :py:class:`prospect.fitting.nested.run_dynesty_sampler`
+def run_nested(observations, model, sps,
+               lnprobfn=lnprobfn,
+               nested_sampler="dynesty",
+               nested_nlive=1000,
+               nested_target_n_effective=1000,
+               verbose=False,
+               **kwargs):
+    """Thin wrapper on :py:class:`prospect.fitting.nested.run_nested_sampler`
 
     Parameters
     ----------
@@ -436,43 +454,38 @@ def run_dynesty(observations, model, sps, lnprobfn=lnprobfn,
         ``model``, and ``sps`` as keywords. By default use the
         :py:func:`lnprobfn` defined above.
 
-    Extra Parameters
-    --------
-    nested_bound: (optional, default: 'multi')
+    nested_target_n_effective : int
+        Target number of effective samples
 
-    nested_sample: (optional, default: 'unif')
-
-    nested_nlive_init: (optional, default: 100)
-
-    nested_nlive_batch: (optional, default: 100)
-
-    nested_dlogz_init: (optional, default: 0.02)
-
-    nested_maxcall: (optional, default: None)
-
-    nested_walks: (optional, default: 25)
+    nested_nlive : int
+        Number of live points for the nested sampler.  Meaning somewhat
+        dependent on the chosen sampler
 
     Returns
     --------
-    result:
-        An instance of :py:class:`dynesty.results.Results`.
+    result: Dictionary
+        Will have keys:
+        * points : parameter location of the samples
+        * log_weight : ln of the weights of each sample
+        * log_like : ln of the likelihoods of each sample
 
     t_wall : float
         Duration of sampling in seconds of wall time.
     """
-    from dynesty.dynamicsampler import stopping_function, weight_function
-    nested_stop_kwargs = {"target_n_effective": nested_target_n_effective}
+    # wrap the probability fiunction, making sure it's a likelihood
+    likelihood = wrap_lnp(lnprobfn, observations, model, sps, nested=True)
 
-    lnp = wrap_lnp(lnprobfn, observations, model, sps, nested=True)
+    # which keywords do we have for this fitter?
+    ns_kwargs, nr_kwargs = parse_nested_kwargs(nested_sampler=nested_sampler,**kwargs)
 
-    # Need to deal with postkwargs...
+    output = run_nested_sampler(model,
+                                likelihood,
+                                nested_sampler=nested_sampler,
+                                verbose=verbose,
+                                nested_nlive=nested_nlive,
+                                nested_neff=nested_target_n_effective,
+                                nested_sampler_kwargs=ns_kwargs,
+                                nested_run_kwargs=nr_kwargs)
+    info, result_obj = output
 
-    t = time.time()
-    dynestyout = run_dynesty_sampler(lnp, model.prior_transform, model.ndim,
-                                     stop_function=stopping_function,
-                                     wt_function=weight_function,
-                                     nested_stop_kwargs=nested_stop_kwargs,
-                                     pool=pool, **kwargs)
-    ts = time.time() - t
-
-    return dynestyout, ts
+    return info

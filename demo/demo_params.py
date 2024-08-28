@@ -148,7 +148,7 @@ def build_obs(objid=0, phottable='demo_photometry.dat',
     # import astropy.io.fits as pyfits
     # catalog = pyfits.getdata(phottable)
 
-    from prospect.data.observation import Photometry, Spectrum
+    from prospect.observation import Photometry, Spectrum
 
     # Here we will read in an ascii catalog of magnitudes as a numpy structured
     # array
@@ -262,10 +262,12 @@ if __name__ == '__main__':
     output = fit_model(obs, model, sps, **config)
 
     print("writing to {}".format(hfile))
-    writer.write_hdf5(hfile, run_params, model, obs,
-                      output["sampling"][0], output["optimization"][0],
-                      tsample=output["sampling"][1],
-                      toptimize=output["optimization"][1],
+    writer.write_hdf5(hfile,
+                      config,
+                      model,
+                      obs,
+                      output["sampling"],
+                      output["optimization"],
                       sps=sps
                       )
 

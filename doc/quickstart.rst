@@ -154,12 +154,12 @@ it should still take of order tens of minutes.
     output = fit_model(obs, model, sps, lnprobfn=lnprobfn,
                        optimize=False, dynesty=True,
                        **fitting_kwargs)
-    result, duration = output["sampling"]
+    result = output["sampling"]
 
 The ``result`` is a dictionary with keys giving the Monte Carlo samples of
 parameter values and the corresponding posterior probabilities.  Because we are
-using dynesty, we also get weights associated with each parameter sample in the
-chain.
+using nested sampling, we also get weights associated with each parameter sample
+in the chain.
 
 Typically we'll want to save the fit information.  We can save the output of the
 sampling along with other information about the model and the data that was fit
@@ -168,12 +168,16 @@ as follows:
 .. code:: python
 
     from prospect.io import write_results as writer
-    hfile = "./quickstart_dynesty_mcmc.h5"
-    writer.write_hdf5(hfile, {}, model, observations,
-                     output["sampling"][0], None,
-                     sps=sps,
-                     tsample=output["sampling"][1],
-                     toptimize=0.0)
+    writer.write_hdf5("./quickstart_dynesty_mcmc.h5",
+                      config=fitting_kwargs,
+                      model=model,
+                      obs=observations,
+                      output["sampling"],
+                      None,
+                      sps=sps)
+
+Note that this doesn't include all the config information that would normally be stored (see :ref:`usage`)
+
 
 Make plots
 ----------
@@ -187,14 +191,14 @@ information we can use the built-in reader.
     hfile = "./quickstart_dynesty_mcmc.h5"
     out, out_obs, out_model = reader.results_from(hfile)
 
-This gives a dictionary of useful information (``out``), as well as the obs
-dictionary that we were using and, in some cases, a reconsitituted model object.
-However, that is only possible if the model generation code is saved to the
-results file, in the form of the text for a `build_model()` function.  Here we
-will use just use the model object that we've already generated.
+This gives a dictionary of useful information (``out``), as well as the obs data
+that we were using and, in some cases, a reconsitituted model object. However,
+that is *only* possible if the model generation code is saved to the results file,
+in the form of the text for a `build_model()` function.  Here we will use just
+use the model object that we've already generated.
 
-Now we will do some plotting.  First, lets make a corner plot of the posterior.
-We'll mark the highest probablity posterior sample as well.
+First, lets make a corner plot of the posterior. We'll mark the highest
+probablity posterior sample as well.
 
 .. code:: python
 

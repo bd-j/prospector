@@ -13,7 +13,7 @@ execution:
 
 .. code-block:: shell
 
-		python parameter_file.py --dynesty
+		python parameter_file.py --nested_sampler dynesty --nested_target_n_effective 512
 
 Additional command line options can be given (see below) e.g.
 
@@ -50,6 +50,7 @@ writes output.
             # --- Configure ---
             args = parser.parse_args()
             config = vars(args)
+            # allows parameter file text to be stored for model regeneration
             config["param_file"] = __file__
 
             # --- Get fitting ingredients ---
@@ -68,12 +69,14 @@ writes output.
             output = fit_model(obs, model, sps, **config)
 
             print("writing to {}".format(hfile))
-            writer.write_hdf5(hfile, run_params, model, obs,
-                                output["sampling"][0], output["optimization"][0],
-                                tsample=output["sampling"][1],
-                                toptimize=output["optimization"][1],
-                                sps=sps
-                                )
+            writer.write_hdf5(hfile,
+                              config=config,
+                              model=model,
+                              obs=obs,
+                              output["sampling"],
+                              output["optimization"],
+                              sps=sps
+                              )
 
             try:
                 hfile.close()
@@ -147,7 +150,8 @@ might actually increase the total CPU usage).
 To use MPI a "pool" of cores must be made available; each core will instantiate
 the fitting ingredients separately, and a single core in the pool will then
 conduct the fit, distributing likelihood requests to the other cores in the
-pool.  This requires changes to the final code block that instantiates and runs the fit:
+pool.  This requires changes to the final code block that instantiates and runs
+the fit:
 
 .. code-block:: python
 
@@ -189,7 +193,7 @@ pool.  This requires changes to the final code block that instantiates and runs 
 
         # Evaluate SPS over logzsol grid in order to get necessary data in cache/memory
         # for each MPI process. Otherwise, you risk creating a lag between the MPI tasks
-        # caching data depending which can slow down the parallelization
+        # caching SSPs which can slow down the parallelization
         if (withmpi) & ('logzsol' in model.free_params):
             dummy_obs = dict(filters=None, wavelength=None)
 
@@ -225,13 +229,15 @@ pool.  This requires changes to the final code block that instantiates and runs 
 
         # Set up an output file and write
         ts = time.strftime("%y%b%d-%H.%M", time.localtime())
-        hfile = "{0}_{1}_mcmc.h5".format(args.outfile, ts)
-        writer.write_hdf5(hfile, run_params, model, obs,
-                          output["sampling"][0], output["optimization"][0],
-                          tsample=output["sampling"][1],
-                          toptimize=output["optimization"][1],
-                          sps=sps)
-
+        hfile = f"{args.outfile}_worker{comm.rank()}_{ts}_mcmc.h5"
+        writer.write_hdf5(hfile,
+                            run_params=run_params,
+                            model=model,
+                            obs=obs,
+                            output["sampling"],
+                            output["optimization"],
+                            sps=sps
+                            )
         try:
             hfile.close()
         except(AttributeError):
@@ -243,7 +249,7 @@ Then, to run this file using mpi it can be called from the command line with som
 
         mpirun -np <number of processors> python parameter_file.py --emcee
         # or
-        mpirun -np <number of processors> python parameter_file.py --dynesty
+        mpirun -np <number of processors> python parameter_file.py --nested_sampler dynesty
 
 Note that only model evaluation is parallelizable with `dynesty`, and many
 operations (e.g. new point proposal) are still done in serial. This means that
