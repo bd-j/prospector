@@ -21,15 +21,16 @@ Work to do includes:
 - [x] Update demo scripts
 - [x] Account for undersampled spectra via explicit rebinning.
 - [ ] Account for undersampled spectra via a square convolution in pixel space.
-- [ ] Update notebooks
-- [ ] Update plotting module
-- [ ] Test i/o with structured arrays
-- [ ] Test multi-spectral calibration, smoothing, and noise modeling
-- [ ] Test smoothing accounting for library, instrumental & physical smoothing
+- [x] Implement UltraNest and Nautilus backends
+- [x] Test i/o with structured arrays
 - [ ] Structured ndarray for derived parameters
 - [ ] Store samples of spectra, photometry, and mfrac (blobs)
+- [ ] Update notebooks
+- [ ] Update plotting module
+- [ ] Test multi-spectral calibration, smoothing, and noise modeling
+- [ ] Test smoothing accounting for library, instrumental & physical smoothing
 - [ ] Implement an emulator-based SpecModel class
-- [ ] Implement UltraNest and Nautilus backends
+
 
 
 Migration from < v2.0
@@ -58,19 +59,28 @@ It is recommended to do the conversion within the `build_obs()` method, if
 possible. This list of observations is then supplied to `fit_model`.  Because
 noise models are now attached explicitly to each observation, they do not need
 to be generated separately or supplied to `fit_model()`, which no longer accepts
-a `noise=` argument.
+a `noise=` argument.  For outlier models, the the noise model should be
+instantiated with names for the outlier model that correspond to fixed or free
+parameters of the model.
 
 ```py
 from prospect.fitting import fit_model
 output = fit_model(observations, model, sps, **config)
 ```
 
-Another change is that spectral response functions (i.e. calibration vectors) are now handled by specialized sub-classes of these `Observation` classes.  See the [spectroscopy docs](docs/spectra.rst) for details.
+Another change is that spectral response functions (i.e. calibration vectors)
+are now handled by specialized sub-classes of these `Observation` classes.  See
+the [spectroscopy docs](docs/spectra.rst) for details.
+
+The interface to `write_model` has been changed and simplified.  See
+[usage](docs/usage.rst) for details.
 
 Finally, the output chain or samples is now stored as a structured array, where
 each row corresponds to a sample, and each column is a parameter (possibly
 multidimensional).  Additional information (such as sample weights, likelihoods,
-and poster probabilities) are stored as additional datasets in the output.
+and poster probabilities) are stored as additional datasets in the output.  The
+`unstructured_chain` dataset of the output contains an old-style simple
+`numpy.ndarray` of shape `(nsample, ndim)`
 
 
 Purpose
