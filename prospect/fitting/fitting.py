@@ -430,7 +430,7 @@ def run_nested(observations, model, sps,
                lnprobfn=lnprobfn,
                nested_sampler="dynesty",
                nested_nlive=1000,
-               nested_neff=1000,
+               nested_target_n_effective=1000,
                verbose=False,
                **kwargs):
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_nested_sampler`
@@ -454,6 +454,13 @@ def run_nested(observations, model, sps,
         ``model``, and ``sps`` as keywords. By default use the
         :py:func:`lnprobfn` defined above.
 
+    nested_target_n_effective : int
+        Target number of effective samples
+
+    nested_nlive : int
+        Number of live points for the nested sampler.  Meaning somewhat
+        dependent on the chosen sampler
+
     Returns
     --------
     result: Dictionary
@@ -476,7 +483,7 @@ def run_nested(observations, model, sps,
                                 nested_sampler=nested_sampler,
                                 verbose=verbose,
                                 nested_nlive=nested_nlive,
-                                nested_neff=nested_neff,
+                                nested_neff=nested_target_n_effective,
                                 nested_sampler_kwargs=ns_kwargs,
                                 nested_run_kwargs=nr_kwargs)
     info, result_obj = output

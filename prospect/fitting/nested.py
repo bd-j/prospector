@@ -53,6 +53,8 @@ def run_nested_sampler(model,
     obj : Object
         The sampling object.  This will depend on the nested sampler being used.
     """
+    if verbose:
+        print(f"running {nested_sampler} for {nested_neff} effective samples")
 
     go = time.time()
 

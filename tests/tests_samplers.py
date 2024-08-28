@@ -13,15 +13,15 @@ from prospect.observation import Photometry
 from prospect.fitting import fit_model
 from prospect.fitting.nested import parse_nested_kwargs
 from prospect.io.write_results import write_hdf5
-
+from prospect.io.read_results import results_from
 
 #@pytest.fixture
-def get_sps():
+def get_sps(**kwargs):
     sps = CSPSpecBasis(zcontinuous=1)
     return sps
 
 
-def build_model(add_neb=False, add_outlier=False):
+def build_model(add_neb=False, add_outlier=False, **kwargs):
     model_params = templates.TemplateLibrary["parametric_sfh"]
     model_params["logzsol"]["isfree"] = False  # built for speed
     if add_neb: # skip for speed
@@ -63,10 +63,11 @@ if __name__ == "__main__":
 
     parser = get_parser()
     parser.set_defaults(nested_target_n_effective=256,
+                        nested_nlive=512,
                         verbose=0)
     args = parser.parse_args()
     run_params = vars(args)
-    run_params["parameter_file"] = __file__
+    run_params["param_file"] = __file__
 
     # test the parsing
     run_params["nested_sampler"] = "dynesty"
@@ -99,11 +100,14 @@ if __name__ == "__main__":
                    results[sampler],
                    None,
                    sps=sps)
+        ires, iobs, im = results_from(hfile)
+        assert (im is not None)
 
+    # compare runtime
     for sampler in samplers:
         print(sampler, results[sampler]["duration"])
 
-
+    # compare posteriors
     colors = ["royalblue", "darkorange", "firebrick"]
     import matplotlib.pyplot as pl
     from prospect.plotting import corner
