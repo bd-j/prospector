@@ -369,7 +369,7 @@ class SpecModel(ProspectorParams):
         # find the indices of the observed emission lines
         #dw = np.abs(self._ewave_obs[:, None] - self._outwave[None, :])
         #self._predicted_line_inds = np.argmin(dw, axis=0)
-        self._predicted_line_inds = obs.get("line_ind")
+        self._predicted_line_inds = obs["line_inds"]
         self._speccal = 1.0
 
         self.line_norm = self.flux_norm() / (1 + self._zred) * (3631*jansky_cgs)

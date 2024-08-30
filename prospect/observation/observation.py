@@ -100,17 +100,19 @@ class Observation:
         appropriate sizes.  Also auto-masks non-finite data or negative
         uncertainties.
         """
+        n = self.__repr__
         if self.flux is None:
-            print(f"{self.__repr__} has no data")
+            print(f"{n} has no data")
             return
 
-        assert self.wavelength.ndim == 1, "`wavelength` is not 1-d array"
-        assert self.flux.ndim == 1, "flux is not a 1d array"
-        assert self.uncertainty.ndim == 1, "uncertainty is not a 1d array"
-        assert self.ndata > 0, "no wavelength points supplied!"
-        assert self.uncertainty is not None, "No uncertainties."
-        assert len(self.wavelength) == len(self.flux), "Flux array not same shape as wavelength."
-        assert len(self.wavelength) == len(self.uncertainty), "Uncertainty array not same shape as wavelength."
+        assert self.flux.ndim == 1, f"{n}: flux is not a 1d array"
+        assert self.uncertainty.ndim == 1, f"{n}: uncertainty is not a 1d array"
+        assert self.ndata > 0, f"{n} no data supplied!"
+        assert self.uncertainty is not None, f"{n} No uncertainties."
+        assert len(self.flux) == len(self.uncertainty), f"{n}: flux and uncertainty of different length"
+        if self.wavelength is not None:
+            assert self.wavelength.ndim == 1, f"{n}: `wavelength` is not 1-d array"
+            assert len(self.wavelength) == len(self.flux), f"{n}: Wavelength array not same shape as flux array"
 
         self._automask()
 
@@ -145,10 +147,10 @@ class Observation:
     @property
     def ndata(self):
         # TODO: cache this?
-        if self.wavelength is None:
+        if self.flux is None:
             return 0
         else:
-            return len(self.wavelength)
+            return len(self.flux)
 
     @property
     def wave_min(self):
@@ -240,7 +242,7 @@ class Photometry(Observation):
             The names or instances of Filters to use
 
         flux : iterable of floats
-            The flux through the filters, in units of maggies
+            The flux through the filters, in units of maggies.
 
         uncertainty : iterable of floats
             The uncertainty on the flux
@@ -301,7 +303,6 @@ class Spectrum(Observation):
                  response=None,
                  name=None,
                  lambda_pad=100,
-                 polynomial_order=0.,
                  **kwargs):
 
         """
@@ -311,7 +312,8 @@ class Spectrum(Observation):
             The wavelength of each flux measurement, in vacuum AA
 
         flux : iterable of floats
-            The flux at each wavelength, in units of maggies, same length as ``wavelength``
+            The flux at each wavelength, in units of maggies, same length as
+            ``wavelength``
 
         uncertainty : iterable of floats
             The uncertainty on the flux
@@ -329,7 +331,7 @@ class Spectrum(Observation):
         self.resolution = resolution
         self.response = response
         self.instrument_smoothing_parameters = dict(smoothtype="vel", fftsmooth=True)
-        self.wavelength = wavelength
+        self.wavelength = np.atleast_1d(wavelength)
 
     @property
     def wavelength(self):
@@ -439,7 +441,6 @@ class Spectrum(Observation):
 
         return outspec_padded[self._unpadded_inds]
 
-
     def compute_response(self, **extras):
         if self.response is not None:
             return self.response
@@ -447,7 +448,7 @@ class Spectrum(Observation):
             return 1.0
 
 
-class Lines(Spectrum):
+class Lines(Observation):
 
     _kind = "lines"
     alias = dict(spectrum="flux",
@@ -458,11 +459,12 @@ class Lines(Spectrum):
 
     _meta = ("name", "kind")
     _data = ("wavelength", "flux", "uncertainty", "mask",
-             "resolution", "calibration", "line_ind")
+             "line_ind")
 
     def __init__(self,
                  line_ind=None,
                  line_names=None,
+                 wavelength=None,
                  name=None,
                  **kwargs):
 
@@ -476,7 +478,8 @@ class Lines(Spectrum):
             The wavelength of each flux measurement, in vacuum AA
 
         flux : iterable of floats
-            The flux at each wavelength, in units of maggies, same length as ``wavelength``
+            The flux at each wavelength, in units of erg/s/cm^2, same length as
+            ``wavelength``
 
         uncertainty : iterable of floats
             The uncertainty on the flux
@@ -492,16 +495,25 @@ class Lines(Spectrum):
         :param calibration:
             not sure yet ....
         """
-        super(Lines, self).__init__(name=name, resolution=None, **kwargs)
+        super(Lines, self).__init__(name=name, **kwargs)
         assert (line_ind is not None), "You must identify the lines by their index in the FSPS emission line array"
-        self.line_ind = np.array(line_ind).as_type(int)
+        self.line_ind = np.array(line_ind).astype(int)
         self.line_names = line_names
+
+        if wavelength is not None:
+            self._wavelength = np.atleast_1d(wavelength)
+        else:
+            self._wavelength = None
+
+    @property
+    def wavelength(self):
+        return self._wavelength
 
 
 class UndersampledSpectrum(Spectrum):
     """
     As for Spectrum, but account for pixelization effects when pixels
-    undersamplesthe instrumental LSF.
+    undersample the instrumental LSF.
     """
     #TODO: Implement as a convolution with a square kernel (or sinc in frequency space)
 
@@ -754,6 +766,8 @@ def from_oldstyle(obs, **kwargs):
 
 
 def from_serial(arr, meta):
+    # TODO: This does not account for composite or special classes, or include
+    # noise models
     kind = obstypes[meta.pop("kind")]
 
     adict = {a:arr[a] for a in arr.dtype.names}

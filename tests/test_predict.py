@@ -6,7 +6,7 @@ import pytest
 
 from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
-from prospect.observation import Spectrum, Photometry
+from prospect.observation import Spectrum, Photometry, Lines
 
 
 @pytest.fixture(scope="module")
@@ -22,7 +22,7 @@ def build_model(add_neb=False):
     return SpecModel(model_params)
 
 
-def build_obs(multispec=True):
+def build_obs(multispec=True, add_lines=False):
     N = 1500 * (2 - multispec)
     wmax = 7000
     wsplit = wmax - N * multispec
@@ -39,9 +39,26 @@ def build_obs(multispec=True):
                           flux=np.ones(N), uncertainty=np.ones(N) / 10,
                           mask=slice(None))]
 
-    obslist = spec + phot
-    [obs.rectify() for obs in obslist]
-    return obslist
+    obs = spec + phot
+
+    if add_lines:
+        line_ind = [59, 62, 74, 73, 75] # index of line in FSPS table
+        line_name = ["Hb", "OIII-5007", "Ha", "NII-6548", "NII-6584"]
+        line_wave = [4861, 5007, 6563, 6548, 6584] # can be approximate
+        n_line = len(line_ind)
+        lines = Lines(line_ind=line_ind,
+                      flux=np.ones(n_line), # erg/s/cm^2
+                      uncertainty=np.ones(n_line)/10,
+                      line_names=line_name,  # optional
+                      wavelength=line_wave, # optional
+                    )
+        obs += [lines]
+
+    [ob.rectify() for ob in obs]
+    for ob in obs:
+        assert ob.ndof > 0
+
+    return obs
 
 
 def test_prediction_nodata(build_sps):
@@ -86,12 +103,26 @@ def test_multispec(build_sps, plot=False):
                ax.plot(o.wavelength, p)
 
 
+def test_line(build_sps, plot=False):
+
+    obs = build_obs(multispec=False, add_lines=True)
+    model = build_model(add_neb=True)
+
+    sps = build_sps
+    preds, mfrac = model.predict(model.theta, observations=obs, sps=sps)
+    (spec, phot, lines) = preds
+    assert np.all(lines) > 0
+
+    #print(f"log(OIII[5007]/Hb)={np.log10(lines[1]/lines[0])}")
+    #print(f"log(NII/Ha)={np.log10(lines[-2:]/lines[2])}")
+
+
 def lnlike_testing(build_sps):
     # testing lnprobfn
 
-    sps = build_sps
     observations = build_obs()
     model = build_model(add_neb=True)
+    sps = build_sps
 
     from prospect.likelihood.likelihood import compute_lnlike
     from prospect.fitting import lnprobfn
