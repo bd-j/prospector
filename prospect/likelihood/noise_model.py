@@ -44,7 +44,7 @@ class NoiseModel:
         vectors["uncertainty"] = obs.uncertainty
         return vectors
 
-    def factorize_1d(self, Sigma):
+    def factorize_diag(self, Sigma):
         self.Sigma = Sigma
         self.factorized_Sigma = np.sqrt(Sigma)
         self.log_det = np.sum(np.log(self.Sigma))
@@ -65,7 +65,7 @@ class NoiseModel:
         Sigma = uncertainty[mask]**2
         self.factorize_1d(Sigma)
 
-    def lnlikelihood_1d(self, pred, data, factorized_Sigma):
+    def lnlikelihood_diag(self, pred, data, factorized_Sigma):
         """Simple ln-likelihood for diagonal covariance matrix.
 
         Returns
@@ -91,14 +91,13 @@ class NoiseModel:
         self.construct_covariance(**vectors)
 
         # Compute likelihood of inliers
-        lnp = self.lnlikelihood_1d(pred[obs.mask], obs.flux[obs.mask],
-                                     self.factorized_Sigma)
+        lnp = self.lnlikelihood_diag(pred[obs.mask], obs.flux[obs.mask], self.factorized_Sigma)
+
         if (self.f_outlier == 0.0):
             return np.sum(lnp)
-
         elif self.f_outlier > 0:
             # Mixture model
-            lnp_out = self.lnlikelihood_1d(pred[obs.mask], obs.flux[obs.mask],
+            lnp_out = self.lnlikelihood_diag(pred[obs.mask], obs.flux[obs.mask],
                                              self.factorized_Sigma_outlier)
             lnp_tot = np.logaddexp(lnp + np.log(1 - self.f_outlier),
                                    lnp_out + np.log(self.f_outlier))
@@ -107,28 +106,28 @@ class NoiseModel:
             raise ValueError(f"Outlier fraction ({self.f_outlier}) cannot be negative")
 
 
-class NoiseModel2D(NoiseModel):
+class NoiseModelCov(NoiseModel):
 
     """Fixed 2D covariance matrix for data
     """
 
     def __init__(self, Sigma=None, mask=slice(None), **kwargs):
-        super(NoiseModel2D, self).__init__(**kwargs)
+        super(NoiseModelCov, self).__init__(**kwargs)
         if Sigma is not None:
-            self.factorize_2d(Sigma[mask, :][:, mask])
+            self.factorize_cov(Sigma[mask, :][:, mask])
 
-    def factorize_2d(self, Sigma):
+    def factorize_cov(self, Sigma):
         self.Sigma = Sigma
         #self.factorized_Sigma = np.linalg.cholesky(self.Sigma)
         self.factorized_Sigma = cho_factor(self.Sigma, check_finite=True)
-        self.log_det = np.log(np.prod(np.diag(self.factorized_Sigma[0])))
+        self.log_det = np.sum(np.log(np.diag(self.factorized_Sigma[0])))
 
     def construct_covariance(self, **other_vectors):
         """Sigma is fixed at instantiation
         """
         pass
 
-    def lnlikelihood_2d(self, y, mu, factorized_Sigma):
+    def lnlikelihood_cov(self, y, mu, factorized_Sigma):
         """Compute the Gaussian likelihood of the data points y given the mean mu
         and factorized covariance matrix L.
         """
@@ -159,15 +158,16 @@ class NoiseModel2D(NoiseModel):
         # Construct Sigma and factorize
         self.construct_covariance(**vectors)
 
-        lnp = self.lnlikelihood_2d(pred[obs.mask], obs.flux[obs.mask], self.factorized_Sigma)
+        lnp = self.lnlikelihood_cov(pred[obs.mask], obs.flux[obs.mask], self.factorized_Sigma)
         if self.f_outlier > 0:
-            raise ValueError("Outlier modeling not available with 2d covariances")
+            raise ValueError("Outlier modeling not available with off-diagnoal covariances")
 
         return lnp
 
 
-class FittableNoiseModel(NoiseModel):
-    """This object allows for fitting noise properties constructed from kernels
+class FittableNoiseModel():
+    """Mixin class to allow for covariance matrices to be constructed on-the-fly
+    based on model parameters and metrics & kernels
     """
 
     # TODO: metric names should be the responsibility of kernels, not noise models
@@ -211,11 +211,10 @@ class FittableNoiseModel(NoiseModel):
 
         # Compute the things we need
         if Sigma.ndim == 1:
-            self.factorize_1d(Sigma)
+            self.factorize_diag(Sigma)
 
         elif Sigma.ndim == 2:
-            self.factorize_2d(Sigma)
-
+            self.factorize_cov(Sigma)
 
 
 class NoiseModelKDE:
