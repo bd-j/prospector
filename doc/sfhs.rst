@@ -151,7 +151,9 @@ details.  This prior is adapted from the Extended Regulator model developed in
 `Caplar & Tacchella (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.487.3845C/abstract>`_ and `Tacchella, Forbes & Caplar (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.497..698T/abstract>`_ , in
 conjunction with the GP implementation of `Iyer & Speagle et al. (2024) <https://ui.adsabs.harvard.edu/abs/2024ApJ...961...53I/abstract>`_ taken from `this module <https://github.com/kartheikiyer/GP-SFH>`_ .
 
-
+Use of this SFH prior requires that
+:py:class:`prospect.models.sedmodel.HyperSpecModel` be used as the model base
+class (instead of :py:class:`SpecModel`).
 
 Dirichlet SFH
 ^^^^^^^^^^^^^

@@ -706,18 +706,18 @@ _stochastic_["agebins"] = {'N': 8, 'isfree': False, 'init': agebins, 'units': 'l
 
 # Sets the PSD parameters & priors
 # sigma_reg: Overall stochasticity coming from gas inflow
-_stochastic_["sigma_reg"] = {'name': 'sigma_reg', 'N': 1, 'isfree': True, 'init': 0.3, 
+_stochastic_["sigma_reg"] = {'name': 'sigma_reg', 'N': 1, 'isfree': True, 'init': 0.3,
                              'prior': priors.LogUniform(mini=0.01, maxi=5.0), 'units': 'dex^2'}
 # tau_eq: Timescale associated with equilibrium gas cycling in gas reservoir (related to depletion timescale)
-_stochastic_["tau_eq"] = {'name': 'tau_eq', 'N': 1, 'isfree': True, 'init': 2.5, 
+_stochastic_["tau_eq"] = {'name': 'tau_eq', 'N': 1, 'isfree': True, 'init': 2.5,
                           'prior': priors.TopHat(mini=0.01, maxi=7.0), 'units': 'Gyr'}
 # tau_in: Characteristic timescale associated with gas inflow into gas reservoir
 _stochastic_["tau_in"] = {'name': 'tau_in', 'N': 1, 'isfree': False, 'init': 7.0, 'units': 'Gyr'}
 # sigma_dyn: Overall stochasticity coming from short-term, dynamical processes (e.g., creation/destruction of GMCs)
-_stochastic_["sigma_dyn"] = {'name': 'sigma_dyn', 'N': 1, 'isfree': True, 'init': 0.01, 
+_stochastic_["sigma_dyn"] = {'name': 'sigma_dyn', 'N': 1, 'isfree': True, 'init': 0.01,
                              'prior': priors.LogUniform(mini=0.001, maxi=0.1), 'units': 'dex^2'}
 # tau_dyn: Characteristic timescale associated with short-term, dynamical processes
-_stochastic_["tau_dyn"] = {'name': 'tau_dyn', 'N': 1, 'isfree': True, 'init': 0.025, 
+_stochastic_["tau_dyn"] = {'name': 'tau_dyn', 'N': 1, 'isfree': True, 'init': 0.025,
                            'prior': priors.ClippedNormal(mini=0.005, maxi=0.2, mean=0.01, sigma=0.02), 'units': 'Gyr'}
 
 _stochastic_["logsfr_ratios"] = {'N': 7, 'isfree': True, 'init': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -734,7 +734,8 @@ _stochastic_ = adjust_stochastic_params(_stochastic_)
 #                                  'prior': priors.MultiVariateNormal(mean=[0.]*7, Sigma=sfr_ratio_covar)}
 
 TemplateLibrary["stochastic_sfh"] = (_stochastic_,
-                                     "Stochastic SFH which correlates the SFRs between time bins based on model in TFC2020")
+                                     ("Stochastic SFH which correlates the SFRs between time bins based on model in TFC2020."
+                                      " Requires `HyperSpecModel` as the base model class."))
 
 
 # ----------------------------
