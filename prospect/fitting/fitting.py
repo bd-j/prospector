@@ -15,7 +15,7 @@ import warnings
 
 from .minimizer import minimize_wrapper, minimizer_ball
 from .ensemble import run_emcee_sampler
-from .nested import run_nested_sampler, parse_nested_kwargs
+from .nested import run_nested_sampler
 from ..likelihood.likelihood import compute_chi, compute_lnlike
 
 
@@ -475,17 +475,13 @@ def run_nested(observations, model, sps,
     # wrap the probability fiunction, making sure it's a likelihood
     likelihood = wrap_lnp(lnprobfn, observations, model, sps, nested=True)
 
-    # which keywords do we have for this fitter?
-    ns_kwargs, nr_kwargs = parse_nested_kwargs(nested_sampler=nested_sampler,**kwargs)
-
     output = run_nested_sampler(model,
                                 likelihood,
                                 nested_sampler=nested_sampler,
                                 verbose=verbose,
                                 nested_nlive=nested_nlive,
                                 nested_neff=nested_target_n_effective,
-                                nested_sampler_kwargs=ns_kwargs,
-                                nested_run_kwargs=nr_kwargs)
+                                **kwargs)
     info, result_obj = output
 
     return info
