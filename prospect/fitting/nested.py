@@ -6,7 +6,6 @@ import warnings
 __all__ = ["run_nested_sampler"]
 
 
-
 def run_nested_sampler(model,
                        likelihood_function,
                        nested_sampler="dynesty",
@@ -16,6 +15,19 @@ def run_nested_sampler(model,
                        **kwargs):
     """We give a model -- parameter discription and prior transform -- and a
     likelihood function. We get back samples, weights, and likelihood values.
+
+    Parameters
+    ----------
+    model : instance of the :py:class:`prospect.models.SpecModel`
+        The model parameterization and parameter state.
+    likelihood_function : callable
+        Likelihood function
+    nested_live : int
+        Number of live points.
+    nested_neff : float
+        Minimum effective sample size.
+    verbose : bool
+        Whether to output sampler progress.
 
     Returns
     -------
