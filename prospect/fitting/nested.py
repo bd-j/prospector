@@ -1,6 +1,7 @@
 import inspect
-import time
 import numpy as np
+import time
+import warnings
 
 __all__ = ["run_nested_sampler"]
 
@@ -56,6 +57,8 @@ def run_nested_sampler(model,
     if nested_sampler != 'nestle':
         sig = inspect.signature(sampler_init).bind_partial()
         sig.apply_defaults()
+        for key in kwargs.keys() & init_kwargs.keys():
+            warnings.warn(f"Value of key '{key}' overwritten.")
         init_kwargs = {
             **{key: kwargs[key] for key in sig.kwargs.keys() & kwargs.keys()},
             **init_kwargs}
@@ -83,10 +86,14 @@ def run_nested_sampler(model,
 
     sig = inspect.signature(sampler_run).bind_partial()
     sig.apply_defaults()
+    for key in kwargs.keys() & run_kwargs.keys():
+        warnings.warn(f"Value of key '{key}' overwritten.")
     run_kwargs = {
         **{key: kwargs[key] for key in sig.kwargs.keys() & kwargs.keys()},
         **run_kwargs}
     run_return = sampler_run(*run_args, **run_kwargs)
+    for key in kwargs.keys() - (init_kwargs.keys() | run_kwargs.keys()):
+        warnings.warn(f"Key '{key}' not recognized by the sampler.")
 
     if nested_sampler == 'nautilus':
         obj = sampler
