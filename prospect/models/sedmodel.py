@@ -797,9 +797,10 @@ class SpecModel(ProspectorParams):
         return spec
 
     def add_damping_wing(self, wave_rest, spec):
-        if np.any(self.params.get("igm_damping", False)):
+        zmin = 5.0
+        if (self._zred > zmin) & np.any(self.params.get("igm_damping", False)):
             x_HI = self.params.get("igm_factor", 1.0)
-            tau = tau_damping(wave_rest, self._zred, x_HI, cosmo=cosmo)
+            tau = tau_damping(wave_rest, self._zred, x_HI, zmin=zmin, cosmo=cosmo)
             spec *= np.exp(-tau)
         return spec
 
