@@ -88,20 +88,20 @@ def run_nested_sampler(model,
         **run_kwargs}
     run_return = sampler_run(*run_args, **run_kwargs)
 
-    if sampler == 'nautilus':
+    if nested_sampler == 'nautilus':
         obj = sampler
         points, log_w, log_like = sampler.posterior()
-    elif sampler == 'ultranest':
+    elif nested_sampler == 'ultranest':
         obj = run_return
         points = np.array(run_return['weighted_samples']['points'])
         log_w = np.log(np.array(run_return['weighted_samples']['weights']))
         log_like = np.array(run_return['weighted_samples']['logl'])
-    elif sampler == 'dynesty':
+    elif nested_sampler == 'dynesty':
         obj = sampler
         points = sampler.results["samples"]
         log_w = sampler.results["logwt"]
         log_like = sampler.results["logl"]
-    elif sampler == 'nestle':
+    elif nested_sampler == 'nestle':
         obj = run_return
         points = run_return["samples"]
         log_w = run_return["logwt"]
