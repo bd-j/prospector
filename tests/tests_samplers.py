@@ -11,7 +11,6 @@ from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
 from prospect.observation import Photometry
 from prospect.fitting import fit_model
-from prospect.fitting.nested import parse_nested_kwargs
 from prospect.io.write_results import write_hdf5
 from prospect.io.read_results import results_from
 
@@ -69,12 +68,6 @@ if __name__ == "__main__":
     run_params = vars(args)
     run_params["param_file"] = __file__
 
-    # test the parsing
-    run_params["nested_sampler"] = "dynesty"
-    nr, ns = parse_nested_kwargs(**run_params)
-    print(nr)
-    print(ns)
-
     # build stuff
     model = build_model()
     obs = build_obs()
@@ -121,3 +114,4 @@ if __name__ == "__main__":
                                 color=color,
                                 weights= np.exp(out["log_weight"]),
                                 show_titles=True)
+    cfig.savefig("sampler_test_corner.png")

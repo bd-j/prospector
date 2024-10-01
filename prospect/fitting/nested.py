@@ -104,8 +104,8 @@ def run_nested_sampler(model,
         **{key: kwargs[key] for key in sig.kwargs.keys() & kwargs.keys()},
         **run_kwargs}
     run_return = sampler_run(*run_args, **run_kwargs)
-    for key in kwargs.keys() - (init_kwargs.keys() | run_kwargs.keys()):
-        warnings.warn(f"Key '{key}' not recognized by the sampler.")
+    #for key in kwargs.keys() - (init_kwargs.keys() | run_kwargs.keys()):
+    #    warnings.warn(f"Key '{key}' not recognized by the sampler.")
 
     if nested_sampler == 'nautilus':
         obj = sampler
