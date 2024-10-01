@@ -118,30 +118,34 @@ def add_nested_args(parser):
                         help="Number of live points for the nested sampling run.")
 
     parser.add_argument("--nested_target_n_effective", type=int, default=10000,
-                        help=("Stop when the number of *effective* posterior samples as estimated "
-                              "by dynesty reaches the target number."))
+                        help=("Stop when the estimated number of *effective* posterior samples "
+                              "reaches the target number."))
 
     parser.add_argument("--nested_dlogz", type=float, default=0.05,
-                        help=("Stop the initial run when the remaining evidence is estimated "
+                        dest="dlogz_init",
+                        help=("Stop the initial dynesty run when the remaining evidence is estimated "
                               "to be less than this."))
 
     parser.add_argument("--nested_bound", type=str, default="multi",
+                        dest="bound",
                         choices=["single", "multi", "balls", "cubes"],
-                        help=("Method for bounding the prior volume when drawing new points. "
+                        help=("Method for bounding the prior volume when drawing new points with dynesty. "
                               "One of single | multi | balls | cubes"))
 
-    parser.add_argument("--nested_sample", "--nested_method", type=str, dest="nested_sample",
+    parser.add_argument("--nested_sample", "--nested_method", type=str, dest="sample",
                         default="auto", choices=["auto", "unif", "rwalk", "slice", "hslice"],
-                        help=("Method for drawing new points during sampling.  "
+                        help=("Method for drawing new points during dynesty sampling.  "
                               "One of auto | unif | rwalk | slice | hslice"))
 
     parser.add_argument("--nested_walks", type=int, default=48,
-                        help=("Number of Metropolis steps to take when "
+                        dest="walks",
+                        help=("Number of Metropolis steps for dynesty to take when "
                               "`nested_sample` is 'rwalk'"))
 
     parser.add_argument("--nested_bootstrap", type=int, default=0,
-                         help=("Number of bootstrap resamplings to use when estimating "
-                               "ellipsoid expansion factor."))
+                        dest="bootstrap",
+                        help=("Number of bootstrap resamplings to use when estimating "
+                              "ellipsoid expansion factor with dynesty."))
 
     return parser
 
