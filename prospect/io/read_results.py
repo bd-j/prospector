@@ -70,7 +70,8 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
     """
     # Read the basic chain, parameter, and run_params info
     res, obs = read_hdf5(filename, **kwargs)
-
+    model = None
+    
     # Now try to instantiate the model object from the paramfile
     if dangerous:
         try:
