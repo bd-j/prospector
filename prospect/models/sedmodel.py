@@ -20,6 +20,11 @@ from .hyperparameters import ProspectorHyperParams
 from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 
+try:
+    from cue.utils import sigma_line_for_fsps
+except:
+    pass
+
 
 __all__ = ["SpecModel",
            "HyperSpecModel",
@@ -54,6 +59,7 @@ class SpecModel(ProspectorParams):
                     ("eline_sigma", ""),
                     ("use_eline_priors", ""),
                     ("eline_prior_width", ""),
+                    ("use_eline_nn_unc", ""),
                     ("dla_logNh", "log_10 HI column density for damped Lyman-alpha absorption"),
                     ("dla_redshift", "redshift of the DLA; if greater than zred then no absorption occurs"),
                     ("igm_damping", "boolean switch to turn on IGM damping wing redward of 1216 rest")]
@@ -140,8 +146,14 @@ class SpecModel(ProspectorParams):
         # cache eline mle info
         self._ln_eline_penalty = 0
         self._eline_lum_mle = self._eline_lum.copy()
-        self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
-                                         self._eline_lum)**2)
+        if self.params.get('use_eline_nn_unc', False):
+            self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
+                                             self._eline_lum)**2) + 
+                                    (sigma_line_for_fsps *
+                                     self._eline_lum)**2
+        else:
+            self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
+                                             self._eline_lum)**2)
 
         # physical velocity smoothing of the whole UV/NIR spectrum
         self._smooth_spec = self.losvd_smoothing(self._wave, self._norm_spec)
@@ -150,7 +162,8 @@ class SpecModel(ProspectorParams):
         self._smooth_spec = self.add_dla(self._wave, self._smooth_spec)
         self._smooth_spec = self.add_damping_wing(self._wave, self._smooth_spec)
 
-    def predict_obs(self, obs):
+
+    def predict_obs(self, obs, sigma_spec=None):
         if obs.kind == "spectrum":
             prediction = self.predict_spec(obs)
         elif obs.kind == "lines":
@@ -323,6 +336,7 @@ class SpecModel(ProspectorParams):
         self._speccal = response
 
         return inst_spec
+
 
     def predict_lines(self, obs, **extras):
         """Generate a prediction for the observed nebular line fluxes.  This method assumes
