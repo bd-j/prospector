@@ -290,6 +290,96 @@ TemplateLibrary["nebular"] = (_nebular_,
                               ("The set of nebular emission parameters, "
                                "with gas_logz tied to stellar logzsol."))
 
+# new nebular parameters from cue
+use_stellar_ionizing = {'N': 1, "isfree": False, "init": False}
+gas_logz = {'N': 1, 'isfree': False,
+            "init": 0.0, 'units': r"log Z/Z_\odot",
+            "prior": priors.TopHat(mini=-2.2, maxi=0.5)}
+
+gas_logu = {"N": 1, 'isfree': False,
+            "init": -2.0, 'units': r"Q_H/N_H",
+            "prior": priors.TopHat(mini=-4.0, maxi=-1.0)}
+
+gas_lognH = {"N": 1, 'isfree': False,
+             "init": 2.0, 'units': r"n_H",
+             "prior": priors.TopHat(mini=1.0, maxi=4.0)}
+
+gas_logno = {"N": 1, 'isfree': False,
+            "init": 0.0, 'units': r"[N/O]",
+            "prior": priors.TopHat(mini=-1.0, maxi=np.log10(5.4))}
+
+gas_logco = {"N": 1, 'isfree': False,
+            "init": 0.0, 'units': r"[C/O]",
+            "prior": priors.TopHat(mini=-1.0, maxi=np.log10(5.4))}
+
+ionspec_index1 = {"N": 1, 'isfree': False,
+                  "init": 3.3, 'units': r"1st power-law index of ionizing spectrum",
+                  "prior": priors.TopHat(mini=1.0, maxi=42.0)}
+
+ionspec_index2 = {"N": 1, 'isfree': False,
+                  "init": 15.0, 'units': r"2nd power-law index of ionizing spectrum",
+                  "prior": priors.TopHat(mini=-0.3, maxi=30.0)}
+
+ionspec_index3 = {"N": 1, 'isfree': False,
+                  "init": 8.0, 'units': r"3rd power-law index of ionizing spectrum",
+                  "prior": priors.TopHat(mini=-1.0, maxi=14.0)}
+
+ionspec_index4 = {"N": 1, 'isfree': False,
+                  "init": 3.0, 'units': r"4th power-law index of ionizing spectrum",
+                  "prior": priors.TopHat(mini=-1.7, maxi=8.0)}
+
+ionspec_logLratio1 = {"N": 1, 'isfree': False,
+                      "init": 2.0, 'units': r"ratio of 2nd and 1st ionizing spectrum segments",
+                      "prior": priors.TopHat(mini=-1.0, maxi=10.1)}
+
+ionspec_logLratio2 = {"N": 1, 'isfree': False,
+                      "init": 1.0, 'units': r"ratio of 3rd and 2nd ionizing spectrum segments",
+                      "prior": priors.TopHat(mini=-0.5, maxi=1.9)}
+
+ionspec_logLratio3 = {"N": 1, 'isfree': False,
+                      "init": 1.0, 'units': r"ratio of 4th and 3rd ionizing spectrum segments",
+                      "prior": priors.TopHat(mini=-0.4, maxi=2.2)}
+
+log_qion = {"N": 1, 'isfree': False,
+            "init": 52.0, 'units': r"log Q_H",
+            "prior": priors.TopHat(mini=35.0, maxi=65.0)}
+
+_cue_nebular_ = {"add_neb_emission": add_neb,
+                 "add_neb_continuum": neb_cont,
+                 "nebemlineinspec": neb_spec,
+                 "use_stellar_ionizing": use_stellar_ionizing,
+                 "gas_logz": gas_logz,
+                 "gas_logu": gas_logu,
+                 "gas_lognH": gas_lognH,
+                 "gas_logno": gas_logno,
+                 "gas_logco": gas_logco,
+                 "ionspec_index1": ionspec_index1,
+                 "ionspec_index2": ionspec_index2,
+                 "ionspec_index3": ionspec_index3,
+                 "ionspec_index4": ionspec_index4,
+                 "ionspec_logLratio1": ionspec_logLratio1,
+                 "ionspec_logLratio2": ionspec_logLratio2,
+                 "ionspec_logLratio3": ionspec_logLratio3,
+                 "gas_logqion": log_qion,
+                 }
+
+TemplateLibrary["cue_nebular"] = (_cue_nebular_,
+                                 ("The set of nebular emission parameters for cue, where ionizing spectrum is free."))
+
+use_stellar_ionizing = {'N': 1, "isfree": False, "init": True}
+_cue_stellar_nebular_ = {"add_neb_emission": add_neb,
+                         "add_neb_continuum": neb_cont,
+                         "nebemlineinspec": neb_spec,
+                         "use_stellar_ionizing": use_stellar_ionizing,
+                         "gas_logz": gas_logz,
+                         "gas_logu": gas_logu,
+                         "gas_lognH": gas_lognH,
+                         "gas_logno": gas_logno,
+                         "gas_logco": gas_logco
+                         }
+TemplateLibrary["cue_stellar_nebular"] = (_cue_stellar_nebular_,
+                                          ("The set of nebular emission parameters for cue, where ionizing spectrum is fixed to young stellar populations from FSPS."))
+
 # -----------------------------------------
 # --- Nebular Emission Marginalization ----
 # -----------------------------------------

@@ -148,9 +148,8 @@ class SpecModel(ProspectorParams):
         self._eline_lum_mle = self._eline_lum.copy()
         if self.params.get('use_eline_nn_unc', False):
             self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
-                                             self._eline_lum)**2) + 
-                                    (sigma_line_for_fsps *
-                                     self._eline_lum)**2
+                                             self._eline_lum)**2) + (sigma_line_for_fsps * 
+                                                                     self._eline_lum)**2
         else:
             self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
                                              self._eline_lum)**2)
