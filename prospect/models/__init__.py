@@ -7,12 +7,13 @@ specifications.
 
 
 from .parameters import ProspectorParams
-from .sedmodel import SpecModel, HyperSpecModel, AGNSpecModel
+from .sedmodel import SpecModel, HyperSpecModel, AGNSpecModel, AGNPolySpecModel
 
 
 __all__ = ["ProspectorParams",
            "SpecModel",
            "HyperSpecModel",
-           "AGNSpecModel"
+           "AGNSpecModel",
+           "AGNPolySpecModel"
            ]
 
