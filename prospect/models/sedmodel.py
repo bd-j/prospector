@@ -23,7 +23,8 @@ from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 
 __all__ = ["SpecModel",
            "HyperSpecModel",
-           "AGNSpecModel"]
+           "AGNSpecModel",
+           "AGNPolySpecModel"]
 
 
 class SpecModel(ProspectorParams):
@@ -1063,6 +1064,57 @@ class AGNSpecModel(SpecModel):
         alums = self._aline_lum[line_indices] * anorm
         aline_spec = (alums * gaussians).sum(axis=1)
         return aline_spec
+
+
+class AGNPolySpecModel(SpecModel):
+    """AGN acceration disk continuum model. 
+    For details, see Wang et al. 2024: https://ui.adsabs.harvard.edu/abs/2024arXiv240302304W/abstract
+    """
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        self.init_eline_info()
+    
+    def predict_init(self, theta, sps=None, **extras):
+
+        self.set_parameters(theta)
+        self._library_resolution = getattr(sps, "spectral_resolution", 0.0) # restframe
+
+        self._wave, self._galspec, self._agnspec, self._agnspec_torus, self._mfrac, other = sps.get_galaxy_spectrum(**self.params)
+        self._zred = self.params.get('zred', 0)
+        self._eline_wave, self._eline_lum = sps.get_galaxy_elines()
+
+        self._norm_galspec = self._galspec * self.flux_norm()
+        self._norm_agnspec = self._agnspec * self.flux_norm()
+        self._norm_agnspec_torus = self._agnspec_torus * self.flux_norm()
+
+        cache_intr_spec = self.params.get('cache_intrinsic_spec', False)
+        if cache_intr_spec:
+            self._galspec_nodust = other['gal_tot_nodust']
+            self._agnspec_nodust = other['agn_nodust']
+
+            self._galspec_nodust *= self.flux_norm()
+            self._agnspec_nodust *= self.flux_norm()
+
+        self._norm_spec = self._norm_galspec + self._norm_agnspec + self._norm_agnspec_torus
+
+        # cache eline observed wavelengths
+        eline_z = self.params.get("eline_delta_zred", 0.0)
+        self._ewave_obs = (1 + eline_z + self._zred) * self._eline_wave
+
+        # cache eline mle info
+        self._ln_eline_penalty = 0
+        self._eline_lum_mle = self._eline_lum.copy()
+        self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
+                                         self._eline_lum)**2)
+
+        # physical velocity smoothing of the whole UV/NIR spectrum
+        self._smooth_spec = self.losvd_smoothing(self._wave, self._norm_spec)
+
+        # Ly-alpha absorption
+        self._smooth_spec = self.add_dla(self._wave, self._smooth_spec)
+        self._smooth_spec = self.add_damping_wing(self._wave, self._smooth_spec)
 
 
 class HyperSpecModel(ProspectorHyperParams, SpecModel):

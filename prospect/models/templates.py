@@ -815,4 +815,62 @@ _beta_nzsfh_['agebins'] = {'N': nbins_sfh, 'isfree': False,
                            'depends_on': transforms.zred_to_agebins_pbeta}
 
 TemplateLibrary["beta"] = (_beta_nzsfh_,
-                           "The prospector-beta model; Wang, Leja, et al. 2023")
+                           "The prospector-beta model; Wang, Leja, et al. 2023: https://ui.adsabs.harvard.edu/abs/2023ApJ...944L..58W/abstract")
+
+
+# ----------------------------
+# --- Prospector-beta without the number density prior ---
+# ----------------------------
+
+_beta_phisfh_ = TemplateLibrary["beta"]
+_beta_phisfh_['nzsfh'] = {'N': nbins_sfh+2, 'isfree': True, 'init': np.concatenate([[0.5,8,0.0], np.zeros(nbins_sfh-1)]),
+                         'prior': priors_beta.PhiSFH(zred_mini=1e-3, zred_maxi=15.0,
+                                                    mass_mini=7.0, mass_maxi=12.5,
+                                                    z_mini=-1.98, z_maxi=0.19,
+                                                    logsfr_ratio_mini=-5.0, logsfr_ratio_maxi=5.0,
+                                                    logsfr_ratio_tscale=0.3, nbins_sfh=nbins_sfh,
+                                                    const_phi=True)}
+TemplateLibrary["beta_phisfh"] = (_beta_phisfh_,
+                                  "The prospector-beta model used for creating the UNCOVER SPS catalogs: Wang et al. 2024: https://ui.adsabs.harvard.edu/abs/2024ApJS..270...12W/abstract")                         
+
+# ----------------------------------------
+# --- AGN Acceration Disk Continuum ---
+# ----------------------------------------
+cache_intrinsic_spec = {"N": 1, "isfree": False, "init": False}
+add_agn_bbb_cont = {"N": 1, "isfree": False, "init": True}
+add_agn_bbb_elines = {"N": 1, "isfree": False, "init": False}
+
+fagn_bbb = {'N': 1, 'isfree': True,
+            'init': 1e-4, 'units': r'Fnu_{AGN}/Fnu_* at rest 5500A',
+            'prior': priors.LogUniform(mini=1e-5, maxi=100.0)}
+
+_agn_bbb = {"fagn_bbb": fagn_bbb,
+            "add_agn_bbb_cont": add_agn_bbb_cont,
+            "add_agn_bbb_elines": add_agn_bbb_elines,
+            'cache_intrinsic_spec': cache_intrinsic_spec
+            }
+
+TemplateLibrary["agn_bbb"] = (_agn_bbb,
+                             ("The set of AGN acceration disk continuum parameters; Wang et al. 2024: https://ui.adsabs.harvard.edu/abs/2024arXiv240302304W/abstract"))
+
+# ---------------------------------------------------
+# --- Additional dust attenuation received by AGN ---
+# ---------------------------------------------------
+dust4_type = {"N": 1, "isfree": False, "init": 1,
+              "units": "dust type for AGN. 0: no dust4. 1: galaxy & AGN both reddened by dust2, whereas the AGN can receive additional reddening from dust4.",
+              "prior": None}
+
+dust4_index = {"N": 1, "isfree": True,
+               "init": -1.0,
+               "units": "index of the AGN dust attenuation curve",
+               "prior": priors.TopHat(mini=-1.8, maxi=-0.8)}
+
+dust4 = {"N": 1, "isfree": True,
+         "init": 0.,
+         "units": "optical depth at 5500AA",
+         "prior": priors.TopHat(mini=0.0, maxi=4.0)}
+
+_dust4 = {"dust4_type": dust4_type, "dust4_index": dust4_index, "dust4": dust4}
+
+TemplateLibrary["dust4"] = (_dust4,
+                           ("Additional dust law for AGN acceration disk; Wang et al. 2024: https://ui.adsabs.harvard.edu/abs/2024arXiv240302304W/abstract"))
