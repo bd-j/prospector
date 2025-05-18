@@ -453,14 +453,20 @@ class SpecModel(ProspectorParams):
 
         # get the emission line info
         try:
-            SPS_HOME = os.getenv('SPS_HOME')
-            info = np.genfromtxt(os.path.join(SPS_HOME, 'data', eline_file),
-                                 dtype=[('wave', 'f8'), ('name', '<U20')],
-                                 delimiter=',')
+            if self.params.get("use_stellar_ionizing") is None:
+                SPS_HOME = os.getenv('SPS_HOME')
+                info = np.genfromtxt(os.path.join(SPS_HOME, 'data', eline_file),
+                                     dtype=[('wave', 'f8'), ('name', '<U20')],
+                                     delimiter=',')
+            else:
+                from pkg_resources import resource_filename
+                info = np.genfromtxt(resource_filename("cue", "data/cue_emlines_info.dat"),
+                                     dtype=[('wave', 'f8'), ('name', '<U20')],
+                                     delimiter=',')
             self.emline_info = info
             self._use_eline = np.ones(len(info), dtype=bool)
         except(OSError, KeyError, ValueError) as e:
-            print("Could not read and cache emission line info from $SPS_HOME/data/emlines_info.dat")
+            print("Could not read and cache emission line info")
             self.emline_info = e
 
     @property

@@ -31,6 +31,15 @@ Work to do includes:
 - [ ] Test smoothing accounting for library, instrumental & physical smoothing
 - [ ] Implement an emulator-based SpecModel class
 
+Nebular emission is computed using [`cuejax`](https://github.com/efburnham/cue), a jax-compatible version of `cue` ([Li et al. 2024](https://ui.adsabs.harvard.edu/abs/2024arXiv240504598L/abstract)). 
+`cuejax` requires [`E-FSPS`](https://github.com/efburnham/E-FSPS), a emulator-based stellar population synthesis (SPS) framework.
+The ionizing spectrum that powers the nebular emission can either be modeled as a 4-segment power-law or fixed to the spectrum of stellar populations:
+```py
+from prospect.models.templates import TemplateLibrary
+TemplateLibrary["cue_nebular"] # Uses a power-law ionizing spectrum
+TemplateLibrary["cue_stellar_nebular"] # Uses the stellar ionizing spectrum
+```
+**Note:** Dust emission is not yet implemented for compatibility with nebular emission.
 
 
 Migration from < v2.0

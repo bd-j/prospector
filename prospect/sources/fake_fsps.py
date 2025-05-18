@@ -12,7 +12,7 @@ idx = np.array([0,1,2,3,4,5,6,9,13,14,15,16,17,18,19,20,21,22,23,24,24,25,26,28,
 __all__ = ["add_dust", "add_igm"]
 
 
-def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=0.0,dust1=0.0,**kwargs):
+def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=-1.0,dust1=0.0,**kwargs):
     """
     wave: wavelength vector in Angstroms
     specs: spectral flux density, in (young, old) pairs
@@ -30,16 +30,16 @@ def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=0.0,dust2=0.0,du
         else:
             d1 = 0.0
 
-        attenuated_specs[i] = attenuate(spec,wave,dust_type=dust_type,dust_index=dust_index,dust2=dust2,dust1_index=dust1_index,dust1=d1)
-        attenuated_lines[i] = attenuate(line,line_waves,dust_type=dust_type,dust_index=dust_index,dust2=dust2,dust1_index=dust1_index,dust1=d1)
-
+        attenuated_lines[i], diff_dust = attenuate(line,line_waves,dust_type=dust_type,dust_index=dust_index,dust2=dust2,dust1_index=dust1_index,dust1=d1)
+        attenuated_specs[i], diff_dust = attenuate(spec,wave,dust_type=dust_type,dust_index=dust_index,dust2=dust2,dust1_index=dust1_index,dust1=d1)
+        
     attenuated_specs = attenuated_specs[0] + attenuated_specs[1]
     attenuated_lines = attenuated_lines[0] + attenuated_lines[1]
     return attenuated_specs, attenuated_lines
 
 
 def attenuate(spec,lam,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=0.0,dust1=0.0):
-    """returns F(obs) / F(emitted) for a given attenuation curve + dust1 + dust2
+    """returns F(obs) for a given attenuation curve + dust1 + dust2
     """
 
     ### constants from FSPS
@@ -136,7 +136,7 @@ def attenuate(spec,lam,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=0.0,dust
 
     ext_tot = dust2_ext*dust1_ext
 
-    return ext_tot*spec
+    return ext_tot*spec, dust2_ext
 
 def add_igm(wave, spec, zred=0., igm_factor=1.0, add_igm_absorption=None, **kwargs):
     """IGM absorption based on Madau+1995
