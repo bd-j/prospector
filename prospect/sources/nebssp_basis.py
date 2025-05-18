@@ -7,8 +7,8 @@ from .galaxy_basis import FastStepBasis, CSPSpecBasis
 from .fake_fsps import add_dust, add_igm, idx
 
 try:
-    import cuejax as cue
-    from cuejax import Emulator
+    import cue
+    from .fake_fsps import Emulator
 except:
     pass
 
