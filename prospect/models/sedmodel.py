@@ -21,7 +21,7 @@ from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 
 try:
-    from cue.utils import sigma_line_for_fsps
+    from ..sources.fake_fsps import frac_line_err # a very rough estimate of the emission line emulator error
 except:
     pass
 
@@ -148,7 +148,7 @@ class SpecModel(ProspectorParams):
         self._eline_lum_mle = self._eline_lum.copy()
         if self.params.get('use_eline_nn_unc', False):
             self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
-                                             self._eline_lum)**2) + (sigma_line_for_fsps * 
+                                             self._eline_lum)**2) + (frac_line_err * 
                                                                      self._eline_lum)**2
         else:
             self._eline_lum_covar = np.diag((self.params.get('eline_prior_width', 0.0) *
@@ -460,7 +460,7 @@ class SpecModel(ProspectorParams):
                                      delimiter=',')
             else:
                 from pkg_resources import resource_filename
-                info = np.genfromtxt(resource_filename("cue", "data/cue_emlines_info.dat"),
+                info = np.genfromtxt(resource_filename("cuejax", "data/cue_emlines_info.dat"),
                                      dtype=[('wave', 'f8'), ('name', '<U20')],
                                      delimiter=',')
             self.emline_info = info

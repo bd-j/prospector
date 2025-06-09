@@ -1,22 +1,23 @@
-### SSP for cue
+### SSP for cuejax
 import numpy as np
 from pkg_resources import resource_filename
 
 import fsps
-from .galaxy_basis import FastStepBasis, CSPSpecBasis
+from .galaxy_basis import SSPBasis, FastStepBasis, CSPSpecBasis
 from .fake_fsps import add_dust, add_igm, idx
 
 try:
-    import cue
-    from .fake_fsps import Emulator
+    from cuejax.emulator import Emulator, fast_line_prediction, fast_cont_prediction
+    from cuejax.utils import fit_4loglinear_ionparam
 except:
     pass
 
 
-__all__ = ["NebStepBasis", "NebCSPBasis"]
+__all__ = ["NebSSPBasis", "NebStepBasis", "NebCSPBasis"]
 
 
-class NebStepBasis(FastStepBasis):
+
+class NebSSPBasis(SSPBasis):
 
     """This is a class that wraps the fsps.StellarPopulation object, which is
     used for producing SSPs.  The ``fsps.StellarPopulation`` object is accessed
@@ -43,10 +44,39 @@ class NebStepBasis(FastStepBasis):
         their functionality using (hopefully more efficient) custom algorithms.
     """
 
-    def __init__(self, cue_kwargs={},
+    def __init__(self, zcontinuous=1, reserved_params=['tage', 'sigma_smooth'],
+                 interp_type='logarithmic', flux_interp='linear',
+                 mint_log=-3, compute_vega_mags=False,
+                 cue_kwargs={},
                  **kwargs):
+        """
+        :param interp_type: (default: "logarithmic")
+            Specify whether to linearly interpolate the SSPs in log(t) or t.
+            For the latter, set this to "linear".
 
-        self.emul = Emulator(**cue_kwargs)
+        :param flux_interp': (default: "linear")
+            Whether to compute the final spectrum as \sum_i w_i f_i or
+            e^{\sum_i w_i ln(f_i)}.  Basically you should always do the former,
+            which is the default.
+
+        :param mint_log: (default: -3)
+            The log of the age (in years) of the youngest SSP.  Note that the
+            SSP at this age is assumed to have the same spectrum as the minimum
+            age SSP avalibale from fsps.  Typically anything less than 4 or so
+            is fine for this parameter, since the integral converges as log(t)
+            -> -inf
+
+        :param reserved_params:
+            These are parameters which have names like the FSPS parameters but
+            will not be passed to the StellarPopulation object because we are
+            overriding their functionality using (hopefully more efficient)
+            custom algorithms.
+        """
+        self.interp_type = interp_type
+        self.mint_log = mint_log
+        self.flux_interp = flux_interp
+        self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+                                          zcontinuous=zcontinuous)
         # we do these now
         rp = ["dust1", "dust2", "dust3", "add_dust_emission",
               "add_igm_absorption", "igm_factor",
@@ -55,9 +85,145 @@ class NebStepBasis(FastStepBasis):
         reserved_params = kwargs.pop("reserved_params", []) + rp
         super().__init__(reserved_params=reserved_params, **kwargs)
         for k in ["add_igm_absorption", "add_dust_emission", "add_neb_emission", "nebemlineinspec"]:
-            self.ssp.params[k] = False
-            
-        self.emline_wavelengths = np.genfromtxt(resource_filename("cue", "data/cue_emlines_info.dat"),
+            self.ssp.params[k] = False            
+        self.ssp.params['sfh'] = 0
+        self.reserved_params = reserved_params
+        self.params = {}
+        self.update(**kwargs)
+        
+        self.emul = Emulator(**cue_kwargs) # gas_logqion is fixed to 49.1
+        # compile the functions first to speed up prediction, using an initial set of cue parameters in order
+        _ = fast_line_prediction([19.7, 5.3, 1.6, 0.6, 3.9, 0.01, 0.2, -2.5, 2.0, 0.0, 0.0, 0.0], self.emul)
+        _ = fast_cont_prediction([19.7, 5.3, 1.6, 0.6, 3.9, 0.01, 0.2, -2.5, 2.0, 0.0, 0.0, 0.0], 
+                                 self.ssp.wavelengths,
+                                 self.emul, unit='Lsun/Hz')
+        self.emline_wavelengths = np.genfromtxt(resource_filename("cuejax", "data/cue_emlines_info.dat"),
+                                                dtype=[('wave', 'f8'), ('name', '<U20')],
+                                                delimiter=',')['wave']
+
+    def get_galaxy_spectrum(self, **params):
+        """Update parameters, then get the SSP spectrum
+
+        Returns
+        -------
+        wave : ndarray
+            Restframe avelength in angstroms.
+
+        spectrum : ndarray
+            Spectrum in units of Lsun/Hz per solar mass formed.
+
+        mass_fraction : float
+            Fraction of the formed stellar mass that still exists.
+        """
+        self.update(**params)
+        wave, spec, lines = get_spectrum(self.ssp, self.params, self.emul, self.emline_wavelengths, tage=float(self.params['tage']))
+        self._line_specific_luminosity = lines
+        
+        # mimic the "nebemlineinspec" function in FSPS
+        if self.params.get("nebemlineinspec", False):
+            if self.ssp.params["smooth_velocity"] == True:
+                dlam = self.emline_wavelengths*self.ssp.params["sigma_smooth"]/2.9979E18*1E13 #smoothing variable is in km/s
+            else:
+                dlam = self.ssp.params["sigma_smooth"] #smoothing variable is in AA
+            nearest_id = np.searchsorted(wave, self.emline_wavelengths)
+            neb_res_min = wave[nearest_id]-wave[nearest_id-1]
+            dlam = np.max([dlam,neb_res_min*2], axis=0)
+            gaussnebarr = [1./np.sqrt(2*np.pi)/dlam[i]*np.exp(-(wave-self.emline_wavelengths[i])**2/2/dlam[i]**2) \
+            /2.9979E18*self.emline_wavelengths[i]**2 for i in range(len(lines))]
+            for i in range(len(lines)):
+                spec += lines[i]*gaussnebarr[i]
+
+        return wave, spec, self.ssp.stellar_mass
+
+    def get_galaxy_elines(self):
+        """Get the wavelengths and specific emission line luminosity of the nebular emission lines
+        predicted by FSPS. These lines are in units of Lsun/solar mass formed.
+        This assumes that `get_galaxy_spectrum` has already been called.
+
+        :returns ewave:
+            The *restframe* wavelengths of the emission lines, AA
+
+        :returns elum:
+            Specific luminosities of the nebular emission lines,
+            Lsun/stellar mass formed
+        """
+        ewave = self.emline_wavelengths
+        # This allows subclasses to set their own specific emission line
+        # luminosities within other methods, e.g., get_galaxy_spectrum, by
+        # populating the `_specific_line_luminosity` attribute.
+        elum = getattr(self, "_line_specific_luminosity", None)
+        
+        if elum is None:
+            ewave = self.ssp.emline_wavelengths
+            elum = self.ssp.emline_luminosity.copy()
+        if elum.ndim > 1:
+            elum = elum[0]
+        if self.ssp.params["sfh"] == 3:
+            # tabular sfh
+            mass = np.sum(self.params.get('mass', 1.0))
+            elum /= mass
+
+        return ewave, elum
+
+    
+class NebStepBasis(FastStepBasis):
+
+    """This is a class that wraps the fsps.StellarPopulation object, which is
+    used for producing SSPs.  The ``fsps.StellarPopulation`` object is accessed
+    as ``SSPBasis().ssp``.
+
+    This class allows for the custom calculation of relative SSP weights (by
+    overriding ``all_ssp_weights``) to produce spectra from arbitrary composite
+    SFHs. Alternatively, the entire ``get_galaxy_spectrum`` method can be
+    overridden to produce a galaxy spectrum in some other way, for example
+    taking advantage of weight calculations within FSPS for tabular SFHs or for
+    parameteric SFHs.
+
+    The base implementation here produces an SSP interpolated to the age given
+    by ``tage``, with initial mass given by ``mass``.  However, this is much
+    slower than letting FSPS calculate the weights, as implemented in
+    :py:class:`FastSSPBasis`.
+
+    Furthermore, smoothing, redshifting, and filter projections are handled
+    outside of FSPS, allowing for fast and more flexible algorithms.
+
+    :param reserved_params:
+        These are parameters which have names like the FSPS parameters but will
+        not be passed to the StellarPopulation object because we are overriding
+        their functionality using (hopefully more efficient) custom algorithms.
+    """
+    def __init__(self, zcontinuous=1, reserved_params=['tage', 'sigma_smooth'],
+                 interp_type='logarithmic', flux_interp='linear',
+                 mint_log=-3, compute_vega_mags=False,
+                 cue_kwargs={},
+                 **kwargs):
+        
+        self.interp_type = interp_type
+        self.mint_log = mint_log
+        self.flux_interp = flux_interp
+        self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+                                          zcontinuous=zcontinuous)
+        # we do these now
+        rp = ["dust1", "dust2", "dust3", "add_dust_emission",
+              "add_igm_absorption", "igm_factor",
+              "add_neb_emission", "add_neb_continuum", "nebemlineinspec",
+              "fagn", "agn_tau"]
+        reserved_params = kwargs.pop("reserved_params", []) + rp
+        super().__init__(reserved_params=reserved_params, **kwargs)
+        for k in ["add_igm_absorption", "add_dust_emission", "add_neb_emission", "nebemlineinspec"]:
+            self.ssp.params[k] = False            
+        self.ssp.params['sfh'] = 0
+        self.reserved_params = reserved_params
+        self.params = {}
+        self.update(**kwargs)
+
+        self.emul = Emulator(**cue_kwargs) # gas_logqion is fixed to 49.1
+        # compile the functions first to speed up prediction, using an initial set of cue parameters in order
+        _ = fast_line_prediction([19.7, 5.3, 1.6, 0.6, 3.9, 0.01, 0.2, -2.5, 2.0, 0.0, 0.0, 0.0], self.emul)
+        _ = fast_cont_prediction([19.7, 5.3, 1.6, 0.6, 3.9, 0.01, 0.2, -2.5, 2.0, 0.0, 0.0, 0.0], 
+                                 self.ssp.wavelengths,
+                                 self.emul, unit='Lsun/Hz')
+        self.emline_wavelengths = np.genfromtxt(resource_filename("cuejax", "data/cue_emlines_info.dat"),
                                                 dtype=[('wave', 'f8'), ('name', '<U20')],
                                                 delimiter=',')['wave']
 
@@ -76,7 +242,7 @@ class NebStepBasis(FastStepBasis):
         self.ssp.set_tabular_sfh(time, sfr)
 
         wave, spec, lines = get_spectrum(self.ssp, self.params, self.emul, self.emline_wavelengths, tage=tmax)
-        self._line_specific_luminosity = lines/mtot
+        self._line_specific_luminosity = lines
         # mimic the "nebemlineinspec" function in FSPS
         if self.params.get("nebemlineinspec", False):
             if self.ssp.params["smooth_velocity"] == True:
@@ -114,12 +280,12 @@ class NebStepBasis(FastStepBasis):
         if elum is None:
             ewave = self.ssp.emline_wavelengths
             elum = self.ssp.emline_luminosity.copy()
-            if elum.ndim > 1:
-                elum = elum[0]
-            if self.ssp.params["sfh"] == 3:
-                # tabular sfh
-                mass = np.sum(self.params.get('mass', 1.0))
-                elum /= mass
+        if elum.ndim > 1:
+            elum = elum[0]
+        if self.ssp.params["sfh"] == 3:
+            # tabular sfh
+            mass = np.sum(self.params.get('mass', 1.0))
+            elum /= mass
 
         return ewave, elum
 
@@ -141,7 +307,6 @@ class NebCSPBasis(CSPSpecBasis):
         self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
                                           zcontinuous=zcontinuous,
                                           vactoair_flag=vactoair_flag)
-        self.emul = Emulator(**cue_kwargs)
         # we do these now
         rp = ["dust1", "dust2", "dust3", "add_dust_emission",
               "add_igm_absorption", "igm_factor",
@@ -152,7 +317,13 @@ class NebCSPBasis(CSPSpecBasis):
         for k in ["add_igm_absorption", "add_dust_emission", "add_neb_emission", "nebemlineinspec"]:
             self.ssp.params[k] = False
             
-        self.emline_wavelengths = np.genfromtxt(resource_filename("cue", "data/cue_emlines_info.dat"),
+        self.emul = Emulator(**cue_kwargs)
+        # compile the functions first to speed up prediction, using an initial set of cue parameters in order
+        _ = fast_line_prediction([19.7, 5.3, 1.6, 0.6, 3.9, 0.01, 0.2, -2.5, 0.0, 0.0, 0.0, 49.1], self.emul)
+        _ = fast_cont_prediction([19.7, 5.3, 1.6, 0.6, 3.9, 0.01, 0.2, -2.5, 0.0, 0.0, 0.0, 49.1], 
+                                 self.ssp.wavelengths,
+                                 self.emul, unit='Lsun/Hz')
+        self.emline_wavelengths = np.genfromtxt(resource_filename("cuejax", "data/cue_emlines_info.dat"),
                                                 dtype=[('wave', 'f8'), ('name', '<U20')],
                                                 delimiter=',')['wave']
 
@@ -233,29 +404,28 @@ class NebCSPBasis(CSPSpecBasis):
         if elum is None:
             ewave = self.ssp.emline_wavelengths
             elum = self.ssp.emline_luminosity.copy()
-            if elum.ndim > 1:
-                elum = elum[0]
-            if self.ssp.params["sfh"] == 3:
-                # tabular sfh
-                mass = np.sum(self.params.get('mass', 1.0))
-                elum /= mass
+        if elum.ndim > 1:
+            elum = elum[0]
+        if self.ssp.params["sfh"] == 3:
+            # tabular sfh
+            mass = np.sum(self.params.get('mass', 1.0))
+            elum /= mass
 
         return ewave, elum
     
 
-cue_keys = ['gas_logz',
-            'gas_logu',
-            'gas_lognH',
-            'gas_logno',
-            'gas_logco',
-            'ionspec_index1',
+cue_keys = ['ionspec_index1',
             'ionspec_index2',
             'ionspec_index3',
             'ionspec_index4',
             'ionspec_logLratio1',
             'ionspec_logLratio2',
             'ionspec_logLratio3',
-            'gas_logqion',]
+            'gas_logu',
+            'gas_lognH',
+            'gas_logz',
+            'gas_logno',
+            'gas_logco']
 
 def get_spectrum(ssp, params, emul, ewave, tage=0):
     """
@@ -276,22 +446,22 @@ def get_spectrum(ssp, params, emul, ewave, tage=0):
     if not add_neb:
         lines = [np.zeros_like(ewave), np.zeros_like(ewave)]
     elif add_neb:
-        cue_params = {k: v.item() if hasattr(v, 'item') else v for k, v in params.items() if k in cue_keys}
         if not use_stars:
-            line_prediction = np.squeeze(emul.predict_lines(**cue_params))
+            cue_params = {k: params[k] for k in cue_keys}
+            theta = np.array(list(cue_params.values()))
+            line_prediction = fast_line_prediction(theta, emul)[0].squeeze() * 10**(params["gas_logqion"] - 49.1)
             #if ssp.params["sfh"] == 3:
             #    line_prediction /= mass
             lines = [line_prediction, np.zeros_like(ewave)]
-            csps[0][wave>=912] += np.squeeze(emul.predict_cont(wave[wave>=912], unit='Lsun/Hz', **cue_params))
+            csps[0][wave>=912] += fast_cont_prediction(theta, wave[wave>=912], emul, unit='Lsun/Hz')[0].squeeze() * 10**(params["gas_logqion"] - 49.1)
         elif use_stars:
             for spec in csps:
-                ion_params = cue.fit_4loglinear_ionparam(wave, spec)
-                cue_params.update(**ion_params)
-                line_prediction = np.squeeze(emul.predict_lines(**cue_params))
-                #if ssp.params["sfh"] == 3:
-                #    line_prediction /= mass
+                params.update(**fit_4loglinear_ionparam(wave, spec))
+                cue_params = {k: params[k] for k in cue_keys}
+                theta = np.array(list(cue_params.values()))
+                line_prediction = fast_line_prediction(theta, emul)[0].squeeze() * 10**(params["gas_logqion"] - 49.1)
                 lines.append(line_prediction)
-                spec[wave>=912] += np.squeeze(emul.predict_cont(wave[wave>=912], unit='Lsun/Hz', **cue_params))
+                spec[wave>=912] += fast_cont_prediction(theta, wave[wave>=912], emul, unit='Lsun/Hz')[0].squeeze() * 10**(params["gas_logqion"] - 49.1)
         else:
             raise KeyError('No "use_stellar_ionizing" in model')
 

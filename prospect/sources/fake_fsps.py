@@ -1,9 +1,8 @@
 import numpy as np
 import os
+import dill as pickle
+from pkg_resources import resource_filename
 
-from efsps.sources.constants import lyman_limit
-from efsps.sources.transforms import maggies_to_cgs
-from efsps.models import priors, NebModel
 import jax.numpy as jnp
 import jax
 from pathlib import Path
@@ -18,7 +17,10 @@ idx = np.array([0,1,2,3,4,5,6,9,13,14,15,16,17,18,19,20,21,22,23,24,24,25,26,28,
           114,116,118,119,122,123,125,127,129,130,134,137,139,140,143,145,146,148,
           151,152,153,154,155,156,157,158,159,160,161,162,163,164,165])
 
-__all__ = ["add_dust", "add_igm"]
+out = pickle.load(open(resource_filename("cuejax", "data/nn_stats_v0.pkl"), "rb"))
+frac_line_err = 1./out['SN_quantile'][1][np.argsort(out['wav'])] # 1 / upper 2 sigma quantike of SN of the cue test set
+
+__all__ = ["add_dust", "add_igm", "DustEmission"]
 
 
 def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=-1.0,dust1=0.0,**kwargs):
@@ -157,6 +159,7 @@ def attenuate(spec,lam,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=0.0,dust
 
     return ext_tot*spec, dust2_ext
 
+
 def add_igm(wave, spec, zred=0., igm_factor=1.0, add_igm_absorption=None, **kwargs):
     """IGM absorption based on Madau+1995
     wave: rest-frame wavelength
@@ -204,162 +207,6 @@ def add_igm(wave, spec, zred=0., igm_factor=1.0, add_igm_absorption=None, **kwar
     tiny_number = 10**(-70.0)
     return np.clip(res, a_min=tiny_number, a_max=None)
 
-
-def build_cue_model(ionspec_index1=19.7, ionspec_index2=5.3, ionspec_index3=1.6, ionspec_index4=0.6,
-                 ionspec_logLratio1=3.9, ionspec_logLratio2=0.01, ionspec_logLratio3=0.2,
-                 gas_logu=-2.5, gas_logn=2, gas_logz=0., gas_logno=0., gas_logco=0.,
-                 gas_logqion=49.1,num_lines=138,**extras):
-
-    params = {}
-
-    params['ionspec_index1'] = {"N": 1, 'isfree': True,
-            'init': ionspec_index1, 
-            'prior': priors.UniformPrior(min=1, max=42)
-                         }
-    params['ionspec_index2'] = {"N": 1, 'isfree': True,
-            'init': ionspec_index2, 
-            'prior': priors.UniformPrior(min=-0.3, max=30)
-                         }
-    params['ionspec_index3'] = {"N": 1, 'isfree': True,
-            'init': ionspec_index3, 
-            'prior': priors.UniformPrior(min=-1, max=14)
-                         }
-    params['ionspec_index4'] = {"N": 1, 'isfree': True,
-            'init': ionspec_index4, 
-            'prior': priors.UniformPrior(min=-1.7, max=8)
-                         }
-    params['ionspec_logLratio1'] = {"N": 1, 'isfree': True,
-            'init': ionspec_logLratio1, 
-            'prior': priors.UniformPrior(min=-1, max=10.1)
-                         }
-    params['ionspec_logLratio2'] = {"N": 1, 'isfree': True,
-            'init':ionspec_logLratio2, 
-            'prior': priors.UniformPrior(min=-0.5, max=1.9)
-                         }
-    params['ionspec_logLratio3'] = {"N": 1, 'isfree': True,
-            'init': ionspec_logLratio3, 
-            'prior': priors.UniformPrior(min=-0.4, max=2.2)
-                         }
-
-    params['gas_logu'] = {"N": 1, 'isfree': True,
-            'init': gas_logu, 
-            'prior': priors.UniformPrior(min=-4.0, max=-1)
-                         }
-
-     # note that this is NOT in log, as this is a direct input into cue in linear units
-    params['gas_logn'] = {'N': 1, 'isfree': True, 'init': gas_logn,'prior': priors.UniformPrior(min=1, max=4)}
-
-    params['gas_logz'] = {'N': 1, 'isfree': True,
-            'init': gas_logz, 'units': r'log Z/Z_\odot',
-            'prior': priors.UniformPrior(min=-2.0, max=0.5)
-                         }
-
-    params['gas_logno'] = {"N": 1, 'isfree': True,
-            'init': gas_logno, 
-            'prior': priors.UniformPrior(min=-1, max=np.log10(5.4))
-                         }
-
-    params['gas_logco'] = {"N": 1, 'isfree': True,
-            'init': gas_logco, 
-            'prior': priors.UniformPrior(min=-1, max=np.log10(5.4))
-                         }
-
-    params['gas_logqion'] = {'N': 1, 'isfree': True,
-            'init': gas_logqion, 
-            'prior': priors.UniformPrior(min=30, max=50)
-                         }
-
-
-    # --- fixed parameters 
-    params['add_stars'] = {"N": 1, "isfree": False,"init": False} # don't load in the stellar emulators
-    params['use_stellar_ionizing'] = {"N": 1, "isfree": False, "init": False} # don't load in ionizing continuum emulators
-    params["add_duste"] = {"N": 1, "isfree": False, "init": False}
-    params['add_neb_emission'] = {'N': 1, 'isfree': False, 'init':True}
-    params['nebemlineinspec'] = {'N': 1, 'isfree': False, 'init': False}
-    params['add_igm_absorption'] = {'N': 1, 'isfree': False, 'init': False}
-    params['igm_damping'] = {'N': 1, 'isfree': False, 'init': False}
-    params["add_dust_emission"] = {"N": 1, "isfree": False,"init": False}
-    params['add_neb_lines'] = {'N': 1, 'isfree': False, 'init':True} # load in line emulators
-    params['add_neb_continuum'] = {'N': 1, 'isfree': False, 'init': True} # load in the nebular continuum emulator
-
-    return NebModel(params,num_lines=num_lines) # if not predicting stellar continuum, you don't need to set a stellar emulator model path
-
-
-class Emulator():
-    def __init__(self,**kwargs):
-        """
-        Args:
-        - num_lines (int): Number of lines returned by cue. This can either be 128 (the Byler cloudy grid lines,
-
-        """
-        self.model = build_cue_model(**kwargs) # getting ALL of the cue lines, not just the Byler grid lines.
-        self.theta = kwargs.get('theta', self.model.theta)
-        self.cont_lam = self.model.spec_wavelengths
-        self.line_wavelength = self.model.line_wavelengths
-
-        params = ['ionspec_index1', 'ionspec_index2', 'ionspec_index3', 'ionspec_index4',
-                'ionspec_logLratio1', 'ionspec_logLratio2', 'ionspec_logLratio3',
-                'gas_logn', 'gas_logz', 'gas_logno', 'gas_logco','gas_logqion']
-
-        for param in params:
-            setattr(self, param, self.model.params[param])
-
-    def update(self,theta=None,**kwargs):
-        if theta is None:
-            theta = self.model.theta.copy()
-            for param, value in kwargs.items():
-                if value is not None:
-                    setattr(self, param, value)
-                    idx = [i for i, name in enumerate(self.model.free_parameter_order) if name == param]
-                    theta = theta.at[:,idx].set(value) 
-        self.theta = theta
-                
-
-    def predict_lines(self,**kwargs):
-        """
-        hard coded to return the 138 cue lines. Lines in units of Lsun.
-        
-        theta must be inputted as a shape (N,13) in order of:
-            - ionspec_index1
-            - ionspec_index2
-            - ionspec_index3
-            - ionspec_logLratio1
-            - ionspec_logLratio2
-            - ionspec_logLratio3
-            - ionspec_logLratio4
-            - gas_logu
-            - gas_logn
-            - gas_logz
-            - gas_logno
-            - gas_logco
-            - gas_logqion
-        """
-        self.update(**kwargs)
-        return self.model.predict_lines(self.theta) # jit-compiled
-        
-    def predict_cont(self,wave,unit='erg/s/Hz',**kwargs):
-        """
-        continuum in erg/s/Hz or Lsun/Hz.
-        
-        theta must be inputted as a shape (N,14) in order of:
-            - ionspec_index1
-            - ionspec_index2
-            - ionspec_index3
-            - ionspec_index4
-            - ionspec_logLratio1
-            - ionspec_logLratio2
-            - ionspec_logLratio3
-            - gas_logu
-            - gas_logn
-            - gas_logz
-            - gas_logno
-            - gas_logco
-            - gas_logqion
-        """
-        self.update(**kwargs)
-        cont = self.model.predict_cont(self.theta,wave,unit=unit) # jit-compiled, interpolates
-        return cont
-    
 
 class DustEmission:
 
@@ -548,8 +395,8 @@ class DustEmission:
 
         # Compute total luminosity before and after attenuation
         nu = 2.9979E18 / spec_lambda  # Frequency in Hz (c / λ)
-        lbold = jnp.trapezoid(nu * specdust, -nu) + jnp.sum(linedust)  # L_bol after attenuation
-        lboln = jnp.trapezoid(nu * csp_spectra, -nu) + jnp.sum(line)  # L_bol before attenuation
+        lbold = jax.scipy.integrate.trapezoid(nu * specdust, -nu) + jnp.sum(linedust)  # L_bol after attenuation
+        lboln = jax.scipy.integrate.trapezoid(nu * csp_spectra, -nu) + jnp.sum(line)  # L_bol before attenuation
                 
         # Interpolation indices for PAH fraction and Umin
         qlo = jnp.clip(jnp.searchsorted(self.qpaharr, duste_qpah) - 1, 0, len(self.qpaharr) - 2)
@@ -583,7 +430,7 @@ class DustEmission:
         
         # Normalize to absorbed luminosity
         labs = lboln - lbold  # Energy absorbed by dust
-        norm = jnp.trapezoid(nu * mduste, -nu)  # Normalization factor
+        norm = jax.scipy.integrate.trapezoid(nu * mduste, -nu)  # Normalization factor
         duste = mduste / norm * labs  # Normalize dust emission
         duste = jnp.maximum(duste, 1e-70)
 
@@ -599,8 +446,8 @@ class DustEmission:
 #             duste_att = duste * diff_dust # Apply diffuse attenuation, duste *jnp.exp(-self.diffuse_tau)  
 #             tduste = tduste + duste_att
 
-#             lbold = jnp.trapezoid(nu * duste_att, -nu)  # Update L_bol after self-absorption
-#             lboln = jnp.trapezoid(nu * oduste, -nu)  # Before self-absorption
+#             lbold = jax.scipy.integrate.trapezoid(nu * duste_att, -nu)  # Update L_bol after self-absorption
+#             lboln = jax.scipy.integrate.trapezoid(nu * oduste, -nu)  # Before self-absorption
 
 #             duste = jnp.maximum(mduste / norm * (lboln - lbold), 1e-70)
 #             return lbold, lboln, tduste
@@ -613,8 +460,8 @@ class DustEmission:
             duste_att = duste * diff_dust # Apply diffuse attenuation, duste *jnp.exp(-self.diffuse_tau)  
             tduste = tduste + duste_att
 
-            lbold = jnp.trapezoid(nu * duste_att, -nu)  # Update L_bol after self-absorption
-            lboln = jnp.trapezoid(nu * oduste, -nu)  # Before self-absorption
+            lbold = jax.scipy.integrate.trapezoid(nu * duste_att, -nu)  # Update L_bol after self-absorption
+            lboln = jax.scipy.integrate.trapezoid(nu * oduste, -nu)  # Before self-absorption
 
             duste = jnp.maximum(mduste / norm * (lboln - lbold), 1e-70)
 
