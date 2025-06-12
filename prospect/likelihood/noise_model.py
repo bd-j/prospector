@@ -37,6 +37,9 @@ class NoiseModel:
 
     def lnlike(self, pred, obs, vectors={}):
 
+        if obs.flux is None:
+            return 0
+
         # populatate vectors used as metrics and weight functions.
         vectors = self.populate_vectors(obs)
         # Construct Sigma (and factorize if 2d)

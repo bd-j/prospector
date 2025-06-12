@@ -101,9 +101,24 @@ class Observation:
         uncertainties.
         """
         n = self.__repr__
-        if self.flux is None:
-            print(f"{n} has no data")
-            return
+
+        _flux_array = False
+        try:
+            len(self.flux)
+            _flux_array = True
+        except:
+            _flux_array = False
+
+        if _flux_array:
+            if self.flux is None:
+                print(f"{n} has no data")
+                return
+        else:
+            if self.flux == None:
+                print(f"{n} has no data")
+                self.flux = None
+                self.wavelength = None
+                return
 
         assert self.flux.ndim == 1, f"{n}: flux is not a 1d array"
         assert self.uncertainty.ndim == 1, f"{n}: uncertainty is not a 1d array"
@@ -331,7 +346,10 @@ class Spectrum(Observation):
         self.resolution = resolution
         self.response = response
         self.instrument_smoothing_parameters = dict(smoothtype="vel", fftsmooth=True)
-        self.wavelength = np.atleast_1d(wavelength)
+        if wavelength is not None:
+            self.wavelength = np.atleast_1d(wavelength)
+        else:
+            self.wavelength = None
 
     @property
     def wavelength(self):
