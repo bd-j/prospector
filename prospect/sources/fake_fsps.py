@@ -23,7 +23,7 @@ frac_line_err = 1./out['SN_quantile'][1][np.argsort(out['wav'])] # 1 / upper 2 s
 __all__ = ["add_dust", "add_igm", "DustEmission"]
 
 
-def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=-1.0,dust1=0.0,**kwargs):
+def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=-0.7,dust2=0.0,dust1_index=-1.0,dust1=0.0,**kwargs):
     """
     wave: wavelength vector in Angstroms
     specs: spectral flux density, in (young, old) pairs
@@ -47,19 +47,20 @@ def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=0.0,dust2=0.0,du
     attenuated_specs = attenuated_specs[0] + attenuated_specs[1]
     attenuated_lines = attenuated_lines[0] + attenuated_lines[1] 
     
-    if kwargs.get("add_dust_emission", None):
-        dust_specs = DustEmission(dust_file = os.getenv('SPS_HOME'),
-                                  spec_lambda = wave, **kwargs).compute_dust_emission(
-            attenuated_specs, specs[0]+specs[1], wave, 
-            diff_dust, attenuated_lines, lines[0]+lines[1])[0]
-        return dust_specs, attenuated_lines
+#     if kwargs.get("add_dust_emission", None):
+#         dust_specs = DustEmission(dust_file = os.getenv('SPS_HOME'),
+#                                   spec_lambda = wave, **kwargs).compute_dust_emission(
+#             attenuated_specs, specs[0]+specs[1], wave, 
+#             diff_dust, attenuated_lines, lines[0]+lines[1])[0]
+#         return dust_specs, attenuated_lines
     
-    else:
-        return attenuated_specs, attenuated_lines
+#     else:
+#         return attenuated_specs, attenuated_lines
+    return attenuated_specs, attenuated_lines
 
 
 
-def attenuate(spec,lam,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=0.0,dust1=0.0):
+def attenuate(spec,lam,dust_type=0,dust_index=-0.7,dust2=0.0,dust1_index=0.0,dust1=0.0):
     """returns F(obs) for a given attenuation curve + dust1 + dust2
     """
 

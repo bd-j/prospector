@@ -10,18 +10,18 @@ from sedpy import observate
 from prospect.observation import from_oldstyle
 from prospect.models.templates import TemplateLibrary
 from prospect.models.sedmodel import SpecModel
-from prospect.sources.nebssp_basis import NebStepBasis, NebCSPBasis
+from prospect.sources.nebssp_basis import NebSSPBasis, NebStepBasis
 
 @pytest.fixture
 def get_sps():
-    sps = CSPSpecBasis(zcontinuous=1)
+    sps = NebSSPBasis(zcontinuous=1)
     return sps
 
 
 # test nebular line specification
 def test_eline_parsing():
     model_pars = TemplateLibrary["parametric_sfh"]
-    model_pars.update(TemplateLibrary["cue_nebular"])
+    model_pars.update(TemplateLibrary["cue_stellar_nebular"])
 
     # test ignoring a line
     lya = "Ly-alpha 1215"
@@ -84,13 +84,13 @@ def test_nebline_phot_addition(get_sps):
     # add nebline photometry in FSPS
     model_pars = TemplateLibrary["parametric_sfh"]
     model_pars["zred"]["init"] = zred
-    model_pars.update(TemplateLibrary["cue_nebular"])
+    model_pars.update(TemplateLibrary["cue_stellar_nebular"])
     m1 = SpecModel(model_pars)
 
     # adding nebline photometry by hand
     model_pars = TemplateLibrary["parametric_sfh"]
     model_pars["zred"]["init"] = zred
-    model_pars.update(TemplateLibrary["cue_nebular"])
+    model_pars.update(TemplateLibrary["cue_stellar_nebular"])
     model_pars["nebemlineinspec"]["init"] = False
     m2 = SpecModel(model_pars)
 
@@ -127,7 +127,7 @@ def test_filtersets(get_sps):
     # test SpecModel with nebular emission added by SpecModel
     model_pars = TemplateLibrary["parametric_sfh"]
     model_pars["zred"]["init"] = zred
-    model_pars.update(TemplateLibrary["cue_nebular"])
+    model_pars.update(TemplateLibrary["cue_stellar_nebular"])
     model_pars["nebemlineinspec"]["init"] = False
     models.append(SpecModel(model_pars))
 
@@ -153,7 +153,7 @@ def test_eline_implementation(get_sps, plot=False):
     obslist = build_obs(filters)
 
     model_pars = TemplateLibrary["parametric_sfh"]
-    model_pars.update(TemplateLibrary["cue_nebular"])
+    model_pars.update(TemplateLibrary["cue_stellar_nebular"])
     model_pars["nebemlineinspec"]["init"] = False
     model_pars["eline_sigma"] = dict(init=500)
     model_pars["zred"]["init"] = 4

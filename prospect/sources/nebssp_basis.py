@@ -151,7 +151,7 @@ class NebSSPBasis(SSPBasis):
         # This allows subclasses to set their own specific emission line
         # luminosities within other methods, e.g., get_galaxy_spectrum, by
         # populating the `_specific_line_luminosity` attribute.
-        elum = getattr(self, "_line_specific_luminosity", None)
+        elum = getattr(self, "_line_specific_luminosity", None).copy()
         
         if elum is None:
             ewave = self.ssp.emline_wavelengths
@@ -274,7 +274,7 @@ class NebStepBasis(FastStepBasis):
         # This allows subclasses to set their own specific emission line
         # luminosities within other methods, e.g., get_galaxy_spectrum, by
         # populating the `_specific_line_luminosity` attribute.
-        elum = getattr(self, "_line_specific_luminosity", None)
+        elum = getattr(self, "_line_specific_luminosity", None).copy()
         ewave = self.emline_wavelengths
         
         if elum is None:
@@ -398,7 +398,7 @@ class NebCSPBasis(CSPSpecBasis):
         # This allows subclasses to set their own specific emission line
         # luminosities within other methods, e.g., get_galaxy_spectrum, by
         # populating the `_specific_line_luminosity` attribute.
-        elum = getattr(self, "_line_specific_luminosity", None)
+        elum = getattr(self, "_line_specific_luminosity", None).copy()
         ewave = self.emline_wavelengths
         
         if elum is None:
