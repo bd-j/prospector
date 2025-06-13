@@ -1,200 +1,132 @@
-import sys, time
+import inspect
 import numpy as np
-from numpy.random import normal, multivariate_normal
-from six.moves import range
+import time
+import warnings
 
-try:
-    import nestle
-except(ImportError):
-    pass
+__all__ = ["run_nested_sampler"]
 
 
-try:
-    import dynesty
-    from dynesty.utils import *
-    from dynesty.dynamicsampler import _kld_error
-except(ImportError):
-    pass
-
-
-__all__ = ["run_nestle_sampler", "run_dynesty_sampler"]
-
-
-def run_nestle_sampler(lnprobfn, model, verbose=True,
-                       callback=None,
-                       nestle_method='multi', nestle_npoints=200,
-                       nestle_maxcall=int(1e6), nestle_update_interval=None,
+def run_nested_sampler(model,
+                       likelihood_function,
+                       nested_sampler="dynesty",
+                       nested_nlive=1000,
+                       nested_neff=1000,
+                       verbose=False,
                        **kwargs):
+    """We give a model -- parameter discription and prior transform -- and a
+    likelihood function. We get back samples, weights, and likelihood values.
 
-    result = nestle.sample(lnprobfn, model.prior_transform, model.ndim,
-                           method=nestle_method, npoints=nestle_npoints,
-                           callback=callback, maxcall=nestle_maxcall,
-                           update_interval=nestle_update_interval)
-    return result
+    Parameters
+    ----------
+    model : instance of the :py:class:`prospect.models.SpecModel`
+        The model parameterization and parameter state.
+    likelihood_function : callable
+        Likelihood function
+    nested_live : int
+        Number of live points.
+    nested_neff : float
+        Minimum effective sample size.
+    verbose : bool
+        Whether to output sampler progress.
 
+    Returns
+    -------
+    samples : 3-tuple of ndarrays (loc, logwt, loglike)
+        Loctions, log-weights, and log-likelihoods for the samples
 
-def run_dynesty_sampler(lnprobfn, prior_transform, ndim,
-                        verbose=True,
-                        # sampler kwargs
-                        nested_bound='multi',
-                        nested_sample='unif',
-                        nested_walks=25,
-                        nested_update_interval=0.6,
-                        nested_bootstrap=0,
-                        pool=None,
-                        use_pool={},
-                        queue_size=1,
-                        # init sampling kwargs
-                        nested_nlive_init=100,
-                        nested_dlogz_init=0.02,
-                        nested_maxiter_init=None,
-                        nested_maxcall_init=None,
-                        nested_live_points=None,
-                        # batch sampling kwargs
-                        nested_maxbatch=None,
-                        nested_nlive_batch=100,
-                        nested_maxiter_batch=None,
-                        nested_maxcall_batch=None,
-                        nested_use_stop=True,
-                        # overall kwargs
-                        nested_maxcall=None,
-                        nested_maxiter=None,
-                        nested_first_update={},
-                        stop_function=None,
-                        wt_function=None,
-                        nested_weight_kwargs={'pfrac': 1.0},
-                        nested_stop_kwargs={},
-                        nested_save_bounds=False,
-                        print_progress=True,
-                        **extras):
-
-    # instantiate sampler
-    dsampler = dynesty.DynamicNestedSampler(lnprobfn, prior_transform, ndim,
-                                            bound=nested_bound,
-                                            sample=nested_sample,
-                                            walks=nested_walks,
-                                            bootstrap=nested_bootstrap,
-                                            update_interval=nested_update_interval,
-                                            pool=pool, queue_size=queue_size, use_pool=use_pool
-                                            )
-
-    # generator for initial nested sampling
-    ncall = dsampler.ncall
-    niter = dsampler.it - 1
-    tstart = time.time()
-    for results in dsampler.sample_initial(nlive=nested_nlive_init,
-                                           dlogz=nested_dlogz_init,
-                                           maxcall=nested_maxcall_init,
-                                           maxiter=nested_maxiter_init,
-                                           live_points=nested_live_points):
-
-        try:
-            # dynesty >= 2.0
-            (worst, ustar, vstar, loglstar, logvol,
-             logwt, logz, logzvar, h, nc, worst_it,
-             propidx, propiter, eff, delta_logz, blob) = results
-        except(ValueError):
-            # dynsety < 2.0
-            (worst, ustar, vstar, loglstar, logvol,
-            logwt, logz, logzvar, h, nc, worst_it,
-            propidx, propiter, eff, delta_logz) = results
-
-        if delta_logz > 1e6:
-            delta_logz = np.inf
-        ncall += nc
-        niter += 1
-
-        if print_progress:
-            with np.errstate(invalid='ignore'):
-                logzerr = np.sqrt(logzvar)
-            sys.stderr.write("\riter: {:d} | batch: {:d} | nc: {:d} | "
-                            "ncall: {:d} | eff(%): {:6.3f} | "
-                            "logz: {:6.3f} +/- {:6.3f} | "
-                            "dlogz: {:6.3f} > {:6.3f}    "
-                            .format(niter, 0, nc, ncall, eff, logz,
-                                    logzerr, delta_logz, nested_dlogz_init))
-            sys.stderr.flush()
-
-    ndur = time.time() - tstart
+    obj : Object
+        The sampling results object. This will depend on the nested sampler being used.
+    """
     if verbose:
-        print('\ndone dynesty (initial) in {0}s'.format(ndur))
+        print(f"running {nested_sampler} for {nested_neff} effective samples")
 
-    if nested_maxcall is None:
-        nested_maxcall = sys.maxsize
-    if nested_maxbatch is None:
-        nested_maxbatch = sys.maxsize
-    if nested_maxcall_batch is None:
-        nested_maxcall_batch = sys.maxsize
-    if nested_maxiter is None:
-        nested_maxiter = sys.maxsize
-    if nested_maxiter_batch is None:
-        nested_maxiter_batch = sys.maxsize
+    go = time.time()
 
-    # generator for dynamic sampling
-    tstart = time.time()
-    for n in range(dsampler.batch, nested_maxbatch):
-        # Update stopping criteria.
-        dsampler.sampler.save_bounds = False
-        res = dsampler.results
-        mcall = min(nested_maxcall - ncall, nested_maxcall_batch)
-        miter = min(nested_maxiter - niter, nested_maxiter_batch)
-        if nested_use_stop:
-            if dsampler.use_pool_stopfn:
-                M = dsampler.M
-            else:
-                M = map
-            stop, stop_vals = stop_function(res, nested_stop_kwargs,
-                                            rstate=dsampler.rstate, M=M,
-                                            return_vals=True)
-            stop_val = stop_vals[2]
-        else:
-            stop = False
-            stop_val = np.NaN
+    # Initialize the sampler.
+    if nested_sampler == 'nautilus':
+        from nautilus import Sampler
+        sampler_init = Sampler
+        init_args = (model.prior_transform, likelihood_function)
+        init_kwargs = dict(pass_dict=False, n_live=nested_nlive,
+                           n_dim=model.ndim)
+    elif nested_sampler == 'ultranest':
+        from ultranest import ReactiveNestedSampler
+        sampler_init = ReactiveNestedSampler
+        init_args = (model.theta_labels(), likelihood_function,
+                     model.prior_transform)
+        init_kwargs = dict()
+    elif nested_sampler == 'dynesty':
+        from dynesty import DynamicNestedSampler
+        sampler_init = DynamicNestedSampler
+        init_args = (likelihood_function, model.prior_transform, model.ndim)
+        init_kwargs = dict(nlive=nested_nlive)
+    elif nested_sampler == 'nestle':
+        import nestle
+        init_kwargs = dict()
+    else:
+        raise ValueError(f"No nested sampler called '{nested_sampler}'.")
 
-        # If we have either likelihood calls or iterations remaining,
-        # run our batch.
-        if mcall > 0 and miter > 0 and not stop:
-            # Compute our sampling bounds using the provided
-            # weight function.
-            logl_bounds = wt_function(res, nested_weight_kwargs)
-            lnz, lnzerr = res.logz[-1], res.logzerr[-1]
-            for results in dsampler.sample_batch(nlive_new=nested_nlive_batch,
-                                                 logl_bounds=logl_bounds,
-                                                 maxiter=miter,
-                                                 maxcall=mcall,
-                                                 save_bounds=nested_save_bounds):
+    if nested_sampler != 'nestle':
+        sig = inspect.signature(sampler_init).bind_partial()
+        sig.apply_defaults()
+        for key in kwargs.keys() & init_kwargs.keys():
+            warnings.warn(f"Value of key '{key}' overwritten.")
+        init_kwargs = {
+            **{key: kwargs[key] for key in sig.kwargs.keys() & kwargs.keys()},
+            **init_kwargs}
+        sampler = sampler_init(*init_args, **init_kwargs)
 
-                try:
-                    # dynesty >= 2.0
-                    (worst, ustar, vstar, loglstar, nc,
-                     worst_it, propidx, propiter, eff, blob) = results
-                except(ValueError):
-                    # dynesty < 2.0
-                    (worst, ustar, vstar, loglstar, nc,
-                    worst_it, propidx, propiter, eff) = results
-                ncall += nc
-                niter += 1
-                if print_progress:
-                    sys.stderr.write("\riter: {:d} | batch: {:d} | "
-                                    "nc: {:d} | ncall: {:d} | "
-                                    "eff(%): {:6.3f} | "
-                                    "loglstar: {:6.3f} < {:6.3f} "
-                                    "< {:6.3f} | "
-                                    "logz: {:6.3f} +/- {:6.3f} | "
-                                    "stop: {:6.3f}    "
-                                    .format(niter, n+1, nc, ncall,
-                                            eff, logl_bounds[0], loglstar,
-                                            logl_bounds[1], lnz, lnzerr,
-                                            stop_val))
-                    sys.stderr.flush()
-            dsampler.combine_runs()
-        else:
-            # We're done!
-            break
+    # Run the sampler.
+    if nested_sampler == 'nautilus':
+        sampler_run = sampler.run
+        run_args = ()
+        run_kwargs = dict(n_eff=nested_neff, verbose=verbose)
+    elif nested_sampler == 'ultranest':
+        sampler_run = sampler.run
+        run_args = ()
+        run_kwargs = dict(
+            min_ess=nested_neff, min_num_live_points=nested_nlive,
+            show_status=verbose)
+    elif nested_sampler == 'dynesty':
+        sampler_run = sampler.run_nested
+        run_args = ()
+        run_kwargs = dict(n_effective=nested_neff, print_progress=verbose)
+    elif nested_sampler == 'nestle':
+        sampler_run = nestle.sample
+        run_args = (likelihood_function, model.prior_transform, model.ndim)
+        run_kwargs = dict()
 
-    ndur = time.time() - tstart
-    if verbose:
-        print('done dynesty (dynamic) in {0}s'.format(ndur))
+    sig = inspect.signature(sampler_run).bind_partial()
+    sig.apply_defaults()
+    for key in kwargs.keys() & run_kwargs.keys():
+        warnings.warn(f"Value of key '{key}' overwritten.")
+    run_kwargs = {
+        **{key: kwargs[key] for key in sig.kwargs.keys() & kwargs.keys()},
+        **run_kwargs}
+    run_return = sampler_run(*run_args, **run_kwargs)
+    #for key in kwargs.keys() - (init_kwargs.keys() | run_kwargs.keys()):
+    #    warnings.warn(f"Key '{key}' not recognized by the sampler.")
 
-    return dsampler.results
+    if nested_sampler == 'nautilus':
+        obj = sampler
+        points, log_w, log_like = sampler.posterior()
+    elif nested_sampler == 'ultranest':
+        obj = run_return
+        points = np.array(run_return['weighted_samples']['points'])
+        log_w = np.log(np.array(run_return['weighted_samples']['weights']))
+        log_like = np.array(run_return['weighted_samples']['logl'])
+    elif nested_sampler == 'dynesty':
+        obj = sampler
+        points = sampler.results["samples"]
+        log_w = sampler.results["logwt"]
+        log_like = sampler.results["logl"]
+    elif nested_sampler == 'nestle':
+        obj = run_return
+        points = run_return["samples"]
+        log_w = run_return["logwt"]
+        log_like = run_return["logl"]
 
+    dur = time.time() - go
+
+    return dict(points=points, log_weight=log_w, log_like=log_like,
+                duration=dur), obj

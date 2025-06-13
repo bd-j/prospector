@@ -351,11 +351,15 @@ if __name__ == '__main__':
 
 
     hfile = "{0}_{1}_mcmc.h5".format(args.outfile, int(time.time()))
-    writer.write_hdf5(hfile, run_params, model, obs,
-                      output["sampling"][0], output["optimization"][0],
-                      tsample=output["sampling"][1],
-                      toptimize=output["optimization"][1],
-                      sps=sps)
+    writer.write_hdf5(hfile,
+                      run_params,
+                      model,
+                      obs,
+                      output["sampling"],
+                      output["optimization"],
+                      sps=sps
+                      )
+
 
     try:
         hfile.close()

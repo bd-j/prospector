@@ -1,5 +1,26 @@
 .. :changelog:
 
+v1.4.0 (2024-07-06)
++++++++++++++++++++
+- Adds the stochastic SFH hyper-prior courtesy @jwan22
+- Adds an explicit check of any provided emission line names and fixes a bug
+  when multiple emission lines are ignored
+
+Last release before v2.0
+
+`Full Changelog <https://github.com/bd-j/prospector/compare/v1.3.0...v1.4.0>`_
+
+
+v1.3.0 (2024-03-27)
++++++++++++++++++++
+- Adds the prospector-beta SFH priors and documentation courtesy @wangbingjie
+- Bugfixes in emission line masking, polynomial regularization, sfr_ratio
+  clipping (h/t @mjastro, @wangbingjie, @davidjsetton)
+- Documentation updates
+
+`Full Changelog <https://github.com/bd-j/prospector/compare/v1.2.0...v1.3.0>`_
+
+
 v1.2.0 (2022-12-31)
 +++++++++++++++++++
 
@@ -10,7 +31,7 @@ v1.2.0 (2022-12-31)
 - Fixes to the dynesty interface for dynesty >= 2.0 (h/t @mjastro)
 - Fix sign error in Powell minimization (h/t @blanton144)
 - Fix bugs in parameter template for emission line fitting.
-- numeropus documentation updates including nebular emission details.
+- numerous documentation updates including nebular emission details.
 
 
 v1.1.0 (2022-02-20)

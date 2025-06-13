@@ -14,7 +14,7 @@ def show_default_args():
     parser.print_help()
 
 
-def get_parser(fitters=["optimize", "emcee", "dynesty"]):
+def get_parser(fitters=["optimize", "emcee", "nested"]):
     """Get a default prospector argument parser
     """
 
@@ -46,8 +46,8 @@ def get_parser(fitters=["optimize", "emcee", "dynesty"]):
     if "emcee" in fitters:
         parser = add_emcee_args(parser)
 
-    if "dynesty" in fitters:
-        parser = add_dynesty_args(parser)
+    if "nested" in fitters:
+        parser = add_nested_args(parser)
 
     return parser
 
@@ -108,53 +108,44 @@ def add_emcee_args(parser):
     return parser
 
 
-def add_dynesty_args(parser):
+def add_nested_args(parser):
     # --- dynesty parameters ---
-    parser.add_argument("--dynesty", action="store_true",
-                        help="If set, do nested sampling with dynesty.")
+    parser.add_argument("--nested_sampler", type=str, default="",
+                        choices=["", "dynesty", "nautilus", "ultranest"],
+                        help="do sampling with this sampler")
 
-    parser.add_argument("--nested_bound", type=str, default="multi",
-                        choices=["single", "multi", "balls", "cubes"],
-                        help=("Method for bounding the prior volume when drawing new points. "
-                              "One of single | multi | balls | cubes"))
-
-    parser.add_argument("--nested_sample", "--nested_method", type=str, dest="nested_sample",
-                        default="slice", choices=["unif", "rwalk", "slice"],
-                        help=("Method for drawing new points during sampling.  "
-                              "One of unif | rwalk | slice"))
-
-    parser.add_argument("--nested_walks", type=int, default=48,
-                        help=("Number of Metropolis steps to take when "
-                              "`nested_sample` is 'rwalk'"))
-
-    parser.add_argument("--nlive_init", dest="nested_nlive_init", type=int, default=100,
-                        help="Number of live points for the intial nested sampling run.")
-
-    parser.add_argument("--nlive_batch", dest="nested_nlive_batch", type=int, default=100,
-                        help="Number of live points for the dynamic nested sampling batches")
-
-    parser.add_argument("--nested_dlogz_init", type=float, default=0.05,
-                        help=("Stop the initial run when the remaining evidence is estimated "
-                              "to be less than this."))
-
-    parser.add_argument("--nested_maxcall", type=int, default=int(5e7),
-                        help=("Maximum number of likelihood calls during nested sampling. "
-                              "This will only be enforced after the initial pass"))
-
-    parser.add_argument("--nested_maxiter", type=int, default=int(1e6),
-                        help=("Maximum number of iterations during nested sampling. "
-                              "This will only be enforced after the initial pass"))
-
-    parser.add_argument("--nested_maxbatch", type=int, default=10,
-                        help="Maximum number of dynamic batches.")
-
-    parser.add_argument("--nested_bootstrap", type=int, default=0,
-                        help=("Number of bootstrap resamplings to use when estimating "
-                              "ellipsoid expansion factor."))
+    parser.add_argument("--nested_nlive", dest="nested_nlive", type=int, default=1000,
+                        help="Number of live points for the nested sampling run.")
 
     parser.add_argument("--nested_target_n_effective", type=int, default=10000,
-                        help=("Stop when the number of *effective* posterior samples as estimated "
-                              "by dynesty reaches the target number."))
+                        help=("Stop when the estimated number of *effective* posterior samples "
+                              "reaches the target number."))
+
+    parser.add_argument("--nested_dlogz", type=float, default=0.05,
+                        dest="dlogz_init",
+                        help=("Stop the initial dynesty run when the remaining evidence is estimated "
+                              "to be less than this."))
+
+    parser.add_argument("--nested_bound", type=str, default="multi",
+                        dest="bound",
+                        choices=["single", "multi", "balls", "cubes"],
+                        help=("Method for bounding the prior volume when drawing new points with dynesty. "
+                              "One of single | multi | balls | cubes"))
+
+    parser.add_argument("--nested_sample", "--nested_method", type=str, dest="sample",
+                        default="auto", choices=["auto", "unif", "rwalk", "slice", "hslice"],
+                        help=("Method for drawing new points during dynesty sampling.  "
+                              "One of auto | unif | rwalk | slice | hslice"))
+
+    parser.add_argument("--nested_walks", type=int, default=48,
+                        dest="walks",
+                        help=("Number of Metropolis steps for dynesty to take when "
+                              "`nested_sample` is 'rwalk'"))
+
+    parser.add_argument("--nested_bootstrap", type=int, default=0,
+                        dest="bootstrap",
+                        help=("Number of bootstrap resamplings to use when estimating "
+                              "ellipsoid expansion factor with dynesty."))
 
     return parser
 

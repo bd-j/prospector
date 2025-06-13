@@ -10,6 +10,9 @@ They can be used as ``"depends_on"`` entries in parameter specifications.
 
 import numpy as np
 from ..sources.constants import cosmo
+#from gp_sfh import *
+#import gp_sfh_kernels
+
 
 __all__ = ["stellar_logzsol", "delogify_mass",
            "tburst_from_fage", "tage_from_tuniv", "zred_to_agebins",
@@ -17,7 +20,8 @@ __all__ = ["stellar_logzsol", "delogify_mass",
            "logsfr_ratios_to_masses", "logsfr_ratios_to_sfrs",
            "logsfr_ratios_to_masses_flex", "logsfr_ratios_to_agebins",
            "zfrac_to_masses", "zfrac_to_sfrac", "zfrac_to_sfr", "masses_to_zfrac",
-           "sfratio_to_sfr", "sfratio_to_mass",
+           "sfratio_to_sfr", "sfratio_to_mass", 
+           #"get_sfr_covar", "sfr_covar_to_sfr_ratio_covar",
            "zred_to_agebins_pbeta",
            "zredmassmet_to_zred", "zredmassmet_to_logmass", "zredmassmet_to_mass", "zredmassmet_to_logzsol",
            "nzsfh_to_zred", "nzsfh_to_logmass", "nzsfh_to_mass", "nzsfh_to_logzsol", "nzsfh_to_logsfr_ratios"]
@@ -184,7 +188,8 @@ def logsfr_ratios_to_masses(logmass=None, logsfr_ratios=None, agebins=None,
     time.
     """
     nbins = agebins.shape[0]
-    sratios = 10**np.clip(logsfr_ratios, -100, 100)  # numerical issues...
+    sratios = 10**np.clip(logsfr_ratios, -10, 10)  # numerical issues...
+    #sratios = 10**np.clip(logsfr_ratios, -100, 100)  # numerical issues...
     dt = (10**agebins[:, 1] - 10**agebins[:, 0])
     coeffs = np.array([ (1. / np.prod(sratios[:i])) * (np.prod(dt[1: i+1]) / np.prod(dt[: i]))
                         for i in range(nbins)])
@@ -209,8 +214,10 @@ def logsfr_ratios_to_sfrs(logmass=None, logsfr_ratios=None, agebins=None, **extr
 def logsfr_ratios_to_masses_flex(logmass=None, logsfr_ratios=None,
                                  logsfr_ratio_young=None, logsfr_ratio_old=None,
                                  **extras):
-    logsfr_ratio_young = np.clip(logsfr_ratio_young, -100, 100)
-    logsfr_ratio_old = np.clip(logsfr_ratio_old, -100, 100)
+    logsfr_ratio_young = np.clip(logsfr_ratio_young, -10, 10)
+    logsfr_ratio_old = np.clip(logsfr_ratio_old, -10, 10)
+    #logsfr_ratio_young = np.clip(logsfr_ratio_young, -100, 100)
+    #logsfr_ratio_old = np.clip(logsfr_ratio_old, -100, 100)
 
     abins = logsfr_ratios_to_agebins(logsfr_ratios=logsfr_ratios, **extras)
 
@@ -236,7 +243,8 @@ def logsfr_ratios_to_agebins(logsfr_ratios=None, agebins=None, **extras):
     """
 
     # numerical stability
-    logsfr_ratios = np.clip(logsfr_ratios, -100, 100)
+    logsfr_ratios = np.clip(logsfr_ratios, -10, 10)
+    #logsfr_ratios = np.clip(logsfr_ratios, -100, 100)
 
     # calculate delta(t) for oldest, youngest bins (fixed)
     lower_time = (10**agebins[0, 1] - 10**agebins[0, 0])
@@ -498,15 +506,14 @@ def sfratio_to_mass(sfr_ratio=None, sfr0=None, agebins=None, **extras):
 
 def zred_to_agebins_pbeta(zred=None, agebins=[], **extras):
     """New agebin scheme, refined so that none of the bins is overly wide when the universe is young.
-
+    
     Parameters
     ----------
     zred : float
         Cosmological redshift.  This sets the age of the universe.
-
     agebins :  ndarray of shape ``(nbin, 2)``
         The SFH bin edges in log10(years).
-
+    
     Returns
     -------
     agebins : ndarray of shape ``(nbin, 2)``
@@ -521,7 +528,7 @@ def zred_to_agebins_pbeta(zred=None, agebins=[], **extras):
     else:
         agelims = np.linspace(amin,np.log10(tbinmax),nbins_sfh).tolist() + [np.log10(tuniv)]
         agelims[0] = 0
-
+        
     agebins = np.array([agelims[:-1], agelims[1:]])
     return agebins.T
 
@@ -555,3 +562,52 @@ def nzsfh_to_logzsol(nzsfh=None, **extras):
 
 def nzsfh_to_logsfr_ratios(nzsfh=None, **extras):
     return nzsfh[3:]
+    
+    
+# --------------------------------------
+# --- Transforms for stochastic SFH prior ---
+# --------------------------------------
+
+# def get_sfr_covar(psd_params, agebins=[], **extras):
+    
+#     """
+#     Caluclates SFR covariance matrix for a given set of PSD parameters and agebins
+#     PSD parameters must be in the order: [sigma_reg, tau_eq, tau_in, sigma_dyn, tau_dyn]
+    
+#     Returns
+#     -------
+#     covar_matrix: (Nbins, Nbins)-dim array of covariance values for SFR
+#     """
+
+#     bincenters = np.array([np.mean(agebins[i]) for i in range(len(agebins))])
+#     bincenters = (10**bincenters)/1e9
+#     case1 = simple_GP_sfh()
+#     case1.tarr = bincenters
+#     case1.kernel = gp_sfh_kernels.extended_regulator_model_kernel_paramlist
+#     covar_matrix = case1.get_covariance_matrix(kernel_params = psd_params, show_prog=False)
+    
+#     return covar_matrix
+
+
+# def sfr_covar_to_sfr_ratio_covar(covar_matrix):
+    
+#     """
+#     Caluclates log SFR ratio covariance matrix from SFR covariance matrix
+    
+#     Returns
+#     -------
+#     sfr_ratio_covar: (Nbins-1, Nbins-1)-dim array of covariance values for log SFR
+#     """
+    
+#     dim = covar_matrix.shape[0]
+    
+#     sfr_ratio_covar = []
+    
+#     for i in range(dim-1):
+#         row = []
+#         for j in range(dim-1):
+#             cov = covar_matrix[i][j] - covar_matrix[i+1][j] - covar_matrix[i][j+1] + covar_matrix[i+1][j+1]
+#             row.append(cov)
+#         sfr_ratio_covar.append(row)
+    
+#     return np.array(sfr_ratio_covar)

@@ -305,7 +305,7 @@ def corner(samples, paxes, weights=None, span=None, smooth=0.02,
     :returns paxes:
     """
     assert samples.ndim > 1
-    assert np.product(samples.shape[1:]) > samples.shape[0]
+    assert np.prod(samples.shape[1:]) > samples.shape[0]
     ndim = len(samples)
 
     # Determine plotting bounds.

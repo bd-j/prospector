@@ -10,12 +10,13 @@ import numpy as np
 import os
 from . import priors
 from . import priors_beta
-from . import transforms
+from . import transforms, hyperparam_transforms
 
 __all__ = ["TemplateLibrary",
            "describe",
            "adjust_dirichlet_agebins",
            "adjust_continuity_agebins",
+           "adjust_stochastic_params"
            ]
 
 
@@ -124,6 +125,27 @@ def adjust_continuity_agebins(parset, tuniv=13.7, nbins=7):
     parset['mass']['N'] = ncomp
     parset['agebins']['N'] = ncomp
     parset['agebins']['init'] = agebins.T
+    parset["logsfr_ratios"]["N"] = ncomp - 1
+    parset["logsfr_ratios"]["init"] = mean
+    parset["logsfr_ratios"]["prior"] = rprior
+
+    return parset
+
+
+def adjust_stochastic_params(parset, tuniv=13.7):
+    
+    agebins = parset['agebins']['init']
+    
+    ncomp = len(parset['agebins']['init'])
+    mean = np.zeros(ncomp - 1)
+    psd_params = [parset['sigma_reg']['init'], parset['tau_eq']['init'], parset['tau_in']['init'],
+                  parset['sigma_dyn']['init'], parset['tau_dyn']['init']]
+    sfr_covar = hyperparam_transforms.get_sfr_covar(psd_params, agebins=agebins)
+    sfr_ratio_covar = hyperparam_transforms.sfr_covar_to_sfr_ratio_covar(sfr_covar)
+    rprior = priors.MultiVariateNormal(mean=mean, Sigma=sfr_ratio_covar)
+    
+    parset['mass']['N'] = ncomp
+    parset['agebins']['N'] = ncomp
     parset["logsfr_ratios"]["N"] = ncomp - 1
     parset["logsfr_ratios"]["init"] = mean
     parset["logsfr_ratios"]["prior"] = rprior
@@ -267,6 +289,99 @@ _nebular_ = {"add_neb_emission": add_neb,    # FSPS parameter.
 TemplateLibrary["nebular"] = (_nebular_,
                               ("The set of nebular emission parameters, "
                                "with gas_logz tied to stellar logzsol."))
+
+# new nebular parameters from cue
+use_eline_nn_unc = {'N': 1, "isfree": False, "init": True}
+use_stellar_ionizing = {'N': 1, "isfree": False, "init": False}
+gas_logz = {'N': 1, 'isfree': True,
+            "init": 0.0, 'units': r"log Z/Z_\odot",
+            "prior": priors.TopHat(mini=-2.2, maxi=0.5)}
+
+gas_logu = {"N": 1, 'isfree': True,
+            "init": -2.0, 'units': r"Q_H/N_H",
+            "prior": priors.TopHat(mini=-4.0, maxi=-1.0)}
+
+gas_lognH = {"N": 1, 'isfree': True,
+             "init": 2.0, 'units': r"n_H",
+             "prior": priors.TopHat(mini=1.0, maxi=4.0)}
+
+gas_logno = {"N": 1, 'isfree': True,
+            "init": 0.0, 'units': r"[N/O]",
+            "prior": priors.TopHat(mini=-1.0, maxi=np.log10(5.4))}
+
+gas_logco = {"N": 1, 'isfree': True,
+            "init": 0.0, 'units': r"[C/O]",
+            "prior": priors.TopHat(mini=-1.0, maxi=np.log10(5.4))}
+
+ionspec_index1 = {"N": 1, 'isfree': True,
+                  "init": 3.3, 'units': r"1st power-law index of ionizing spectrum",
+                  "prior": priors.TopHat(mini=1.0, maxi=42.0)}
+
+ionspec_index2 = {"N": 1, 'isfree': True,
+                  "init": 15.0, 'units': r"2nd power-law index of ionizing spectrum",
+                  "prior": priors.TopHat(mini=-0.3, maxi=30.0)}
+
+ionspec_index3 = {"N": 1, 'isfree': True,
+                  "init": 8.0, 'units': r"3rd power-law index of ionizing spectrum",
+                  "prior": priors.TopHat(mini=-1.0, maxi=14.0)}
+
+ionspec_index4 = {"N": 1, 'isfree': True,
+                  "init": 3.0, 'units': r"4th power-law index of ionizing spectrum",
+                  "prior": priors.TopHat(mini=-1.7, maxi=8.0)}
+
+ionspec_logLratio1 = {"N": 1, 'isfree': True,
+                      "init": 2.0, 'units': r"ratio of 2nd and 1st ionizing spectrum segments",
+                      "prior": priors.TopHat(mini=-1.0, maxi=10.1)}
+
+ionspec_logLratio2 = {"N": 1, 'isfree': True,
+                      "init": 1.0, 'units': r"ratio of 3rd and 2nd ionizing spectrum segments",
+                      "prior": priors.TopHat(mini=-0.5, maxi=1.9)}
+
+ionspec_logLratio3 = {"N": 1, 'isfree': True,
+                      "init": 1.0, 'units': r"ratio of 4th and 3rd ionizing spectrum segments",
+                      "prior": priors.TopHat(mini=-0.4, maxi=2.2)}
+
+log_qion = {"N": 1, 'isfree': True,
+            "init": 52.0, 'units': r"log Q_H",
+            "prior": priors.TopHat(mini=35.0, maxi=65.0)}
+
+_cue_nebular_ = {"add_neb_emission": add_neb,
+                 "add_neb_continuum": neb_cont,
+                 "nebemlineinspec": neb_spec,
+                 "use_eline_nn_unc": use_eline_nn_unc,
+                 "use_stellar_ionizing": use_stellar_ionizing,
+                 "gas_logz": gas_logz,
+                 "gas_logu": gas_logu,
+                 "gas_lognH": gas_lognH,
+                 "gas_logno": gas_logno,
+                 "gas_logco": gas_logco,
+                 "ionspec_index1": ionspec_index1,
+                 "ionspec_index2": ionspec_index2,
+                 "ionspec_index3": ionspec_index3,
+                 "ionspec_index4": ionspec_index4,
+                 "ionspec_logLratio1": ionspec_logLratio1,
+                 "ionspec_logLratio2": ionspec_logLratio2,
+                 "ionspec_logLratio3": ionspec_logLratio3,
+                 "gas_logqion": log_qion,
+                 }
+
+TemplateLibrary["cue_nebular"] = (_cue_nebular_,
+                                 ("The set of nebular emission parameters for cue, where ionizing spectrum is free."))
+
+use_stellar_ionizing = {'N': 1, "isfree": False, "init": True}
+_cue_stellar_nebular_ = {"add_neb_emission": add_neb,
+                         "add_neb_continuum": neb_cont,
+                         "nebemlineinspec": neb_spec,
+                         "use_eline_nn_unc": use_eline_nn_unc,
+                         "use_stellar_ionizing": use_stellar_ionizing,
+                         "gas_logz": gas_logz,
+                         "gas_logu": gas_logu,
+                         "gas_lognH": gas_lognH,
+                         "gas_logno": gas_logno,
+                         "gas_logco": gas_logco
+                         }
+TemplateLibrary["cue_stellar_nebular"] = (_cue_stellar_nebular_,
+                                          ("The set of nebular emission parameters for cue, where ionizing spectrum is fixed to young stellar populations from FSPS."))
 
 # -----------------------------------------
 # --- Nebular Emission Marginalization ----
@@ -658,6 +773,63 @@ _dirichlet_["total_mass"] = mass
 
 TemplateLibrary["dirichlet_sfh"] = (_dirichlet_,
                                     "Non-parameteric SFH with Dirichlet prior (fractional SFR)")
+
+
+# ----------------------------
+# --- Stochastic SFH ----
+# ----------------------------
+# A non-parametric SFH model which correlates the SFRs between time bins based on Extended Regulator model in TFC2020
+
+_stochastic_ = TemplateLibrary["ssp"]
+_ = _stochastic_.pop("tage")
+
+_stochastic_["sfh"] = {"N": 1, "isfree": False, "init": 3, "units": "FSPS index"}
+# This is the *total*  mass formed, as a variable
+_stochastic_["logmass"] = {"N": 1, "isfree": True, "init": 10, 'units': 'Msun',
+                           'prior': priors.TopHat(mini=7, maxi=12)}
+# This will be the mass in each bin.  It depends on other free and fixed
+# parameters.  Its length needs to be modified based on the number of bins
+_stochastic_["mass"] = {'N': 8, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+                        'depends_on': transforms.logsfr_ratios_to_masses}
+
+# This gives the start and stop of each age bin.  It can be adjusted and its
+# length must match the lenth of "mass"
+agebins = [[0.0, 6.0], [6.0, 6.5], [6.5, 7.0], [7.0, 7.5], [7.5, 8.0], [8.0, 8.5], [8.5, 9.0], [9.5, 10.0]]
+_stochastic_["agebins"] = {'N': 8, 'isfree': False, 'init': agebins, 'units': 'log(yr)'}
+
+# Sets the PSD parameters & priors
+# sigma_reg: Overall stochasticity coming from gas inflow
+_stochastic_["sigma_reg"] = {'name': 'sigma_reg', 'N': 1, 'isfree': True, 'init': 0.3,
+                             'prior': priors.LogUniform(mini=0.01, maxi=5.0), 'units': 'dex^2'}
+# tau_eq: Timescale associated with equilibrium gas cycling in gas reservoir (related to depletion timescale)
+_stochastic_["tau_eq"] = {'name': 'tau_eq', 'N': 1, 'isfree': True, 'init': 2.5,
+                          'prior': priors.TopHat(mini=0.01, maxi=7.0), 'units': 'Gyr'}
+# tau_in: Characteristic timescale associated with gas inflow into gas reservoir
+_stochastic_["tau_in"] = {'name': 'tau_in', 'N': 1, 'isfree': False, 'init': 7.0, 'units': 'Gyr'}
+# sigma_dyn: Overall stochasticity coming from short-term, dynamical processes (e.g., creation/destruction of GMCs)
+_stochastic_["sigma_dyn"] = {'name': 'sigma_dyn', 'N': 1, 'isfree': True, 'init': 0.01,
+                             'prior': priors.LogUniform(mini=0.001, maxi=0.1), 'units': 'dex^2'}
+# tau_dyn: Characteristic timescale associated with short-term, dynamical processes
+_stochastic_["tau_dyn"] = {'name': 'tau_dyn', 'N': 1, 'isfree': True, 'init': 0.025,
+                           'prior': priors.ClippedNormal(mini=0.005, maxi=0.2, mean=0.01, sigma=0.02), 'units': 'Gyr'}
+
+_stochastic_["logsfr_ratios"] = {'N': 7, 'isfree': True, 'init': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                                 'prior': None}
+
+_stochastic_ = adjust_stochastic_params(_stochastic_)
+# calculates covariance matrix from the initial PSD parameter values to be used in log SFR ratios prior
+# psd_params = [0.3, 2.5, 1.0, 0.01, 0.025]
+# sfr_covar = hyperparam_transforms.get_sfr_covar(psd_params, agebins=agebins)
+# sfr_ratio_covar = hyperparam_transforms.sfr_covar_to_sfr_ratio_covar(sfr_covar)
+
+# This controls the distribution of SFR(t) / SFR(t+dt). It has NBINS-1 components.
+# _stochastic_["logsfr_ratios"] = {'N': 7, 'isfree': True, 'init': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+#                                  'prior': priors.MultiVariateNormal(mean=[0.]*7, Sigma=sfr_ratio_covar)}
+
+TemplateLibrary["stochastic_sfh"] = (_stochastic_,
+                                     ("Stochastic SFH which correlates the SFRs between time bins based on model in TFC2020."
+                                      " Requires `HyperSpecModel` as the base model class."))
+
 
 # ----------------------------
 # --- Prospector-alpha ---

@@ -13,7 +13,7 @@ execution:
 
 .. code-block:: shell
 
-		python parameter_file.py --dynesty
+		python parameter_file.py --nested_sampler dynesty --nested_target_n_effective 512
 
 Additional command line options can be given (see below) e.g.
 
@@ -42,31 +42,46 @@ writes output.
             from prospect.io import write_results as writer
 		    from prospect import prospect_args
 
-            # Get the default argument parser
+            # --- Get the default argument parser ---
             parser = prospect_args.get_parser()
             # Add custom arguments that controll the build methods
             parser.add_argument("--custom_argument_1", ...)
-            # Parse the supplied arguments, convert to a dictionary, and add this file for logging purposes
+
+            # --- Configure ---
             args = parser.parse_args()
-            run_params = vars(args)
-            run_params["param_file"] = __file__
+            config = vars(args)
+            # allows parameter file text to be stored for model regeneration
+            config["param_file"] = __file__
 
-            # build the fit ingredients
-            obs, model, sps, noise = build_all(**run_params)
-            run_params["sps_libraries"] = sps.ssp.libraries
+            # --- Get fitting ingredients ---
+            obs, model, sps = build_all(**config)
+            config["sps_libraries"] = sps.ssp.libraries
+            print(model)
 
-            # Set up an output file name and run the fit
+            if args.debug:
+                sys.exit()
+
+            # --- Set up output ---
             ts = time.strftime("%y%b%d-%H.%M", time.localtime())
-            hfile = "{0}_{1}_mcmc.h5".format(args.outfile, ts)
-            output = fit_model(obs, model, sps, noise, **run_params)
+            hfile = f"{args.outfile}_{ts}_result.h5"
 
-            # Write results to output file
-            writer.write_hdf5(hfile, run_params, model, obs,
-                              output["sampling"][0], output["optimization"][0],
-                              tsample=output["sampling"][1],
-                              toptimize=output["optimization"][1],
-                              sps=sps)
+            #  --- Run the actual fit ---
+            output = fit_model(obs, model, sps, **config)
 
+            print("writing to {}".format(hfile))
+            writer.write_hdf5(hfile,
+                              config=config,
+                              model=model,
+                              obs=obs,
+                              output["sampling"],
+                              output["optimization"],
+                              sps=sps
+                              )
+
+            try:
+                hfile.close()
+            except(AttributeError):
+                pass
 
 
 Command Line Options and Custom Arguments
@@ -100,7 +115,7 @@ The required methods in a **parameter file** for building the data and model are
 
 1. :py:meth:`build_obs`:
    This function will take the command line arguments dictionary as keyword arguments
-   and returns on obs dictionary (see :doc:`dataformat` .)
+   and returns a list of `Observation` instances (see :doc:`dataformat` .)
 
 2. :py:meth:`build_model`:
    This function will take the command line arguments dictionary dictionary as keyword arguments
@@ -115,9 +130,11 @@ The required methods in a **parameter file** for building the data and model are
     building code and as such has a large memory footprint.
 
 4.  :py:meth:`build_noise`:
-    This function should return a :py:class:`NoiseModel` object for the spectroscopy and/or
-    photometry. Either or both can be ``None`` (the default)  in which case the likelihood
-    will not include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
+    This function, if present, should add a :py:class:`NoiseModel` object to the
+    spectroscopy and/or photometry. If not present the likelihood will not
+    include covariant noise or jitter and is equivalent to basic :math:`\chi^2`.
+
+
 
 Using MPI
 ---------
@@ -133,7 +150,8 @@ might actually increase the total CPU usage).
 To use MPI a "pool" of cores must be made available; each core will instantiate
 the fitting ingredients separately, and a single core in the pool will then
 conduct the fit, distributing likelihood requests to the other cores in the
-pool.  This requires changes to the final code block that instantiates and runs the fit:
+pool.  This requires changes to the final code block that instantiates and runs
+the fit:
 
 .. code-block:: python
 
@@ -175,7 +193,7 @@ pool.  This requires changes to the final code block that instantiates and runs 
 
         # Evaluate SPS over logzsol grid in order to get necessary data in cache/memory
         # for each MPI process. Otherwise, you risk creating a lag between the MPI tasks
-        # caching data depending which can slow down the parallelization
+        # caching SSPs which can slow down the parallelization
         if (withmpi) & ('logzsol' in model.free_params):
             dummy_obs = dict(filters=None, wavelength=None)
 
@@ -211,13 +229,15 @@ pool.  This requires changes to the final code block that instantiates and runs 
 
         # Set up an output file and write
         ts = time.strftime("%y%b%d-%H.%M", time.localtime())
-        hfile = "{0}_{1}_mcmc.h5".format(args.outfile, ts)
-        writer.write_hdf5(hfile, run_params, model, obs,
-                          output["sampling"][0], output["optimization"][0],
-                          tsample=output["sampling"][1],
-                          toptimize=output["optimization"][1],
-                          sps=sps)
-
+        hfile = f"{args.outfile}_worker{comm.rank()}_{ts}_mcmc.h5"
+        writer.write_hdf5(hfile,
+                            run_params=run_params,
+                            model=model,
+                            obs=obs,
+                            output["sampling"],
+                            output["optimization"],
+                            sps=sps
+                            )
         try:
             hfile.close()
         except(AttributeError):
@@ -229,7 +249,7 @@ Then, to run this file using mpi it can be called from the command line with som
 
         mpirun -np <number of processors> python parameter_file.py --emcee
         # or
-        mpirun -np <number of processors> python parameter_file.py --dynesty
+        mpirun -np <number of processors> python parameter_file.py --nested_sampler dynesty
 
 Note that only model evaluation is parallelizable with `dynesty`, and many
 operations (e.g. new point proposal) are still done in serial. This means that

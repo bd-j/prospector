@@ -5,7 +5,7 @@ authors = [
     { name="Ben Johnson", email="benjamin.johnson@cfa.harvard.edu" },
 ]
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 license = { text = "MIT License" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -21,10 +21,9 @@ dependencies = ["numpy", "h5py"]
 [project.optional-dependencies]
 test = ["pytest", "pytest-xdist"]
 
-
 [tool.setuptools]
 packages = ["prospect",
-            "prospect.models", "prospect.sources",
+            "prospect.models", "prospect.sources", "prospect.observation",
             "prospect.likelihood", "prospect.fitting",
             "prospect.io", "prospect.plotting", "prospect.utils"]
 

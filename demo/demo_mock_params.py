@@ -18,56 +18,9 @@ twomass = ['twomass_{}'.format(b) for b in ['J', 'H', 'Ks']]
 spitzer = ['spitzer_irac_ch'+n for n in '1234']
 
 
-# --------------
-# RUN_PARAMS
-# When running as a script with argparsing, these are ignored.  Kept here for backwards compatibility.
-# --------------
-
-run_params = {'verbose': True,
-              'debug': False,
-              'outfile': 'output/demo_mock',
-              'output_pickles': False,
-              # Optimization parameters
-              'do_powell': False,
-              'ftol': 0.5e-5, 'maxfev': 5000,
-              'do_levenberg': True,
-              'nmin': 10,
-              # emcee Fitter parameters
-              'nwalkers': 64,
-              'nburn': [32, 32, 64],
-              'niter': 256,
-              'interval': 0.25,
-              'initial_disp': 0.1,
-              # dynesty Fitter parameters
-              'nested_bound': 'multi',  # bounding method
-              'nested_sample': 'unif',  # sampling method
-              'nested_nlive_init': 100,
-              'nested_nlive_batch': 100,
-              'nested_bootstrap': 0,
-              'nested_dlogz_init': 0.05,
-              'nested_weight_kwargs': {"pfrac": 1.0},
-              'nested_target_n_effective': 10000,
-              # Mock data parameters
-              'snr': 20.0,
-              'add_noise': False,
-              'filterset': galex + sdss + twomass,
-              # Input mock model parameters
-              'mass': 1e10,
-              'logzsol': -0.5,
-              'tage': 12.,
-              'tau': 3.,
-              'dust2': 0.3,
-              'zred': 0.1,
-              'add_neb': False,
-              # SPS parameters
-              'zcontinuous': 1,
-              }
-
-
-# --------------
+# ----------------
 # Model Definition
-# --------------
-
+# ----------------
 def build_model(zred=0.0, add_neb=True, **extras):
     """Instantiate and return a ProspectorParams model subclass.
 
@@ -116,12 +69,12 @@ def build_model(zred=0.0, add_neb=True, **extras):
     # --- Set initial values ---
     model_params["zred"]["init"] = zred
 
-    return sedmodel.SedModel(model_params)
+    return sedmodel.SpecModel(model_params)
+
 
 # ------------------
 # Observational Data
 # ------------------
-
 def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
               add_noise=True, **kwargs):
     """Make a mock dataset.  Feel free to add more complicated kwargs, and put
@@ -139,57 +92,53 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     :param add_noise: (optional, boolean, default: True)
         If True, add a realization of the noise to the mock spectrum
     """
-    from prospect.utils.obsutils import fix_obs
+    from prospect.observation import Photometry, Spectrum
 
     # We'll put the mock data in this dictionary, just as we would for real
     # data.  But we need to know which bands (and wavelengths if doing
     # spectroscopy) in which to generate mock data.
-    mock = {}
-    mock['wavelength'] = None  # No spectrum
-    mock['spectrum'] = None    # No spectrum
-    mock['filters'] = load_filters(filterset)
+    smock = Spectrum()  # no spectrum
+    pmock = Photometry(filters=filterset)
 
     # We need the models to make a mock
     sps = build_sps(**kwargs)
-    mod = build_model(**kwargs)
+    mock_model = build_model(**kwargs)
 
     # Now we get the mock params from the kwargs dict
     params = {}
-    for p in mod.params.keys():
+    for p in mock_model.params.keys():
         if p in kwargs:
             params[p] = np.atleast_1d(kwargs[p])
 
-    # And build the mock
-    mod.params.update(params)
-    spec, phot, _ = mod.mean_model(mod.theta, mock, sps=sps)
+    # And build the mock spectrum and photometry
+    mock_model.params.update(params)
+    mock_theta = mock_model.theta
+    (spec, phot), _ = mock_model.predict(mock_theta, [smock, pmock], sps=sps)
 
     # Now store some ancillary, helpful info;
     # this information is not required to run a fit.
-    mock['true_spectrum'] = spec.copy()
-    mock['true_maggies'] = phot.copy()
-    mock['mock_params'] = deepcopy(mod.params)
-    mock['mock_snr'] = snr
-    mock["phot_wave"] = np.array([f.wave_effective for f in mock["filters"]])
+    mock_info = dict(true_spectrum=spec.copy(), true_phot=phot.copy(),
+                     mock_params=deepcopy(mock_model.params), mock_theta=mock_theta.copy(),
+                     mock_snr=snr, mock_filters=filterset)
 
     # And store the photometry, adding noise if desired
+    pmock.flux = phot.copy()
     pnoise_sigma = phot / snr
+    pmock.uncertainty = pnoise_sigma
     if add_noise:
         pnoise = np.random.normal(0, 1, len(phot)) * pnoise_sigma
-        mock['maggies'] = phot + pnoise
-    else:
-        mock['maggies'] = phot.copy()
-    mock['maggies_unc'] = pnoise_sigma
-    mock['phot_mask'] = np.ones(len(phot), dtype=bool)
+        pmock.flux += pnoise
+        mock_info["noise_realization"] = pnoise
 
-    # This ensures all required keys are present
-    mock = fix_obs(mock)
+    # This ensures all required keys are present for fitting
+    pmock.rectify()
 
-    return mock
+    return [smock, pmock], mock_info
+
 
 # --------------
 # SPS Object
 # --------------
-
 def build_sps(zcontinuous=1, **extras):
     """Instantiate and return the Stellar Population Synthesis object.
 
@@ -207,21 +156,28 @@ def build_sps(zcontinuous=1, **extras):
                        compute_vega_mags=False)
     return sps
 
-# -----------------
-# Noise Model
-# ------------------
 
-def build_noise(**extras):
-    return None, None
+# -----------------
+# Noise Modeling?
+# ------------------
+def build_noise(observations, **extras):
+    # use the defaults
+    return observations
+
 
 # -----------
 # Everything
 # ------------
+def build_all(config):
 
-def build_all(**kwargs):
+    observations, mock_info = build_obs(**config)
+    observations = build_noise(observations, **config)
+    model = build_model(**config)
+    sps = build_sps(**config)
 
-    return (build_obs(**kwargs), build_model(**kwargs),
-            build_sps(**kwargs), build_noise(**kwargs))
+    config["mock_info"] = mock_info
+
+    return (observations, model, sps)
 
 
 if __name__ == '__main__':
@@ -251,27 +207,36 @@ if __name__ == '__main__':
     parser.add_argument('--mass', type=float, default=1e10,
                         help="Stellar mass of the mock; solar masses formed")
 
+    # --- Configure ---
     args = parser.parse_args()
-    run_params = vars(args)
-    obs, model, sps, noise = build_all(**run_params)
+    config = vars(args)
+    config["param_file"] = __file__
 
-    run_params["sps_libraries"] = sps.ssp.libraries
-    run_params["param_file"] = __file__
-
+    # --- Get fitting ingredients ---
+    obs, model, sps = build_all(config)
+    config["sps_libraries"] = sps.ssp.libraries
     print(model)
 
     if args.debug:
         sys.exit()
 
-    #hfile = setup_h5(model=model, obs=obs, **run_params)
-    hfile = "{0}_{1}_mcmc.h5".format(args.outfile, int(time.time()))
-    output = fit_model(obs, model, sps, noise, **run_params)
+    # --- Set up output ---
+    ts = time.strftime("%y%b%d-%H.%M", time.localtime())
+    hfile = f"{args.outfile}_{ts}_result.h5"
 
-    writer.write_hdf5(hfile, run_params, model, obs,
-                      output["sampling"][0], output["optimization"][0],
-                      tsample=output["sampling"][1],
-                      toptimize=output["optimization"][1],
-                      sps=sps)
+    #  --- Run the actual fit ---
+    output = fit_model(obs, model, sps, **config)
+
+    print("writing to {}".format(hfile))
+    writer.write_hdf5(hfile,
+                      config,
+                      model,
+                      obs,
+                      output["sampling"],
+                      output["optimization"],
+                      sps=sps
+                      )
+
 
     try:
         hfile.close()

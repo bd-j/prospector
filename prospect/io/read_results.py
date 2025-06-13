@@ -69,36 +69,18 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
 
     """
     # Read the basic chain, parameter, and run_params info
-    if filename.split('.')[-1] == 'h5':
-        res = read_hdf5(filename, **kwargs)
-        if "_mcmc.h5" in filename:
-            mf_default = filename.replace('_mcmc.h5', '_model')
-        else:
-            mf_default = "x"
-    else:
-        with open(filename, 'rb') as rf:
-            res = pickle.load(rf)
-        mf_default = filename.replace('_mcmc', '_model')
-
-    # Now try to read the model object itself from a pickle
-    if model_file is None:
-        mname = mf_default
-    else:
-        mname = model_file
-    param_file = (res['run_params'].get('param_file', ''),
-                  res.get("paramfile_text", ''))
-    model, powell_results = read_model(mname, param_file=param_file,
-                                       dangerous=dangerous, **kwargs)
+    res, obs = read_hdf5(filename, **kwargs)
+    model = None
+    
+    # Now try to instantiate the model object from the paramfile
     if dangerous:
         try:
             model = get_model(res)
         except:
             model = None
-    res['model'] = model
-    if powell_results is not None:
-        res["powell_results"] = powell_results
+    #res['model'] = model
 
-    return res, res["obs"], model
+    return res, obs, model
 
 
 def emcee_restarter(restart_from="", niter=32, **kwargs):
@@ -153,56 +135,6 @@ def emcee_restarter(restart_from="", niter=32, **kwargs):
     return obs, model, sps, noise, run_params
 
 
-def read_model(model_file, param_file=('', ''), dangerous=False, **extras):
-    """Read the model pickle.  This can be difficult if there are user defined
-    functions that have to be loaded dynamically.  In that case, import the
-    string version of the paramfile and *then* try to unpickle the model
-    object.
-
-    :param model_file:
-        String, name and path to the model pickle.
-
-    :param dangerous: (default: False)
-        If True, try to import the given paramfile.
-
-    :param param_file:
-        2-element tuple.  The first element is the name of the paramfile, which
-        will be used to set the name of the imported module.  The second
-        element is the param_file contents as a string.  The code in this
-        string will be imported.
-    """
-    model = powell_results = None
-    if os.path.exists(model_file):
-        try:
-            with open(model_file, 'rb') as mf:
-                mod = pickle.load(mf)
-        except(AttributeError):
-            # Here one can deal with module and class names that changed
-            with open(model_file, 'rb') as mf:
-                mod = load(mf)
-        except(ImportError, KeyError):
-            # here we load the parameter file as a module using the stored
-            # source string.  Obviously this is dangerous as it will execute
-            # whatever is in the stored source string.  But it can be used to
-            # recover functions (especially dependcy functions) that are user
-            # defined
-            path, filename = os.path.split(param_file[0])
-            modname = filename.replace('.py', '')
-            if dangerous:
-                user_module = import_module_from_string(param_file[1], modname)
-            with open(model_file, 'rb') as mf:
-                mod = pickle.load(mf)
-
-        model = mod['model']
-
-        for k, v in list(model.theta_index.items()):
-            if type(v) is tuple:
-                model.theta_index[k] = slice(*v)
-        powell_results = mod['powell']
-
-    return model, powell_results
-
-
 def read_hdf5(filename, **extras):
     """Read an HDF5 file (with a specific format) into a dictionary of results.
 
@@ -218,8 +150,9 @@ def read_hdf5(filename, **extras):
     :param filename:
         Name of the HDF5 file.
     """
-    groups = {"sampling": {}, "obs": {},
-              "bestfit": {}, "optimization": {}}
+    groups = {"sampling": {},
+              "bestfit": {},
+              "optimization": {}}
     res = {}
     with h5py.File(filename, "r") as hf:
         # loop over the groups
@@ -251,28 +184,26 @@ def read_hdf5(filename, **extras):
         res.update(groups['sampling'])
         res["bestfit"] = groups["bestfit"]
         res["optimization"] = groups["optimization"]
-        res['obs'] = groups['obs']
-        try:
-            res['obs']['filters'] = load_filters([str(f) for f in res['obs']['filters']])
-        except:
-            pass
-        try:
-            res['rstate'] = unpick(res['rstate'])
-        except:
-            pass
-        #try:
-        #    mp = [names_to_functions(p.copy()) for p in res['model_params']]
-        #    res['model_params'] = mp
-        #except:
-        #    pass
+        # do observations
+        if 'observations' in hf:
+            try:
+                obs = obs_from_h5(hf['observations'])
+            except:
+                obs = None
+        else:
+            obs = None
 
-    return res
+    return res, obs
 
 
-def read_pickles(filename, **kwargs):
-    """Alias for backwards compatability. Calls `results_from()`.
-    """
-    return results_from(filename, **kwargs)
+def obs_from_h5(obsgroup):
+    from ..observation import from_serial
+    observations = []
+    for obsname, dset in obsgroup.items():
+        arr, meta = dset[:], dict(dset.attrs)
+        obs = from_serial(arr, meta)
+        observations.append(obs)
+    return observations
 
 
 def get_sps(res):
@@ -313,9 +244,9 @@ def get_sps(res):
                   "same as the FSPS libraries that you are using now ({})".format(flib, rlib))
         # If fitting and reading in are happening in different python versions,
         # ensure string comparison doesn't throw error:
-        if type(flib[0]) == 'bytes':
+        if isinstance(flib[0], bytes):
             flib = [i.decode() for i in flib]
-        if type(rlib[0]) == 'bytes':
+        if isinstance(rlib[0], bytes):
             rlib = [i.decode() for i in rlib]
         assert (flib[0] == rlib[0]) and (flib[1] == rlib[1]), liberr
 
@@ -336,8 +267,7 @@ def get_model(res):
         A prospect.models.SedModel object
     """
     import os
-    param_file = (res['run_params'].get('param_file', ''),
-                  res.get("paramfile_text", ''))
+    param_file = ("prospar", res.get("paramfile_text", ''))
     path, filename = os.path.split(param_file[0])
     modname = filename.replace('.py', '')
     user_module = import_module_from_string(param_file[1], modname)
@@ -461,12 +391,6 @@ def traceplot(results, showpars=None, start=0, chains=slice(None),
     return fig
 
 
-def param_evol(results, **kwargs):
-    """Backwards compatability
-    """
-    return traceplot(results, **kwargs)
-
-
 def subcorner(results, showpars=None, truths=None,
               start=0, thin=1, chains=slice(None),
               logify=["mass", "tau"], **kwargs):
@@ -553,12 +477,6 @@ def subcorner(results, showpars=None, truths=None,
     return fig
 
 
-def subtriangle(results, **kwargs):
-    """Backwards compatability
-    """
-    return subcorner(results, **kwargs)
-
-
 def compare_paramfile(res, filename):
     """Compare the runtime parameter file text stored in the `res` dictionary
     to the text of some existing file with fully qualified path `filename`.
@@ -573,23 +491,3 @@ def compare_paramfile(res, filename):
     bbl = json.loads(b)
     bb = bbl.split('\n')
     pprint([l for l in unified_diff(aa, bb)])
-
-
-def names_to_functions(p):
-    """Replace names of functions (or pickles of objects) in a parameter
-    description with the actual functions (or pickles).
-    """
-    from importlib import import_module
-    for k, v in list(p.items()):
-        try:
-            m = import_module(v[1])
-            f = m.__dict__[v[0]]
-        except:
-            try:
-                f = pickle.loads(v)
-            except:
-                f = v
-
-        p[k] = f
-
-    return p
