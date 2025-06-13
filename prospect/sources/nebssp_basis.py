@@ -435,8 +435,8 @@ def get_spectrum(ssp, params, emul, ewave, tage=0):
     :param use_stellar_ionizing:
         If true, fit CSPs and to get the ionizing spectrum parameters, else read from ssp
     """
-    add_neb = params["add_neb_emission"]
-    use_stars = params["use_stellar_ionizing"]
+    add_neb = params.get("add_neb_emission", False)
+    use_stars =  params.get("use_stellar_ionizing", False)
     #params = {k: v.item() if isinstance(v, np.ndarray) else v for k, v in params.items()}
     wave, tspec = ssp.get_spectrum(tage=tage, peraa=False)
     young, old = ssp._csp_young_old

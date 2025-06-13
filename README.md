@@ -41,7 +41,7 @@ git checkout cuejax
 pip install .
 ```
 
-The ionizing spectrum that powers the nebular emission can either be modeled as a 4-segment power-law or fixed to the spectrum of stellar populations:
+The ionizing spectrum that powers the nebular emission can either be modeled as a 4-segment power-law or fixed to the spectrum of stellar populations ([example](https://github.com/yi-jia-li/prospector/tree/add_cue/demo/prospector+cue.ipynb)):
 ```py
 from prospect.models.templates import TemplateLibrary
 TemplateLibrary["cue_nebular"] # Uses a power-law ionizing spectrum
