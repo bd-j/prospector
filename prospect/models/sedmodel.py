@@ -83,7 +83,7 @@ class SpecModel(ProspectorParams):
         theta : ndarray of shape ``(ndim,)``
             Vector of free model parameter values.
 
-        observations : A list of `Observation` instances (e.g. instance of )
+        observations : A list of `Observation` instances (e.g. instance of Photometry())
             The data to predict
 
         sps :
@@ -179,8 +179,7 @@ class SpecModel(ProspectorParams):
         ----------
         obs : Instance of :py:class:`observation.Spectrum`
             Must contain the output wavelength array, the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:meth:`utils.obsutils.rectify_obs`
+            uncertainties thereon.
 
         Returns
         -------
@@ -254,8 +253,7 @@ class SpecModel(ProspectorParams):
         ----------
         obs : Instance of :py:class:`observation.Spectrum`
             Must contain the output wavelength array, the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:meth:`utils.obsutils.rectify_obs`
+            uncertainties thereon.
 
         sigma_spec : (optional)
             The covariance matrix for the spectral noise. It is only used for
@@ -576,7 +574,9 @@ class SpecModel(ProspectorParams):
         # This part has to go in every call
         linewidth = nsigma * self._ewave_obs / ckms * self._eline_sigma_kms
         pixel_mask = (np.abs(self._outwave - self._ewave_obs[:, None]) < linewidth[:, None])
-        pixel_mask = pixel_mask & obs.get("mask", np.ones_like(self._outwave))[None, :]
+        omask = obs.get("mask", None)
+        if omask is not None:
+            pixel_mask = pixel_mask & omask
         self._valid_eline = pixel_mask.any(axis=1) & self._use_eline
 
         # --- wavelengths corresponding to valid lines ---
@@ -934,8 +934,7 @@ class AGNSpecModel(SpecModel):
         :param obs:
             An observation dictionary, containing the output wavelength array,
             the photometric filter lists, and the observed fluxes and
-            uncertainties thereon.  Assumed to be the result of
-            :py:meth:`utils.obsutils.rectify_obs`
+            uncertainties thereon.
 
         :param sigma_spec: (optional)
             The covariance matrix for the spectral noise. It is only used for
