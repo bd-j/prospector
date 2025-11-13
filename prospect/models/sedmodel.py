@@ -53,13 +53,13 @@ class SpecModel(ProspectorParams):
         self.parse_elines()
 
     def _available_parameters(self):
-        new_pars = [("sigma_smooth", ""),
+        new_pars = [("sigma_smooth", "LOSVD, in km/s, for the stars"),
                     ("marginalize_elines", ""),
                     ("elines_to_fit", ""),
                     ("elines_to_fix", ""),
                     ("elines_to_ignore", ""),
                     ("eline_delta_zred", ""),
-                    ("eline_sigma", ""),
+                    ("eline_sigma", "LOSVD, in km/s, of nebular emission lines"),
                     ("use_eline_priors", ""),
                     ("eline_prior_width", ""),
                     ("dla_logNh", "log_10 HI column density for damped Lyman-alpha absorption"),
@@ -558,8 +558,11 @@ class SpecModel(ProspectorParams):
 
         # linewidths
         nline = self._ewave_obs.shape[0]
-        # physical linewidths
-        self._eline_sigma_kms = np.atleast_1d(self.params.get('eline_sigma', 100.0))
+        # physical linewidths, but do not let them get smaller than the velocity resolution of the library
+        lib_sigma_kms = np.abs(np.interp(self._eline_wave, self._wave, self._library_resolution))
+        losvd = self.params.get("sigma_smooth", 300)
+        self._eline_sigma_kms = np.atleast_1d(self.params.get('eline_sigma', losvd))
+        self._eline_sigma_kms = np.clip(self._eline_sigma_kms, lib_sigma_kms, None, 1e5)
         # what is this wierd construction for?
         self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
@@ -713,7 +716,7 @@ class SpecModel(ProspectorParams):
         # Store fitted emission line luminosities in physical units, including prior
         self._eline_lum[idx] = alpha_bar / linecal
         # store new Gaussian uncertainties in physical units
-        self._eline_lum_var[np.ix_(idx, idx)] = sigma_alpha_bar / linecal[:, None] / linecal[None, :]
+        self._eline_lum_covar[np.ix_(idx, idx)] = sigma_alpha_bar / linecal[:, None] / linecal[None, :]
 
         # return the maximum-likelihood line spectrum for this observation in observed units
         self._eline_lum_mle[idx] = alpha_hat / linecal
