@@ -74,6 +74,62 @@ class SpecModel(ProspectorParams):
 
         return new_pars
 
+    def quantities(self, obs=None):
+        """Return a dictionary of lists of cached quantities generated during
+        the last call to :py:func:`predict`.
+        """
+
+        # get an emission line spectrum, physically smoothed, on the library grid
+        espec = self.predict_eline_spec(line_indices=self.use_eline, wave=self._wave*(1 + self._zred))
+        espec_full = espec.sum(axis=-1)
+
+        # Spectra on the restframe library wavelength grid
+        l = [(self._wave, "AA", "Library restframe wavelength array"),
+             (self._spec, "Lsun/Hz/Msun formed", "Library restframe spectral flux array at library resolution"),
+             (self._norm_spec, "maggies", "Observed-frame spectral flux array, at the restframe library wavelength grid and resolution"),
+             (self._library_resolution, "km/s", "Spectral resolution of the SPS library"),
+             (self._smooth_spec, "maggies", "LOSVD convolved observed-frame spectral flux array, on the library wavelength grid"),
+             (espec_full, "maggies", "LOSVD convolved Emission line spectrum (not including nebular continuum) on the library wavelngth grid"),
+           ]
+
+        # Spectra on the given observed frame grid
+        if obs is not None:
+            # make all lines fixed, not fit
+            fe = self._fit_eline.copy()
+            self._fit_eline = 0 * fe
+            self._fix_eline = np.ones_like(self._fix_eline)
+            # do the prediction
+            pred = self.predict_spec(obs)
+            # restore fitted lines
+            self._fit_eline = fe # turn the emission line fitting back on
+            self._fix_eline = ~fe # turn off the fixed lines when fitting
+
+            # get an emission line spectrum, physically smoothed, on the observed waveelnght grid
+            espec = self.predict_eline_spec(line_indices=self.use_eline & self._valid_eline, wave=self._outwave)
+            espec_obs = espec.sum(axis=-1)
+
+            o = [(self._outwave, "AA","Observed wavelength array"),
+                 (pred, "maggies", "Predicted spectrum on the observed wavelength grid"),
+                 (self._sed, "maggies", "Predicted spectrum, before calibration adjustment"),
+                 (self._speccal, "observed/intrinsic", "Model flux scaling adjustment ('calibration' or response).  observed = self._sed * self._speccal"),
+                 (espec_obs, "maggies", "LOSVD convolved emission line spectrum (not including nebular continuum) on the observed wavelength grid"),
+                ]
+        else:
+            o = None
+
+        # Emission line parameters
+        e = [(self._eline_wave, "Restframe wavelengths of nebular emission lines", "AA"),
+             (self._eline_lum, "Nebular emission line luminosities", "erg/s"),
+             (self._eline_lum_covar, "Covariance matrix of nebular emission line luminosities", "erg^2/s^2"),
+            ]
+
+        # Other
+        x = [(self._mfrac, "Ratio of surviving stellar mass to formed stellar mass", "dimensionless"),
+             (self._zred, "Redshift of the source", "dimensionless"),
+            ]
+
+        return dict(library=l, observed=o, emission_lines=e, other=x)
+
     def predict(self, theta, observations=None, sps=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
         extras (e.g. stellar mass), including any calibration effects.
@@ -170,59 +226,6 @@ class SpecModel(ProspectorParams):
         else:
             prediction = None
         return prediction
-
-    def predict_intrinsic(self, obs_dummy, continuum_only=True, **extras):
-        """Generate a prediction for the observed spectrum.  This method assumes
-        that the parameters have been set and predict_spec has previously been called.
-
-        Parameters
-        ----------
-        obs : Instance of :py:class:`observation.Spectrum`
-            Must contain the output wavelength array, the observed fluxes and
-            uncertainties thereon.
-
-        Returns
-        -------
-        spec : ndarray of shape ``(nwave,)``
-            The prediction for the observed frame spectral flux these
-            parameters, at the wavelengths specified by ``obs['wavelength']``,
-            including multiplication by the calibration vector. in units of
-            maggies.
-        """
-        obs = obs_dummy
-
-        # redshift model wavelength
-        obs_wave = self.observed_wave(self._wave, do_wavecal=False)
-
-        # get output wavelength vector
-        self._outwave = obs.wavelength
-        if self._outwave is None:
-            self._outwave = obs_wave
-
-        # Set up for emission lines
-        self.cache_eline_parameters(obs)
-
-        # --- smooth and put on output wavelength grid ---
-        # Instrumental smoothing (accounting for library resolution)
-        # Put onto the spec.wavelength grid.
-        inst_spec = obs.instrumental_smoothing(obs_wave, self._smooth_spec,
-                                               libres=self._library_resolution)
-
-        # --- add fixed lines if necessary ---
-        emask = self._fix_eline_pixelmask
-        if emask.any() & (~continuum_only):
-            inds = self._fix_eline & self._valid_eline
-            espec = self.predict_eline_spec(line_indices=inds,
-                                            wave=self._outwave[emask])
-            self._fix_eline_spec = espec
-            inst_spec[emask] += self._fix_eline_spec.sum(axis=1)
-
-        # --- add (previously) fitted lines if necessary ---
-        emask = self._fit_eline_pixelmask
-        if emask.any() (~continuum_only):
-            inst_spec[emask] += self._fit_eline_spec.sum(axis=1)
-
-        return inst_spec
 
     def predict_spec(self, obs):
         """Generate a prediction for the observed spectrum.  This method assumes
@@ -1076,7 +1079,7 @@ class AGNSpecModel(SpecModel):
 
 
 class AGNPolySpecModel(SpecModel):
-    """AGN acceration disk continuum model. 
+    """AGN acceration disk continuum model.
     For details, see Wang et al. 2024: https://ui.adsabs.harvard.edu/abs/2024arXiv240302304W/abstract
     """
 
@@ -1084,7 +1087,7 @@ class AGNPolySpecModel(SpecModel):
 
         super().__init__(*args, **kwargs)
         self.init_eline_info()
-    
+
     def predict_init(self, theta, sps=None, **extras):
 
         self.set_parameters(theta)
