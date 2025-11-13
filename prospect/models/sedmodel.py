@@ -561,18 +561,26 @@ class SpecModel(ProspectorParams):
 
         # linewidths
         nline = self._ewave_obs.shape[0]
-        # physical linewidths, but do not let them get smaller than the velocity resolution of the library
+        # physical * library linewidths
         lib_sigma_kms = np.abs(np.interp(self._eline_wave, self._wave, self._library_resolution))
         losvd = self.params.get("sigma_smooth", 300)
         self._eline_sigma_kms = np.atleast_1d(self.params.get('eline_sigma', losvd))
-        self._eline_sigma_kms = np.clip(self._eline_sigma_kms, lib_sigma_kms, None, 1e5)
+        # add the library resolution in quadrature; this mimics the smoothing done to
+        # the stellar continuum
+        self._eline_sigma_kms = np.hypot(self._eline_sigma_kms, lib_sigma_kms)
         # what is this wierd construction for?
-        self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
+        #self._eline_sigma_kms = (self._eline_sigma_kms[None] * np.ones(nline)).squeeze()
         #self._eline_sigma_lambda = eline_sigma_kms * self._ewave_obs / ckms
         # instrumental linewidths
         if obs.resolution is not None:
+            # add the difference betwen the library and instrumental resolution in quadrature
             sigma_inst = np.interp(self._ewave_obs, obs.wavelength, obs.resolution)
-            self._eline_sigma_kms = np.hypot(self._eline_sigma_kms, sigma_inst)
+            # TODO: this allows R_inst > R_lib if physical velocity dispersion is high - use if we change how stars are treated.
+            #self._eline_sigma_kms = np.sqrt(self._eline_sigma_kms**2 + sigma_inst**2 - lib_sigma_kms**2)
+            delta_sigma = np.sqrt(sigma_inst**2 - lib_sigma_kms**2)
+            # TODO: raise a warning here?
+            delta_sigma[~np.isfinite(delta_sigma)] = 0.0
+            self._eline_sigma_kms = np.hypot(self._eline_sigma_kms, delta_sigma)
 
         # --- get valid lines ---
         # fixed and fit lines specified by user, but remove any lines which do
