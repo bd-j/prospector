@@ -80,7 +80,7 @@ class SpecModel(ProspectorParams):
         """
 
         # get an emission line spectrum, physically smoothed, on the library grid
-        espec = self.predict_eline_spec(line_indices=self.use_eline, wave=self._wave*(1 + self._zred))
+        espec = self.predict_eline_spec(line_indices=self._use_eline, wave=self._wave*(1 + self._zred))
         espec_full = espec.sum(axis=-1)
 
         # Spectra on the restframe library wavelength grid
@@ -105,7 +105,7 @@ class SpecModel(ProspectorParams):
             self._fix_eline = ~fe # turn off the fixed lines when fitting
 
             # get an emission line spectrum, physically smoothed, on the observed waveelnght grid
-            espec = self.predict_eline_spec(line_indices=self.use_eline & self._valid_eline, wave=self._outwave)
+            espec = self.predict_eline_spec(line_indices=self._use_eline & self._valid_eline, wave=self._outwave)
             espec_obs = espec.sum(axis=-1)
 
             o = [(self._outwave, "AA","Observed wavelength array"),
