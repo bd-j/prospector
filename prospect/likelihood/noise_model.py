@@ -124,12 +124,12 @@ class NoiseModel1D(NoiseModel):
 
         # 1 = uncorrelated errors, 2 = covariance matrix, >2 undefined
         ndmax = 1
-        Sigma = np.zeros(metric[mask].shape[0])
+        self.Sigma = np.zeros(metric[mask].shape[0])
 
         for kernel in self.kernels:
             wght = vectors.get(kernel.weight_by, None)
-            Sigma += kernel(metric[mask], weights=wght[mask], ndim=ndmax)
-        return Sigma
+            self.Sigma += kernel(metric[mask], weights=wght[mask], ndim=ndmax)
+        return self.Sigma
 
 
 class NoiseModelCov(NoiseModel1D):
@@ -157,12 +157,12 @@ class NoiseModelCov(NoiseModel1D):
 
         # 1 = uncorrelated errors, 2 = covariance matrix, >2 undefined
         ndmax = np.array([k.ndim for k in self.kernels]).max()
-        Sigma = np.zeros(ndmax * [metric[mask].shape[0]])
+        self.Sigma = np.zeros(ndmax * [metric[mask].shape[0]])
 
         for kernel in self.kernels:
             wght = vectors.get(kernel.weight_by, None)
-            Sigma += kernel(metric[mask], weights=wght[mask], ndim=ndmax)
-        return Sigma
+            self.Sigma += kernel(metric[mask], weights=wght[mask], ndim=ndmax)
+        return self.Sigma
 
     def compute(self, check_finite=False, **vectors):
         """Build and cache the covariance matrix, and if it is 2-d factorize it
