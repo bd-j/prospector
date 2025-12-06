@@ -99,7 +99,7 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
         try:
             mu, phot, x = model.mean_model(theta, obs, sps=sps)
         except(ValueError):
-            return -np.infty
+            return -np.inf
 
         # Noise modeling
         if spec_noise is not None:
@@ -116,7 +116,7 @@ def lnprobfn(theta, model=None, obs=None, verbose=run_params['verbose']):
 
         return lnp_phot + lnp_spec + lnp_prior
     else:
-        return -np.infty
+        return -np.inf
 
 
 def prior_transform(u, model=None):

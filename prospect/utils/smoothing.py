@@ -103,8 +103,8 @@ def smoothspec(wave, spec, resolution=None, outwave=None,
         sigma = resolution
         fwhm = sigma * sigma_to_fwhm
         if sigma == 0.0:
-            Rsigma = np.infty
-            R = np.infty
+            Rsigma = np.inf
+            R = np.inf
         else:
             Rsigma = ckms / sigma
             R = ckms / fwhm
@@ -222,7 +222,7 @@ def smooth_vel(wave, spec, outwave, sigma, nsigma=10, inres=0, **extras):
         else:
             _spec = spec
         f = np.exp(-0.5 * x**2)
-        flux[i] = np.trapz(f * _spec, x) / np.trapz(f, x)
+        flux[i] = np.trapezoid(f * _spec, x) / np.trapezoid(f, x)
     return flux
 
 
@@ -333,7 +333,7 @@ def smooth_wave(wave, spec, outwave, sigma, nsigma=10, inres=0, in_vel=False,
         else:
             _spec = spec
         f = np.exp(-0.5 * x**2)
-        flux[i] = np.trapz(f * _spec, x) / np.trapz(f, x)
+        flux[i] = np.trapezoid(f * _spec, x) / np.trapezoid(f, x)
     return flux
 
 
