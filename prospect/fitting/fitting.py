@@ -87,7 +87,7 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
         lnnull = np.zeros(obs["ndof"]) - 1e18  # np.infty
         #lnnull = -np.infty
     else:
-        lnnull = -np.infty
+        lnnull = -np.inf
 
     # --- Calculate prior probability and exit if not within prior ---
     lnp_prior = model.prior_product(theta, nested=nested)

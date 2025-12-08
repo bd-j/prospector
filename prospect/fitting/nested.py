@@ -148,7 +148,7 @@ def run_dynesty_sampler(lnprobfn, prior_transform, ndim,
             stop_val = stop_vals[2]
         else:
             stop = False
-            stop_val = np.NaN
+            stop_val = np.nan
 
         # If we have either likelihood calls or iterations remaining,
         # run our batch.

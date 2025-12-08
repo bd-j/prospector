@@ -178,7 +178,7 @@ def test_eline_implementation():
     model = SpecModel(model_pars)
     spec_nolya, phot_nolya, mfrac = model.predict(model.theta, obs=obs, sps=sps)
     assert np.any((phot - phot_nolya) / phot != 0.0)
-    lint = np.trapz(spec - spec_nolya, obs["wavelength"])
+    lint = np.trapezoid(spec - spec_nolya, obs["wavelength"])
     assert lint > 0
 
     # test igoring a line, phot only

@@ -566,7 +566,7 @@ class SpecModel(ProspectorParams):
 
         # outside of the wavelengths defined by the spectrum? (why this dependence?)
         # FIXME what is this?
-        eline_gaussians /= -np.trapz(eline_gaussians, 3e18/warr[:, None], axis=0)
+        eline_gaussians /= -np.trapezoid(eline_gaussians, 3e18/warr[:, None], axis=0)
 
         return eline_gaussians
 

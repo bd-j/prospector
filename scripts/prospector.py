@@ -70,14 +70,14 @@ def lnprobfn(theta, model=None, obs=None, noise=None, sps=sps,
     # Calculate prior probability and exit if not within prior
     lnp_prior = model.prior_product(theta)
     if not np.isfinite(lnp_prior):
-        return -np.infty
+        return -np.inf
 
     # Generate mean model
     t1 = time.time()
     try:
         spec, phot, x = model.mean_model(theta, obs, sps=sps)
     except(ValueError):
-        return -np.infty
+        return -np.inf
     d1 = time.time() - t1
 
     # Return chi vectors for least-squares optimization
