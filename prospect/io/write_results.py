@@ -205,7 +205,7 @@ def emcee_to_struct(sampler, model):
                   lnlike=lnpost - lnprior,
                   acceptance=sampler.acceptance_fraction,
                   rstate=sampler.random_state,
-                  duration=sampler.getattr("duration", 0.0))
+                  duration=getattr(sampler, "duration", 0.0))
 
     return chaincat, extras
 
