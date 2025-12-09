@@ -8,6 +8,7 @@ and computing parameter dependencies and prior probabilities.
 """
 
 from copy import deepcopy
+import inspect
 import warnings
 import numpy as np
 from . import priors
@@ -212,16 +213,63 @@ class ProspectorParams(object):
         return theta
 
     def propagate_parameter_dependencies(self):
-        """Propogate any parameter dependecies. That is, for parameters whose
-        value depends on another parameter, calculate those values and store
-        them in the :py:attr:`self.params` dictionary.
+        """Propagate dependencies between parameters using a topological sort 
+        derived from function introspection.
         """
-        if self._has_parameter_dependencies == False:
-            return
-        for p, info in list(self.config_dict.items()):
+        # 1. Build the Dependency Graph
+        # dependency_graph[derived_param] = {dependency_1, dependency_2, ...}
+        dependency_graph = {k: set() for k in self.config_dict.keys()}
+
+        for p, info in self.config_dict.items():
             if 'depends_on' in info:
-                value = info['depends_on'](**self.params)
-                self.params[p] = np.atleast_1d(value)
+                func = info['depends_on']
+                try:
+                    sig = inspect.signature(func)
+                    # Find arguments that strictly match parameter names in our model
+                    deps = {
+                        name for name in sig.parameters.keys()
+                        if name in self.config_dict and name != p
+                    }
+                    dependency_graph[p].update(deps)
+                except ValueError:
+                    # Handle cases where signature can't be retrieved (e.g. built-ins)
+                    pass
+
+        # 2. Topological Sort (Kahn's Algorithm)
+        # Calculate in-degree (number of unmet dependencies) for each node
+        in_degree = {k: 0 for k in self.config_dict}
+        for node, parents in dependency_graph.items():
+            for parent in parents:
+                if parent in in_degree: # Ensure parent is actually a tracked param
+                    in_degree[node] += 1
+
+        # Initialize queue with nodes that have 0 dependencies
+        queue = [k for k, d in in_degree.items() if d == 0]
+        sorted_order = []
+
+        # 3. Resolve
+        while queue:
+            u = queue.pop(0)
+            sorted_order.append(u)
+
+            # For every node 'v' that depends on 'u'
+            for v, parents in dependency_graph.items():
+                if u in parents:
+                    in_degree[v] -= 1
+                    if in_degree[v] == 0:
+                        queue.append(v)
+
+        # Check for cycles
+        if len(sorted_order) != len(self.config_dict):
+            # Fallback for cycles: default to dictionary order
+            sorted_order = list(self.config_dict.keys())
+
+        # 4. Execute Updates in Order
+        for p in sorted_order:
+            if 'depends_on' in self.config_dict[p]:
+                self.params[p] = np.atleast_1d(
+                    self.config_dict[p]['depends_on'](**self.params),
+                )
 
     def rectify_theta(self, theta, epsilon=1e-10):
         """Replace zeros in a given theta vector with a small number epsilon.
