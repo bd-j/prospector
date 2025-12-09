@@ -115,6 +115,11 @@ class ProspectorParams(object):
         # configure `init` values
         for k, v in list(kwargs.items()):
             self.params[k] = np.atleast_1d(v)
+        
+        # Build the dependency list
+        if self._has_parameter_dependencies:
+            self._compute_dependency_order()
+        
         # store these initial values
         self.initial_theta = self.theta.copy()
 
@@ -148,7 +153,9 @@ class ProspectorParams(object):
         assert len(theta) == self.ndim
         for k, inds in list(self.theta_index.items()):
             self.params[k] = np.atleast_1d(theta[inds]).copy()
-        self.propagate_parameter_dependencies()
+        
+        if self._has_parameter_dependencies:
+            self.propagate_parameter_dependencies()
 
     def prior_product(self, theta, nested=False, **extras):
         """Public version of _prior_product to be overridden by subclasses.
@@ -212,7 +219,7 @@ class ProspectorParams(object):
 
         return theta
 
-    def propagate_parameter_dependencies(self):
+    def _compute_dependency_order(self):
         """Propagate dependencies between parameters using a topological sort 
         derived from function introspection.
         """
@@ -263,13 +270,22 @@ class ProspectorParams(object):
         if len(sorted_order) != len(self.config_dict):
             # Fallback for cycles: default to dictionary order
             sorted_order = list(self.config_dict.keys())
+        
+        # Only keep parameters that actually have dependencies
+        self._dependency_order = [
+            p for p in sorted_order if 'depends_on' in self.config_dict[p]
+        ]
 
-        # 4. Execute Updates in Order
-        for p in sorted_order:
-            if 'depends_on' in self.config_dict[p]:
-                self.params[p] = np.atleast_1d(
-                    self.config_dict[p]['depends_on'](**self.params),
-                )
+    def propagate_parameter_dependencies(self):
+        """Propagate dependencies between parameters using the cached topological sort.
+        """
+        if getattr(self, '_dependency_order', None) is None:
+             self._compute_dependency_order()
+             
+        for p in self._dependency_order:
+            self.params[p] = np.atleast_1d(
+                self.config_dict[p]['depends_on'](**self.params),
+            )
 
     def rectify_theta(self, theta, epsilon=1e-10):
         """Replace zeros in a given theta vector with a small number epsilon.
