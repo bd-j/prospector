@@ -200,7 +200,7 @@ def emcee_to_struct(sampler, model):
 
     # chaincat & extras
     chaincat = chain_to_struct(samples, model=model)
-    extras = dict(weights=None,
+    extras = dict(weights=np.ones(len(samples))/len(samples),
                   lnprobability=lnpost,
                   lnlike=lnpost - lnprior,
                   acceptance=sampler.acceptance_fraction,
