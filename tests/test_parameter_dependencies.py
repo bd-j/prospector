@@ -12,7 +12,7 @@ dependencies.
 
 import numpy as np
 import pytest
-from prospect.models import ProspectorParams, priors
+from prospect.models import ProspectorParams, priors, transforms
 from prospect.models.templates import TemplateLibrary
 
 
@@ -350,4 +350,98 @@ class TestParameterDependencies:
         )  # 7 bins default
         assert np.allclose(model.params["agebins"], expected_agebins), (
             "agebins not updated correctly from new zred"
+        )
+
+    def test_continuity_sfh_zred_dependency(self):
+        """
+        Test a specific failure case with the continuity_sfh template where
+        zred is made free, and agebins depends on zred.
+        This creates a dependency chain:
+        zred -> agebins -> mass
+
+        If parameter propagation is not topologically sorted, 'mass' (which appears early in
+        the dictionary) might be calculated using stale 'agebins' (which appears late),
+        leading to inconsistency.
+        """
+
+        # 1. Setup the model parameters from the template
+        # We use a copy to avoid modifying the global template
+        try:
+            model_params = TemplateLibrary["continuity_sfh"]
+        except Exception as e:
+            pytest.skip(f"Could not load continuity_sfh template: {e}")
+
+        # 2. Modify to make zred free and agebins dependent on it
+        # Make redshift a free parameter (and give it a prior)
+        model_params["zred"]["isfree"] = True
+        model_params["zred"]["prior"] = priors.TopHat(mini=0.5, maxi=3.0)
+        # Give it an initial value distinct from default (usually 0.1)
+        model_params["zred"]["init"] = 1.0
+
+        # agebins now must depend on redshift
+        model_params["agebins"]["depends_on"] = transforms.zred_to_agebins
+
+        # Instantiate the model object
+        model = ProspectorParams(model_params)
+
+        # 3. Verify the dependency order calculation
+        if hasattr(model, "_dependency_order"):
+            # Check that agebins is updated before mass
+            try:
+                idx_agebins = model._dependency_order.index("agebins")
+                idx_mass = model._dependency_order.index("mass")
+                assert idx_agebins < idx_mass, (
+                    f"Topological sort failed: 'agebins' ({idx_agebins}) should come before 'mass' ({idx_mass})"
+                )
+            except ValueError:
+                pass
+
+        # 4. Perform an update and verify consistency
+
+        # Let's set a new redshift
+        new_zred = 2.0
+
+        # We need to construct a theta vector.
+        # Identify the index of zred in theta
+        theta = model.theta.copy()
+        zred_idx = model.theta_index["zred"]
+
+        # Update zred in theta
+        theta[zred_idx] = new_zred
+
+        # Call set_parameters
+        model.set_parameters(theta)
+
+        # 5. Check if agebins and mass are consistent
+
+        # Current values in model.params
+        curr_zred = model.params["zred"][0]
+        curr_agebins = model.params["agebins"]
+        curr_mass = model.params["mass"]
+
+        assert np.isclose(curr_zred, new_zred), "zred was not updated correctly"
+
+        # Calculate expected agebins manually
+        # Note: zred_to_agebins requires 'agebins' in the input to know the structure (ncomp)
+        expected_agebins = transforms.zred_to_agebins(
+            zred=new_zred, agebins=model.params["agebins"]
+        )
+        assert np.allclose(curr_agebins, expected_agebins), (
+            "agebins was not updated correctly based on zred"
+        )
+
+        # Calculate expected mass manually
+        # Get other inputs for mass calculation
+        logsfr_ratios = model.params["logsfr_ratios"]
+        logmass = model.params["logmass"]
+
+        # Re-run the transform using the updated parameters
+        expected_mass = transforms.logsfr_ratios_to_masses(
+            logsfr_ratios=logsfr_ratios, logmass=logmass, agebins=curr_agebins
+        )
+
+        # If the propagation order was wrong, curr_mass would have been calculated using OLD agebins
+        # leading to a mismatch with expected_mass (which uses NEW agebins)
+        assert np.allclose(curr_mass, expected_mass), (
+            "mass is inconsistent with current agebins! Likely calculated using stale agebins."
         )
