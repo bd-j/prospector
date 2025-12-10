@@ -235,7 +235,7 @@ class ProspectorParams(object):
                     # Find arguments that strictly match parameter names in our model
                     deps = {
                         name for name in sig.parameters.keys()
-                        if name in self.config_dict and name != p
+                        if name in self.config_dict
                     }
                     dependency_graph[p].update(deps)
                 except ValueError:
@@ -247,7 +247,12 @@ class ProspectorParams(object):
         in_degree = {k: 0 for k in self.config_dict}
         for node, parents in dependency_graph.items():
             for parent in parents:
-                if parent in in_degree: # Ensure parent is actually a tracked param
+                # Ignore self-dependencies for sorting purposes
+                if parent == node:
+                    continue
+
+                # Ensure parent is actually a tracted param
+                if parent in in_degree:
                     in_degree[node] += 1
 
         # Initialize queue with nodes that have 0 dependencies
@@ -274,22 +279,29 @@ class ProspectorParams(object):
                 f"Cyclic dependency detected in model parameters: {remaining}. "
                 "Parameters cannot depend on each other in a closed loop."
             )
-        
-        # Only keep parameters that actually have dependencies
-        self._dependency_order = [
-            p for p in sorted_order if 'depends_on' in self.config_dict[p]
-        ]
+
+        self._dependency_order = []
+        for p in sorted_order:
+            if 'depends_on' in self.config_dict[p]:
+                # We need the dependencies to know what to pass to the function
+                deps = dependency_graph[p]
+                self._dependency_order.append((p, deps))
 
     def propagate_parameter_dependencies(self):
         """Propagate dependencies between parameters using the cached topological sort.
         """
         if getattr(self, '_dependency_order', None) is None:
              self._compute_dependency_order()
-             
-        for p in self._dependency_order:
-            self.params[p] = np.atleast_1d(
-                self.config_dict[p]['depends_on'](**self.params),
-            )
+
+        for p, deps in self._dependency_order:
+            # Construct a dictionary containing only the declared dependencies
+            # This starves the function of any hidden access via **kwargs
+            func_args = {k: self.params[k] for k in deps if k in self.params}
+
+            # Call function wiht strict arguments
+            new_val = self.config_dict[p]['depends_on'](**func_args)
+
+            self.params[p] = np.atleast_1d(new_val)
 
     def rectify_theta(self, theta, epsilon=1e-10):
         """Replace zeros in a given theta vector with a small number epsilon.

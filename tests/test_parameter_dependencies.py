@@ -529,7 +529,8 @@ class TestParameterDependencies:
 
         # Verify Introspection ignored the junk arguments
         if hasattr(model, "_dependency_order"):
-            assert "B" in model._dependency_order
+            params_in_order = [p for p, deps in model._dependency_order]
+            assert "B" in params_in_order
             # If introspection failed on 'debug_mode', B might have been skipped or A might be missing from graph
 
         model.propagate_parameter_dependencies()
