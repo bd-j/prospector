@@ -222,17 +222,10 @@ class TestParameterDependencies:
             },
         }
 
-        # This creates a cycle. The topological sort should detect it (length of sorted != length of items)
-        # and fallback to default order.
+        # This creates a cycle. The topological sort should detect it (length of sorted != length of items).
 
-        try:
+        with pytest.raises(RecursionError, match="Cyclic dependency detected"):
             model = ProspectorParams(config)
-            # If we reach here, we didn't hang or crash.
-            model.set_parameters(np.array([5.0]))
-            assert "A" in model.params
-            assert "B" in model.params
-        except RecursionError:
-            pytest.fail("Cycle caused RecursionError")
 
     def test_stale_update_check(self):
         """

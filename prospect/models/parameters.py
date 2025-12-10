@@ -266,10 +266,14 @@ class ProspectorParams(object):
                     if in_degree[v] == 0:
                         queue.append(v)
 
-        # Check for cycles
+        # Check for cycles - these should never be allowed
         if len(sorted_order) != len(self.config_dict):
-            # Fallback for cycles: default to dictionary order
-            sorted_order = list(self.config_dict.keys())
+            # Identify which parameters are stuck in the cycle for the error message
+            remaining = set(self.config_dict.keys()) - set(sorted_order)
+            raise RecursionError(
+                f"Cyclic dependency detected in model parameters: {remaining}. "
+                "Parameters cannot depend on each other in a closed loop."
+            )
         
         # Only keep parameters that actually have dependencies
         self._dependency_order = [
