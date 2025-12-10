@@ -546,9 +546,6 @@ class TestParameterDependencies:
             "np.atleast_1d might be mangling dimensions."
         )
 
-    @pytest.mark.xfail(
-        reason="Introspection cannot detect dependencies hidden in **kwargs"
-    )
     def test_hidden_dependency_kwargs(self):
         """
         Test that dependencies hidden inside **kwargs are NOT detected by introspection.
@@ -564,7 +561,7 @@ class TestParameterDependencies:
 
         def lazy_transform(**kwargs):
             # Access 'A' blindly from kwargs
-            val_a = kwargs.get("A", [0])[0]
+            val_a = kwargs["A"][0]
             return val_a * 2
 
         # Force "Bad" order: B before A
@@ -587,15 +584,9 @@ class TestParameterDependencies:
             },
         ]
 
+        # Instantiation doesn't cause failure since there's no propagation yet.
         model = ProspectorParams(config_list)
 
-        # Update A -> 5
-        model.set_parameters(np.array([5.0]))
-
-        # If the dependency was caught: B = 5 * 2 = 10.
-        # If missed (Expected): B updates BEFORE A (using old A=1). B = 1 * 2 = 2.
-
-        # We assert the "Correct" behavior.
-        # Since introspection misses the link, this assertion will fail,
-        # and pytest will mark it as "XFAIL" (Expected Failure).
-        assert model.params["B"][0] == 10.0
+        # Trying to propagate should fail because kwargs is not passed to lazy_transform.
+        with pytest.raises(KeyError, match="A"):
+            model.propagate_parameter_dependencies()
