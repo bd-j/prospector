@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 from prospect.models import ProspectorParams, priors, transforms
 from prospect.models.templates import TemplateLibrary
+from functools import partial
 
 
 class TestParameterDependencies:
@@ -445,3 +446,155 @@ class TestParameterDependencies:
         assert np.allclose(curr_mass, expected_mass), (
             "mass is inconsistent with current agebins! Likely calculated using stale agebins."
         )
+
+    def test_exotic_callables(self):
+        """Test that dependency detection works for more exotic functions,
+        such as partials and callable classes."""
+
+        # 1. Partial Function
+        def base_func(A=0, multiplier=1, **kwargs):
+            return A * multiplier
+
+        partial_dep = partial(base_func, multiplier=2)
+
+        # 2. Callable Class
+        class CallableDep:
+            def __call__(self, B=0, **kwargs):
+                return B + 5
+
+        config = {
+            "A": {
+                "N": 1,
+                "isfree": True,
+                "init": 2.0,
+                "prior": priors.TopHat(mini=0, maxi=10),
+            },
+            "B": {
+                "N": 1,
+                "isfree": False,
+                "init": 0.0,
+                "depends_on": partial_dep,
+            },  # Depends on A
+            "C": {
+                "N": 1,
+                "isfree": False,
+                "init": 0.0,
+                "depends_on": CallableDep(),
+            },  # Depends on B
+        }
+
+        model = ProspectorParams(config)
+        model.propagate_parameter_dependencies()
+
+        # A=2 -> B=4 -> C=9
+        assert model.params["B"][0] == 4.0
+        assert model.params["C"][0] == 9.0
+
+    def test_robustness_edge_cases(self):
+        """
+        Test edge cases for the dependency engine:
+        1. Functions with arguments NOT in the model (should be ignored by introspection).
+        2. Functions returning Multi-dimensional arrays (should be preserved by np.atleast_1d).
+        """
+
+        # Scenario 1: Function requests 'debug_mode', which is NOT a parameter.
+        # The introspector should ignore it and link 'A' correctly.
+        def loose_signature(A=0, debug_mode=False, verbose=True, **kwargs):
+            return A * 2
+
+        # Scenario 2: Function returns a 2x2 Matrix.
+        # The 'np.atleast_1d' safety check should NOT mangle the shape.
+        def matrix_return(A=0, **kwargs):
+            return np.eye(2) * A
+
+        config = {
+            "A": {
+                "N": 1,
+                "isfree": True,
+                "init": 2.0,
+                "prior": priors.TopHat(mini=0, maxi=10),
+            },
+            # B depends on A, but asks for 'debug_mode' too
+            "B": {"N": 1, "isfree": False, "init": 0.0, "depends_on": loose_signature},
+            # C depends on A, returns a 2x2 matrix
+            "C": {
+                "N": 4,
+                "isfree": False,
+                "init": np.zeros((2, 2)),
+                "depends_on": matrix_return,
+            },
+        }
+
+        model = ProspectorParams(config)
+
+        # Verify Introspection ignored the junk arguments
+        if hasattr(model, "_dependency_order"):
+            assert "B" in model._dependency_order
+            # If introspection failed on 'debug_mode', B might have been skipped or A might be missing from graph
+
+        model.propagate_parameter_dependencies()
+
+        # Check B (Loose Signature)
+        assert model.params["B"][0] == 4.0
+
+        # Check C (Matrix Shape Preservation)
+        expected_matrix = np.eye(2) * 2.0
+        assert np.array_equal(model.params["C"], expected_matrix)
+        assert model.params["C"].shape == (2, 2), (
+            f"Shape mismatch! Expected (2,2), got {model.params['C'].shape}. "
+            "np.atleast_1d might be mangling dimensions."
+        )
+
+    @pytest.mark.xfail(
+        reason="Introspection cannot detect dependencies hidden in **kwargs"
+    )
+    def test_hidden_dependency_kwargs(self):
+        """
+        Test that dependencies hidden inside **kwargs are NOT detected by introspection.
+        This is a known limitation of the current implementation.
+
+        Setup:
+        B depends on A via kwargs['A'].
+        We explicitly order the config so B comes before A.
+
+        If dependency detection worked, the sort would put A -> B, and B would be 10.
+        Since it fails, B updates before A (using old A=1), so B becomes 2.
+        """
+
+        def lazy_transform(**kwargs):
+            # Access 'A' blindly from kwargs
+            val_a = kwargs.get("A", [0])[0]
+            return val_a * 2
+
+        # Force "Bad" order: B before A
+        # Since B's dependency is hidden, the sorter sees B as having 0 dependencies.
+        # It preserves the input order [B, A].
+        config_list = [
+            {
+                "name": "B",
+                "N": 1,
+                "isfree": False,
+                "init": 0.0,
+                "depends_on": lazy_transform,
+            },
+            {
+                "name": "A",
+                "N": 1,
+                "isfree": True,
+                "init": 1.0,
+                "prior": priors.TopHat(mini=0, maxi=10),
+            },
+        ]
+
+        model = ProspectorParams(config_list)
+
+        # Update A -> 5
+        model.set_parameters(np.array([5.0]))
+
+        # If the dependency was caught: B = 5 * 2 = 10.
+        # If missed (Expected): B updates BEFORE A (using old A=1). B = 1 * 2 = 2.
+
+        # We assert the "Correct" behavior.
+        # Since introspection misses the link, this assertion will fail,
+        # and pytest will mark it as "XFAIL" (Expected Failure).
+        assert model.params["B"][0] == 10.0
