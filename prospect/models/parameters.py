@@ -449,6 +449,13 @@ class ProspectorParams(object):
             The prior samples. A numpy array of shape ``(ndim,)`` if nsamples 
             is None, or ``(nsamples, ndim)`` if nsamples is provided.
         """
+        # Handle case where there are no free parameters
+        if self.ndim == 0:
+            if nsamples is None:
+                return np.array([])
+            else:
+                return np.empty((nsamples, 0))
+
         # Get the names of free parameters in the correct order
         free_params = self.free_params
 
