@@ -2,15 +2,27 @@
 # -*- coding: utf-8 -*-
 
 """
-test_parameter_dependencies.py
+test_parameters.py
 
-This module tests the dependency propagation logic in ProspectorParams.
-It verifies that parameters are updated in the correct topological order,
-ensuring that derived parameters use the most up-to-date values of their
-dependencies.
+This module contains unit tests for parameter handling and prior sampling
+mechanisms within the ProspectorParams class.
+
+It covers:
+1.  **Dependency Propagation:** Verifies that parameters are updated in the
+    correct topological order, ensuring that derived parameters use the
+    most up-to-date values of their dependencies.
+2.  **Prior Sampling:** Verifies the ``sample_prior`` method, ensuring it
+    correctly generates samples from the joint prior distribution. This includes
+    tests for:
+    * Output shapes and parameter ordering.
+    * Adherence to hard bounds.
+    * Statistical correctness (mean, variance, covariance) for a wide range
+        of prior distributions (e.g., Normal, TopHat, LogNormal, Beta,
+        StudentT, and MultivariateNormal).
 """
 
 import numpy as np
+from scipy.special import erf
 import pytest
 from prospect.models import ProspectorParams, priors, transforms
 from prospect.models.templates import TemplateLibrary
@@ -226,7 +238,7 @@ class TestParameterDependencies:
         # This creates a cycle. The topological sort should detect it (length of sorted != length of items).
 
         with pytest.raises(RecursionError, match="Cyclic dependency detected"):
-            model = ProspectorParams(config)
+            _ = ProspectorParams(config)
 
     def test_stale_update_check(self):
         """
@@ -746,10 +758,100 @@ class TestSamplePrior:
         # Set seed for deterministic behavior
         np.random.seed(42)
 
+        # Define probability density function for standard normal distribution
+        def normal_pdf(x):
+            return (1.0 / np.sqrt(2 * np.pi)) * np.exp(-0.5 * x**2)
+
+        def normal_cdf(x):
+            return 0.5 * (1 + erf(x / np.sqrt(2)))
+
+        # Truncated normal mean and variance
+        def truncated_normal_mean(mean, sigma, a, b):
+            alpha = (a - mean) / sigma
+            beta = (b - mean) / sigma
+            Z = normal_cdf(beta) - normal_cdf(alpha)
+            phi_alpha = normal_pdf(alpha)
+            phi_beta = normal_pdf(beta)
+            return mean + (phi_alpha - phi_beta) * sigma / Z
+
+        def truncated_normal_variance(mean, sigma, a, b):
+            alpha = (a - mean) / sigma
+            beta = (b - mean) / sigma
+            Z = normal_cdf(beta) - normal_cdf(alpha)
+            phi_alpha = normal_pdf(alpha)
+            phi_beta = normal_pdf(beta)
+            return sigma**2 * (
+                1
+                + (alpha * phi_alpha - beta * phi_beta) / Z
+                - ((phi_alpha - phi_beta) / Z) ** 2
+            )
+
+        # Reciprocal distribution mean and variance
+        def reciprocal_mean(mini, maxi):
+            return (maxi - mini) / np.log(maxi / mini)
+
+        def reciprocal_variance(mini, maxi):
+            term1 = (maxi**2 - mini**2) / (2 * np.log(maxi / mini))
+            return term1 - reciprocal_mean(mini, maxi) ** 2
+
+        # Beta distribution mean and variance (scaled and shifted)
+        def beta_mean(alpha, beta, mini, maxi):
+            scale = maxi - mini
+            standard_mean = alpha / (alpha + beta)
+            return mini + scale * standard_mean
+
+        def beta_variance(alpha, beta, mini, maxi):
+            scale = maxi - mini
+            standard_var = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1))
+            return scale**2 * standard_var
+
+        # Log-normal distribution mean and variance
+        def lognormal_mean(mode, sigma):
+            return np.exp(mode + 1.5 * sigma**2)
+
+        def lognormal_variance(mode, sigma):
+            return (np.exp(sigma**2) - 1) * np.exp(2 * mode + 3 * sigma**2)
+
+        # LogNormalLinpar mean and variance
+        def lognormal_linpar_mean(mode, sigma_factor):
+            sigma = np.log(sigma_factor)
+            return mode * np.exp(1.5 * sigma**2)
+
+        def lognormal_linpar_variance(mode, sigma_factor):
+            sigma = np.log(sigma_factor)
+            return (np.exp(sigma**2) - 1) * mode**2 * np.exp(3 * sigma**2)
+
+        # Skewed normal distribution mean and variance
+        def skewed_normal_mean(location, sigma, skew):
+            delta = skew / np.sqrt(1 + skew**2)
+            return location + sigma * delta * np.sqrt(2 / np.pi)
+
+        def skewed_normal_variance(location, sigma, skew):
+            delta = skew / np.sqrt(1 + skew**2)
+            return sigma**2 * (1 - (2 * delta**2) / np.pi)
+
+        # Student's t-distribution mean and variance
+        def students_t_mean(mean, scale, df):
+            return mean
+
+        def students_t_variance(mean, scale, df):
+            return scale**2 * (df / (df - 2))
+
         # The distributions we want to test
         dist_config = {
             "uniform": {"mini": 2, "maxi": 10},
             "normal": {"mean": 25, "sigma": 3},
+            "truncated_normal": {"mean": 5, "sigma": 2, "mini": 0, "maxi": 10},
+            "reciprocal": {"mini": 1, "maxi": 100},
+            "beta": {"alpha": 2, "beta": 5, "mini": -10, "maxi": 10},
+            "lognormal": {"mode": 1.0, "sigma": 0.5},
+            "lognormal_linpar": {"mode": 2.0, "sigma_factor": 1.5},
+            "skewed_normal": {"location": 0, "sigma": 2, "skew": 5},
+            "students_t": {"mean": 10, "scale": 1, "df": 5},
+            "multivariate_normal": {
+                "mean": np.array([1.0, 3.0]),
+                "Sigma": np.array([[2.0, 0.5], [0.5, 1.0]]),
+            },
         }
 
         # The properties we expect from each distribution
@@ -769,6 +871,82 @@ class TestSamplePrior:
                 "mean": dist_config["normal"]["mean"],
                 "var": dist_config["normal"]["sigma"] ** 2,
             },
+            "truncated_normal": {
+                "mean": truncated_normal_mean(
+                    dist_config["truncated_normal"]["mean"],
+                    dist_config["truncated_normal"]["sigma"],
+                    dist_config["truncated_normal"]["mini"],
+                    dist_config["truncated_normal"]["maxi"],
+                ),
+                "var": truncated_normal_variance(
+                    dist_config["truncated_normal"]["mean"],
+                    dist_config["truncated_normal"]["sigma"],
+                    dist_config["truncated_normal"]["mini"],
+                    dist_config["truncated_normal"]["maxi"],
+                ),
+            },
+            "reciprocal": {
+                "mean": reciprocal_mean(
+                    dist_config["reciprocal"]["mini"],
+                    dist_config["reciprocal"]["maxi"],
+                ),
+                "var": reciprocal_variance(
+                    dist_config["reciprocal"]["mini"],
+                    dist_config["reciprocal"]["maxi"],
+                ),
+            },
+            "beta": {
+                "mean": beta_mean(**dist_config["beta"]),
+                "var": beta_variance(**dist_config["beta"]),
+            },
+            "lognormal": {
+                "mean": lognormal_mean(
+                    dist_config["lognormal"]["mode"],
+                    dist_config["lognormal"]["sigma"],
+                ),
+                "var": lognormal_variance(
+                    dist_config["lognormal"]["mode"],
+                    dist_config["lognormal"]["sigma"],
+                ),
+            },
+            "lognormal_linpar": {
+                "mean": lognormal_linpar_mean(
+                    dist_config["lognormal_linpar"]["mode"],
+                    dist_config["lognormal_linpar"]["sigma_factor"],
+                ),
+                "var": lognormal_linpar_variance(
+                    dist_config["lognormal_linpar"]["mode"],
+                    dist_config["lognormal_linpar"]["sigma_factor"],
+                ),
+            },
+            "skewed_normal": {
+                "mean": skewed_normal_mean(
+                    dist_config["skewed_normal"]["location"],
+                    dist_config["skewed_normal"]["sigma"],
+                    dist_config["skewed_normal"]["skew"],
+                ),
+                "var": skewed_normal_variance(
+                    dist_config["skewed_normal"]["location"],
+                    dist_config["skewed_normal"]["sigma"],
+                    dist_config["skewed_normal"]["skew"],
+                ),
+            },
+            "students_t": {
+                "mean": students_t_mean(
+                    dist_config["students_t"]["mean"],
+                    dist_config["students_t"]["scale"],
+                    dist_config["students_t"]["df"],
+                ),
+                "var": students_t_variance(
+                    dist_config["students_t"]["mean"],
+                    dist_config["students_t"]["scale"],
+                    dist_config["students_t"]["df"],
+                ),
+            },
+            "multivariate_normal": {
+                "mean": dist_config["multivariate_normal"]["mean"],
+                "cov": dist_config["multivariate_normal"]["Sigma"],
+            },
         }
 
         # Set up the model configuration
@@ -784,6 +962,56 @@ class TestSamplePrior:
                 "isfree": True,
                 "init": 0.0,
                 "prior": priors.Normal(**dist_config["normal"]),
+            },
+            "truncated_normal": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.ClippedNormal(**dist_config["truncated_normal"]),
+            },
+            "reciprocal": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.LogUniform(**dist_config["reciprocal"]),
+            },
+            "beta": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.Beta(**dist_config["beta"]),
+            },
+            "lognormal": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.LogNormal(**dist_config["lognormal"]),
+            },
+            "lognormal_linpar": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.LogNormalLinpar(**dist_config["lognormal_linpar"]),
+            },
+            "skewed_normal": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.SkewNormal(**dist_config["skewed_normal"]),
+            },
+            "students_t": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.StudentT(**dist_config["students_t"]),
+            },
+            "multivariate_normal": {
+                "N": 2,
+                "isfree": True,
+                "init": [0.0, 0.0],
+                "prior": priors.MultiVariateNormal(
+                    **dist_config["multivariate_normal"]
+                ),
             },
         }
 
@@ -803,20 +1031,35 @@ class TestSamplePrior:
             idx = model.theta_index[param_name]
 
             # Extract statistics for this specific parameter
-            # Note: This handles N=1 safely by squeezing or explicit indexing
-            curr_mean = sample_means[idx][0]
-            curr_var = sample_vars[idx][0]
-
-            # Use NumPy testing for cleaner assertions
+            # Check mean (handles both scalar and vector cases)
+            curr_mean = sample_means[idx]
             np.testing.assert_allclose(
                 curr_mean,
                 stats["mean"],
                 rtol=0.1,
                 err_msg=f"Mean mismatch for {param_name}",
             )
-            np.testing.assert_allclose(
-                curr_var,
-                stats["var"],
-                rtol=0.1,
-                err_msg=f"Variance mismatch for {param_name}",
-            )
+
+            # Check variance or covariance
+            if "cov" in stats:
+                # For multivariate, check full covariance matrix
+                full_cov = np.cov(theta_samples, rowvar=False)
+                # Extract the block corresponding to this parameter
+                curr_cov = full_cov[idx, :][:, idx]
+
+                np.testing.assert_allclose(
+                    curr_cov,
+                    stats["cov"],
+                    rtol=0.2,  # Covariance estimates are noisier
+                    atol=0.05,  # Handle near-zero off-diagonals
+                    err_msg=f"Covariance mismatch for {param_name}",
+                )
+            else:
+                # For univariate, check variance
+                curr_var = sample_vars[idx]
+                np.testing.assert_allclose(
+                    curr_var,
+                    stats["var"],
+                    rtol=0.1,
+                    err_msg=f"Variance mismatch for {param_name}",
+                )
