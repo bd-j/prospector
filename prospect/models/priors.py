@@ -270,6 +270,10 @@ class MultiVariateNormal(Prior):
     prior_params = ["mean", 'Sigma']
     distribution = scipy.stats.norm
 
+    def __len__(self):
+        """The length of the multivariate normal is set by the length of the mean vector."""
+        return len(self.params['mean'])
+
     @property
     def scale(self):
         return self.params['Sigma']

@@ -438,6 +438,50 @@ class ProspectorParams(object):
 
         return thetas
 
+    def sample_prior(self, nsamples=None):
+        """Draw samples from the prior distribution of the free model parameters.
+
+        :param nsamples: (optional, default: None)
+            Number of samples to draw. If ``None``, returns a single sample of 
+            shape ``(ndim,)``. If an integer, returns ``(nsamples, ndim)``.
+
+        :returns samples:
+            The prior samples. A numpy array of shape ``(ndim,)`` if nsamples 
+            is None, or ``(nsamples, ndim)`` if nsamples is provided.
+        """
+        # Handle case where there are no free parameters
+        if self.ndim == 0:
+            if nsamples is None:
+                return np.array([])
+            else:
+                return np.empty((nsamples, 0))
+
+        # Get the names of free parameters in the correct order
+        free_params = self.free_params
+
+        if nsamples is None:
+            # Draw one sample for each parameter and concatenate them
+            samples = [
+                np.atleast_1d(self.config_dict[p]["prior"].sample())
+                for p in free_params
+            ]
+            return np.concatenate(samples)
+
+        else:
+            # Draw multiple samples
+            # We initialize the array to ensure the correct shape (nsamples, ndim)
+            samples = np.empty((nsamples, self.ndim))
+            
+            for i in range(nsamples):
+                # Construct one theta vector
+                row = [
+                    np.atleast_1d(self.config_dict[p]["prior"].sample())
+                    for p in free_params
+                ]
+                samples[i, :] = np.concatenate(row)
+            
+            return samples
+
     @property
     def _config_dict(self):
         """Backwards compatibility

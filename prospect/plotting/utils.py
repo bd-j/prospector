@@ -3,11 +3,10 @@
 
 import numpy as np
 from .corner import _quantile
-from ..models.priors import TopHat as Uniform
 from ..utils.stats import get_best, best_sample
 
 __all__ = ["get_best", "best_sample",
-           "get_simple_prior", "sample_prior", "sample_posterior",
+           "get_simple_prior", "sample_posterior",
            "boxplot", "violinplot", "step"]
 
 
@@ -16,37 +15,6 @@ def get_simple_prior(prior, xlim, num=1000):
     px = np.array([prior(x) for x in xx])
     px = np.exp(px)
     return xx, px / px.max()
-
-
-def sample_prior(model, nsample=1e6):
-    """Generate samples from the prior.
-
-    :param model:
-        A ProspectorParams instance.
-
-    :param nsample: (int, optional, default: 1000000)
-        Number of samples to take
-
-    :returns samples: ndarray of shape(nsample, ndim)
-        Samples from the prior
-
-    :returns labels: list of strings
-        The names of the free parameters.
-    """
-    labels = model.free_params
-    chain = np.zeros([nsample, model.ndim])
-    #chain = []
-    for l in labels:
-        prior = model.config_dict[l]["prior"]
-        if isinstance(prior, Uniform):
-            val = np.linspace(prior.params["mini"], prior.params["maxi"], nsample)
-            val = np.atleast_2d(val).T
-        else:
-            val = np.array([prior.sample() for i in range(int(nsample))])
-        chain[:, model.theta_index[l]] = np.array(val)
-        # chain.append()
-    #chain = np.concatenate([c.T for c in chain]).T
-    return chain, labels
 
 
 def sample_posterior(chain, weights=None, nsample=int(1e4),

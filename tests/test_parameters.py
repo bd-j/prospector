@@ -2,12 +2,20 @@
 # -*- coding: utf-8 -*-
 
 """
-test_parameter_dependencies.py
+test_parameters.py
 
-This module tests the dependency propagation logic in ProspectorParams.
-It verifies that parameters are updated in the correct topological order,
-ensuring that derived parameters use the most up-to-date values of their
-dependencies.
+This module contains unit tests for parameter handling and prior sampling
+mechanisms within the ProspectorParams class.
+
+It covers:
+1.  **Dependency Propagation:** Verifies that parameters are updated in the
+    correct topological order, ensuring that derived parameters use the
+    most up-to-date values of their dependencies.
+2.  **Prior Sampling:** Verifies the ``sample_prior`` method, ensuring it
+    correctly generates samples from the joint prior distribution. This includes
+    tests for:
+    * Output shapes and parameter ordering.
+    * Adherence to hard bounds.
 """
 
 import numpy as np
@@ -226,7 +234,7 @@ class TestParameterDependencies:
         # This creates a cycle. The topological sort should detect it (length of sorted != length of items).
 
         with pytest.raises(RecursionError, match="Cyclic dependency detected"):
-            model = ProspectorParams(config)
+            _ = ProspectorParams(config)
 
     def test_stale_update_check(self):
         """
@@ -590,3 +598,149 @@ class TestParameterDependencies:
         # Trying to propagate should fail because kwargs is not passed to lazy_transform.
         with pytest.raises(KeyError, match="A"):
             model.propagate_parameter_dependencies()
+
+
+class TestSamplePrior:
+    def test_sample_prior_shape_consistency(self):
+        """
+        Test that sample_prior generates theta arrays of correct shape
+        matching the number of free parameters.
+        """
+        config = {
+            "param1": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=-5, maxi=5),
+            },
+            "param2": {
+                "N": 3,
+                "isfree": True,
+                "init": [0.0, 0.0, 0.0],
+                "prior": priors.TopHat(
+                    mini=np.array([-1, -2, -3]),
+                    maxi=np.array([1, 2, 3]),
+                ),
+            },
+            "param3": {
+                "N": 2,
+                "isfree": False,
+                "init": [1.0, 2.0],
+            },
+        }
+
+        model = ProspectorParams(config)
+        nfree = len(model.theta)
+        assert nfree == 4, f"Expected 4 free parameters, got {nfree}"
+
+        # Draw samples with `nsamples=None` (default)
+        # Sample multiple times to check consistency
+        for _ in range(10):
+            theta_sampled = model.sample_prior()
+            assert theta_sampled.shape == (nfree,), (
+                f"Sampled theta shape {theta_sampled.shape} does not match expected ({nfree},)"
+            )
+
+        # Draw samples with explicit nsamples
+        nsamples_test = [5, 7, 10, 13, 23]
+        for nsamples in nsamples_test:
+            theta_sampled = model.sample_prior(nsamples=nsamples)
+            assert theta_sampled.shape == (nsamples, nfree), (
+                f"Sampled theta shape {theta_sampled.shape} does not match expected ({nsamples}, {nfree})"
+            )
+
+    def test_sample_prior_parameter_ordering(self):
+        """
+        Test that sample_prior respects the parameter ordering
+        defined in the model configuration.
+        """
+        config = {
+            "param1": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=0, maxi=1),
+            },
+            "param2": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=2, maxi=3),
+            },
+            "param3": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=4, maxi=5),
+            },
+            "param4": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=6, maxi=7),
+            },
+        }
+
+        model = ProspectorParams(config)
+
+        # Check multiple times for robustness
+        for _ in range(10):
+            theta_sampled = model.sample_prior()
+
+            # Due to how the priors are defined above, we can infer the parameter order
+            # based on the sorted array.
+            assert (np.argsort(theta_sampled) == np.arange(len(theta_sampled))).all(), (
+                f"Parameter ordering in sampled theta ({np.argsort(theta_sampled)}) "
+                + "does not match expected order"
+            )
+
+    def test_sample_prior_bounds_adherence(self):
+        """
+        Test that sample_prior generates values within the defined prior bounds.
+        """
+
+        # Explicitly define parameter bounds
+        bounds = np.array(
+            [
+                [-10, 10],  # param1
+                [-5, 5],  # param2[0]
+                [-15, 15],  # param2[1]
+            ]
+        )
+
+        config = {
+            "param1": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=bounds[0, 0], maxi=bounds[0, 1]),
+            },
+            "param2": {
+                "N": 2,
+                "isfree": True,
+                "init": [0.0, 0.0],
+                "prior": priors.TopHat(
+                    mini=bounds[1:, 0],
+                    maxi=bounds[1:, 1],
+                ),
+            },
+        }
+
+        model = ProspectorParams(config)
+
+        # Check multiple samples for robustness
+        for _ in range(100):
+            theta_sampled = model.sample_prior()
+
+            # Check param1
+            assert bounds[0, 0] <= theta_sampled[0] <= bounds[0, 1], (
+                f"param1 value {theta_sampled[0]} out of bounds [{bounds[0, 0]}, {bounds[0, 1]}]"
+            )
+
+            # Check param2
+            assert bounds[1, 0] <= theta_sampled[1] <= bounds[1, 1], (
+                f"param2[0] value {theta_sampled[1]} out of bounds [{bounds[1, 0]}, {bounds[1, 1]}]"
+            )
+            assert bounds[2, 0] <= theta_sampled[2] <= bounds[2, 1], (
+                f"param2[1] value {theta_sampled[2]} out of bounds [{bounds[2, 0]}, {bounds[2, 1]}]"
+            )
