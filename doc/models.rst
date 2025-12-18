@@ -121,13 +121,12 @@ transformation functions are provided in |Codename| and these may be easily
 supplemented with user defined functions.
 
 This parameter transformation and dependency mechanism can be used to tie any
-number of parameters to any number of other parameters in the model, as long as
-the latter parameters are not *also* dependent on some parameter transformation.
-This mechanism may also be used to avoid joint priors.  For example, if one
-wishes to place a prior on the ratio of two parameters (say, that it be less
-than one) then the ratio itself can be introduced as a new parameter, and one of
-the original parameters can be "fixed" but have its value at each parameter
-location depend on the other original parameter and the new ratio parameter.
+number of parameters to any number of other parameters in the model. This
+mechanism may also be used to avoid joint priors. For example, if one wishes
+to place a prior on the ratio of two parameters (say, that it be less than one)
+then the ratio itself can be introduced as a new parameter, and one of the
+original parameters can be "fixed" but have its value at each parameter location
+depend on the other original parameter and the new ratio parameter.
 
 As a simple example, we consider sampling in the log of the SF timescale instead
 of the timescale itself.  The follwing code

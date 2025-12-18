@@ -151,6 +151,7 @@ def zred_to_agebins(zred=0.0, agebins=[], **extras):
         The new SFH bin edges.
     """
     tuniv = cosmo.age(zred).value * 1e9
+    tuniv = np.atleast_1d(tuniv)[0]
     tbinmax = tuniv * 0.85
     ncomp = len(agebins)
     agelims = list(agebins[0]) + np.linspace(agebins[1][1], np.log10(tbinmax), ncomp-2).tolist() + [np.log10(tuniv)]
