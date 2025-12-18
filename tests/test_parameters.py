@@ -590,3 +590,233 @@ class TestParameterDependencies:
         # Trying to propagate should fail because kwargs is not passed to lazy_transform.
         with pytest.raises(KeyError, match="A"):
             model.propagate_parameter_dependencies()
+
+
+class TestSamplePrior:
+    def test_sample_prior_shape_consistency(self):
+        """
+        Test that sample_prior generates theta arrays of correct shape
+        matching the number of free parameters.
+        """
+        config = {
+            "param1": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=-5, maxi=5),
+            },
+            "param2": {
+                "N": 3,
+                "isfree": True,
+                "init": [0.0, 0.0, 0.0],
+                "prior": priors.TopHat(
+                    mini=np.array([-1, -2, -3]),
+                    maxi=np.array([1, 2, 3]),
+                ),
+            },
+            "param3": {
+                "N": 2,
+                "isfree": False,
+                "init": [1.0, 2.0],
+            },
+        }
+
+        model = ProspectorParams(config)
+        nfree = len(model.theta)
+        assert nfree == 4, f"Expected 4 free parameters, got {nfree}"
+
+        # Draw samples with `nsamples=None` (default)
+        # Sample multiple times to check consistency
+        for _ in range(10):
+            theta_sampled = model.sample_prior()
+            assert theta_sampled.shape == (nfree,), (
+                f"Sampled theta shape {theta_sampled.shape} does not match expected ({nfree},)"
+            )
+
+        # Draw samples with explicit nsamples
+        nsamples_test = [5, 7, 10, 13, 23]
+        for nsamples in nsamples_test:
+            theta_sampled = model.sample_prior(nsamples=nsamples)
+            assert theta_sampled.shape == (nsamples, nfree), (
+                f"Sampled theta shape {theta_sampled.shape} does not match expected ({nsamples}, {nfree})"
+            )
+
+    def test_sample_prior_parameter_ordering(self):
+        """
+        Test that sample_prior respects the parameter ordering
+        defined in the model configuration.
+        """
+        config = {
+            "param1": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=0, maxi=1),
+            },
+            "param2": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=2, maxi=3),
+            },
+            "param3": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=4, maxi=5),
+            },
+            "param4": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=6, maxi=7),
+            },
+        }
+
+        model = ProspectorParams(config)
+
+        # Check multiple times for robustness
+        for _ in range(10):
+            theta_sampled = model.sample_prior()
+
+            # Due to how the priors are defined above, we can infer the parameter order
+            # based on the sorted array.
+            assert (np.argsort(theta_sampled) == np.arange(len(theta_sampled))).all(), (
+                f"Parameter ordering in sampled theta ({np.argsort(theta_sampled)}) "
+                + "does not match expected order"
+            )
+
+    def test_sample_prior_bounds_adherence(self):
+        """
+        Test that sample_prior generates values within the defined prior bounds.
+        """
+
+        # Explicitly define parameter bounds
+        bounds = np.array(
+            [
+                [-10, 10],  # param1
+                [-5, 5],  # param2[0]
+                [-15, 15],  # param2[1]
+            ]
+        )
+
+        config = {
+            "param1": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(mini=bounds[0, 0], maxi=bounds[0, 1]),
+            },
+            "param2": {
+                "N": 2,
+                "isfree": True,
+                "init": [0.0, 0.0],
+                "prior": priors.TopHat(
+                    mini=bounds[1:, 0],
+                    maxi=bounds[1:, 1],
+                ),
+            },
+        }
+
+        model = ProspectorParams(config)
+
+        # Check multiple samples for robustness
+        for _ in range(100):
+            theta_sampled = model.sample_prior()
+
+            # Check param1
+            assert bounds[0, 0] <= theta_sampled[0] <= bounds[0, 1], (
+                f"param1 value {theta_sampled[0]} out of bounds [{bounds[0, 0]}, {bounds[0, 1]}]"
+            )
+
+            # Check param2
+            assert bounds[1, 0] <= theta_sampled[1] <= bounds[1, 1], (
+                f"param2[0] value {theta_sampled[1]} out of bounds [{bounds[1, 0]}, {bounds[1, 1]}]"
+            )
+            assert bounds[2, 0] <= theta_sampled[2] <= bounds[2, 1], (
+                f"param2[1] value {theta_sampled[2]} out of bounds [{bounds[2, 0]}, {bounds[2, 1]}]"
+            )
+
+    def test_sample_prior_distribution_properties(self):
+        """
+        Test that sample_prior generates samples consistent with the defined prior distributions.
+        Here we test the first and second moments of the sampled parameters for TopHat and Normal.
+        """
+
+        # Set seed for deterministic behavior
+        np.random.seed(42)
+
+        # The distributions we want to test
+        dist_config = {
+            "uniform": {"mini": 2, "maxi": 10},
+            "normal": {"mean": 25, "sigma": 3},
+        }
+
+        # The properties we expect from each distribution
+        expected_stats = {
+            "uniform": {
+                "mean": (
+                    dist_config["uniform"]["mini"] + dist_config["uniform"]["maxi"]
+                )
+                / 2,
+                "var": (
+                    (dist_config["uniform"]["maxi"] - dist_config["uniform"]["mini"])
+                    ** 2
+                )
+                / 12,
+            },
+            "normal": {
+                "mean": dist_config["normal"]["mean"],
+                "var": dist_config["normal"]["sigma"] ** 2,
+            },
+        }
+
+        # Set up the model configuration
+        config = {
+            "uniform": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.TopHat(**dist_config["uniform"]),
+            },
+            "normal": {
+                "N": 1,
+                "isfree": True,
+                "init": 0.0,
+                "prior": priors.Normal(**dist_config["normal"]),
+            },
+        }
+
+        model = ProspectorParams(config)
+
+        # Draw a large number of samples to estimate moments.
+        nsamples = 10_000
+        theta_samples = model.sample_prior(nsamples=nsamples)
+
+        # Compute sample means and variances
+        sample_means = np.mean(theta_samples, axis=0)
+        sample_vars = np.var(theta_samples, axis=0)
+
+        # Loop through variables using theta_index for safety
+        for param_name, stats in expected_stats.items():
+            # Get the slice for this parameter
+            idx = model.theta_index[param_name]
+
+            # Extract statistics for this specific parameter
+            # Note: This handles N=1 safely by squeezing or explicit indexing
+            curr_mean = sample_means[idx][0]
+            curr_var = sample_vars[idx][0]
+
+            # Use NumPy testing for cleaner assertions
+            np.testing.assert_allclose(
+                curr_mean,
+                stats["mean"],
+                rtol=0.1,
+                err_msg=f"Mean mismatch for {param_name}",
+            )
+            np.testing.assert_allclose(
+                curr_var,
+                stats["var"],
+                rtol=0.1,
+                err_msg=f"Variance mismatch for {param_name}",
+            )
