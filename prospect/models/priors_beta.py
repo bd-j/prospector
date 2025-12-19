@@ -20,6 +20,7 @@ construct prior transforms (for nested sampling) and can be sampled from.
 """
 import os
 import numpy as np
+from scipy.integrate import simpson
 from scipy.interpolate import interp1d, UnivariateSpline
 from astropy.cosmology import WMAP9 as cosmo
 import astropy.units as u
@@ -1156,17 +1157,62 @@ class NzSFH(priors.Prior):
         self.name = name
         self.update(**kwargs)
 
-        # load stored tables and then interpolate
-        # the tables were calculated in pdf_z_tables.ipynb
-        # redshift range is 0 - 20
-        if self.params['const_phi']:
-            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20, unpack=True)
+        # Define a redshift grid for interpolation
+        z_grid = np.linspace(
+            self.params['zred_mini'],
+            self.params['zred_maxi'],
+            4_000,
+        )
+
+        # Handle mass_mini depending on if its a scalar or a function
+        if callable(self.params['mass_mini']):
+            self.mass_min_func = self.params['mass_mini']
         else:
-            zreds, pdf_zred = np.loadtxt(file_pdf_of_z_l20t18, unpack=True)
+            # Wrap scalar in a function for consistent API
+            self.mass_min_func = lambda z: self.params['mass_mini']
 
-        self.finterp_z_pdf, self.finterp_cdf_z = norm_pz(self.params['zred_mini'], self.params['zred_maxi'], zreds, pdf_zred)
+        # Calculate number density of observable galaxies
+        # N(z) = integral of Phi(M,z) from mass_min(z) to mass_maxi
+        n_gal_z = []
+        mass_max = self.params['mass_maxi']
 
-        self.mgrid = np.linspace(self.params['mass_mini'], self.params['mass_maxi'], 101)
+        for z in z_grid:
+            m_min = self.mass_min_func(z)
+
+            # Create a mass grid for integration at this redshift
+            if m_min >= mass_max:
+                # Integral is zero if minimum mass is greater than maximum
+                n_gal_z.append(0.0)
+                continue
+
+            m_integ_grid = np.linspace(m_min, mass_max, 100)
+
+            # Evaluate mass function
+            phi = mass_func_at_z(
+                z,
+                m_integ_grid,
+                const_phi=self.params['const_phi'],
+                bounds=[m_min, mass_max],
+            )
+
+            # Integrate to get number density
+            n = simpson(y=phi, x=m_integ_grid)
+            n_gal_z.append(n)
+
+        n_gal_z = np.array(n_gal_z)
+
+        # Multiply by differential comoving volume
+        dvol = cosmo.differential_comoving_volume(z_grid).value
+        pdf_z_unnorm = n_gal_z * dvol
+
+        # Create interpolators
+        self.finterp_z_pdf, self.finterp_cdf_z = norm_pz(
+            self.params['zred_mini'],
+            self.params['zred_maxi'],
+            z_grid,
+            pdf_z_unnorm,
+        )
+
         self.zred_dist = priors.FastUniform(a=self.params['zred_mini'], b=self.params['zred_maxi'])
         self.logsfr_ratios_dist = priors.FastTruncatedEvenStudentTFreeDeg2(hw=self.params['logsfr_ratio_maxi'], sig=self.params['logsfr_ratio_tscale'])
 
@@ -1208,10 +1254,30 @@ class NzSFH(priors.Prior):
         if x.ndim == 1:
             # doing mcmc; x is [zred, logmass, logzsol]
             p = np.zeros_like(x)
-            # p(z)
-            p[0] = self.finterp_z_pdf(x[0])
-            # p(m)
-            p[1] = mass_func_at_z(x[0], x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
+
+            z = x[0]
+            m = x[1]
+
+            # p(z) - uses the dynamic interpolator
+            p[0] = self.finterp_z_pdf(z)
+
+            # p(M | z) - normalized properly
+            m_min = self.mass_min_func(z)
+            m_max = self.params['mass_maxi']
+
+            # Calculate raw Phi
+            phi_val = mass_func_at_z(z, m, self.params['const_phi'], bounds=[m_min, m_max])
+
+            # Calculate normalization factor (integral of Phi at this z)
+            m_integ_grid = np.linspace(m_min, m_max, 100)
+            phi_grid = mass_func_at_z(z, m_integ_grid, self.params['const_phi'], bounds=[m_min, m_max])
+            norm = simpson(y=phi_grid, x=m_integ_grid)
+
+            if norm > 0:
+                p[1] = phi_val / norm
+            else:
+                p[1] = 0 # mass out of bounds or invalid z
+
             # p(zsol)
             met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
                                                   mu=loc_massmet(x[1]), sig=scale_massmet(x[1]))
@@ -1238,9 +1304,31 @@ class NzSFH(priors.Prior):
             all_p = []
             for i in range(len(_zreds)):
                 new_x = x[i]
+                z_i = new_x[0]
+                m_i = new_x[1]
+
                 p = np.zeros_like(new_x)
-                p[0] = self.finterp_z_pdf(new_x[0])
-                p[1] = mass_func_at_z(new_x[0], new_x[1], self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
+
+                # p(z) - uses the dynamic interpolator
+                p[0] = self.finterp_z_pdf(z_i)
+
+                # p(M | z) - normalized properly
+                m_min_i = self.mass_min_func(z_i)
+                m_max = self.params['mass_maxi']
+
+                # Calculate raw Phi
+                phi_val = mass_func_at_z(z_i, m_i, self.params['const_phi'], bounds=[m_min_i, m_max])
+
+                # Calculate normalization factor (integral of Phi at this z)
+                m_integ_grid = np.linspace(m_min_i, m_max, 100)
+                phi_grid = mass_func_at_z(z_i, m_integ_grid, self.params['const_phi'], bounds=[m_min_i, m_max])
+                norm = simpson(y=phi_grid, x=m_integ_grid)
+
+                if norm > 0:
+                    p[1] = phi_val / norm
+                else:
+                    p[1] = 0.0 # mass out of bounds or invalid z
+
                 logsfr_ratios = expe_logsfr_ratios(this_z=new_x[0], this_m=new_x[1], nbins_sfh=self.params['nbins_sfh'],
                                                    logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
                                                    logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
@@ -1268,28 +1356,91 @@ class NzSFH(priors.Prior):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        # draw a zred from pdf(z)
+
+        # Draw zred from the dynamically calculated PDF
         u = np.random.uniform(0, 1, size=nsample)
         zred = self.finterp_cdf_z(u)
 
-        # draw from the mass function at the above zred
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
-        mass = draw_sample(xs=self.mgrid, cdf=cdf_mass)
+        # Draw mass conditionally: p(M | z, M > M_min(z))
+        mass = []
+        logsfr_ratios_locs = []
 
-        # given mass from above, draw logzsol
-        met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
-                                              mu=loc_massmet(mass), sig=scale_massmet(mass))
+        # Note: If nsample > 1, this loop is necessary because m_min varies with zred.
+        for z in np.atleast_1d(zred):
+            m_min = self.mass_min_func(z)
+            m_max = self.params['mass_maxi']
+
+            # Define grid for this specific z
+            m_subgrid = np.linspace(m_min, m_max, 100)
+
+            # Get CDF for mass at this z
+            cdf_mass = cdf_mass_func_at_z(
+                z=z,
+                logm=m_subgrid,
+                const_phi=self.params['const_phi'],
+                bounds=[m_min, m_max],
+            )
+
+            # Draw one sample
+            m_draw = draw_sample(xs=m_subgrid, cdf=cdf_mass)
+            mass.append(m_draw)
+
+            # SFH logic
+            lsr = expe_logsfr_ratios(
+                this_z=z,
+                this_m=m_draw,
+                nbins_sfh=self.params['nbins_sfh'],
+                logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
+                logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'],
+            )
+            logsfr_ratios_locs.append(lsr)
+
+        mass = np.array(mass).flatten()
+        logsfr_ratios_locs = np.array(logsfr_ratios_locs)
+
+        # Draw metallicity
+        met_dist = priors.FastTruncatedNormal(
+            a=self.params['z_mini'],
+            b=self.params['z_maxi'],
+            mu=loc_massmet(mass),
+            sig=scale_massmet(mass),
+        )
         met = met_dist.sample()
 
         # sfh = sfrd
-        logsfr_ratios = expe_logsfr_ratios(this_z=zred, this_m=mass, nbins_sfh=self.params['nbins_sfh'],
-                                           logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
-                                           logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
-        logsfr_ratios_rvs = t.rvs(df=2, loc=logsfr_ratios, scale=self.params['logsfr_ratio_tscale'])
-        logsfr_ratios_rvs = np.clip(logsfr_ratios_rvs, a_min=self.params['logsfr_ratio_mini'], a_max=self.params['logsfr_ratio_maxi'])
+        logsfr_ratios_rvs = t.rvs(
+            df=2,
+            loc=logsfr_ratios_locs,
+            scale=self.params['logsfr_ratio_tscale'],
+        )
+        logsfr_ratios_rvs = np.clip(
+            logsfr_ratios_rvs,
+            a_min=self.params['logsfr_ratio_mini'],
+            a_max=self.params['logsfr_ratio_maxi'],
+        )
 
-        return np.concatenate([np.atleast_1d(zred), np.atleast_1d(mass),
-                               np.atleast_1d(met), np.atleast_1d(logsfr_ratios_rvs)])
+        # Return formatting
+        # Standard Prospector prior return shape:
+        # Scalar call: 1D array of shape (n_params,)
+        # Vector call: 2D array of shape (n_params, n_samples)
+
+        if nsample is None:
+            # Return 1D array
+            return np.concatenate([
+                np.atleast_1d(zred),
+                np.atleast_1d(mass),
+                np.atleast_1d(met),
+                np.atleast_1d(logsfr_ratios_rvs),
+            ])
+        else:
+            # Return 2D array (9, N)
+            # logsfr_ratios_rvs is (N, 6), so we transpose it to stack
+            return np.vstack([
+                zred,
+                mass,
+                met,
+                logsfr_ratios_rvs.T,
+            ])
 
     def unit_transform(self, x, **kwargs):
         """Go from a value of the CDF (between 0 and 1) to the corresponding
@@ -1307,16 +1458,34 @@ class NzSFH(priors.Prior):
         if len(kwargs) > 0:
             self.update(**kwargs)
 
+        # Transform zred
         zred = self.finterp_cdf_z(x[0])
 
-        cdf_mass = cdf_mass_func_at_z(z=zred, logm=self.mgrid, const_phi=self.params['const_phi'], bounds=[self.params['mass_mini'], self.params['mass_maxi']])
-        mass = ppf(x[1], self.mgrid, cdf=cdf_mass)
+        # Transform mass
+        # We must recalculate the mass floor and grid for this specific redshift
+        m_min = self.mass_min_func(zred)
+        m_max = self.params['mass_maxi']
 
+        # Define a local grid from m_min(z) to m_max
+        # Using the global self.mgrid here is dangerous because it might
+        # extend below m_min, creating a flat CDF (0) which confuses ppf()
+        m_subgrid = np.linspace(m_min, m_max, 100)
+
+        cdf_mass = cdf_mass_func_at_z(
+            z=zred,
+            logm=m_subgrid,
+            const_phi=self.params['const_phi'],
+            bounds=[m_min, m_max],
+        )
+
+        mass = ppf(x[1], m_subgrid, cdf=cdf_mass)
+
+        # Transform metallicity
         met_dist = priors.FastTruncatedNormal(a=self.params['z_mini'], b=self.params['z_maxi'],
                                               mu=loc_massmet(mass), sig=scale_massmet(mass))
         met = met_dist.unit_transform(x[2])
 
-        # sfh = sfrd
+        # Transform SFH (sfrd)
         logsfr_ratios = expe_logsfr_ratios(this_z=zred, this_m=mass, nbins_sfh=self.params['nbins_sfh'],
                                            logsfr_ratio_mini=self.params['logsfr_ratio_mini'],
                                            logsfr_ratio_maxi=self.params['logsfr_ratio_maxi'])
