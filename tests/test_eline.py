@@ -12,6 +12,13 @@ from prospect.models.templates import TemplateLibrary
 from prospect.models.sedmodel import SpecModel
 from prospect.sources import CSPSpecBasis
 
+try:
+    # NumPy 2.0+
+    from numpy import trapezoid
+except ImportError:
+    # NumPy < 2.0
+    from numpy import trapz as trapezoid
+
 
 @pytest.fixture
 def get_sps():
@@ -171,7 +178,7 @@ def test_eline_implementation(get_sps, plot=False):
     model = SpecModel(model_pars)
     (spec_nolya, phot_nolya), mfrac = model.predict(model.theta, obslist, sps=sps)
     assert np.any((phot - phot_nolya) / phot != 0.0)
-    lint = np.trapz(spec - spec_nolya, obslist[0]["wavelength"])
+    lint = trapezoid(spec - spec_nolya, obslist[0]["wavelength"])
     assert lint > 0
 
     # test igoring a line, phot only

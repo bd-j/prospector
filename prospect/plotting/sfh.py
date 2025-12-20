@@ -11,6 +11,14 @@ from ..models.transforms import logsfr_ratios_to_masses
 from ..sources.constants import cosmo
 from .corner import quantile
 
+try:
+    # NumPy 2.0+
+    from numpy import trapezoid
+except ImportError:
+    # NumPy < 2.0
+    from numpy import trapz as trapezoid
+
+
 __all__ = ["params_to_sfh", "parametric_pset",
            "parametric_cmf", "parametric_mwa", "parametric_sfr",
            "compute_mass_formed",
@@ -164,7 +172,7 @@ def parametric_mwa_numerical(tau=4, tage=13.7, power=1, n=1000):
     """
     p = power + 1
     t = np.linspace(0, tage, n)
-    tavg = np.trapz((t**p)*np.exp(-t/tau), t) / np.trapz(t**(power) * np.exp(-t/tau), t)
+    tavg = trapezoid((t**p)*np.exp(-t/tau), t) / trapezoid(t**(power) * np.exp(-t/tau), t)
     return tage - tavg
 
 
@@ -393,7 +401,7 @@ def show_par_sfh(times, label="", axes=[], tavg=0.01, tol=1e-3, **params):
     if pset.sfh > 5:
         [ax.axvline(pset.sf_trunc, linestyle="--", label="tburst") for ax in axes]
 
-    mr = np.trapz(sfr, times) * 1e9 / mass.max()
+    mr = trapezoid(sfr, times) * 1e9 / mass.max()
     print("{}: {:0.6f}".format(label, mr))
     if (pset.sfh > 0) & (pset.fburst == 0):
         assert np.abs(mr - 1) < tol
