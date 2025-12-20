@@ -23,9 +23,14 @@ test = ["pytest", "pytest-xdist"]
 
 [tool.setuptools]
 packages = ["prospect",
-            "prospect.models", "prospect.sources", "prospect.observation",
+            "prospect.models",
+            "prospect.models.prior_data",
+            "prospect.sources", "prospect.observation",
             "prospect.likelihood", "prospect.fitting",
             "prospect.io", "prospect.plotting", "prospect.utils"]
+
+[tool.setuptools.package-data]
+"prospect.models.prior_data" = ["*.txt"]
 
 [project.urls]
 "Homepage" = "https://prospect.readthedocs.io/en/latest/"

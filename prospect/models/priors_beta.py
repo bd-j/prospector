@@ -19,18 +19,23 @@ When called these return the ln-prior-probability, and they can also be used to
 construct prior transforms (for nested sampling) and can be sampled from.
 """
 
-import os
 import numpy as np
 
 try:
     from scipy.integrate import simpson
 except ImportError:
     from scipy.integrate import simps as simpson
-from scipy.interpolate import interp1d, UnivariateSpline
+from scipy.interpolate import interp1d
 from astropy.cosmology import WMAP9 as cosmo
 import astropy.units as u
 from scipy.stats import t
 from . import priors
+from .prior_data import (
+    MASSMET,
+    SPL_TL_SFRD,
+    F_AGE_Z,
+    WMAP9_AGE,
+)
 
 __all__ = [
     "PhiMet",
@@ -42,17 +47,7 @@ __all__ = [
     "NzSFH",
 ]
 
-prior_data_dir = os.path.join(os.path.dirname(__file__), "prior_data")
-massmet = np.loadtxt(os.path.join(prior_data_dir, "gallazzi_05_massmet.txt"))
-z_b19, tl_b19, sfrd_b19 = np.loadtxt(
-    os.path.join(prior_data_dir, "behroozi_19_sfrd.txt"), unpack=True
-)
-z_age, age = np.loadtxt(os.path.join(prior_data_dir, "wmap9_z_age.txt"), unpack=True)
-
-spl_tl_sfrd = UnivariateSpline(tl_b19, sfrd_b19, s=0, ext=3)  # lookback time in yrs
-f_age_z = interp1d(
-    age, z_age, bounds_error=False, fill_value="extrapolate"
-)  # age of the universe in Gyr
+_, AGE_GRID = WMAP9_AGE
 
 
 class BetaPrior(priors.Prior):
@@ -734,14 +729,14 @@ class NzSFH(BetaPrior):
 
 def scale_massmet(mass):
     """std of the Gaussian approximating the mass-met relationship"""
-    upper_84 = np.interp(mass, massmet[:, 0], massmet[:, 3])
-    lower_16 = np.interp(mass, massmet[:, 0], massmet[:, 2])
+    upper_84 = np.interp(mass, MASSMET[:, 0], MASSMET[:, 3])
+    lower_16 = np.interp(mass, MASSMET[:, 0], MASSMET[:, 2])
     return upper_84 - lower_16
 
 
 def loc_massmet(mass):
     """mean of the Gaussian approximating the mass-met relationship"""
-    return np.interp(mass, massmet[:, 0], massmet[:, 1])
+    return np.interp(mass, MASSMET[:, 0], MASSMET[:, 1])
 
 
 ############ Mass function in Leja+20    ############
@@ -1097,12 +1092,12 @@ def expe_logsfr_ratios(
 
     zmin_thres = 0.15
     zmax_thres = 10
-    if age_shifted < age[-1]:
+    if age_shifted < AGE_GRID[-1]:
         z_shifted = zmax_thres * 1
-    elif age_shifted > age[0]:
+    elif age_shifted > AGE_GRID[0]:
         z_shifted = zmin_thres * 1
     else:
-        z_shifted = f_age_z(age_shifted)
+        z_shifted = F_AGE_Z(age_shifted)
     if z_shifted > zmax_thres:
         z_shifted = zmax_thres * 1
     if z_shifted < zmin_thres:
@@ -1117,7 +1112,7 @@ def expe_logsfr_ratios(
     for i in range(nsfrbins):
         a = agebins_shifted[i, 0]
         b = agebins_shifted[i, 1]
-        sfr_shifted[i] = spl_tl_sfrd.integral(a=a, b=b) / (b - a)
+        sfr_shifted[i] = SPL_TL_SFRD.integral(a=a, b=b) / (b - a)
 
     logsfr_ratios_shifted = np.zeros(nsfrbins - 1)
     with np.errstate(invalid="ignore", divide="ignore"):
