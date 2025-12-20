@@ -628,14 +628,6 @@ class TestDynamicSFH:
 
         # 5. Assert Downsizing
         # High mass peak should be at a larger lookback time (older) than low mass
-        print(f"\nDownsizing Check at z={z_obs}:")
-        print(
-            f"High Mass (M={m_high}): Peak Lookback Time = {peak_time_high / 1e9:.2f} Gyr"
-        )
-        print(
-            f"Low Mass  (M={m_low}): Peak Lookback Time = {peak_time_low / 1e9:.2f} Gyr"
-        )
-
         assert peak_time_high > peak_time_low, (
             f"Downsizing failure: High mass galaxy peak ({peak_time_high:.2e}) "
             f"should be older (larger lookback) than low mass peak ({peak_time_low:.2e})."
