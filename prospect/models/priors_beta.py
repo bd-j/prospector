@@ -27,7 +27,7 @@ The module provides several classes that combine these components in different w
 * ``DymSFHfixZred``: Same as ``DymSFH`` but with fixed redshift.
 * ``PhiSFH``: SMF + MZR + SFH prior. Uniform redshift prior.
 * ``PhiSFHfixZred``: Same as ``PhiSFH`` but with fixed redshift.
-* ``NzSFH``: The full Prospector-β prior set: Dynamic :math:`p(z)` + SMF + MZR + SFH prior.
+* ``NzSFH``: The full Prospector-:math:`\\beta` prior set: Dynamic :math:`p(z)` + SMF + MZR + SFH prior.
 
 All classes inherit from ``BetaPrior``, which provides the shared infrastructure
 for initialization, probability calculation (``__call__``), sampling (``sample``),
