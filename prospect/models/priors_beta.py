@@ -1,34 +1,57 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""priors_beta.py -- This module contains the prospector-beta priors.
-Ref: Wang, Leja, et al., 2023, ApJL.
+"""
+priors_beta.py
 
-Specifically, this module includes the following priors --
-1. PhiMet         : p(logM|z)p(Z*|logM), i.e., mass function + mass-met
-2. ZredMassMet    : p(z)p(logM|z)p(Z*|logM), i.e., number density + mass function + mass-met
-3. DymSFH         : p(Z*|logM) & SFH(M, z), i.e., mass-met + SFH
-4. DymSFHfixZred  : same as above, but keeping zred fixed to a user-specified value, 'zred', during fitting
-5. PhiSFH         : p(logM|z)p(Z*|logM) & SFH(M, z), i.e., mass function + mass-met + SFH
-6. PhiSFHfixZred  : same as above, but keeping zred fixed to a user-specified value, 'zred', during fitting
-7. NzSFH          : p(z)p(logM|z)p(Z*|logM) & SFH(M, z),
-                    i.e., number density + mass function + mass-met + SFH;
-                    this is the full set of prospector-beta priors.
+This module implements the Prospector-:math:`\\beta` priors, as described in `Wang et al. (2023)`_.
+These priors are designed to incorporate physically motivated constraints on galaxy
+properties, specifically:
 
-When called these return the ln-prior-probability, and they can also be used to
-construct prior transforms (for nested sampling) and can be sampled from.
+1.  **Stellar Mass Function (SMF)**: Constrains the galaxy stellar mass distribution
+    based on the continuity model from `Leja et al. (2020)`_ at :math:`z < 3` and
+    optionally `Tacchella et al. (2018)`_ at higher redshifts (``const_phi = False``).
+2.  **Mass-Metallicity Relation (MZR)**: Constrains the stellar metallicity
+    as a function of stellar mass, based on `Gallazzi et al. (2005)`_.
+3.  **Dynamic Redshift Prior**: Combines the galaxy number density (derived from
+    the SMF) with the differential comoving volume to produce a physically
+    meaningful redshift prior, :math:`p(z) \\sim N(z) \\frac{dV}{dz}`.
+4.  **Star Formation History (SFH) Prior**: Constrains the shape of the SFH
+    using the cosmic star formation rate density (CSFRD) from `Behroozi et al. (2019)`_.
+
+The module provides several classes that combine these components in different ways:
+
+* ``PhiMet``: SMF + MZR. Uniform redshift prior.
+* ``ZredMassMet``: Dynamic :math:`p(z)` + SMF + MZR.
+* ``DymSFH``: MZR + SFH prior. Uniform mass and redshift priors.
+* ``DymSFHfixZred``: Same as ``DymSFH`` but with fixed redshift.
+* ``PhiSFH``: SMF + MZR + SFH prior. Uniform redshift prior.
+* ``PhiSFHfixZred``: Same as ``PhiSFH`` but with fixed redshift.
+* ``NzSFH``: The full Prospector-β prior set: Dynamic :math:`p(z)` + SMF + MZR + SFH prior.
+
+All classes inherit from ``BetaPrior``, which provides the shared infrastructure
+for initialization, probability calculation (``__call__``), sampling (``sample``),
+and unit transformation (``unit_transform``).
+
+.. _Wang et al. (2023): https://ui.adsabs.harvard.edu/abs/2023ApJ...944L..58W
+.. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
+.. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
+.. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
+.. _Behroozi et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B
 """
 
 import numpy as np
+from typing import Optional, Union, List, Tuple, Dict
 
 try:
     from scipy.integrate import simpson
 except ImportError:
     from scipy.integrate import simps as simpson
 from scipy.interpolate import interp1d
+from scipy.stats import t
 from astropy.cosmology import WMAP9 as cosmo
 import astropy.units as u
-from scipy.stats import t
+
 from . import priors
 from .prior_data import (
     MASSMET,
@@ -38,6 +61,7 @@ from .prior_data import (
 )
 
 __all__ = [
+    "BetaPrior",
     "PhiMet",
     "ZredMassMet",
     "DymSFH",
@@ -51,8 +75,29 @@ _, AGE_GRID = WMAP9_AGE
 
 
 class BetaPrior(priors.Prior):
-    """Base class for Prospector-Beta priors, implementing shared logic for
-    redshift, mass, metallicity, and SFH priors.
+    """
+    Base class for Prospector-:math:`\\beta` priors.
+
+    This class implements the core logic for the physically motivated priors,
+    handling the initialization of distributions, calculation of probabilities,
+    and sampling. It supports different combinations of redshift, mass,
+    metallicity, and SFH priors.
+
+    The actual prior classes (e.g., ``NzSFH``) subclass this and configure the
+    flags (``z_prior``, ``mass_prior``, ``sfh_prior``) appropriately.
+
+    Methods
+    -------
+    __init__(parnames, name, z_prior, mass_prior, sfh_prior, **kwargs)
+        Initialize the BetaPrior.
+    __call__(x, **kwargs)
+        Compute the natural log of the prior probability.
+    __len__()
+        Return the number of parameters.
+    sample(nsample=None, **kwargs)
+        Draw samples from the prior distribution.
+    unit_transform(x, **kwargs)
+        Transform from the unit hypercube to the physical parameter space.
     """
 
     prior_params = [
@@ -72,22 +117,36 @@ class BetaPrior(priors.Prior):
 
     def __init__(
         self,
-        parnames=[],
-        name="",
-        z_prior="uniform",  # 'uniform', 'fixed', 'dynamic'
-        mass_prior="uniform",  # 'uniform', 'mass_function'
-        sfh_prior=False,  # True/False
+        parnames: List[str] = [],
+        name: str = "",
+        z_prior: str = "uniform",  # 'uniform', 'fixed', 'dynamic'
+        mass_prior: str = "uniform",  # 'uniform', 'mass_function'
+        sfh_prior: bool = False,  # True/False
         **kwargs,
     ):
         """
+        Initialize the BetaPrior.
+
         Parameters
         ----------
-        z_prior : str
-            Type of redshift prior: 'uniform', 'fixed', or 'dynamic' (calculated from number density).
-        mass_prior : str
-            Type of mass prior: 'uniform' or 'mass_function'.
-        sfh_prior : bool
-            Whether to include the SFH prior.
+        parnames : List[str]
+            List of parameter names to be used for aliasing. If empty, defaults
+            to ``self.prior_params``.
+        name : str
+            Name of the prior.
+        z_prior : str, optional
+            Type of redshift prior:
+            - ``'uniform'``: Uniform distribution between ``zred_mini`` and ``zred_maxi``.
+            - ``'fixed'``: Redshift is fixed to ``zred``.
+            - ``'dynamic'``: Calculated from number density and comoving volume.
+        mass_prior : str, optional
+            Type of mass prior:
+            - ``'uniform'``: Uniform distribution between ``mass_mini`` and ``mass_maxi`` (in log mass).
+            - ``'mass_function'``: Based on the stellar mass function.
+        sfh_prior : bool, optional
+            Whether to include the SFH prior based on cosmic SFRD.
+        **kwargs
+            Additional keyword arguments to set prior parameters (e.g., ``zred_mini=0.0``).
         """
         if len(parnames) == 0:
             # Filter prior_params to only those relevant for the subclass if needed,
@@ -144,6 +203,8 @@ class BetaPrior(priors.Prior):
                 )
             else:
                 self.mgrid = None
+        else:
+            raise ValueError(f"Unknown mass_prior type: {self.mass_prior_type}")
 
         # --- SFH Prior Setup ---
         if self.sfh_prior_flag:
@@ -153,7 +214,13 @@ class BetaPrior(priors.Prior):
             )
 
     def _setup_dynamic_z_prior_from_norm(self):
-        """Constructs p(z) ~ N(z) * dV/dz using pre-calculated N(z)."""
+        """
+        Constructs :math:`p(z) \\sim N(z) \\frac{dV}{dz}` using pre-calculated :math:`N(z)`.
+
+        :math:`N(z)` is the integral of the mass function above the mass limit at redshift :math:`z`.
+        :math:`\\frac{dV}{dz}` is the differential comoving volume.
+        The resulting PDF is normalized and inverted to create a CDF for sampling.
+        """
 
         dvol = cosmo.differential_comoving_volume(self._z_grid_norm).value
         pdf_z_unnorm = self._n_gal_z * dvol
@@ -166,9 +233,17 @@ class BetaPrior(priors.Prior):
         )
 
     def _setup_mass_normalization(self):
-        """Calculates the integral of the mass function over the mass limits
-        as a function of redshift. Used for normalization in __call__ and
-        for the dynamic redshift prior."""
+        """
+        Calculates the integral of the mass function over the mass limits
+        as a function of redshift.
+
+        This computes :math:`N(z) = \\int_{M_\\textrm{min}(z)}^{M_\\textrm{max}} \\Phi(M, z)\,dM`.
+        This quantity is used for:
+        1. Normalizing the mass prior :math:`p(M \\vert z) = \\Phi(M, z) / N(z)`.
+        2. Constructing the dynamic redshift prior :math:`p(z) \\sim N(z) \\frac{dV}{dz}`.
+
+        The result is stored as ``self.finterp_mass_norm``, an interpolator over :math:`z`.
+        """
 
         # Define grid (high res for accuracy)
         self._z_grid_norm = np.linspace(
@@ -201,14 +276,24 @@ class BetaPrior(priors.Prior):
             self._z_grid_norm, self._n_gal_z, bounds_error=False, fill_value=0.0
         )
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Returns the number of parameters managed by this prior.
+
+        If SFH prior is enabled, it includes redshift, mass, metallicity,
+        and ``nbins_sfh - 1`` SFH parameters.
+        Otherwise, it returns 3 (redshift, mass, metallicity).
+        """
         if self.sfh_prior_flag:
             return self.params["nbins_sfh"] + 2
         else:
             return 3
 
     @property
-    def range(self):
+    def range(self) -> Tuple[Tuple[float, float], ...]:
+        """
+        Returns the valid range for each parameter.
+        """
         r = []
         # Z range
         if self.z_prior_type == "fixed":
@@ -220,18 +305,40 @@ class BetaPrior(priors.Prior):
         r.append((self.params["z_mini"], self.params["z_maxi"]))
 
         if self.sfh_prior_flag:
+            # SFH ratios have the same range
             r.append(
                 (self.params["logsfr_ratio_mini"], self.params["logsfr_ratio_maxi"])
             )
 
         return tuple(r)
 
-    def bounds(self, **kwargs):
+    def bounds(self, **kwargs) -> Tuple[Tuple[float, float], ...]:
+        """
+        Returns the bounds of the parameters.
+        """
         if len(kwargs) > 0:
             self.update(**kwargs)
         return self.range
 
-    def __call__(self, x, **kwargs):
+    def __call__(self, x: np.ndarray, **kwargs) -> Union[float, np.ndarray]:
+        """
+        Compute the natural log of the prior probability.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Input parameter vector(s). Shape ``(N_params,)`` or ``(N_samples, N_params)``.
+            The order is expected to be:
+            0: Redshift
+            1: Log Stellar Mass
+            2: Log Stellar Metallicity (Solar units)
+            3...: Log SFR ratios (if SFH prior is enabled)
+
+        Returns
+        -------
+        lnp : float or np.ndarray
+            The natural log probability density.
+        """
         if len(kwargs) > 0:
             self.update(**kwargs)
 
@@ -255,7 +362,9 @@ class BetaPrior(priors.Prior):
         elif self.z_prior_type == "dynamic":
             # vectorizing finterp_z_pdf
             # finterp_z_pdf is from interp1d, which should handle vectors
-            lnp[..., 0] = np.log(self.finterp_z_pdf(zreds))
+            val = self.finterp_z_pdf(zreds)
+            val = np.maximum(val, 1e-300)  # Avoid log(0)
+            lnp[..., 0] = np.log(val)
 
         # --- 2. Mass Prior ---
         if self.mass_prior_type == "uniform":
@@ -288,16 +397,29 @@ class BetaPrior(priors.Prior):
 
         # --- 3. Metallicity Prior ---
         # p(zsol) depends on mass
+        # We calculate this per sample because parameters depend on mass.
+
+        # Ensure intputs are iterable
+        logms_iterable = np.atleast_1d(logms)
+        logzsols_iterable = np.atleast_1d(logzsols)
+
+        # Calculate parameters
+        mus = loc_massmet(logms_iterable)
+        sigs = scale_massmet(logms_iterable)
+
+        # Create distributions
         met_dists = [
             priors.FastTruncatedNormal(
                 a=self.params["z_mini"],
                 b=self.params["z_maxi"],
-                mu=loc_massmet(m),
-                sig=scale_massmet(m),
+                mu=m,
+                sig=s,
             )
-            for m in logms
+            for m, s in zip(mus, sigs)
         ]
-        lnp[..., 2] = [dist(zsol) for dist, zsol in zip(met_dists, logzsols)]
+
+        # Calculate probabilities using the iterable logzsols
+        lnp[..., 2] = [dist(zsol) for dist, zsol in zip(met_dists, logzsols_iterable)]
 
         # --- 4. SFH Prior ---
         if self.sfh_prior_flag:
@@ -335,7 +457,23 @@ class BetaPrior(priors.Prior):
         else:
             return lnp
 
-    def sample(self, nsample=None, **kwargs):
+    def sample(self, nsample: Optional[int] = None, **kwargs) -> np.ndarray:
+        """
+        Draw samples from the prior distribution.
+
+        Parameters
+        ----------
+        nsample : int, optional
+            Number of samples to draw. If ``None``, draws 1 sample.
+        **kwargs
+            Update prior parameters before sampling.
+
+        Returns
+        -------
+        samples : np.ndarray
+            Array of samples. Shape ``(N_params,)`` if ``nsample`` is ``None``,
+            else ``(N_samples, N_params)``.
+        """
         if len(kwargs) > 0:
             self.update(**kwargs)
 
@@ -428,7 +566,24 @@ class BetaPrior(priors.Prior):
                 res.append(sfh_rvs.T)
             return np.vstack(res)
 
-    def unit_transform(self, x, **kwargs):
+    def unit_transform(self, x: np.ndarray, **kwargs) -> np.ndarray:
+        """
+        Transform from the unit hypercube to the physical parameter space.
+
+        Used for nested sampling (e.g. dynesty).
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Input array of uniform random variables in :math:`[0, 1]`. Shape ``(N_params,)``.
+        **kwargs
+            Update parameters.
+
+        Returns
+        -------
+        params : np.ndarray
+            The physical parameters corresponding to ``x``.
+        """
         if len(kwargs) > 0:
             self.update(**kwargs)
 
@@ -506,11 +661,16 @@ class BetaPrior(priors.Prior):
 
 
 class PhiMet(BetaPrior):
-    """p(logM|z)p(Z*|logM)
-    Mass function + mass-met
-    Z prior: Uniform
-    Mass prior: Mass Function
-    SFH: No
+    """
+    BetaPrior configuration: SMF + MZR.
+
+    - **Redshift**: Uniform
+    - **Mass**: Stellar Mass Function (`Leja et al. (2020)`_ / `Tacchella et al. (2018)`_)
+    - **Metallicity**: Mass-Metallicity Relation (`Gallazzi et al. (2005)`_)
+
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
+    .. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
     """
 
     prior_params = [
@@ -535,11 +695,16 @@ class PhiMet(BetaPrior):
 
 
 class ZredMassMet(BetaPrior):
-    """p(z)p(logM|z)p(Z*|logM)
-    Number density + mass function + mass-met
-    Z prior: Dynamic (Number Density)
-    Mass prior: Mass Function
-    SFH: No
+    """
+    BetaPrior configuration: Dynamic :math:`p(z)` + SMF + MZR.
+
+    - **Redshift**: Dynamic (Number Density * dV/dz)
+    - **Mass**: Stellar Mass Function (`Leja et al. (2020)`_ / `Tacchella et al. (2018)`_)
+    - **Metallicity**: Mass-Metallicity Relation (`Gallazzi et al. (2005)`_)
+
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
+    .. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
     """
 
     prior_params = [
@@ -564,11 +729,16 @@ class ZredMassMet(BetaPrior):
 
 
 class DymSFH(BetaPrior):
-    """p(Z*|logM) & SFH(M, z)
-    Mass-met + SFH
-    Z prior: Uniform
-    Mass prior: Uniform
-    SFH: Yes
+    """
+    BetaPrior configuration: MZR + SFH Prior.
+
+    - **Redshift**: Uniform
+    - **Mass**: Uniform
+    - **Metallicity**: Mass-Metallicity Relation (`Gallazzi et al. (2005)`_)
+    - **SFH**: Dynamic SFH prior based on cosmic SFRD (`Behroozi et al. (2019)`_)
+
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
+    .. _Behroozi et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B
     """
 
     prior_params = [
@@ -597,10 +767,16 @@ class DymSFH(BetaPrior):
 
 
 class DymSFHfixZred(BetaPrior):
-    """Same as DymSFH, but fixed zred
-    Z prior: Fixed
-    Mass prior: Uniform
-    SFH: Yes
+    """
+    BetaPrior configuration: MZR + SFH Prior (Fixed Redshift).
+
+    - **Redshift**: Fixed
+    - **Mass**: Uniform
+    - **Metallicity**: Mass-Metallicity Relation (`Gallazzi et al. (2005)`_)
+    - **SFH**: Dynamic SFH prior based on cosmic SFRD (`Behroozi et al. (2019)`_)
+
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
+    .. _Behroozi et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B
     """
 
     prior_params = [
@@ -628,11 +804,18 @@ class DymSFHfixZred(BetaPrior):
 
 
 class PhiSFH(BetaPrior):
-    """p(logM|z)p(Z*|logM) & SFH(M, z)
-    Mass function + mass-met + SFH
-    Z prior: Uniform
-    Mass prior: Mass Function
-    SFH: Yes
+    """
+    BetaPrior configuration: SMF + MZR + SFH Prior.
+
+    - **Redshift**: Uniform
+    - **Mass**: Stellar Mass Function (`Leja et al. (2020)`_ / `Tacchella et al. (2018)`_)
+    - **Metallicity**: Mass-Metallicity Relation (`Gallazzi et al. (2005)`_)
+    - **SFH**: Dynamic SFH prior based on cosmic SFRD (`Behroozi et al. (2019)`_)
+
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
+    .. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
+    .. _Behroozi et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B
     """
 
     prior_params = [
@@ -661,10 +844,18 @@ class PhiSFH(BetaPrior):
 
 
 class PhiSFHfixZred(BetaPrior):
-    """Same as PhiSFH, but fixed zred
-    Z prior: Fixed
-    Mass prior: Mass Function
-    SFH: Yes
+    """
+    BetaPrior configuration: SMF + MZR + SFH Prior (Fixed Redshift).
+
+    - **Redshift**: Fixed
+    - **Mass**: Stellar Mass Function (`Leja et al. (2020)`_ / `Tacchella et al. (2018)`_)
+    - **Metallicity**: Mass-Metallicity Relation (`Gallazzi et al. (2005)`_)
+    - **SFH**: Dynamic SFH prior based on cosmic SFRD (`Behroozi et al. (2019)`_)
+
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
+    .. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
+    .. _Behroozi et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B
     """
 
     prior_params = [
@@ -692,11 +883,18 @@ class PhiSFHfixZred(BetaPrior):
 
 
 class NzSFH(BetaPrior):
-    """p(z)p(logM|z)p(Z*|logM) & SFH(M, z)
-    Number density + mass function + mass-met + SFH
-    Z prior: Dynamic
-    Mass prior: Mass Function
-    SFH: Yes
+    """
+    BetaPrior configuration: Full Prospector-:math:`\\beta` (Dynamic :math:`p(z)` + SMF + MZR + SFH).
+
+    - **Redshift**: Dynamic (Number Density * dV/dz)
+    - **Mass**: Stellar Mass Function (`Leja et al. (2020)`_ / `Tacchella et al. (2018)`_)
+    - **Metallicity**: Mass-Metallicity Relation (`Gallazzi et al. (2005)`_)
+    - **SFH**: Dynamic SFH prior based on cosmic SFRD (`Behroozi et al. (2019)`_)
+
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
+    .. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
+    .. _Behroozi et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B
     """
 
     prior_params = [
@@ -727,23 +925,86 @@ class NzSFH(BetaPrior):
 ############################# necessary functions #############################
 
 
-def scale_massmet(mass):
-    """std of the Gaussian approximating the mass-met relationship"""
+def scale_massmet(mass: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """
+    Calculate the standard deviation of the Gaussian approximating the
+    mass-metallicity relationship at a given mass.
+
+    Interpolates between the 16th and 84th percentiles of the `Gallazzi et al. (2005)`_ relation.
+
+    Parameters
+    ----------
+    mass : float or array_like
+        Log stellar mass.
+
+    Returns
+    -------
+    scale : float or array_like
+        The width (sigma) of the metallicity distribution.
+
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
+    """
     upper_84 = np.interp(mass, MASSMET[:, 0], MASSMET[:, 3])
     lower_16 = np.interp(mass, MASSMET[:, 0], MASSMET[:, 2])
     return upper_84 - lower_16
 
 
-def loc_massmet(mass):
-    """mean of the Gaussian approximating the mass-met relationship"""
+def loc_massmet(mass: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """
+    Calculate the mean of the Gaussian approximating the mass-metallicity
+    relationship at a given mass.
+
+    Interpolates the mean of the `Gallazzi et al. (2005)`_ relation.
+
+    Parameters
+    ----------
+    mass : float or array_like
+        Log stellar mass.
+
+    Returns
+    -------
+    loc : float or array_like
+        The mean log metallicity.
+
+    .. _Gallazzi et al. (2005): https://ui.adsabs.harvard.edu/abs/2005MNRAS.362...41G
+    """
     return np.interp(mass, MASSMET[:, 0], MASSMET[:, 1])
 
 
 ############ Mass function in Leja+20    ############
 ############ Code modified from appendix ############
-def schechter(logm, logphi, logmstar, alpha, m_lower=None):
+def schechter(
+    logm: Union[float, np.ndarray],
+    logphi: float,
+    logmstar: float,
+    alpha: float,
+    m_lower: Optional[float] = None,
+) -> Union[float, np.ndarray]:
     """
-    Generate a Schechter function (in dlogm).
+    Generate a `Schechter (1976)`_ function (in dlogm).
+
+    .. math::
+        \\Phi(M) = \\ln(10) \\Phi^* 10^{(M-M^*)(\\alpha+1)} \\exp(-10^{M-M^*})
+
+    Parameters
+    ----------
+    logm : float or array_like
+        Log stellar mass.
+    logphi : float
+        Log normalization (:math:`\\Phi^*`).
+    logmstar : float
+        Log characteristic mass (:math:`M^*`).
+    alpha : float
+        Low-mass slope.
+    m_lower : float, optional
+        Unused, but kept for signature compatibility.
+
+    Returns
+    -------
+    phi : float or array_like
+        The value of the mass function.
+
+    .. _Schechter (1976): https://ui.adsabs.harvard.edu/abs/1976ApJ...203..297S
     """
     phi = (
         (10**logphi)
@@ -754,11 +1015,36 @@ def schechter(logm, logphi, logmstar, alpha, m_lower=None):
     return phi
 
 
-def parameter_at_z0(y, z0, z1=0.2, z2=1.6, z3=3.0):
+def parameter_at_z0(
+    y: Tuple[float, float, float],
+    z0: float,
+    z1: float = 0.2,
+    z2: float = 1.6,
+    z3: float = 3.0,
+) -> float:
     """
-    Compute parameter at redshift ‘z0‘ as a function
-    of the polynomial parameters ‘y‘ and the
-    redshift anchor points ‘z1‘, ‘z2‘, and ‘z3‘.
+    Compute parameter at redshift ``z0`` using a quadratic interpolation
+    between three anchor points (``z1``, ``z2``, ``z3``).
+
+    Used for evolving the `Schechter (1976)`_ function parameters in
+    the `Leja et al. (2020)`_ continuity model.
+
+    Parameters
+    ----------
+    y : tuple
+        The parameter values at ``z1``, ``z2``, and ``z3``.
+    z0 : float
+        The target redshift.
+    z1, z2, z3 : float
+        The anchor redshifts.
+
+    Returns
+    -------
+    val : float
+        The interpolated parameter value at ``z0``.
+
+    .. _Schechter (1976): https://ui.adsabs.harvard.edu/abs/1976ApJ...203..297S
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
     """
     y1, y2, y3 = y
     a = ((y3 - y1) + (y2 - y1) / (z2 - z1) * (z1 - z3)) / (
@@ -769,7 +1055,7 @@ def parameter_at_z0(y, z0, z1=0.2, z2=1.6, z3=3.0):
     return a * z0**2 + b * z0 + c
 
 
-# Continuity model median parameters + 1-sigma uncertainties.
+# Continuity model median parameters + 1-sigma uncertainties (Leja+20).
 pars = {
     "logphi1": [-2.44, -3.08, -4.14],
     "logphi1_err": [0.02, 0.03, 0.1],
@@ -784,10 +1070,26 @@ pars = {
 }
 
 
-def draw_at_z(z0=1.0):
-    """The Leja+20 mass function is only defined over 0.2<=z<=3.
-    If 'z0' is outside the range, we use the z=0.2 and z=3 parameter values
-    in this function.
+def draw_at_z(
+    z0: Union[float, np.ndarray] = 1.0,
+) -> Dict[str, Union[float, np.ndarray]]:
+    """
+    Get the mass function parameters at redshift ``z0``.
+
+    The `Leja et al. (2020)`_ mass function is defined over :math:`0.2 \\leq z \\leq 3.0`.
+    Outside this range, the values are clamped to the boundaries.
+
+    Parameters
+    ----------
+    z0 : float or array_like
+        Redshift.
+
+    Returns
+    -------
+    draws : dict
+        Dictionary containing ``'logphi1'``, ``'logphi2'``, ``'logmstar'``, ``'alpha1'``, ``'alpha2'``.
+
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
     """
     if hasattr(z0, "__len__"):
         _z0 = np.array(z0)
@@ -813,10 +1115,27 @@ def draw_at_z(z0=1.0):
     return draws
 
 
-def low_z_mass_func(z0, logm):
-    """Mass function in Leja+20
-    logm: an array of [mass_mini, ..., mass_maxi], or a float.
-    returns: an array of phi as a function of logm, or phi at z0.
+def low_z_mass_func(
+    z0: float, logm: Union[float, np.ndarray]
+) -> Union[float, np.ndarray]:
+    """
+    Evaluate the `Leja et al. (2020)`_ double `Schechter (1976)`_ mass function
+    at redshift ``z0`` (:math:`z < 3`).
+
+    Parameters
+    ----------
+    z0 : float
+        Redshift.
+    logm : float or array_like
+        Log stellar mass.
+
+    Returns
+    -------
+    phi : float or array_like
+        The mass function value.
+
+    .. _Schechter (1976): https://ui.adsabs.harvard.edu/abs/1976ApJ...203..297S
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
     """
     draws = draw_at_z(z0=z0)
     phi1 = schechter(
@@ -846,9 +1165,9 @@ def scale(x, zrange=[3, 4], trigrange=[0, np.pi / 2]):
 
 
 def cos_weight(z, zrange=[3, 4]):
-    """cos^2 weighted average
+    """:math:`\\cos^2` weighted average
 
-    zrange: min and max of the redshift range over which we will take the cos^2 weighted average
+    zrange: min and max of the redshift range over which we will take the :math:`\\cos^2` weighted average
     """
 
     z_scaled = scale(z, zrange=zrange)
@@ -858,7 +1177,7 @@ def cos_weight(z, zrange=[3, 4]):
     return np.array([w_l20, w_t18])
 
 
-# Best-fit parameters from table 2.
+# Best-fit parameters from Table 2 of Tacchella+18.
 z_t18 = np.arange(4, 13, 1)
 phi_t18 = np.array([261.9, 201.2, 140.5, 78.0, 38.4, 37.3, 8.1, 3.9, 1.1])
 phi_t18 *= 1e-5
@@ -868,11 +1187,21 @@ alpha_t18 = np.array([-1.54, -1.59, -1.64, -1.70, -1.76, -1.80, -1.92, -2.00, -2
 
 
 def schechter_t18(m, phi_star, m_star, alpha):
-    """In linear space"""
+    """
+    `Schechter (1976)`_ function in linear space (:math:`\\frac{dN}{dM}`), as used in `Tacchella et al. (2018)`_.
+
+    .. _Schechter (1976): https://ui.adsabs.harvard.edu/abs/1976ApJ...203..297S
+    .. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
+    """
     return phi_star * (m / m_star) ** (alpha + 1) * np.exp(-m / m_star)
 
 
 def high_z_mass_func_discreate(z0, this_m):
+    """
+    Evaluate the `Tacchella et al. (2018)`_ mass function at one of the discrete redshift bins.
+
+    .. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
+    """
     # no boundary check is done here
     idx = np.squeeze(np.where(z_t18 == int(np.round(z0))))
     return schechter_t18(
@@ -881,7 +1210,12 @@ def high_z_mass_func_discreate(z0, this_m):
 
 
 def high_z_mass_func(z0, this_m):
-    """Take cos^2 weighted average in each bin, with zrange being the bin edges."""
+    """
+    Evaluate the high-redshift mass function, interpolating between discrete bins.
+
+    For `4 <= z <= 12`, it interpolates between the integer redshift bins using
+    a :math:`\\cos^2` weighted average.
+    """
     if z0 <= 4.0:
         return high_z_mass_func_discreate(4.0, this_m)
     elif z0 >= 12.0:
@@ -897,22 +1231,34 @@ def high_z_mass_func(z0, this_m):
         return phi
 
 
-def mass_func_at_z(z, this_logm, const_phi=False, bounds=[6.0, 12.5]):
+def mass_func_at_z(
+    z: float,
+    this_logm: Union[float, np.ndarray],
+    const_phi: bool = False,
+    bounds: List[float] = [6.0, 12.5],
+) -> Union[float, np.ndarray]:
     """
-    if const_phi == True: use mass functions in Leja+20 only;
-                          no redshfit evolution outside the range 0.2 <= z <= 3.0;
-        i.e.,
-        z<=0.2: use mass function at z=0.2;
-        0.2<=z<=3.0: defined in Leja+20;
-        z>=3: use mass function at z=3.0.
-    if const_phi == False: combine Leja+20 and Tacchella+18 mass functions;
-        i.e.,
-        z<=3: mass function in Leja+20; continuous in redshift.
-        3<z<4: cos^2 weighted average of L20 mass function at z=3 and T18 mass function at z=4;
-               i.e., we weight the L20 mass function as cos^2(0, pi/2), and T18 as 1 - cos^2(0, pi/2).
-        4<=z<=12: T18 mass function; discreate in redshift by definition;
-                  we take cos^2 weighted average in each bin, with zrange being the bin edges.
-        z>12: T18 mass function at z=12.
+    Evaluate the composite stellar mass function at redshift :math:`z` and mass `\\log_{10}(M/M_\\odot)`.
+
+    Parameters
+    ----------
+    z : float
+        Redshift.
+    this_logm : float or array_like
+        Log stellar mass.
+    const_phi : bool, optional
+        If ``True``, disables redshift evolution outside :math:`0.2 \\leq z \\leq 3.0` (i.e., clamps to boundaries).
+        If ``False``, uses `Leja et al. (2020)`_ for :math:`z \\leq 3`, `Tacchella et al. (2018)`_ for :math:`z \\geq 4`, and smooth interpolation in between.
+    bounds : list, optional
+        [min_logm, max_logm]. Values outside this range return 0.
+
+    Returns
+    -------
+    phi : float or array_like
+        The mass function value.
+
+    .. _Leja et al. (2020): https://ui.adsabs.harvard.edu/abs/2020ApJ...893..111L
+    .. _Tacchella et al. (2018): https://ui.adsabs.harvard.edu/abs/2018ApJ...868...92T
     """
     if not hasattr(this_logm, "__len__"):
         if this_logm < bounds[0] or this_logm > bounds[1]:
@@ -941,6 +1287,9 @@ def mass_func_at_z(z, this_logm, const_phi=False, bounds=[6.0, 12.5]):
 
 ############ Empirical PDF & CDF ############
 def pdf_mass_func_at_z(z, logm, const_phi, bounds):
+    """
+    Normalized PDF of the mass function at redshift :math:`z`.
+    """
     phi_50 = mass_func_at_z(z, logm, const_phi, bounds)
     p_phi_int = simpson(y=phi_50, x=logm)
     pdf_at_m = phi_50 / p_phi_int
@@ -949,7 +1298,12 @@ def pdf_mass_func_at_z(z, logm, const_phi, bounds):
 
 def cdf_mass_func_at_z(z, logm, const_phi, bounds):
     """
-    logm: an array of [mass_mini, ..., mass_maxi], or a float
+    CDF of the mass function at redshift :math:`z`.
+
+    Parameters
+    ----------
+    logm : array_like
+        Grid of log mass values. Must be sorted.
     """
     pdf_at_m = pdf_mass_func_at_z(z, logm=logm, const_phi=const_phi, bounds=bounds)
     cdf_of_m = np.cumsum(pdf_at_m)
@@ -965,8 +1319,10 @@ def cdf_mass_func_at_z(z, logm, const_phi, bounds):
 
 
 def ppf(x, xs, cdf):
-    """Go from a value x of the CDF (between 0 and 1) to
-    the corresponding parameter value.
+    """
+    Percent Point Function (Inverse CDF).
+
+    Go from a value ``x`` of the CDF (between 0 and 1) to the corresponding parameter value.
     """
     func_interp = interp1d(cdf, xs, bounds_error=False, fill_value=0)
     param = func_interp(x)
@@ -982,9 +1338,34 @@ def draw_sample(xs, cdf, nsample=None):
 
 
 def norm_pz(zred_mini, zred_maxi, zreds, pdf_zred):
-    """normalize int_{zred_mini}^{zred_maxi} p(z) = 1"""
+    """
+    Normalize the redshift PDF and create interpolators for PDF and CDF.
+
+    Parameters
+    ----------
+    zred_mini, zred_maxi : float
+        Redshift bounds.
+    zreds : array_like
+        Redshift grid.
+    pdf_zred : array_like
+        Unnormalized PDF values on the grid.
+
+    Returns
+    -------
+    finterp_z_pdf : interp1d
+        Interpolator for :math:`p(z)`.
+    finterp_cdf_z : interp1d
+        Interpolator for Inverse CDF (for sampling).
+    """
     idx_zrange = np.logical_and(zreds >= zred_mini, zreds <= zred_maxi)
     zreds_inrange = zreds[idx_zrange]
+
+    # Error if zred range is outside the range of zreds
+    if len(zreds_inrange) == 0:
+        raise ValueError(
+            f"Redshift range [{zred_mini}, {zred_maxi}] is outside the range of zreds."
+        )
+
     p_int = simpson(y=pdf_zred[idx_zrange], x=zreds_inrange)
     pdf_zred_inrange = pdf_zred[idx_zrange] / p_int
     invalid = np.where(pdf_zred_inrange < 0)
@@ -994,11 +1375,44 @@ def norm_pz(zred_mini, zred_maxi, zreds, pdf_zred):
     )
 
     cdf_zred = np.cumsum(pdf_zred_inrange)
-    cdf_zred /= max(cdf_zred)
-    invalid = np.where(cdf_zred < 0)
-    cdf_zred[invalid] = 0
+    cdf_zred /= cdf_zred[-1]
+
+    # Prepend 0 to CDF and start z to align for interpolation
+    cdf_zred = np.concatenate(([0], cdf_zred))
+    zreds_cdf = np.concatenate(([zreds_inrange[0]], zreds_inrange))
+
+    # Clean up bounds
+    cdf_zred[cdf_zred < 0] = 0
     cdf_zred[-1] = 1
-    finterp_cdf_z = interp1d(cdf_zred, zreds_inrange, bounds_error=False, fill_value=0)
+
+    # Truncate tails to avoid sampling from zero-probability regions
+    # 1. Find the effective start (where CDF > epsilon)
+    #    We back up one step to include the 0.0 point just before probability starts.
+    first_pos = np.argmax(cdf_zred > 1e-10)
+    start_idx = max(0, first_pos - 1)
+
+    # 2. Find the effective end (where CDF reaches ~1)
+    #    We keep the first point that is ~1.0.
+    last_one = np.argmax(cdf_zred > 1.0 - 1e-10)
+    end_idx = last_one + 1 if last_one < len(cdf_zred) else len(cdf_zred)
+
+    cdf_zred_trunc = cdf_zred[start_idx:end_idx]
+    zreds_cdf_trunc = zreds_cdf[start_idx:end_idx]
+
+    # Ensure endpoints are strictly 0 and 1
+    if len(cdf_zred_trunc) > 0:
+        cdf_zred_trunc[0] = 0.0
+        cdf_zred_trunc[-1] = 1.0
+
+    # Ensure strictly increasing CDF for interp1d
+    # If there are flat spots remaining (e.g. gaps in p(z)), np.unique with return_index
+    # keeps the first occurrence, effectively skipping the gap in the inverse map.
+    unique_cdf, unique_indices = np.unique(cdf_zred_trunc, return_index=True)
+    unique_z = zreds_cdf_trunc[unique_indices]
+
+    finterp_cdf_z = interp1d(
+        unique_cdf, unique_z, bounds_error=False, fill_value=(unique_z[0], unique_z[-1])
+    )
 
     return (finterp_z_pdf, finterp_cdf_z)
 
@@ -1007,10 +1421,13 @@ def norm_pz(zred_mini, zred_maxi, zreds, pdf_zred):
 
 
 def z_to_agebins_rescale(zstart, nbins_sfh=7, amin=7.1295):
-    """agelims here must match those in z_to_agebins(), which set the nonparameteric
-    SFH age bins depending on the age of the universe at a given z.
+    """
+    Calculate age bins for the SFH prior.
 
-    This function ensures that the agebins used for calculating the expectation values of logsfr_ratios
+    agelims here must match those in ``z_to_agebins()``, which set the nonparameteric
+    SFH age bins depending on the age of the universe at a given :math:`z`.
+
+    This function ensures that the agebins used for calculating the expectation values of ``logsfr_ratios``
     follow the same spacing.
     """
 
@@ -1071,7 +1488,9 @@ def slope_and_intercept(x, y):
 
 
 def delta_t_dex(m, mlims=[9, 12], dlims=[-0.2, 0.8]):
-    """Introduces mass dependence in SFH"""
+    """
+    Introduces mass dependence in SFH by shifting the lookback time.
+    """
     a, b = slope_and_intercept([mlims[0], mlims[1]], [dlims[0], dlims[1]])
 
     if m <= mlims[0]:
@@ -1085,7 +1504,14 @@ def delta_t_dex(m, mlims=[9, 12], dlims=[-0.2, 0.8]):
 def expe_logsfr_ratios(
     this_z, this_m, logsfr_ratio_mini, logsfr_ratio_maxi, nbins_sfh=7, amin=7.1295
 ):
-    """expectation values of logsfr_ratios"""
+    """
+    Calculate the expected log SFR ratios given redshift and mass.
+
+    This uses the cosmic SFRD from `Behroozi et al. (2019)`_, shifted in time
+    based on the galaxy's mass (downsizing), to predict the average SFH shape.
+
+    .. _Behroozi et al. (2019): https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.3143B
+    """
 
     age_shifted = np.log10(cosmo.age(this_z).value) + delta_t_dex(this_m)
     age_shifted = 10**age_shifted
