@@ -893,9 +893,6 @@ class TestStatisticalConsistency:
         # We reject H0 if p_value is very small (e.g. < 0.001)
         d_statistic, p_value = kstest(mass_samples, cdf_func)
 
-        # Debug info in case of failure
-        print(f"\nMass KS Test: D={d_statistic:.4f}, p={p_value:.4f}")
-
         # Assert that we cannot reject the null hypothesis
         # (i.e., the samples are consistent with the distribution)
         assert p_value > 0.001, (
@@ -959,8 +956,6 @@ class TestStatisticalConsistency:
 
         # 4. Perform KS Test
         d_statistic, p_value = kstest(z_samples, cdf_func)
-
-        print(f"\nRedshift KS Test: D={d_statistic:.4f}, p={p_value:.4f}")
 
         assert p_value > 0.001, (
             f"Redshift sampling inconsistent with P(z) (p={p_value:.4f}). "
