@@ -73,6 +73,20 @@ __all__ = [
 
 _, AGE_GRID = WMAP9_AGE
 
+# Continuity model median parameters + 1-sigma uncertainties (Leja+20).
+LEJA_20_PARS = {
+    "logphi1": [-2.44, -3.08, -4.14],
+    "logphi1_err": [0.02, 0.03, 0.1],
+    "logphi2": [-2.89, -3.29, -3.51],
+    "logphi2_err": [0.04, 0.03, 0.03],
+    "logmstar": [10.79, 10.88, 10.84],
+    "logmstar_err": [0.02, 0.02, 0.04],
+    "alpha1": [-0.28],
+    "alpha1_err": [0.07],
+    "alpha2": [-1.48],
+    "alpha2_err": [0.1],
+}
+
 
 class BetaPrior(priors.Prior):
     """
@@ -99,6 +113,12 @@ class BetaPrior(priors.Prior):
     unit_transform(x, **kwargs)
         Transform from the unit hypercube to the physical parameter space.
     """
+
+    # Hardcoded grid sizes for various integrations and interpolations
+    ZRED_GRID_LEN = 4_000
+    MASS_GRID_LEN = 101
+    MASS_INTEG_GRID = 100
+    MASS_SUBGRID_LEN = 1_000
 
     prior_params = [
         "zred_mini",
@@ -199,7 +219,9 @@ class BetaPrior(priors.Prior):
             # If mass_mini is callable (NzSFH), we can't create a static global grid.
             if not callable(self.params.get("mass_mini")):
                 self.mgrid = np.linspace(
-                    self.params.get("mass_mini", 9.0), self.params["mass_maxi"], 101
+                    self.params.get("mass_mini", 9.0),
+                    self.params["mass_maxi"],
+                    self.MASS_GRID_LEN,
                 )
             else:
                 self.mgrid = None
@@ -237,7 +259,7 @@ class BetaPrior(priors.Prior):
         Calculates the integral of the mass function over the mass limits
         as a function of redshift.
 
-        This computes :math:`N(z) = \\int_{M_\\textrm{min}(z)}^{M_\\textrm{max}} \\Phi(M, z)\,dM`.
+        This computes :math:`N(z) = \\int_{M_\\textrm{min}(z)}^{M_\\textrm{max}} \\Phi(M, z)\\,dM`.
         This quantity is used for:
         1. Normalizing the mass prior :math:`p(M \\vert z) = \\Phi(M, z) / N(z)`.
         2. Constructing the dynamic redshift prior :math:`p(z) \\sim N(z) \\frac{dV}{dz}`.
@@ -247,7 +269,9 @@ class BetaPrior(priors.Prior):
 
         # Define grid (high res for accuracy)
         self._z_grid_norm = np.linspace(
-            self.params.get("zred_mini", 0), self.params.get("zred_maxi", 10), 4000
+            self.params.get("zred_mini", 0),
+            self.params.get("zred_maxi", 10),
+            self.ZRED_GRID_LEN,
         )
 
         n_gal_z = []
@@ -259,7 +283,7 @@ class BetaPrior(priors.Prior):
                 n_gal_z.append(0.0)
                 continue
 
-            m_integ_grid = np.linspace(m_min, mass_max, 100)
+            m_integ_grid = np.linspace(m_min, mass_max, self.MASS_INTEG_GRID)
             phi = mass_func_at_z(
                 z,
                 m_integ_grid,
@@ -280,14 +304,19 @@ class BetaPrior(priors.Prior):
         """
         Returns the number of parameters managed by this prior.
 
-        If SFH prior is enabled, it includes redshift, mass, metallicity,
-        and ``nbins_sfh - 1`` SFH parameters.
-        Otherwise, it returns 3 (redshift, mass, metallicity).
+        If SFH prior is enabled, it includes redshift, mass, metallicity, and ``nbins_sfh - 1``
+        SFH parameters. Otherwise, it returns 3 (redshift, mass, metallicity). If redshift is fixed,
+        the redshift parameter is not counted.
         """
+        n_params = 2  # mass and metallicity always included
+
+        if self.z_prior_type != "fixed":
+            n_params += 1
+
         if self.sfh_prior_flag:
-            return self.params["nbins_sfh"] + 2
-        else:
-            return 3
+            n_params += self.params["nbins_sfh"] - 1
+
+        return n_params
 
     @property
     def range(self) -> Tuple[Tuple[float, float], ...]:
@@ -348,27 +377,44 @@ class BetaPrior(priors.Prior):
         else:
             scalar_input = False
 
-        zreds = x[..., 0]
-        logms = x[..., 1]
-        logzsols = x[..., 2]
+        # Determine indices based on whether redshift is fixed
+        if self.z_prior_type == "fixed":
+            idx_z = None
+            idx_m = 0
+            idx_met = 1
+            idx_sfh = 2
+        else:
+            idx_z = 0
+            idx_m = 1
+            idx_met = 2
+            idx_sfh = 3
+
+        if idx_z is not None:
+            zreds = x[..., idx_z]
+        else:
+            # Broadcast self.zred to shape of x excluding last dim
+            shape = x.shape[:-1]
+            zreds = np.full(shape, self.zred)
+
+        logms = x[..., idx_m]
+        logzsols = x[..., idx_met]
 
         lnp = np.zeros_like(x)  # Shape (N, N_params)
 
         # --- 1. Redshift Prior ---
-        if self.z_prior_type == "fixed":
-            lnp[..., 0] = 0.0
-        elif self.z_prior_type == "uniform":
-            lnp[..., 0] = self.zred_dist(zreds)
-        elif self.z_prior_type == "dynamic":
-            # vectorizing finterp_z_pdf
-            # finterp_z_pdf is from interp1d, which should handle vectors
-            val = self.finterp_z_pdf(zreds)
-            val = np.maximum(val, 1e-300)  # Avoid log(0)
-            lnp[..., 0] = np.log(val)
+        if idx_z is not None:
+            if self.z_prior_type == "uniform":
+                lnp[..., idx_z] = self.zred_dist(zreds)
+            elif self.z_prior_type == "dynamic":
+                # vectorizing finterp_z_pdf
+                # finterp_z_pdf is from interp1d, which should handle vectors
+                val = self.finterp_z_pdf(zreds)
+                val = np.maximum(val, 1e-300)  # Avoid log(0)
+                lnp[..., idx_z] = np.log(val)
 
         # --- 2. Mass Prior ---
         if self.mass_prior_type == "uniform":
-            lnp[..., 1] = self.mass_dist(logms)
+            lnp[..., idx_m] = self.mass_dist(logms)
         elif self.mass_prior_type == "mass_function":
             p_mass = np.zeros_like(logms)
             for i in range(len(zreds)):
@@ -393,7 +439,7 @@ class BetaPrior(priors.Prior):
 
             # Suppress log(0) warnings
             with np.errstate(divide="ignore"):
-                lnp[..., 1] = np.log(p_mass)
+                lnp[..., idx_m] = np.log(p_mass)
 
         # --- 3. Metallicity Prior ---
         # p(zsol) depends on mass
@@ -419,11 +465,13 @@ class BetaPrior(priors.Prior):
         ]
 
         # Calculate probabilities using the iterable logzsols
-        lnp[..., 2] = [dist(zsol) for dist, zsol in zip(met_dists, logzsols_iterable)]
+        lnp[..., idx_met] = [
+            dist(zsol) for dist, zsol in zip(met_dists, logzsols_iterable)
+        ]
 
         # --- 4. SFH Prior ---
         if self.sfh_prior_flag:
-            logsfr_input = x[..., 3:]
+            logsfr_input = x[..., idx_sfh:]
             # logsfr_ratios depends on z and m
 
             p_sfh = []
@@ -450,7 +498,7 @@ class BetaPrior(priors.Prior):
 
             p_sfh = np.array(p_sfh)
             with np.errstate(divide="ignore"):
-                lnp[..., 3:] = np.log(p_sfh)
+                lnp[..., idx_sfh:] = np.log(p_sfh)
 
         if scalar_input:
             return lnp[0]
@@ -501,7 +549,7 @@ class BetaPrior(priors.Prior):
                 m_max = self.params["mass_maxi"]
 
                 # We need a grid for this z
-                m_subgrid = np.linspace(m_min, m_max, 100)
+                m_subgrid = np.linspace(m_min, m_max, self.MASS_SUBGRID_LEN)
 
                 cdf_mass = cdf_mass_func_at_z(
                     z=z,
@@ -550,21 +598,25 @@ class BetaPrior(priors.Prior):
 
         # Return
         if nsample is None:
-            res = [
-                np.atleast_1d(zred[0]),
-                np.atleast_1d(mass[0]),
-                np.atleast_1d(met[0]),
-            ]
+            res = []
+            if self.z_prior_type != "fixed":
+                res.append(np.atleast_1d(zred))
+            res.append(np.atleast_1d(mass[0]))
+            res.append(np.atleast_1d(met[0]))
             if self.sfh_prior_flag:
                 res.append(np.atleast_1d(sfh_rvs[0]))
             return np.concatenate(res)
         else:
             # vstack
-            res = [zred, mass, met]
+            res = []
+            if self.z_prior_type != "fixed":
+                res.append(zred)
+            res.append(mass)
+            res.append(met)
             if self.sfh_prior_flag:
-                # sfh_rvs is (n, bins) -> transpose to (bins, n) for vstack?
+                # sfh_rvs is (n, bins) -> transpose to (bins, n) for vstack
                 res.append(sfh_rvs.T)
-            return np.vstack(res)
+            return np.vstack(res).T
 
     def unit_transform(self, x: np.ndarray, **kwargs) -> np.ndarray:
         """
@@ -587,25 +639,29 @@ class BetaPrior(priors.Prior):
         if len(kwargs) > 0:
             self.update(**kwargs)
 
+        ptr = 0
+
         # x is 1D array of length N_params (unit cube coordinates)
 
         # 1. Redshift
         zred_val = 0.0
         if self.z_prior_type == "fixed":
             zred_val = self.zred * 1
-        elif self.z_prior_type == "uniform":
-            zred_val = self.zred_dist.unit_transform(x[0])
-        elif self.z_prior_type == "dynamic":
-            zred_val = self.finterp_cdf_z(x[0])
+        else:
+            if self.z_prior_type == "uniform":
+                zred_val = self.zred_dist.unit_transform(x[ptr])
+            elif self.z_prior_type == "dynamic":
+                zred_val = self.finterp_cdf_z(x[ptr])
+            ptr += 1
 
         # 2. Mass
         mass_val = 0.0
         if self.mass_prior_type == "uniform":
-            mass_val = self.mass_dist.unit_transform(x[1])
+            mass_val = self.mass_dist.unit_transform(x[ptr])
         elif self.mass_prior_type == "mass_function":
             m_min = self.mass_min_func(zred_val)
             m_max = self.params["mass_maxi"]
-            m_subgrid = np.linspace(m_min, m_max, 100)
+            m_subgrid = np.linspace(m_min, m_max, self.MASS_SUBGRID_LEN)
 
             cdf_mass = cdf_mass_func_at_z(
                 z=zred_val,
@@ -613,7 +669,8 @@ class BetaPrior(priors.Prior):
                 const_phi=self.params["const_phi"],
                 bounds=[m_min, m_max],
             )
-            mass_val = ppf(x[1], m_subgrid, cdf=cdf_mass)
+            mass_val = ppf(x[ptr], m_subgrid, cdf=cdf_mass)
+        ptr += 1
 
         # 3. Metallicity
         met_dist = priors.FastTruncatedNormal(
@@ -622,9 +679,14 @@ class BetaPrior(priors.Prior):
             mu=loc_massmet(mass_val),
             sig=scale_massmet(mass_val),
         )
-        met_val = met_dist.unit_transform(x[2])
+        met_val = met_dist.unit_transform(x[ptr])
+        ptr += 1
 
-        res = [np.atleast_1d(zred_val), np.atleast_1d(mass_val), np.atleast_1d(met_val)]
+        res = []
+        if self.z_prior_type != "fixed":
+            res.append(np.atleast_1d(zred_val))
+        res.append(np.atleast_1d(mass_val))
+        res.append(np.atleast_1d(met_val))
 
         # 4. SFH
         if self.sfh_prior_flag:
@@ -637,8 +699,8 @@ class BetaPrior(priors.Prior):
             )
 
             # Need to transform each bin
-            # x[3:] corresponds to sfh bins
-            sfh_unit = x[3:]
+            # x[ptr:] corresponds to sfh bins
+            sfh_unit = x[ptr:]
             sfh_vals = np.zeros_like(logsfr_ratios)
 
             for i in range(len(sfh_vals)):
@@ -1055,21 +1117,6 @@ def parameter_at_z0(
     return a * z0**2 + b * z0 + c
 
 
-# Continuity model median parameters + 1-sigma uncertainties (Leja+20).
-pars = {
-    "logphi1": [-2.44, -3.08, -4.14],
-    "logphi1_err": [0.02, 0.03, 0.1],
-    "logphi2": [-2.89, -3.29, -3.51],
-    "logphi2_err": [0.04, 0.03, 0.03],
-    "logmstar": [10.79, 10.88, 10.84],
-    "logmstar_err": [0.02, 0.02, 0.04],
-    "alpha1": [-0.28],
-    "alpha1_err": [0.07],
-    "alpha2": [-1.48],
-    "alpha2_err": [0.1],
-}
-
-
 def draw_at_z(
     z0: Union[float, np.ndarray] = 1.0,
 ) -> Dict[str, Union[float, np.ndarray]]:
@@ -1106,7 +1153,7 @@ def draw_at_z(
     draws = {}
 
     for par in ["logphi1", "logphi2", "logmstar", "alpha1", "alpha2"]:
-        samp = pars[par]
+        samp = LEJA_20_PARS[par]
         if par in ["logphi1", "logphi2", "logmstar"]:
             draws[par] = parameter_at_z0(samp, _z0)
         else:

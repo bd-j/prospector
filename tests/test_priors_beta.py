@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import numpy as np
+import pytest
 from astropy.cosmology import WMAP9 as cosmo
 from scipy.integrate import simpson
 from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter1d
 from scipy.stats import kstest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from prospect.models import priors_beta
 
 
@@ -57,6 +60,125 @@ class TestInstantiation:
         lnp = prior(x)
         assert np.all(np.isfinite(lnp))
 
+    def test_dym_sfh_instantiation(self):
+        """
+        DymSFH Instantiation
+
+        Verifies that the DymSFH prior (MZR + SFH) can be instantiated and evaluated
+        for log-probability.
+        """
+        prior = priors_beta.DymSFH(
+            zred_mini=0.1,
+            zred_maxi=2.0,
+            mass_mini=9.0,
+            mass_maxi=12.0,
+            z_mini=-2.0,
+            z_maxi=0.5,
+            logsfr_ratio_mini=-5,
+            logsfr_ratio_maxi=5,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=7,
+            const_phi=True,
+        )
+        assert prior is not None
+        x = np.array(
+            [1.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        )  # length depends on nbins_sfh
+        assert len(prior) == 9
+
+        lnp = prior(x)
+        assert np.all(np.isfinite(lnp))
+
+        # Also test 2d input
+        x_2d = x[:, np.newaxis].T  # shape (1, 9)
+        lnp_2d = prior(x_2d)
+        assert np.all(np.isfinite(lnp_2d))
+
+    def test_dym_sfh_fix_zred_instantiation(self):
+        """
+        DymSFHfixZred Instantiation
+
+        Verifies that the DymSFHfixZred prior (fixed z + MZR + SFH) can be instantiated
+        and evaluated for log-probability.
+        """
+        prior = priors_beta.DymSFHfixZred(
+            zred=1.2,
+            mass_mini=9.0,
+            mass_maxi=12.0,
+            z_mini=-2.0,
+            z_maxi=0.5,
+            logsfr_ratio_mini=-5,
+            logsfr_ratio_maxi=5,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=7,
+            const_phi=True,
+        )
+        assert prior is not None
+        x = np.array(
+            [10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        )  # length depends on nbins_sfh
+        assert len(prior) == 8
+
+        lnp = prior(x)
+        assert np.all(np.isfinite(lnp))
+
+    def test_phi_sfh_instantiation(self):
+        """
+        PhiSFH Instantiation
+
+        Verifies that the PhiSFH prior (SMF + MZR + SFH) can be instantiated and
+        evaluated for log-probability.
+        """
+        prior = priors_beta.PhiSFH(
+            zred_mini=0.1,
+            zred_maxi=2.0,
+            mass_mini=9.0,
+            mass_maxi=12.0,
+            z_mini=-2.0,
+            z_maxi=0.5,
+            logsfr_ratio_mini=-5,
+            logsfr_ratio_maxi=5,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=7,
+            const_phi=True,
+        )
+        assert prior is not None
+        x = np.array(
+            [1.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        )  # length depends on nbins_sfh
+        assert len(prior) == 9
+
+        lnp = prior(x)
+        assert np.all(np.isfinite(lnp))
+
+    def test_phi_sfh_fix_zred_instantiation(self):
+        """
+        PhiSFHfixZred Instantiation
+
+        Verifies that the PhiSFHfixZred prior (fixed z + SMF + MZR + SFH) can be
+        instantiated and evaluated for log-probability.
+        """
+        prior = priors_beta.PhiSFHfixZred(
+            zred=1.2,
+            mass_mini=9.0,
+            mass_maxi=12.0,
+            z_mini=-2.0,
+            z_maxi=0.5,
+            logsfr_ratio_mini=-5,
+            logsfr_ratio_maxi=5,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=7,
+            const_phi=True,
+        )
+        assert prior is not None
+        x = np.array(
+            [10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        )  # length depends on nbins_sfh
+        assert len(prior) == 8
+
+        lnp = prior(x)
+        assert np.all(np.isfinite(lnp))
+
     def test_nz_sfh_instantiation(self):
         """
         NzSFH Instantiation
@@ -86,6 +208,11 @@ class TestInstantiation:
         # x needs to be length 9: z, mass, met, 6 logsfr_ratios
         lnp = prior(x)
         assert np.all(np.isfinite(lnp))
+
+        # Also test 2d input
+        x_2d = x[:, np.newaxis].T  # shape (1, 9)
+        lnp_2d = prior(x_2d)
+        assert np.all(np.isfinite(lnp_2d))
 
     def test_nz_sfh_callable_mass_mini(self):
         """
@@ -119,6 +246,197 @@ class TestInstantiation:
 
         samp = prior.sample()
         assert len(samp) == 9
+
+    def test_load_invalid_zred_prior(self):
+        """
+        Invalid Redshift Prior Handling
+
+        Ensure that providing an invalid `z_prior` string raises a ValueError during instantiation.
+        """
+        with pytest.raises(ValueError):
+            _ = priors_beta.BetaPrior(
+                z_prior="invalidprior",
+                zred=1.0,
+                mass_prior="mass_function",
+                mass_mini=6.0,
+                mass_maxi=12.0,
+                z_mini=-2.0,
+                z_maxi=0.2,
+                const_phi=True,
+                name="test_load_invalid_zred_prior",
+            )
+
+    def test_load_invalid_mass_prior(self):
+        """
+        Invalid Mass Prior Handling
+
+        Ensure that providing an invalid `mass_prior` string raises a ValueError during instantiation.
+        """
+        with pytest.raises(ValueError):
+            _ = priors_beta.BetaPrior(
+                z_prior="fixed",
+                zred=1.0,
+                mass_prior="invalidprior",
+                mass_mini=6.0,
+                mass_maxi=12.0,
+                z_mini=-2.0,
+                z_maxi=0.2,
+                const_phi=True,
+                name="test_load_invalid_mass_prior",
+            )
+
+
+class TestBoundsAndRange:
+    def test_range_structure_standard(self):
+        """
+        Test 'range' property for standard configuration (PhiMet).
+        Expects: (Redshift, Mass, Metallicity)
+        """
+        z_min, z_max = 0.5, 1.5
+        m_min, m_max = 9.0, 11.0
+        met_min, met_max = -1.5, 0.5
+
+        prior = priors_beta.PhiMet(
+            zred_mini=z_min,
+            zred_maxi=z_max,
+            mass_mini=m_min,
+            mass_maxi=m_max,
+            z_mini=met_min,
+            z_maxi=met_max,
+            const_phi=True,
+        )
+
+        r = prior.range
+
+        # PhiMet has 3 params: Z, Mass, Met
+        assert len(r) == 3
+
+        # Check values
+        assert r[0] == (z_min, z_max)  # Redshift
+        assert r[1] == (m_min, m_max)  # Mass
+        assert r[2] == (met_min, met_max)  # Metallicity
+
+    def test_range_structure_fixed_z_with_sfh(self):
+        """
+        Test 'range' property when Redshift is fixed but SFH is free (DymSFHfixZred).
+        Expects: (Mass, Metallicity, SFH_Ratio)
+        """
+        m_min, m_max = 8.0, 10.0
+        sfh_min, sfh_max = -5.0, 5.0
+
+        prior = priors_beta.DymSFHfixZred(
+            zred=1.0,  # Fixed
+            mass_mini=m_min,
+            mass_maxi=m_max,
+            z_mini=-2.0,
+            z_maxi=0.2,
+            logsfr_ratio_mini=sfh_min,
+            logsfr_ratio_maxi=sfh_max,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=5,
+            const_phi=True,
+        )
+
+        r = prior.range
+
+        # Should include Mass, Met, SFH (Redshift is excluded from range/sampling)
+        assert len(r) == 3
+
+        assert r[0] == (m_min, m_max)  # Mass (now at index 0)
+        assert r[1] == (-2.0, 0.2)  # Metallicity
+        assert r[2] == (sfh_min, sfh_max)  # SFH Ratios
+
+    def test_range_structure_full_dynamic(self):
+        """
+        Test 'range' property for full model (NzSFH).
+        Expects: (Redshift, Mass, Metallicity, SFH_Ratio)
+        """
+        prior = priors_beta.NzSFH(
+            zred_mini=0.1,
+            zred_maxi=1.0,
+            mass_mini=9.0,
+            mass_maxi=10.0,
+            z_mini=-1.0,
+            z_maxi=0.0,
+            logsfr_ratio_mini=-3,
+            logsfr_ratio_maxi=3,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=5,
+            const_phi=True,
+        )
+
+        r = prior.range
+
+        assert len(r) == 4
+        assert r[0] == (0.1, 1.0)  # Z
+        assert r[1] == (9.0, 10.0)  # Mass
+        assert r[2] == (-1.0, 0.0)  # Met
+        assert r[3] == (-3, 3)  # SFH
+
+    def test_bounds_method_updates_state(self):
+        """
+        Test 'bounds' method.
+        Verifies that passing kwargs to bounds() updates the internal parameters
+        and returns the updated range immediately.
+        """
+        prior = priors_beta.PhiMet(
+            zred_mini=0.1,
+            zred_maxi=1.0,
+            mass_mini=9.0,
+            mass_maxi=10.0,
+            z_mini=-1.0,
+            z_maxi=0.0,
+            const_phi=True,
+        )
+
+        # 1. Check initial state
+        assert prior.range[1] == (9.0, 10.0)
+
+        # 2. Call bounds with update
+        new_max = 12.5
+        b = prior.bounds(mass_maxi=new_max)
+
+        # 3. Verify returned tuple reflects update
+        assert b[1] == (9.0, new_max)
+
+        # 4. Verify internal state is persisted
+        assert prior.params["mass_maxi"] == new_max
+        assert prior.range[1] == (9.0, new_max)
+
+    def test_range_with_callable_mass_mini(self):
+        """
+        Test 'range' behavior when mass_mini is a function (e.g., NzSFH).
+
+        Current behavior of the code is to return (callable, float) for the mass range tuple.
+        This test ensures that behavior is consistent and doesn't crash.
+        """
+
+        def dummy_mass_limit(z):
+            return 8.0 + z
+
+        prior = priors_beta.NzSFH(
+            zred_mini=0.1,
+            zred_maxi=1.0,
+            mass_mini=dummy_mass_limit,
+            mass_maxi=12.0,
+            z_mini=-1.0,
+            z_maxi=0.0,
+            logsfr_ratio_mini=-3,
+            logsfr_ratio_maxi=3,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=5,
+            const_phi=True,
+        )
+
+        r = prior.range
+
+        # r[1] is the mass range
+        mass_range = r[1]
+
+        # Verify the first element is indeed the callable we passed
+        assert callable(mass_range[0])
+        assert mass_range[0] == dummy_mass_limit
+        assert mass_range[1] == 12.0
 
 
 class TestSMFPhysics:
@@ -728,7 +1046,7 @@ class TestDynamicRedshiftPrior:
 
         # Case C: Sampling
         samps = prior.sample(nsample=1_000)
-        z_samps = samps[0]
+        z_samps = samps[:, 0]
         assert np.max(z_samps) <= cutoff_z + 1e-5, (
             "Samples should not exceed the cutoff redshift"
         )  # Add tiny epsilon for float precision
@@ -762,8 +1080,8 @@ class TestDynamicRedshiftPrior:
         )
 
         samps = prior.sample(nsample=2_000)
-        z_samps = samps[0]
-        m_samps = samps[1]
+        z_samps = samps[:, 0]
+        m_samps = samps[:, 1]
 
         # Calculate the required minimum for every sampled redshift
         required_min = mass_ramp(z_samps)
@@ -870,7 +1188,7 @@ class TestStatisticalConsistency:
         n_samples = 10_000
         # Returns shape (n_samples, n_params) -> [z, mass, met]
         samples = prior.sample(nsample=n_samples)
-        mass_samples = samples[:, 1]
+        mass_samples = samples[:, 0]
 
         # 3. Construct the Reference CDF
         # We must integrate the PDF used by the code to get the "Truth" CDF
@@ -1114,4 +1432,546 @@ class TestEdgeCaseStability:
         )
         assert np.sum(lnp_met_high) == -np.inf, (
             "Total log-prob should be -inf for invalid metallicity"
+        )
+
+
+class TestUnitTransform:
+    def test_unit_transform_bounds_alignment(self):
+        """
+        Boundary Alignment Test
+
+        Verifies that the edges of the unit hypercube (0.0 and 1.0) map strictly
+        to the physical boundaries of the prior.
+        """
+        # Setup a prior with explicit boundaries
+        z_min, z_max = 0.5, 1.5
+        m_min, m_max = 9.0, 11.0
+        met_min, met_max = -1.0, 0.5
+
+        # Use a model with uniform priors for simplicity in checking exact bounds
+        prior = priors_beta.DymSFH(
+            zred_mini=z_min,
+            zred_maxi=z_max,
+            mass_mini=m_min,
+            mass_maxi=m_max,
+            z_mini=met_min,
+            z_maxi=met_max,
+            logsfr_ratio_mini=-5,
+            logsfr_ratio_maxi=5,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=5,
+            const_phi=True,
+        )
+
+        n_params = len(prior)
+
+        # 1. Test Lower Bound (u = 0.0)
+        u_min = np.zeros(n_params)
+        x_min = prior.unit_transform(u_min)
+
+        # Check Z, Mass, Met
+        assert np.isclose(x_min[0], z_min), f"Z min mismatch. Got {x_min[0]}"
+        assert np.isclose(x_min[1], m_min), f"Mass min mismatch. Got {x_min[1]}"
+        assert np.isclose(x_min[2], met_min), f"Met min mismatch. Got {x_min[2]}"
+
+        # 2. Test Upper Bound (u = 1.0)
+        u_max = np.ones(n_params)
+        x_max = prior.unit_transform(u_max)
+
+        assert np.isclose(x_max[0], z_max), f"Z max mismatch. Got {x_max[0]}"
+        assert np.isclose(x_max[1], m_max), f"Mass max mismatch. Got {x_max[1]}"
+        assert np.isclose(x_max[2], met_max), f"Met max mismatch. Got {x_max[2]}"
+
+    def test_sfh_offset_deterministic_logic(self):
+        """
+        SFH Logic Check (Unit Transform)
+
+        Verifies that the SFH transformation correctly applies the physical offset.
+
+        The code logic is:
+            val = Dist.unit_transform(u) + Expectation(Z, Mass)
+
+        If we provide u=0.5 to a symmetric distribution (like Student-t), Dist.unit_transform(0.5)
+        should be 0. Therefore, unit_transform(0.5) should return exactly Expectation(Z, Mass).
+        """
+
+        # 1. Setup Fixed Z/Mass to ensure stable expectation
+        z_fix = 1.0
+        m_fix = 10.0
+
+        prior = priors_beta.DymSFHfixZred(
+            zred=z_fix,
+            mass_mini=m_fix,
+            mass_maxi=m_fix + 0.1,  # Tight mass range
+            z_mini=-1,
+            z_maxi=1,
+            logsfr_ratio_mini=-5,
+            logsfr_ratio_maxi=5,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=5,
+            const_phi=True,
+        )
+
+        # 2. Calculate the Expected Ratio manually
+        # This function is already tested in TestDynamicSFH, so we trust it here
+        expected_ratios = priors_beta.expe_logsfr_ratios(
+            this_z=z_fix,
+            this_m=m_fix,
+            logsfr_ratio_mini=-5,
+            logsfr_ratio_maxi=5,
+            nbins_sfh=5,
+        )
+
+        # 3. Prepare Input Vector u
+        # We need u such that:
+        # - Mass component (index 0) = 0.0 (forces mass = m_fix)
+        # - Met component (index 1) = 0.5 (don't care)
+        # - SFH components (index 2+) = 0.5 (median -> 0 offset)
+        u_vec = np.array([0.0, 0.5, 0.5, 0.5, 0.5, 0.5])
+
+        # 4. Transform
+        x_out = prior.unit_transform(u_vec)
+
+        # 5. Extract SFH part from output (indices 2 to end)
+        sfh_out = x_out[2:]
+
+        # 6. Assert Equality
+        # The output should be exactly the expectation value because the random component was 0
+        np.testing.assert_allclose(
+            sfh_out,
+            expected_ratios,
+            rtol=1e-5,
+            err_msg="unit_transform(0.5) did not return the expected SFH mean value.",
+        )
+
+    def test_unit_transform_vs_sample_consistency(self):
+        """
+        Statistical Consistency (Implicit Round Trip)
+
+        Since we cannot strictly invert unit_transform without a CDF method,
+        we verify that unit_transform(random_uniform) produces the exact same
+        statistical distribution as sample().
+
+        If this passes, unit_transform is a valid implementation of the sampling physics.
+        """
+        np.random.seed(42)
+
+        # Setup a complex prior (Dynamic Z + Mass Function)
+        prior = priors_beta.ZredMassMet(
+            zred_mini=0.5,
+            zred_maxi=2.0,
+            mass_mini=9.0,
+            mass_maxi=11.0,
+            z_mini=-1.0,
+            z_maxi=0.5,
+            const_phi=True,
+        )
+
+        n_samples = 5000
+
+        # 1. Generate via sample() (The reference "Truth")
+        samps_ref = prior.sample(nsample=n_samples)
+
+        # 2. Generate via unit_transform()
+        u_vecs = np.random.uniform(0, 1, size=(n_samples, len(prior)))
+
+        # unit_transform takes a 1D array, so we loop (or check if it vectorizes)
+        # The current implementation of unit_transform expects 1D input primarily.
+        samps_ut = np.array([prior.unit_transform(u) for u in u_vecs])
+
+        # 3. Compare Distributions via KS Test
+        # We check Redshift (0) and Mass (1)
+        for idx, name in enumerate(["Redshift", "Mass"]):
+            d_stat, p_val = kstest(samps_ref[:, idx], samps_ut[:, idx])
+
+            assert p_val > 0.001, (
+                f"{name}: unit_transform distribution deviates from sample() distribution "
+                f"(p={p_val:.4f}). Check mapping logic."
+            )
+
+    def test_unit_transform_fixed_z_indexing(self):
+        """
+        Indexing Check
+
+        Ensures unit_transform correctly handles the parameter index shifting
+        when Redshift is fixed (i.e. not in the u-vector).
+        """
+        prior = priors_beta.BetaPrior(
+            name="test_fixed_z",
+            z_prior="fixed",
+            zred=1.5,
+            mass_prior="mass_function",
+            sfh_prior=False,
+            mass_mini=9.0,
+            mass_maxi=11.0,
+            z_mini=-1.0,
+            z_maxi=0.5,
+            const_phi=True,
+        )
+
+        # With fixed Z, u-vector has length 2 (Mass, Met)
+        u_vec = np.array([0.0, 0.5])
+
+        x_out = prior.unit_transform(u_vec)
+
+        # Output should have length 2 (Mass, Met)
+        assert len(x_out) == 2
+        assert x_out[0] == 9.0  # min mass
+
+
+class TestCoverageGaps:
+    """
+    Tests to cover specific code branches not hit by any of the other tests in this file.
+    """
+
+    def test_kwargs_updates_runtime(self):
+        """
+        Coverage Target: self.update(**kwargs) checks in __call__, sample, unit_transform
+        """
+        prior = priors_beta.DymSFH(
+            zred_mini=0.1,
+            zred_maxi=1.0,
+            mass_mini=9.0,
+            mass_maxi=11.0,
+            z_mini=-1.0,
+            z_maxi=0.5,
+            logsfr_ratio_mini=-5,
+            logsfr_ratio_maxi=5,
+            logsfr_ratio_tscale=0.3,
+            nbins_sfh=5,
+            const_phi=True,
+        )
+
+        # 1. Update during __call__
+        # Initial call (must match nbins_sfh dimension)
+        # z (1) + mass (1) + met (1) + sfh (nbins-1 = 4) = 7 params
+        x = np.zeros(7)
+        x[0] = 0.5  # Valid z
+        x[1] = 10.0  # Valid mass
+
+        _ = prior(x)
+        assert prior.params["zred_maxi"] == 1.0
+
+        # Update call
+        _ = prior(x, zred_maxi=2.0)
+        assert prior.params["zred_maxi"] == 2.0
+
+        # 2. Update during sample
+        _ = prior.sample(mass_maxi=12.0)
+        assert prior.params["mass_maxi"] == 12.0
+
+        # 3. Update during unit_transform
+        u = np.random.uniform(0, 1, size=len(prior))
+        _ = prior.unit_transform(u, z_maxi=0.9)
+        assert prior.params["z_maxi"] == 0.9
+
+    def test_uniform_z_sample_explicit(self):
+        """
+        Coverage Target: 'elif self.z_prior_type == "uniform":' in sample()
+        """
+        prior = priors_beta.BetaPrior(
+            z_prior="uniform",
+            zred_mini=0.1,
+            zred_maxi=1.0,
+            mass_prior="uniform",
+            mass_mini=9,
+            mass_maxi=10,
+            z_mini=-2.0,
+            z_maxi=0.5,
+        )
+        samps = prior.sample(nsample=10)
+        assert len(samps) == 10
+        assert np.all((samps[:, 0] >= 0.1) & (samps[:, 0] <= 1.0))
+
+    def test_high_z_mass_func_recursion(self):
+        """
+        Coverage Target: 'else: phi = high_z_mass_func(z0=12...)' in mass_func_at_z
+        """
+        # z > 12 should trigger the clamp to z=12 logic
+        z_out_of_bounds = 13.0
+        z_clamp_limit = 12.0
+        logm = 10.0
+
+        # 1. Calculate the actual value at z=13 (should trigger the clamp)
+        phi_actual = priors_beta.mass_func_at_z(z_out_of_bounds, logm, const_phi=False)
+
+        # 2. Calculate the expected value (explicitly at z=12)
+        phi_expected = priors_beta.mass_func_at_z(z_clamp_limit, logm, const_phi=False)
+
+        # 3. Assert they are identical
+        # They should be bitwise identical because the code passes the parameters directly
+        assert phi_actual == phi_expected, (
+            f"Mass function at z={z_out_of_bounds} did not match z={z_clamp_limit}. "
+            "Clamping logic failed."
+        )
+
+    def test_norm_pz_disjoint_range_error(self):
+        """
+        Coverage Target: 'raise ValueError' in norm_pz
+        """
+        # We pass a grid of [0, 1] but request a range of [2, 3].
+        z_grid = np.linspace(0, 1, 100)
+        pdf_vals = np.ones_like(z_grid)
+
+        with pytest.raises(ValueError, match="outside the range"):
+            priors_beta.norm_pz(
+                zred_mini=2.0,
+                zred_maxi=3.0,  # Range mismatch
+                zreds=z_grid,
+                pdf_zred=pdf_vals,
+            )
+
+    def test_sfh_binning_logic_branches(self):
+        """
+        Coverage Targets in z_to_agebins_rescale:
+        1. 'else:' (z > 3.0)
+        2. 'if agelims[0] == 0:' (z=0, lookback time is 0)
+        """
+
+        # Case 1: z > 3.0 (e.g. 4.0)
+        # We mock delta_t_dex to 0 to strictly control input age
+        with patch("prospect.models.priors_beta.delta_t_dex", return_value=0.0):
+            ratios = priors_beta.expe_logsfr_ratios(
+                this_z=4.0,
+                this_m=10.0,
+                logsfr_ratio_mini=-5,
+                logsfr_ratio_maxi=5,
+                nbins_sfh=5,
+            )
+            assert len(ratios) == 4
+
+        # Case 2: z = 0.0 (Lookback time = 0)
+        # This triggers the agelims[0] == 0 correction block
+        with patch("prospect.models.priors_beta.delta_t_dex", return_value=0.0):
+            ratios = priors_beta.expe_logsfr_ratios(
+                this_z=0.0,
+                this_m=10.0,
+                logsfr_ratio_mini=-5,
+                logsfr_ratio_maxi=5,
+                nbins_sfh=5,
+            )
+            assert len(ratios) == 4
+
+    def test_sfh_extreme_thresholds(self):
+        """
+        Coverage Targets in expe_logsfr_ratios:
+        1. 'if age_shifted < AGE_GRID[-1]:'
+        2. 'if z_shifted > zmax_thres:'
+        """
+        mock_age_grid = np.array([8.0, 9.0, 10.0])  # Example log ages
+
+        with patch("prospect.models.priors_beta.AGE_GRID", mock_age_grid):
+            # Scenario A: age_shifted < AGE_GRID[-1]
+            with patch("prospect.models.priors_beta.delta_t_dex", return_value=-50.0):
+                priors_beta.expe_logsfr_ratios(
+                    this_z=1.0,
+                    this_m=10.0,
+                    logsfr_ratio_mini=-5,
+                    logsfr_ratio_maxi=5,
+                    nbins_sfh=5,
+                )
+
+            # Scenario B: z_shifted > zmax_thres
+            mock_f_age_z = MagicMock(return_value=15.0)
+            with patch("prospect.models.priors_beta.F_AGE_Z", mock_f_age_z):
+                priors_beta.expe_logsfr_ratios(
+                    this_z=1.0,
+                    this_m=10.0,
+                    logsfr_ratio_mini=-5,
+                    logsfr_ratio_maxi=5,
+                    nbins_sfh=5,
+                )
+
+    def test_z_to_agebins_z0_block(self):
+        """
+        Coverage Target: 'if agelims[0] == 0:' in z_to_agebins_rescale
+
+        This block handles the singularity at z=0 (lookback time = 0).
+        Because expe_logsfr_ratios clamps z >= 0.15, we must call this
+        function directly to verify the z=0 logic works.
+        """
+        # Calling with zstart=0 forces lookback_time -> 0
+        bins = priors_beta.z_to_agebins_rescale(zstart=0.0, nbins_sfh=5)
+
+        # We just need to verify it returns a valid shape and finite values.
+        # The logic converts agelims[0] (which is 0) to a log-space proxy.
+        assert bins.shape == (5, 2)
+        assert np.all(np.isfinite(bins))
+
+        assert bins[0, 0] == 1.0
+
+    def test_expe_logsfr_clamp_high_z(self):
+        """
+        Coverage Target: 'if z_shifted > zmax_thres:' in expe_logsfr_ratios
+
+        Logic Verification:
+        We force F_AGE_Z to return 15.0.
+        We expect the code to clamp this to 10.0 (zmax_thres).
+        We verify this by asserting that the downstream function
+        'z_to_agebins_rescale' is called with zstart=10.0.
+        """
+
+        # 1. Setup Mock Data
+        mock_age_grid = np.array([1.4e10, 1.0e9])  # Descending order
+        mock_f_age_z = MagicMock(return_value=15.0)  # > 10.0
+
+        # 2. Setup Mock Cosmo
+        mock_cosmo = MagicMock()
+        mock_cosmo.age.return_value.value = 5.0e9
+
+        # 3. Apply Patches
+        with patch("prospect.models.priors_beta.AGE_GRID", mock_age_grid):
+            with patch("prospect.models.priors_beta.F_AGE_Z", mock_f_age_z):
+                with patch("prospect.models.priors_beta.delta_t_dex", return_value=0.0):
+                    with patch("prospect.models.priors_beta.cosmo", mock_cosmo):
+                        # 4. Patch the downstream function to spy on inputs
+                        with patch(
+                            "prospect.models.priors_beta.z_to_agebins_rescale"
+                        ) as mock_bins:
+                            # Return valid-ish dummy bins to prevent division-by-zero errors
+                            # in the subsequent integral calculation steps.
+                            # Shape (5, 2), width != 0
+                            mock_bins.return_value = np.array([[0.0, 1.0]] * 5)
+
+                            priors_beta.expe_logsfr_ratios(
+                                this_z=1.0,
+                                this_m=10.0,
+                                logsfr_ratio_mini=-5,
+                                logsfr_ratio_maxi=5,
+                                nbins_sfh=5,
+                            )
+
+                            # 5. The Critical Assertion
+                            # If clamping failed, this would be 15.0.
+                            # If clamping worked, this must be 10.0.
+                            mock_bins.assert_called_with(
+                                zstart=10.0, nbins_sfh=5, amin=7.1295
+                            )
+
+
+class TestLegacyDataReproduction:
+    """
+    Integration tests to ensure the dynamic logic in priors_beta.py
+    reproduces the legacy tabulated PDF files found in tests/data.
+    """
+
+    def _get_data_path(self, filename):
+        """
+        Locate regression data files relative to this test file.
+        Assumes data is stored in 'tests/data/'.
+        """
+        # Get the directory where the current test file resides
+        test_dir = os.path.dirname(__file__)
+
+        # Build path to tests/data/<filename>
+        return os.path.join(test_dir, "data", filename)
+
+    def _get_legacy_mass_limit_func(self):
+        """
+        Re-implement the specific polynomial fitting and smoothing logic used
+        in 'demo/prosp_beta_tables.ipynb' to derive mass completeness.
+        """
+        path = self._get_data_path("mc_from_mocks.txt")
+        if not os.path.exists(path):
+            pytest.skip(f"Data file not found: {path}")
+
+        z_bins_ctr, mc_ctr = np.loadtxt(path, dtype=float, unpack=True)
+
+        # 1. Define the Piecewise Polynomial Helper (Ported from Legacy Notebook)
+        def mass_completion_at_z_from_cat(zred):
+            if 1 <= zred <= 10:
+                return np.poly1d(np.polyfit(z_bins_ctr, mc_ctr, 3))(zred)
+            elif zred < 1:
+                return np.poly1d(np.polyfit(z_bins_ctr[:3], mc_ctr[:3], 1))(zred)
+            else:
+                fintp_z_mc = interp1d(
+                    z_bins_ctr, mc_ctr, kind="nearest", fill_value="extrapolate"
+                )
+                return fintp_z_mc(zred)
+
+        # 2. Generate Grid and Smooth (Ported from Legacy Notebook)
+        zgrid = np.linspace(0.0, 20, 101)
+        from_fintp_z_mc = [mass_completion_at_z_from_cat(z) for z in zgrid]
+        from_fintp_z_mc = gaussian_filter1d(from_fintp_z_mc, 1)
+
+        # 3. Create Final Cubic Interpolator
+        return interp1d(zgrid, from_fintp_z_mc, kind="cubic", fill_value="extrapolate")
+
+    def test_reproduce_l20_pdf(self):
+        """
+        Reproduce 'pdf_of_z_l20.txt' (Leja+20 only).
+        """
+        mass_min_func = self._get_legacy_mass_limit_func()
+
+        path_truth = self._get_data_path("pdf_of_z_l20.txt")
+        if not os.path.exists(path_truth):
+            pytest.skip("pdf_of_z_l20.txt not found")
+
+        data_truth = np.loadtxt(path_truth)
+        z_truth = data_truth[:, 0]
+        pdf_truth = data_truth[:, 1]
+
+        prior = priors_beta.ZredMassMet(
+            zred_mini=z_truth.min(),
+            zred_maxi=z_truth.max(),
+            mass_mini=mass_min_func,
+            mass_maxi=13.0,
+            z_mini=-2.0,
+            z_maxi=0.2,
+            const_phi=True,
+        )
+
+        pdf_calc = prior.finterp_z_pdf(z_truth)
+
+        # Normalize
+        pdf_calc_norm = pdf_calc / simpson(y=pdf_calc, x=z_truth)
+        pdf_truth_norm = pdf_truth / simpson(y=pdf_truth, x=z_truth)
+
+        np.testing.assert_allclose(
+            pdf_calc_norm,
+            pdf_truth_norm,
+            rtol=5e-3,
+            atol=1e-3,
+            err_msg="Calculated p(z) diverges from legacy pdf_of_z_l20.txt",
+        )
+
+    def test_reproduce_l20t18_pdf(self):
+        """
+        Reproduce 'pdf_of_z_l20t18.txt' (Leja+20 + Tacchella+18).
+        """
+        mass_min_func = self._get_legacy_mass_limit_func()
+
+        path_truth = self._get_data_path("pdf_of_z_l20t18.txt")
+        if not os.path.exists(path_truth):
+            pytest.skip("pdf_of_z_l20t18.txt not found")
+
+        data_truth = np.loadtxt(path_truth)
+        z_truth = data_truth[:, 0]
+        pdf_truth = data_truth[:, 1]
+
+        prior = priors_beta.ZredMassMet(
+            zred_mini=z_truth.min(),
+            zred_maxi=z_truth.max(),
+            mass_mini=mass_min_func,
+            mass_maxi=13.0,
+            z_mini=-2.0,
+            z_maxi=0.2,
+            const_phi=False,
+        )
+
+        pdf_calc_raw = prior.finterp_z_pdf(z_truth)
+
+        # Apply legacy smoothing (sigma=10) to the output to match the file
+        pdf_calc_smoothed = gaussian_filter1d(pdf_calc_raw, 10)
+
+        # Normalize
+        pdf_calc_norm = pdf_calc_smoothed / simpson(y=pdf_calc_smoothed, x=z_truth)
+        pdf_truth_norm = pdf_truth / simpson(y=pdf_truth, x=z_truth)
+
+        np.testing.assert_allclose(
+            pdf_calc_norm,
+            pdf_truth_norm,
+            rtol=5e-3,
+            atol=1e-3,
+            err_msg="Calculated p(z) diverges from legacy pdf_of_z_l20t18.txt",
         )
