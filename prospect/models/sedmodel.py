@@ -313,6 +313,7 @@ class SpecModel(ProspectorParams):
                                         extra_mask=extra_mask,
                                         **self.params)
         inst_spec = inst_spec * response
+        self._speccal = response  # Set before fit_mle_elines needs it
 
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
