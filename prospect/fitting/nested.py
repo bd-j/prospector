@@ -1,6 +1,6 @@
 import inspect
 import numpy as np
-import time
+import time, sys
 import warnings
 
 __all__ = ["run_nested_sampler"]
@@ -11,6 +11,17 @@ def run_nested_sampler(model,
                        nested_sampler="dynesty",
                        nested_nlive=1000,
                        nested_neff=1000,
+                       nested_n_like_max=sys.maxsize,
+                       nested_dlogz=0.01,
+                       nested_nlive_batch=200, 
+                       nested_maxiter=sys.maxsize, 
+                       nested_maxcall=sys.maxsize,
+                       nested_maxiter_init=sys.maxsize,
+                       nested_maxcall_init=sys.maxsize,
+                       nested_maxiter_batch=sys.maxsize,
+                       nested_maxcall_batch=sys.maxsize,
+                       nested_maxbatch=sys.maxsize,
+                       nested_wt_kwargs={'pfrac': 1.0},
                        verbose=False,
                        **kwargs):
     """We give a model -- parameter discription and prior transform -- and a
@@ -26,6 +37,15 @@ def run_nested_sampler(model,
         Number of live points.
     nested_neff : float
         Minimum effective sample size.
+
+    nested_n_like_max : int
+        Maximum number of likelihood evaluations for nautilus.
+
+    nested_maxcall : int
+        Maximum number of likelihood evaluations for dynesty.
+    nested_maxiter : int
+        Maximum number of iterations for dynesty.
+        
     verbose : bool
         Whether to output sampler progress.
 
@@ -59,7 +79,10 @@ def run_nested_sampler(model,
         from dynesty import DynamicNestedSampler
         sampler_init = DynamicNestedSampler
         init_args = (likelihood_function, model.prior_transform, model.ndim)
-        init_kwargs = dict(nlive=nested_nlive)
+        init_kwargs = dict(nlive=nested_nlive,
+                           dlogz=nested_dlogz,
+                           maxcall=nested_maxcall_init,
+                           maxiter=nested_maxiter_init, )
     elif nested_sampler == 'nestle':
         import nestle
         init_kwargs = dict()
@@ -80,7 +103,7 @@ def run_nested_sampler(model,
     if nested_sampler == 'nautilus':
         sampler_run = sampler.run
         run_args = ()
-        run_kwargs = dict(n_eff=nested_neff, verbose=verbose)
+        run_kwargs = dict(n_eff=nested_neff, n_like_max=nested_n_like_max, verbose=verbose)
     elif nested_sampler == 'ultranest':
         sampler_run = sampler.run
         run_args = ()
@@ -90,7 +113,13 @@ def run_nested_sampler(model,
     elif nested_sampler == 'dynesty':
         sampler_run = sampler.run_nested
         run_args = ()
-        run_kwargs = dict(n_effective=nested_neff, print_progress=verbose)
+        run_kwargs = dict(n_effective=nested_neff, 
+                          wt_kwargs=nested_wt_kwargs,
+                          nlive_batch=nested_nlive_batch, 
+                          maxiter=nested_maxiter, maxcall=nested_maxcall,
+                          maxiter_batch=nested_maxiter_batch,
+                          maxcall_batch=nested_maxcall_batch, maxbatch=nested_maxbatch,
+                          print_progress=verbose)
     elif nested_sampler == 'nestle':
         sampler_run = nestle.sample
         run_args = (likelihood_function, model.prior_transform, model.ndim)
