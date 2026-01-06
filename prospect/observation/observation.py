@@ -102,23 +102,24 @@ class Observation:
         """
         n = self.__repr__
 
-        _flux_array = False
-        try:
-            len(self.flux)
-            _flux_array = True
-        except:
-            _flux_array = False
+        # TODO: clean up this logic
+        # _flux_array = False
+        # try:
+        #     len(self.flux)
+        #     _flux_array = True
+        # except:
+        #     _flux_array = False
 
-        if _flux_array:
-            if self.flux is None:
-                print(f"{n} has no data")
-                return
-        else:
-            if self.flux == None:
-                print(f"{n} has no data")
-                self.flux = None
-                self.wavelength = None
-                return
+        # if _flux_array:
+        if self.flux is None:
+            print(f"{n} has no data")
+            return
+        # else:
+        #     if self.flux == None:
+        #         print(f"{n} has no data")
+        #         self.flux = None
+        #         self.wavelength = None
+        #         return
 
         assert self.flux.ndim == 1, f"{n}: flux is not a 1d array"
         assert self.uncertainty.ndim == 1, f"{n}: uncertainty is not a 1d array"
@@ -137,7 +138,8 @@ class Observation:
     def _automask(self):
         # make mask array with automatic filters
         marr = np.zeros(self.ndata, dtype=bool)
-        marr[self.mask] = True
+        if self.mask is not None:
+            marr[self.mask] = True
         if self.flux is not None:
             self.mask = (marr &
                          (np.isfinite(self.flux)) &
