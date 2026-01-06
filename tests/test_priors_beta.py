@@ -1869,7 +1869,8 @@ class TestLegacyDataReproduction:
     def _get_legacy_mass_limit_func(self):
         """
         Re-implement the specific polynomial fitting and smoothing logic used
-        in 'demo/prosp_beta_tables.ipynb' to derive mass completeness.
+        in a notebook that used was located at 'demo/prosp_beta_tables.ipynb'
+        to derive mass completeness.
         """
         path = self._get_data_path("mc_from_mocks.txt")
         if not os.path.exists(path):
