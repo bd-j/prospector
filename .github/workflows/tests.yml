@@ -26,6 +26,9 @@ jobs:
         with:
           repository: cconroy20/fsps
           path: fsps
+      - name: Set Fortran Compiler (macOS)
+        if: matrix.os == 'macos-latest'
+        run: echo "FC=gfortran-14" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |
           python -m pip install -U pip pytest
