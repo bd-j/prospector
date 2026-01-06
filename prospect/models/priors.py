@@ -628,9 +628,9 @@ class FastUniform(Prior):
             if self.a <= x <= self.b:
                 return self.logpdfval
             else:
-                return np.NINF
+                return -np.inf
         else:
-            return [self.logpdfval if (self.a <= xi <= self.b) else np.NINF for xi in x]
+            return [self.logpdfval if (self.a <= xi <= self.b) else -np.inf for xi in x]
 
     def scale(self):
         return 0.5 * self.diffthing
@@ -685,14 +685,14 @@ class FastTruncatedNormal(Prior):
         # if self.a <= x <= self.b:
         #     return np.log(self.phi(x) / (self.B - self.A))
         # else:
-        #     return np.NINF
+        #     return -np.inf
         if not hasattr(x, "__len__"):
             if self.a <= x <= self.b:
                 return np.log(self.phi(x) / (self.B - self.A))
             else:
-                np.NINF
+                return -np.inf
         else:
-            return [np.log(self.phi(xi) / (self.B - self.A)) if (self.a <= xi <= self.b) else np.NINF for xi in x]
+            return [np.log(self.phi(xi) / (self.B - self.A)) if (self.a <= xi <= self.b) else -np.inf for xi in x]
 
     def scale(self):
         return self.sig
@@ -748,11 +748,11 @@ class FastTruncatedEvenStudentTFreeDeg2(Prior):
             if np.abs(x) <= self.hw:
                 return np.log(self.const1 / (self.const2 * (1 + 0.5*(x / self.sig)**2.0)**1.5))
             else:
-                return np.NINF
+                return -np.inf
         else:
             ret = np.log(self.const1 / (self.const2 * (1 + 0.5*(x / self.sig)**2.0)**1.5))
             bad = np.abs(x) > self.hw
-            ret[bad] = np.NINF
+            ret[bad] = -np.inf
             return ret
 
     def scale(self):
@@ -817,9 +817,9 @@ class FastTruncatedEvenStudentTFreeDeg2Scalar(Prior):
             if np.abs(x) <= self.hw:
                 return np.log(self.const1 / (self.const2 * (1 + 0.5*(x / self.sig)**2.0)**1.5))
             else:
-                return np.NINF
+                return -np.inf
         else:
-            return [np.log(self.const1 / (self.const2 * (1 + 0.5*(xi / self.sig)**2.0)**1.5)) if np.abs(xi) <= self.hw else np.NINF for xi in x]
+            return [np.log(self.const1 / (self.const2 * (1 + 0.5*(xi / self.sig)**2.0)**1.5)) if np.abs(xi) <= self.hw else -np.inf for xi in x]
 
     def scale(self):
         return self.sig

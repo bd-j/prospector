@@ -20,6 +20,13 @@ from .hyperparameters import ProspectorHyperParams
 from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 
+try:
+    # NumPy 2.0+
+    from numpy import trapezoid
+except ImportError:
+    # NumPy < 2.0
+    from numpy import trapz as trapezoid
+
 
 __all__ = ["SpecModel",
            "HyperSpecModel",
@@ -766,7 +773,7 @@ class SpecModel(ProspectorParams):
 
         # outside of the wavelengths defined by the spectrum? (why this dependence?)
         # FIXME what is this?
-        eline_gaussians /= -np.trapz(eline_gaussians, 3e18/warr[:, None], axis=0)
+        eline_gaussians /= -trapezoid(eline_gaussians, 3e18/warr[:, None], axis=0)
 
         return eline_gaussians
 
