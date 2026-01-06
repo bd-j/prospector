@@ -22,6 +22,8 @@ def run_nested_sampler(model,
                        nested_maxcall_batch=sys.maxsize,
                        nested_maxbatch=sys.maxsize,
                        nested_wt_kwargs={'pfrac': 1.0},
+                       nested_filepath=None,
+                       nested_resume=True,
                        verbose=False,
                        **kwargs):
     """We give a model -- parameter discription and prior transform -- and a
@@ -38,14 +40,23 @@ def run_nested_sampler(model,
     nested_neff : float
         Minimum effective sample size.
 
+    nautilus-specific parameters
+    ----------------------------
     nested_n_like_max : int
         Maximum number of likelihood evaluations for nautilus.
+    nested_filepath : str or None
+        Path to the file where results are saved. Must have a `.h5` or `.hdf5` extension. If None, no results are written. Default is None.
+    nested_resume : bool
+        If True, resume from previous run if filepath exists. If False, start from scratch and overwrite any previous file. Default is True.
 
+    dynesty-specific parameters
+    ----------------------------
     nested_maxcall : int
         Maximum number of likelihood evaluations for dynesty.
     nested_maxiter : int
         Maximum number of iterations for dynesty.
-        
+
+    ----------------------------
     verbose : bool
         Whether to output sampler progress.
 
@@ -68,7 +79,7 @@ def run_nested_sampler(model,
         sampler_init = Sampler
         init_args = (model.prior_transform, likelihood_function)
         init_kwargs = dict(pass_dict=False, n_live=nested_nlive,
-                           n_dim=model.ndim)
+                           n_dim=model.ndim, filepath=nested_filepath, resume=nested_resume)
     elif nested_sampler == 'ultranest':
         from ultranest import ReactiveNestedSampler
         sampler_init = ReactiveNestedSampler

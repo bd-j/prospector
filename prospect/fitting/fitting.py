@@ -442,6 +442,8 @@ def run_nested(observations, model, sps,
                nested_maxcall_batch=sys.maxsize,
                nested_maxbatch=sys.maxsize,
                nested_wt_kwargs={'pfrac': 1.0},
+               nested_filepath=None,
+               nested_resume=True,
                verbose=False,
                **kwargs):
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_nested_sampler`
@@ -472,13 +474,23 @@ def run_nested(observations, model, sps,
         Number of live points for the nested sampler.  Meaning somewhat
         dependent on the chosen sampler
 
+    nautilus-specific parameters
+    ----------------------------
     nested_n_like_max : int
         Maximum number of likelihood evaluations for nautilus.
+    nested_filepath : str or None
+        Path to the checkpointing file. Must have a `.h5` or `.hdf5` extension. If None, no checkpointing are performed. Default is None.
+    nested_resume : bool
+        If True, resume from previous run if filepath exists. If False, start from scratch and overwrite any previous file. Default is True.
 
+    dynesty-specific parameters
+    ----------------------------
     nested_maxcall : int
         Maximum number of likelihood evaluations for dynesty.
     nested_maxiter : int
         Maximum number of iterations for dynesty.
+
+    ----------------------------
 
     Returns
     --------
@@ -508,6 +520,8 @@ def run_nested(observations, model, sps,
                                 nested_maxiter_init=nested_maxiter_init, nested_maxcall_init=nested_maxcall_init,
                                 nested_maxiter_batch=nested_maxiter_batch, nested_maxcall_batch=nested_maxcall_batch, 
                                 nested_maxbatch=nested_maxbatch,
+                                nested_filepath=nested_filepath,
+                                nested_resume=nested_resume,
                                 **kwargs)
     info, result_obj = output
 
