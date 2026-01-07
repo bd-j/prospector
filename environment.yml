@@ -8,7 +8,7 @@ dependencies:
   - ipython
   - matplotlib
   # scientific computing
-  - numpy >= 1.14.2
+  - numpy >= 2.0
   - scipy >= 1.1.0
   - h5py
   - astropy
