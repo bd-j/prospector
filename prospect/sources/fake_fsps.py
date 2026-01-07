@@ -2,7 +2,11 @@ import os
 import numpy as np
 from scipy.interpolate import interp1d
 
-__all__ = ["add_dust", "add_igm", "agn_torus"]
+__all__ = ["add_dust", "add_igm", "agn_torus",
+           "compute_absorbed_luminosity", "add_dust_with_absorption_tracking"]
+
+# Speed of light in Angstrom/s
+C_AA = 2.998e18
 
 
 def add_dust(wave,specs,line_waves,lines,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=0.0,dust1=0.0,
@@ -135,6 +139,117 @@ def attenuate(spec,lam,dust_type=0,dust_index=0.0,dust2=0.0,dust1_index=0.0,dust
     ext_tot = dust2_ext*dust1_ext *dust4_ext
 
     return ext_tot
+
+
+def compute_absorbed_luminosity(wave, intrinsic_spec, attenuated_spec):
+    """
+    Compute total absorbed luminosity from attenuation.
+
+    The absorbed luminosity is the difference between the intrinsic
+    (unattenuated) and attenuated spectra, integrated over frequency.
+
+    Parameters
+    ----------
+    wave : ndarray
+        Wavelength in Angstroms
+    intrinsic_spec : ndarray
+        Intrinsic (unattenuated) spectrum in L_sun/Hz
+    attenuated_spec : ndarray
+        Attenuated spectrum in L_sun/Hz
+
+    Returns
+    -------
+    L_absorbed : float
+        Total absorbed luminosity in L_sun
+    """
+    # Convert wavelength to frequency
+    nu = C_AA / wave  # Hz
+
+    # L_absorbed = L_intrinsic - L_observed
+    delta_spec = intrinsic_spec - attenuated_spec
+
+    # Integrate over frequency (note: nu decreases as wave increases)
+    L_absorbed = -np.trapz(delta_spec, nu)  # L_sun
+
+    return max(0.0, L_absorbed)  # Ensure non-negative
+
+
+def add_dust_with_absorption_tracking(wave, specs, line_waves, lines,
+                                       dust_type=0, dust_index=0.0, dust2=0.0,
+                                       dust1_index=0.0, dust1=0.0,
+                                       frac_nodust=0, frac_obrun=0,
+                                       dust4_type=0, dust4_index=0.0, dust4=0.0,
+                                       **kwargs):
+    """
+    Apply dust attenuation and return both attenuated spectrum and absorbed energy.
+
+    This function wraps add_dust() but additionally computes the total
+    luminosity absorbed by dust, which is needed for energy-balance
+    dust emission models like DL2014.
+
+    Parameters
+    ----------
+    wave : ndarray
+        Wavelength array in Angstroms
+    specs : list of ndarrays
+        [young_spec, old_spec] - spectra of young and old stellar populations
+    line_waves : ndarray
+        Emission line wavelengths
+    lines : list of ndarrays
+        [young_lines, old_lines] - emission line luminosities
+    dust_type : int
+        Dust attenuation law type (0-6)
+    dust_index : float
+        Power-law slope modification
+    dust2 : float
+        Diffuse dust optical depth at 5500AA
+    dust1_index : float
+        Birth cloud dust power-law index
+    dust1 : float
+        Birth cloud dust optical depth
+    frac_nodust : float
+        Fraction of light escaping without dust
+    frac_obrun : float
+        Fraction of young stars outside birth cloud
+    dust4_type : int
+        AGN dust type
+    dust4_index : float
+        AGN dust power-law index
+    dust4 : float
+        AGN dust optical depth
+
+    Returns
+    -------
+    attenuated_spec : ndarray
+        Attenuated spectrum in L_sun/Hz
+    attenuated_lines : ndarray
+        Attenuated emission line luminosities
+    L_absorbed : float
+        Total absorbed luminosity in L_sun
+    """
+    # Compute intrinsic spectrum before attenuation
+    intrinsic_total = specs[0] + specs[1]
+
+    # Apply attenuation using existing function
+    attenuated_spec, attenuated_lines = add_dust(
+        wave, specs, line_waves, lines,
+        dust_type=dust_type, dust_index=dust_index, dust2=dust2,
+        dust1_index=dust1_index, dust1=dust1,
+        frac_nodust=frac_nodust, frac_obrun=frac_obrun,
+        dust4_type=dust4_type, dust4_index=dust4_index, dust4=dust4,
+        **kwargs
+    )
+
+    # Compute absorbed luminosity from continuum
+    L_absorbed = compute_absorbed_luminosity(wave, intrinsic_total, attenuated_spec)
+
+    # Add absorption from emission lines
+    # lines[0] = young lines, lines[1] = old lines (usually zero)
+    intrinsic_line_lum = np.sum(lines[0] + lines[1])
+    attenuated_line_lum = np.sum(attenuated_lines)
+    L_absorbed += max(0.0, intrinsic_line_lum - attenuated_line_lum)
+
+    return attenuated_spec, attenuated_lines, L_absorbed
 
 
 def add_igm(wave, spec, zred=None, igm_factor=1.0, add_igm_absorption=None, **kwargs):
