@@ -1,7 +1,7 @@
 import numpy as np
 
 try:
-    from astropy.cosmology import WMAP9 as cosmo
+    from astropy.cosmology import Planck18 as cosmo
 except(ImportError):
     cosmo = None
 
