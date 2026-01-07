@@ -8,7 +8,6 @@ import numpy as np
 from scipy.special import gamma, gammainc
 
 from ..models.transforms import logsfr_ratios_to_masses
-from ..sources.constants import cosmo
 from .corner import quantile
 
 try:

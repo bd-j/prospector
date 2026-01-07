@@ -11,6 +11,7 @@ import os
 from . import priors
 from . import priors_beta
 from . import transforms, hyperparam_transforms
+from ..sources.constants import default_cosmo, beta_cosmo
 
 __all__ = ["TemplateLibrary",
            "describe",
@@ -169,9 +170,11 @@ par_name = {"N": 1,
 
 imf = {"N": 1, "isfree": False, "init": 2}        # Kroupa
 dust_type = {"N": 1, "isfree": False, "init": 0}  # Power-law
+cosmology = {"N": 1, "isfree": False, "init": default_cosmo, "units": "Astropy Cosmology"}
 
 _defaults_ = {"imf_type": imf,        # FSPS parameter
-              "dust_type": dust_type  # FSPS parameter
+              "dust_type": dust_type, # FSPS parameter
+              "cosmology": cosmology,
               }
 
 TemplateLibrary["type_defaults"] = (_defaults_,
@@ -811,8 +814,11 @@ _beta_nzsfh_["mass"] = {'N': nbins_sfh, 'isfree': False, 'init': 1e6, 'units': r
                         'depends_on': transforms.logsfr_ratios_to_masses}
 
 _beta_nzsfh_['agebins'] = {'N': nbins_sfh, 'isfree': False,
-                           'init': transforms.zred_to_agebins_pbeta(np.atleast_1d(0.5), np.zeros(nbins_sfh)),
+                           'init': transforms.zred_to_agebins_pbeta(np.atleast_1d(0.5), np.zeros(nbins_sfh), cosmology['init']),
                            'depends_on': transforms.zred_to_agebins_pbeta}
+
+# Prospector-Beta must use WMAP9 cosmology due to tabulated data being used
+_beta_nzsfh_['cosmology']['init'] = beta_cosmo
 
 TemplateLibrary["beta"] = (_beta_nzsfh_,
                            "The prospector-beta model; Wang, Leja, et al. 2023: https://ui.adsabs.harvard.edu/abs/2023ApJ...944L..58W/abstract")

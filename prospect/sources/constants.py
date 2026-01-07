@@ -1,15 +1,14 @@
 import numpy as np
 
-try:
-    from astropy.cosmology import Planck18 as cosmo
-except(ImportError):
-    cosmo = None
+from astropy.cosmology import Planck18 as default_cosmo
+from astropy.cosmology import WMAP9 as beta_cosmo
+cosmo = default_cosmo # Alias for backward compatibility
 
 __all__ = ['lsun', 'pc', 'lightspeed', 'ckms',
            'jansky_mks', 'jansky_cgs',
            'to_cgs_at_10pc', 'loge',
            'kboltz', 'hplanck',
-           'cosmo']
+           'default_cosmo', 'beta_cosmo', 'cosmo']
 
 # Useful constants
 lsun = 3.846e33  # erg/s
