@@ -355,7 +355,9 @@ class TestParameterDependencies:
         from prospect.models import transforms
 
         expected_agebins = transforms.zred_to_agebins_pbeta(
-            np.atleast_1d(new_zred), np.zeros(7)
+            np.atleast_1d(new_zred),
+            np.zeros(7),
+            model.params["cosmology"],
         )  # 7 bins default
         assert np.allclose(model.params["agebins"], expected_agebins), (
             "agebins not updated correctly from new zred"

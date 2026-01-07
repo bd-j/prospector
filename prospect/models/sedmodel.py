@@ -18,7 +18,7 @@ from sedpy.smoothing import smoothspec
 from .parameters import ProspectorParams
 from .hyperparameters import ProspectorHyperParams
 from ..sources.constants import to_cgs_at_10pc as to_cgs
-from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
+from ..sources.constants import lightspeed, ckms, jansky_cgs, default_cosmo
 
 try:
     # NumPy 2.0+
@@ -73,6 +73,16 @@ class SpecModel(ProspectorParams):
                            ("add_neb_emission")]
 
         return new_pars
+
+    @property
+    def cosmology(self):
+        """Get the cosmology object, handling numpy wrapping and fallbacks."""
+        cosmo = self.params.get("cosmology")
+        if cosmo is None:
+            return default_cosmo
+        if isinstance(cosmo, np.ndarray):
+            return cosmo.item()
+        return cosmo
 
     def predict(self, theta, observations=None, sps=None, **extras):
         """Given a ``theta`` vector, generate a spectrum, photometry, and any
@@ -435,7 +445,7 @@ class SpecModel(ProspectorParams):
         if (self._zred == 0) | ('lumdist' in self.params):
             lumdist = self.params.get('lumdist', 1e-5)
         else:
-            lumdist = cosmo.luminosity_distance(self._zred).to('Mpc').value
+            lumdist = self.cosmology.luminosity_distance(self._zred).to('Mpc').value
         dfactor = (lumdist * 1e5)**2
         # Mass normalization
         mass = np.sum(self.params.get('mass', 1.0))
@@ -808,7 +818,7 @@ class SpecModel(ProspectorParams):
         zmin = 5.0
         if (self._zred > zmin) & np.any(self.params.get("igm_damping", False)):
             x_HI = self.params.get("igm_factor", 1.0)
-            tau = tau_damping(wave_rest, self._zred, x_HI, zmin=zmin, cosmo=cosmo)
+            tau = tau_damping(wave_rest, self._zred, x_HI, zmin=zmin, cosmo=self.cosmology)
             spec *= np.exp(-tau)
         return spec
 
@@ -851,7 +861,7 @@ class SpecModel(ProspectorParams):
             magnitudes as M = -2.5 * log10(maggies)
         """
         # --- convert spectrum ---
-        ld = cosmo.luminosity_distance(self._zred).to("pc").value
+        ld = self.cosmology.luminosity_distance(self._zred).to("pc").value
         # convert to maggies if the source was at 10 parsec, accounting for the (1+z) applied during predict()
         fmaggies = self._norm_spec / (1 + self._zred) * (ld / 10)**2
         # convert to erg/s/cm^2/AA for sedpy and get absolute magnitudes
@@ -1245,7 +1255,7 @@ def Voigt(x, alpha, gamma):
                                                            /np.sqrt(2*np.pi)
 
 
-def tau_damping(wave_rest, zred, x_HI, zmin=5, cosmo=cosmo, Y=0.25, l0=1215.6696):
+def tau_damping(wave_rest, zred, x_HI, zmin=5, cosmo=None, Y=0.25, l0=1215.6696):
     """Compute the optical depth redward of restframe Ly-alpha due to the IGM
     damping wing.  Fiollows Mirald-Escude 1998 and Totani 2006 in assuming a
     uniform IGM below the object redshift.
@@ -1290,7 +1300,13 @@ def tau_damping(wave_rest, zred, x_HI, zmin=5, cosmo=cosmo, Y=0.25, l0=1215.6696
     tau_damp = np.zeros_like(wave_rest)
     xx = Ix((1 + zred) / (1 + zobs[red])) - Ix((1 + zmin) / (1 + zobs[red]))
 
-    tau = R_alpha/np.pi * x_HI * tau_gp(cosmo, zred, Y=Y)
+    if cosmo is None:
+        _cosmo = default_cosmo
+    elif isinstance(cosmo, np.ndarray):
+        _cosmo = cosmo.item()
+    else:
+        _cosmo = cosmo
+    tau = R_alpha/np.pi * x_HI * tau_gp(_cosmo, zred, Y=Y)
     tau = tau * ((1 + zobs[red]) / (1 + zred))**(3/2) * xx
     tau_damp[red] = tau
     return tau_damp
