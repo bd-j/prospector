@@ -31,14 +31,11 @@ jobs:
         run: echo "FC=gfortran-14" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |
-          python -m pip install -U pip pytest
-          python -m pip install -U fsps astro-sedpy astropy
-          python -m pip install -U scipy
-          python -m pip install -U dynesty
-          python -m pip install .
+          python -m pip install --upgrade pip
+          python -m pip install ".[test]"
         env:
           SPS_HOME: ${{ github.workspace }}/fsps
       - name: Run tests
-        run: python -m pytest --durations=0 --maxfail=1 -W ignore::DeprecationWarning --ignore tests/misc/ -vs tests/
+        run: python -m pytest
         env:
           SPS_HOME: ${{ github.workspace }}/fsps
