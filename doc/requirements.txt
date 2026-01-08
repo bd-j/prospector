@@ -1,4 +1,4 @@
-numpy >= 1.16
+numpy >= 2.0
 scipy >= 1.1.0
 matplotlib >= 3.0
 astropy

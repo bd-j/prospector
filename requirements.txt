@@ -1,7 +1,1 @@
-python >= 3.9
-numpy >= 1.14.2
-scipy >= 1.1.0
-astropy
-h5py
-astro-sedpy >= 0.3.0
-six
+-e .
