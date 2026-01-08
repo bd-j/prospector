@@ -136,11 +136,12 @@ class DL2007CigaleSSPBasis(FastStepBasis):
         elines = [eline_lum, np.zeros_like(eline_lum)]
 
         # Apply dust attenuation and track absorbed energy
-        dust_type = int(self.params.get('dust_type', 0))
-        dust_index = float(self.params.get('dust_index', 0.0))
-        dust2 = float(self.params.get('dust2', 0.0))
-        dust1_index = float(self.params.get('dust1_index', 0.0))
-        dust1 = float(self.params.get('dust1', 0.0))
+        # Use FSPS defaults for dust parameters when not specified in model
+        dust_type = int(self.params.get('dust_type', self.ssp.params['dust_type']))
+        dust_index = float(self.params.get('dust_index', self.ssp.params['dust_index']))
+        dust2 = float(self.params.get('dust2', self.ssp.params['dust2']))
+        dust1_index = float(self.params.get('dust1_index', self.ssp.params['dust1_index']))
+        dust1 = float(self.params.get('dust1', self.ssp.params['dust1']))
         frac_nodust = float(self.params.get('frac_nodust', 0.0))
         frac_obrun = float(self.params.get('frac_obrun', 0.0))
 
