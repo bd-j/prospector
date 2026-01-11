@@ -211,7 +211,7 @@ class SpecModel(ProspectorParams):
 
         # --- add fixed lines if necessary ---
         emask = self._fix_eline_pixelmask
-        if emask.any() & (not continuum_only):
+        if emask.any() and (not continuum_only):
             inds = self._fix_eline & self._valid_eline
             espec = self.predict_eline_spec(line_indices=inds,
                                             wave=self._outwave[emask])
