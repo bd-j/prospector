@@ -9,7 +9,7 @@ They can be used as ``"depends_on"`` entries in parameter specifications.
 """
 
 import numpy as np
-from ..sources.constants import cosmo
+from ..sources.constants import default_cosmo
 #from gp_sfh import *
 #import gp_sfh_kernels
 
@@ -25,6 +25,17 @@ __all__ = ["stellar_logzsol", "delogify_mass",
            "zred_to_agebins_pbeta",
            "zredmassmet_to_zred", "zredmassmet_to_logmass", "zredmassmet_to_mass", "zredmassmet_to_logzsol",
            "nzsfh_to_zred", "nzsfh_to_logmass", "nzsfh_to_mass", "nzsfh_to_logzsol", "nzsfh_to_logsfr_ratios"]
+
+
+def _get_cosmology(cosmology=None):
+    """Resolve cosmology to use. Unwraps numpy arrays if necessary.
+    """
+    if cosmology is None:
+        return default_cosmo
+    if isinstance(cosmology, np.ndarray):
+        return cosmology.item()
+    else:
+        return cosmology
 
 
 # --------------------------------------
@@ -107,7 +118,7 @@ def tburst_from_fage(tage=0.0, fage_burst=0.0, **extras):
     return tage * fage_burst
 
 
-def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
+def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, cosmology=None, **extras):
     """This function calculates a galaxy age from the age of the universe at
     ``zred`` and the age given as a fraction of the age of the universe.  This
     allows for both ``zred`` and ``tage`` parameters without ``tage`` exceeding
@@ -121,17 +132,21 @@ def tage_from_tuniv(zred=0.0, tage_tuniv=1.0, **extras):
     tage_tuniv : float between 0 and 1
         The ratio of ``tage`` to the age of the universe at ``zred``.
 
+    cosmology : astropy.cosmology.Cosmology (optional)
+        The cosmology to use. If not provided, defaults to the global constant.
+
     Returns
     -------
     tage : float
         The stellar population age, in Gyr
     """
+    cosmo = _get_cosmology(cosmology)
     tuniv = cosmo.age(zred).value
     tage = tage_tuniv * tuniv
     return tage
 
 
-def zred_to_agebins(zred=0.0, agebins=[], **extras):
+def zred_to_agebins(zred=0.0, agebins=[], cosmology=None, **extras):
     """Set the nonparameteric SFH age bins depending on the age of the universe
     at ``zred``. The first bin is not altered and the last bin is always 15% of
     the upper edge of the oldest bin, but the intervening bins are evenly
@@ -145,11 +160,15 @@ def zred_to_agebins(zred=0.0, agebins=[], **extras):
     agebins :  ndarray of shape ``(nbin, 2)``
         The SFH bin edges in log10(years).
 
+    cosmology : astropy.cosmology.Cosmology (optional)
+        The cosmology to use. If not provided, defaults to the global constant.
+
     Returns
     -------
     agebins : ndarray of shape ``(nbin, 2)``
         The new SFH bin edges.
     """
+    cosmo = _get_cosmology(cosmology)
     tuniv = cosmo.age(zred).value * 1e9
     tuniv = np.atleast_1d(tuniv)[0]
     tbinmax = tuniv * 0.85
@@ -505,21 +524,26 @@ def sfratio_to_mass(sfr_ratio=None, sfr0=None, agebins=None, **extras):
 # --- Transforms for prospector-beta ---
 # --------------------------------------
 
-def zred_to_agebins_pbeta(zred=None, agebins=[], **extras):
+def zred_to_agebins_pbeta(zred=None, agebins=[], cosmology=None, **extras):
     """New agebin scheme, refined so that none of the bins is overly wide when the universe is young.
-    
+
     Parameters
     ----------
     zred : float
         Cosmological redshift.  This sets the age of the universe.
+
     agebins :  ndarray of shape ``(nbin, 2)``
         The SFH bin edges in log10(years).
-    
+
+    cosmology : astropy.cosmology.Cosmology (optional)
+        The cosmology to use. If not provided, defaults to the global constant.
+
     Returns
     -------
     agebins : ndarray of shape ``(nbin, 2)``
         The new SFH bin edges.
     """
+    cosmo = _get_cosmology(cosmology)
     amin = 7.1295
     nbins_sfh = len(agebins)
     tuniv = cosmo.age(zred)[0].value*1e9 # because input zred is atleast_1d
