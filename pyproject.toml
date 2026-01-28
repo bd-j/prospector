@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools_scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "astro-prospector"
 description = "Stellar Population Inference from Spectra and SEDs"
@@ -5,41 +9,56 @@ authors = [
     { name="Ben Johnson", email="benjamin.johnson@cfa.harvard.edu" },
 ]
 readme = "README.md"
-requires-python = ">=3.9"
-license = { text = "MIT License" }
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python",
-    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Natural Language :: English",
     "Topic :: Scientific/Engineering :: Astronomy"
 ]
 dynamic = ["version"]
-dependencies = ["numpy", "h5py"]
+dependencies = [
+    "numpy>=2.0",         # for SPEC 0 compliance
+    "scipy>=1.13",        # for NumPy 2.0 compatibility
+    "astropy>=6.1",       # for NumPy 2.0 compatibility
+    "h5py>=3.11",         # for SPEC 0 compliance
+    "matplotlib>=3.8.4",  # for NumPy 2.0 compatibility
+    "astro-sedpy>=0.4.1", # for NumPy 2.0 compatibility
+    "fsps>=0.4.7",        # for NumPy 2.0 compatibility
+    "emcee>=3.1.5",       # for NumPy 2.0 compatibility
+    "dynesty>=2.1.4",     # for NumPy 2.0 compatibility
+    "corner>=2.2.3",      # for SPEC 0 compliance, unclear NumPy 2.0 status
+]
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-xdist"]
-
-[tool.setuptools]
-packages = ["prospect",
-            "prospect.models",
-            "prospect.models.prior_data",
-            "prospect.sources", "prospect.observation",
-            "prospect.likelihood", "prospect.fitting",
-            "prospect.io", "prospect.plotting", "prospect.utils"]
-
-[tool.setuptools.package-data]
-"prospect.models.prior_data" = ["*.txt"]
 
 [project.urls]
 "Homepage" = "https://prospect.readthedocs.io/en/latest/"
 "Source" = "https://github.com/bd-j/prospector"
 "Bug Tracker" = "https://github.com/bd-j/prospector/issues"
 
-[build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm"]
-build-backend = "setuptools.build_meta"
-
 [tool.setuptools_scm]
 write_to = "prospect/_version.py"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["prospect*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"prospect.models.prior_data" = ["*.txt"]
+
+[tool.pytest.ini_options]
+addopts = "--durations=0 --maxfail=1 -W ignore::DeprecationWarning -vs"
+testpaths = ["tests"]
+norecursedirs = ["tests/misc"]
