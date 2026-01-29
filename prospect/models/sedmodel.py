@@ -211,7 +211,7 @@ class SpecModel(ProspectorParams):
 
         # --- add fixed lines if necessary ---
         emask = self._fix_eline_pixelmask
-        if emask.any() & (~continuum_only):
+        if emask.any() and (not continuum_only):
             inds = self._fix_eline & self._valid_eline
             espec = self.predict_eline_spec(line_indices=inds,
                                             wave=self._outwave[emask])
@@ -220,7 +220,7 @@ class SpecModel(ProspectorParams):
 
         # --- add (previously) fitted lines if necessary ---
         emask = self._fit_eline_pixelmask
-        if emask.any() (~continuum_only):
+        if emask.any() and (not continuum_only):
             inst_spec[emask] += self._fit_eline_spec.sum(axis=1)
 
         return inst_spec
@@ -313,6 +313,12 @@ class SpecModel(ProspectorParams):
                                         extra_mask=extra_mask,
                                         **self.params)
         inst_spec = inst_spec * response
+        # Set _speccal before fit_mle_elines needs it
+        # Ensure it's an array (response can be scalar 1.0 when no polynomial calibration)
+        if np.isscalar(response):
+            self._speccal = np.ones_like(inst_spec) * response
+        else:
+            self._speccal = response
 
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
@@ -713,7 +719,7 @@ class SpecModel(ProspectorParams):
         # Store fitted emission line luminosities in physical units, including prior
         self._eline_lum[idx] = alpha_bar / linecal
         # store new Gaussian uncertainties in physical units
-        self._eline_lum_var[np.ix_(idx, idx)] = sigma_alpha_bar / linecal[:, None] / linecal[None, :]
+        self._eline_lum_covar[np.ix_(idx, idx)] = sigma_alpha_bar / linecal[:, None] / linecal[None, :]
 
         # return the maximum-likelihood line spectrum for this observation in observed units
         self._eline_lum_mle[idx] = alpha_hat / linecal
