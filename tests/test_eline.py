@@ -12,6 +12,10 @@ from prospect.models.sedmodel import SpecModel, SedModel
 
 from prospect.sources import CSPSpecBasis
 
+try:
+    from numpy import trapezoid
+except(ImportError):
+    from numpy import trapz as trapezoid
 
 # test nebular line specification
 def test_eline_parsing():
@@ -178,7 +182,7 @@ def test_eline_implementation():
     model = SpecModel(model_pars)
     spec_nolya, phot_nolya, mfrac = model.predict(model.theta, obs=obs, sps=sps)
     assert np.any((phot - phot_nolya) / phot != 0.0)
-    lint = np.trapezoid(spec - spec_nolya, obs["wavelength"])
+    lint = trapezoid(spec - spec_nolya, obs["wavelength"])
     assert lint > 0
 
     # test igoring a line, phot only

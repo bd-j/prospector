@@ -26,6 +26,12 @@ import astropy.units as u
 from scipy.stats import t
 from . import priors
 
+try:
+    from numpy import trapezoid
+except(ImportError):
+    from numpy import trapz as trapezoid
+
+
 __all__ = ["PhiMet", "ZredMassMet", "DymSFH", "DymSFHfixZred", "PhiSFH", "PhiSFHfixZred", "NzSFH"]
 
 prior_data_dir = os.path.join(os.path.dirname(__file__), 'prior_data')
@@ -1523,7 +1529,7 @@ def mass_func_at_z(z, this_logm, const_phi=False, bounds=[6.0, 12.5]):
 ############ Empirical PDF & CDF ############
 def pdf_mass_func_at_z(z, logm, const_phi, bounds):
     phi_50 = mass_func_at_z(z, logm, const_phi, bounds)
-    p_phi_int = np.trapezoid(phi_50, logm)
+    p_phi_int = trapezoid(phi_50, logm)
     pdf_at_m = phi_50/p_phi_int
     return pdf_at_m
 
@@ -1564,7 +1570,7 @@ def norm_pz(zred_mini, zred_maxi, zreds, pdf_zred):
     """
     idx_zrange = np.logical_and(zreds>=zred_mini, zreds<=zred_maxi)
     zreds_inrange = zreds[idx_zrange]
-    p_int = np.trapezoid(pdf_zred[idx_zrange], zreds_inrange)
+    p_int = trapezoid(pdf_zred[idx_zrange], zreds_inrange)
     pdf_zred_inrange = pdf_zred[idx_zrange]/p_int
     invalid = np.where(pdf_zred_inrange<0)
     pdf_zred_inrange[invalid] = 0

@@ -20,6 +20,11 @@ from ..sources.constants import to_cgs_at_10pc as to_cgs
 from ..sources.constants import cosmo, lightspeed, ckms, jansky_cgs
 from ..utils.smoothing import smoothspec
 
+try:
+    from numpy import trapezoid
+except(ImportError):
+    from numpy import trapz as trapezoid
+
 
 __all__ = ["SpecModel", "PolySpecModel", "SplineSpecModel",
            "LineSpecModel", "AGNSpecModel",
@@ -566,7 +571,7 @@ class SpecModel(ProspectorParams):
 
         # outside of the wavelengths defined by the spectrum? (why this dependence?)
         # FIXME what is this?
-        eline_gaussians /= -np.trapezoid(eline_gaussians, 3e18/warr[:, None], axis=0)
+        eline_gaussians /= -trapezoid(eline_gaussians, 3e18/warr[:, None], axis=0)
 
         return eline_gaussians
 

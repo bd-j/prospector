@@ -6,6 +6,12 @@
 import numpy as np
 from numpy.fft import fft, ifft, fftfreq, rfftfreq
 
+try:
+    from numpy import trapezoid
+except(ImportError):
+    from numpy import trapz as trapezoid
+
+
 __all__ = ["smoothspec", "smooth_wave", "smooth_vel", "smooth_lsf",
            "smooth_wave_fft", "smooth_vel_fft", "smooth_fft", "smooth_lsf_fft",
            "mask_wave", "resample_wave"]
@@ -222,7 +228,7 @@ def smooth_vel(wave, spec, outwave, sigma, nsigma=10, inres=0, **extras):
         else:
             _spec = spec
         f = np.exp(-0.5 * x**2)
-        flux[i] = np.trapezoid(f * _spec, x) / np.trapezoid(f, x)
+        flux[i] = trapezoid(f * _spec, x) / trapezoid(f, x)
     return flux
 
 
@@ -333,7 +339,7 @@ def smooth_wave(wave, spec, outwave, sigma, nsigma=10, inres=0, in_vel=False,
         else:
             _spec = spec
         f = np.exp(-0.5 * x**2)
-        flux[i] = np.trapezoid(f * _spec, x) / np.trapezoid(f, x)
+        flux[i] = trapezoid(f * _spec, x) / trapezoid(f, x)
     return flux
 
 
