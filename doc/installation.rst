@@ -53,7 +53,7 @@ environment, use the following procedure:
 Requirements
 ------------
 
-|Codename| works with ``python>=3.9``, and requires `numpy
+|Codename| works with ``python>=3.10``, and requires `numpy
 <http://www.numpy.org>`_ and `SciPy <http://www.scipy.org>`_
 
 You will also need:

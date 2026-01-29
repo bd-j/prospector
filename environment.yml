@@ -2,20 +2,23 @@ channels:
   - conda-forge
   - astropy
 dependencies:
-  - python==3.10
-  # infrastructure
+  - python>=3.10
+  # Core Compiled Libraries
+  # We list these here to force conda to use its optimized versions
+  # We match the versions used in pyproject.toml to prevent conflicts
+  - numpy>=2.0
+  - scipy>=1.13
+  - astropy>=6.1
+  - h5py>=3.11
+  - matplotlib>=3.8.4
+
+  # Utility / Environment tools
   - pip
   - ipython
-  - matplotlib
-  # scientific computing
-  - numpy >= 1.14.2
-  - scipy >= 1.1.0
-  - h5py
-  - astropy
-  # inference
-  - corner
-  - emcee
-  - dynesty
+  - jupyter
+
+  # Pure Python / pip installations
   - pip:
-    - fsps
-    - astro-sedpy >= 0.3.0
+    # This installs Prospector in editable mode and installs everything
+    # listed in pyproject.toml that wasn't already installed by conda above.
+    - -e .
