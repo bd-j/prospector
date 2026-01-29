@@ -1,5 +1,13 @@
 .. :changelog:
 
+
+v1.4.1 (2026-01-28)
++++++++++++++++++++
+- Updates for numpy v2, courtesy @robertdstein
+
+`Full Changelog <https://github.com/bd-j/prospector/compare/v1.4.0...v1.4.1>`_
+
+
 v1.4.0 (2024-07-06)
 +++++++++++++++++++
 - Adds the stochastic SFH hyper-prior courtesy @jwan22
