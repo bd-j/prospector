@@ -62,7 +62,7 @@ You will also need:
 - `astropy <https://astropy.readthedocs.org/en/stable/>`_
 
 -  `emcee <https://emcee.readthedocs.io/en/stable/>`_ and/or `dynesty <https://dynesty.readthedocs.io/en/latest/>`_
-   for inference (Please cite these packages in any publications)
+   (with version < 3) for inference (Please cite these packages in any publications)
 
 -  `sedpy <https://github.com/bd-j/sedpy>`_ (for filter projections)
 
