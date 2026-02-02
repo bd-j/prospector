@@ -314,6 +314,7 @@ class SpecModel(ProspectorParams):
                                         extra_mask=extra_mask,
                                         **self.params)
         inst_spec = inst_spec * response
+        self._speccal = response
 
         # --- fit and add lines if necessary ---
         emask = self._fit_eline_pixelmask
@@ -329,7 +330,6 @@ class SpecModel(ProspectorParams):
 
         # --- cache intrinsic spectrum for this observation ---
         self._sed = inst_spec / response
-        self._speccal = response
 
         return inst_spec
 

@@ -305,6 +305,7 @@ class Photometry(Observation):
 class Spectrum(Observation):
 
     _kind = "spectrum"
+    # v1.X names
     alias = dict(spectrum="flux",
                  unc="uncertainty",
                  wavelength="wavelength",
@@ -329,8 +330,8 @@ class Spectrum(Observation):
             The wavelength of each flux measurement, in vacuum AA
 
         flux : iterable of floats
-            The flux at each wavelength, in units of maggies, same length as
-            ``wavelength``
+            The observed flux at each wavelength, in units of maggies, same
+            length as ``wavelength``
 
         uncertainty : iterable of floats
             The uncertainty on the flux
@@ -340,8 +341,11 @@ class Spectrum(Observation):
             dispersion (:math:`= c \, \sigma_\lambda / \lambda = c \, \FWHM_\lambda / 2.355 / \lambda = c / (2.355 \, R_\lambda)`
             where :math:`c=2.998e5 {\rm km}/{\rm s}`
 
-        :param calibration:
-            not sure yet ....
+        response : (optional, default: None)
+            Multiplicative instrumental response vector (units of 'observed
+            flux'/'maggies'), same length as ``wavelength``. If None, no
+            response correction is applied. If scalar, a flat response of that
+            value is applied.
         """
         super(Spectrum, self).__init__(name=name, **kwargs)
         self.lambda_pad = lambda_pad
@@ -461,11 +465,31 @@ class Spectrum(Observation):
 
         return outspec_padded[self._unpadded_inds]
 
-    def compute_response(self, **extras):
+    def compute_response(self, spec=None, **extras):
+        """Method to compute the intrumental response, defined as the ratio of
+        the observed flux to the instrinsic model flux. (i.e., the
+        multiplicative factor needed to convert model maggies to observed
+        maggies).  Designed to be overridden by mixin classes that implement
+        specific response models.
+
+        Returns
+        -------
+        response : ndarray of shape (nwave,)
+           A vector giving the multiplicative response at each wavelength point.
+        """
         if self.response is not None:
-            return self.response
+            response = self.response
         else:
-            return 1.0
+            # Could move this to initialization
+            self.response = 1.0
+
+        # Make sure we get a vector back
+        if np.isscalar(self.response) & (spec is not None):
+            response = np.ones_like(spec) * self.response
+        else:
+            response = self.response
+
+        return response
 
 
 class Lines(Observation):
@@ -594,14 +618,14 @@ class PolyOptCal:
 
         Returns
         -------
-        response : ndarray of shape (nwave,)
+        response : ndarray of shape (Spectrum().ndata,)
            A polynomial given by :math:`\sum_{m=0}^M a_{m} * T_m(x)`.
         """
 
         order = self.polynomial_order
         reg = self.polynomial_regularization
         mask = self.mask & extra_mask
-        assert (self.mask.sum() > order), f"Not enough points to constrain polynomial of order {order}"
+        assert (self.mask.sum() > order), f"Not enough data points to constrain polynomial of order {order}"
 
         polyopt = (order > 0)
         if (not polyopt):
@@ -636,7 +660,7 @@ class PolyOptCal:
 
 class SplineOptCal:
 
-    """A mixin class that allows for optimization of a Chebyshev response
+    """A mixin class that allows for fitting of a Spline response
     function given a model spectrum.
     """
 
@@ -682,10 +706,9 @@ class SplineOptCal:
         """
         mask = self.mask & extra_mask
 
-
         splineopt = True
-        if ~splineopt:
-            self.response = np.ones_like(self.wavelength)
+        if (not splineopt):
+            self.response = np.ones_like(spec)
             return self.response
 
         y = (self.flux / spec - 1.0)[mask]
@@ -722,37 +745,30 @@ class SplineOptCal:
 
 class PolyFitCal:
 
-    """This is a mixin class that generates the
-    multiplicative response vector as a Chebyshev polynomial described by the
-    ``poly_param_name`` parameter of the model, which may be free (fittable)
+    """This is a mixin class that generates the multiplicative response vector
+    as a Chebyshev polynomial described by the ``poly_param_name`` parameter
+    of the model, which may be free (fittable)
     """
 
-    def __init__(self, *args, poly_param_name=None, **kwargs):
-        super(SplineOptCal, self).__init(*args, **kwargs)
+    def __init__(self, *args, poly_param_name="poly_coeffs", **kwargs):
+        super(PolyFitCal, self).__init(*args, **kwargs)
         self.poly_param_name = poly_param_name
 
     def _available_parameters(self):
-        pars = [(self.poly_param_name, "vector of polynomial chabyshev coefficients")]
+        pars = [(self.poly_param_name, "vector of polynomial chebyshev coefficients")]
 
         return pars
 
     def compute_response(self, **kwargs):
-        """Implements a Chebyshev polynomial calibration model.  This only
-        occurs if ``"poly_coeffs"`` is present in the :py:attr:`params`
-        dictionary, otherwise the value of ``params["spec_norm"]`` is returned.
+        """Implements a Chebyshev polynomial calibration model.  The coefficients
+        of the polynomial are taken from the parameter vector named by
+        ``poly_param_name``.
 
-        :param theta: (optional)
-            If given, set :py:attr:`params` using this vector before
-            calculating the calibration polynomial. ndarray of shape
-            ``(ndim,)``
-
-        :param obs:
-            A dictionary of observational data, must contain the key
-            ``"wavelength"``
-
-        :returns cal:
-           If ``params["cal_type"]`` is ``"poly"``, a polynomial given by
-           :math:`\times (\Sum_{m=0}^M```'poly_coeffs'[m]``:math:` \times T_n(x))`.
+        Returns
+        -------
+        cal : ndarray of shape (nwave,)
+            A polynomial given by
+            :math:`\times (\Sum_{m=0}^M```'poly_coeffs'[m]``:math:` \times T_n(x))`.
         """
 
         if self.poly_param_name in kwargs:
