@@ -54,7 +54,7 @@ include an empty Spectrum data set to force a prediction of the full spectrum.
 
     pdat = Photometry(filters=filters, flux=maggies, uncertainty=magerr*maggies/1.086,
                       name=f'sdss_phot_specobjID{cat[0]["specObjID"]}')
-    sdat = Spectrum(wavelength=None, flux=None, uncertainty=None)
+    sdat = Spectrum(wavelength=None, flux=None, mask=None, uncertainty=None)
     observations = [sdat, pdat]
     for obs in observations:
         obs.redshift = shdus[2].data[0]["z"]
@@ -150,9 +150,9 @@ it should still take of order tens of minutes.
     lnp = lnprobfn(model.theta, model, observations=obs, sps=sps)
 
     # now do the posterior sampling
-    fitting_kwargs = dict(nlive_init=400, nested_method="rwalk", nested_target_n_effective=10000, nested_dlogz_init=0.05)
+    fitting_kwargs = dict(nlive_init=400, nested_target_n_effective=10000)
     output = fit_model(obs, model, sps, lnprobfn=lnprobfn,
-                       optimize=False, dynesty=True,
+                       optimize=False, nautilus=True,
                        **fitting_kwargs)
     result = output["sampling"]
 
