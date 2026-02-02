@@ -11,6 +11,7 @@ from prospect.sources import CSPSpecBasis
 from prospect.models import SpecModel, templates
 from prospect.observation import Photometry
 from prospect.fitting import fit_model
+from prospect.fitting.fitting import run_nested
 from prospect.io.write_results import write_hdf5
 from prospect.io.read_results import results_from
 
@@ -76,6 +77,19 @@ if __name__ == "__main__":
     # do a first model caching
     (phot,), mfrac = model.predict(model.theta, obs, sps=sps)
     print(model)
+
+    # test passing sampler-specific kwargs
+    sampler = "nautilus"
+    run_params["nested_sampler"] = sampler
+    run_params["n_like_max"] = 100 # speed
+    # just to make sure we will get out exactly n_like_max points
+    assert run_params["nested_nlive"] > run_params["n_like_max"]
+    out = run_nested(obs, model, sps, return_object=True, **run_params)
+    _ = run_params.pop("n_like_max")
+    res = out["sampler_object"]
+    assert res.n_like == 100
+    assert len(out["points"]) == 100
+
 
     # loop over samplers
     results = {}

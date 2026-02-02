@@ -67,12 +67,13 @@ def run_nested_sampler(model,
         raise ValueError(f"No nested sampler called '{nested_sampler}'.")
 
     if nested_sampler != 'nestle':
+        init_keys = inspect.signature(sampler_init).parameters.keys()
         sig = inspect.signature(sampler_init).bind_partial()
         sig.apply_defaults()
         for key in kwargs.keys() & init_kwargs.keys():
             warnings.warn(f"Value of key '{key}' overwritten.")
         init_kwargs = {
-            **{key: kwargs[key] for key in sig.kwargs.keys() & kwargs.keys()},
+            **{key: kwargs[key] for key in init_keys & kwargs.keys()},
             **init_kwargs}
         sampler = sampler_init(*init_args, **init_kwargs)
 
@@ -96,35 +97,45 @@ def run_nested_sampler(model,
         run_args = (likelihood_function, model.prior_transform, model.ndim)
         run_kwargs = dict()
 
+    run_keys = inspect.signature(sampler_run).parameters.keys()
     sig = inspect.signature(sampler_run).bind_partial()
     sig.apply_defaults()
     for key in kwargs.keys() & run_kwargs.keys():
         warnings.warn(f"Value of key '{key}' overwritten.")
     run_kwargs = {
-        **{key: kwargs[key] for key in sig.kwargs.keys() & kwargs.keys()},
+        **{key: kwargs[key] for key in run_keys & kwargs.keys()},
         **run_kwargs}
+
     run_return = sampler_run(*run_args, **run_kwargs)
     #for key in kwargs.keys() - (init_kwargs.keys() | run_kwargs.keys()):
     #    warnings.warn(f"Key '{key}' not recognized by the sampler.")
 
+    # Extract samples, weights, and likelihoods.
     if nested_sampler == 'nautilus':
         obj = sampler
         points, log_w, log_like = sampler.posterior()
+        log_z = sampler.log_z
     elif nested_sampler == 'ultranest':
         obj = run_return
         points = np.array(run_return['weighted_samples']['points'])
         log_w = np.log(np.array(run_return['weighted_samples']['weights']))
         log_like = np.array(run_return['weighted_samples']['logl'])
+        log_z = run_return['logz']
     elif nested_sampler == 'dynesty':
         obj = sampler
         points = sampler.results["samples"]
         log_w = sampler.results["logwt"]
         log_like = sampler.results["logl"]
+        try:
+            log_z = sampler.results["logz"][-1]
+        except:
+            log_z = None
     elif nested_sampler == 'nestle':
         obj = run_return
         points = run_return["samples"]
         log_w = run_return["logwt"]
         log_like = run_return["logl"]
+        log_z = None
 
     dur = time.time() - go
 
