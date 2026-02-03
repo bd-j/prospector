@@ -432,7 +432,7 @@ def run_nested(observations, model, sps,
                nested_nlive=1000,
                nested_target_n_effective=1000,
                verbose=False,
-               return_object=False,
+               return_sampler_result_object=False,
                **kwargs):
     """Thin wrapper on :py:class:`prospect.fitting.nested.run_nested_sampler`
 
@@ -462,7 +462,7 @@ def run_nested(observations, model, sps,
     nested_target_n_effective : int
         Target number of effective samples
 
-    return_object : bool (optional, default: False)
+    return_sampler_result_object : bool (optional, default: False)
         If ``True``, return the sampler result object as an entry in the
         output dictionary.
 
@@ -489,7 +489,7 @@ def run_nested(observations, model, sps,
                                 **kwargs)
     info, result_obj = output
 
-    if return_object:
+    if return_sampler_result_object:
         info["sampler_result_object"] = result_obj
 
     return info

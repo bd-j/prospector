@@ -84,12 +84,11 @@ if __name__ == "__main__":
     run_params["n_like_max"] = 100 # speed
     # just to make sure we will get out exactly n_like_max points
     assert run_params["nested_nlive"] > run_params["n_like_max"]
-    out = run_nested(obs, model, sps, return_object=True, **run_params)
+    out = run_nested(obs, model, sps, return_sampler_result_object=True, **run_params)
     _ = run_params.pop("n_like_max")
-    res = out["sampler_object"]
+    res = out["sampler_result_object"]
     assert res.n_like == 100
     assert len(out["points"]) == 100
-
 
     # loop over samplers
     results = {}
