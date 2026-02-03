@@ -9,8 +9,8 @@ ingrediants; for more realistic usage see :ref:`demo` or the :ref:`tutorial`.
 .. code:: python
 
     import fsps
-    import dynesty
     import sedpy
+    import dynesty, nautilus
     import h5py, astropy
     import numpy as np
     import astroquery
@@ -152,7 +152,7 @@ it should still take of order tens of minutes.
     # now do the posterior sampling
     fitting_kwargs = dict(nlive_init=400, nested_target_n_effective=10000)
     output = fit_model(obs, model, sps, lnprobfn=lnprobfn,
-                       optimize=False, nautilus=True,
+                       optimize=False, nested_sampler="nautilus",
                        **fitting_kwargs)
     result = output["sampling"]
 
