@@ -44,7 +44,33 @@ This can be combined with other Noise models, as long as they have diagonal
 Jitter
 ------
 
+This is an example that shows how to add noise jitter (a term thet multiplies
+the nominal uncertainty) at the same time as outlier modeling.
 
+.. code-block:: python
+
+    from prospect.likelihood.kernels import Uncorrelated
+    from prospect.likelihood.noise_model import NoiseModel1D
+    # Here is a kernel which constructs the (diagonal) covariance matrix
+    # by multiplying the the Observation().uncertainty vector by the value of the
+    # 'spec_jitter_amplitude' parameter
+    jitter_kernel = Uncorrelated(parnames=['spec_jitter_amplitude'], weight_by="uncertainty")
+    # We use the kernel in the noise model.
+    # Covariance matrices from multiple kernels are summed.
+    # We have specified a "metric"; this is not important here as long as it
+    # has the same shape as the data.
+    # We also have supplied outlier parameters.
+    jitter_noise = NoiseModel1D(metric_name="uncertainty", kernels=[jitter_kernel],
+                                frac_out_name="f_outlier_spec",
+                                nsigma_out_name="nsigma_outlier_spec"))
+
+    N = 1000
+    sdat = Spectrum(wavelength=np.linspace(4e3, 7e3, N), np.zeros(N), np.ones(N),
+                    noise=jitter_noise)
+
+Then you have to add the relevant parameters (with priors if they are fitted)
+to the model definition. These parameters are now
+``("f_outlier_spec", "nsigma_outlier_spec", "spec_jitter_amplitude")``
 
 Correlated Noise
 ----------------
