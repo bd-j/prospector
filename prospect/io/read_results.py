@@ -281,8 +281,8 @@ def get_model(res):
 def import_module_from_string(source, name, add_to_sys_modules=True):
     """Well this seems dangerous.
     """
-    import imp
-    user_module = imp.new_module(name)
+    import types
+    user_module = types.ModuleType(name)
     exec(source, user_module.__dict__)
     if add_to_sys_modules:
         sys.modules[name] = user_module
