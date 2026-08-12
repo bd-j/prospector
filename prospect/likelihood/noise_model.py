@@ -84,12 +84,11 @@ class NoiseModel:
         self.log_det = np.sum(np.log(self.Sigma))
 
     def lnlikelihood(self, pred, data):
-        """Simple ln-likihood for diagonal covariance matrix.
-        """
+        """Simple ln-likelihood for diagonal covariance matrix."""
         delta = data - pred
-        lnp = -0.5*(np.dot(delta**2, np.log(2*np.pi) / self.Sigma) +
-                    self.log_det)
-        return lnp.sum()
+        return -0.5 * (np.dot(delta**2, 1.0 / self.Sigma)
+                       + self.log_det
+                       + delta.size * np.log(2.0 * np.pi))
 
 
 class NoiseModel1D(NoiseModel):
