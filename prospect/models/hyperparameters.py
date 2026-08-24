@@ -23,6 +23,18 @@ class ProspectorHyperParams(ProspectorParams):
     that in turn have their own prior distributions.
     """
 
+    def _logsfr_ratio_mean(self, nbins):
+        """Mean vector for the log-SFR-ratio prior. Zero (flat baseline SFH)
+        unless the configured logsfr_ratios prior carries a nonzero 'mean'
+        (e.g. a baseline/"tilted" SFH prior)."""
+        prior = self.config_dict.get('logsfr_ratios', {}).get('prior', None)
+        mu = None
+        if prior is not None and hasattr(prior, 'params'):
+            mu = prior.params.get('mean', None)
+        if mu is None:
+            return np.zeros(nbins - 1)
+        return np.broadcast_to(np.asarray(mu, dtype=float), (nbins - 1,)).copy()
+
     def _prior_product(self, theta, **extras):
         """Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the prior
@@ -54,9 +66,14 @@ class ProspectorHyperParams(ProspectorParams):
         sfr_covar_matrix = transforms.get_sfr_covar(psd_params, agebins=self.config_dict['agebins']['init'])
         sfr_ratio_covar_matrix = transforms.sfr_covar_to_sfr_ratio_covar(sfr_covar_matrix)
         nbins = len(self.config_dict['agebins']['init'])
-        logsfr_ratio_prior = scipy.stats.multivariate_normal(mean=[0.]*(nbins-1), cov=sfr_ratio_covar_matrix)
+        # honor a nonzero mean on the configured ratios prior (baseline/"tilted"
+        # SFH priors); zero-mean behavior is unchanged when none is set.
+        mu = self._logsfr_ratio_mean(nbins)
+        logsfr_ratio_prior = scipy.stats.multivariate_normal(mean=mu, cov=sfr_ratio_covar_matrix)
         inds = self.theta_index['logsfr_ratios']
-        this_prior = np.sum(np.log(logsfr_ratio_prior.pdf(theta[..., inds])))
+        # logpdf, NOT log(pdf): the pdf underflows to 0 (-> -inf) beyond
+        # chi2/2 ~ 745, putting spurious cliffs in the MAP/emcee landscape.
+        this_prior = np.sum(logsfr_ratio_prior.logpdf(theta[..., inds]))
         lnp_prior += this_prior
 
         for k, inds in list(self.theta_index.items()):
@@ -90,14 +107,18 @@ class ProspectorHyperParams(ProspectorParams):
             if self.config_dict[p]['isfree']:
                 func = self.config_dict[p]['prior'].unit_transform
                 inds = self.theta_index[p]
-                psd_params[i] = func(unit_coords[inds])
+                # np.squeeze: unit_transform returns a length-1 array for the
+                # (N=1) hyperparameters; scalar assignment raises on numpy>=2
+                psd_params[i] = np.squeeze(func(unit_coords[inds]))
                 theta[inds] = psd_params[i]
             else:
                 psd_params[i] = self.config_dict[p]['init']
 
         sfr_covar_matrix = transforms.get_sfr_covar(psd_params, agebins=self.config_dict['agebins']['init'])
         sfr_ratio_covar_matrix = transforms.sfr_covar_to_sfr_ratio_covar(sfr_covar_matrix)
-        logsfr_ratio_prior = priors.MultiVariateNormal(mean=0, Sigma=sfr_ratio_covar_matrix)
+        nbins = len(self.config_dict['agebins']['init'])
+        mu = self._logsfr_ratio_mean(nbins)
+        logsfr_ratio_prior = priors.MultiVariateNormal(mean=mu, Sigma=sfr_ratio_covar_matrix)
         x = unit_coords[self.theta_index['logsfr_ratios']]
         logsfr_ratios = logsfr_ratio_prior.unit_transform(x)
         theta[self.theta_index['logsfr_ratios']] = logsfr_ratios

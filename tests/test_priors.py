@@ -285,3 +285,40 @@ def test_multivariate_normal_prior():
 
     # Pass 'cov' as the 4th argument to trigger the multivariate check in the helper
     check_prior_moments(prior, mean, expected_var=None, expected_cov=cov)
+
+
+def test_multivariate_normal_logpdf():
+    """Regression: __call__ must return the scalar MVN log-density.
+
+    The inherited Prior.__call__ evaluated scipy.stats.norm.logpdf with
+    scale=Sigma, broadcasting to an (n, n) matrix -- NaN wherever Sigma < 0
+    (negative covariances are generic, e.g. the stochastic-SFH ratio prior)
+    and a silently wrong finite sum otherwise. Fatal to MAP/emcee, invisible
+    to dynesty.
+    """
+    import scipy.stats
+    mean = np.zeros(3)
+    cov = np.array([[0.5, -0.2, 0.1], [-0.2, 0.4, -0.1], [0.1, -0.1, 0.3]])
+    prior = priors.MultiVariateNormal(mean=mean, Sigma=cov)
+    x = np.array([0.1, -0.2, 0.05])
+    lnp = prior(x)
+    assert np.ndim(lnp) == 0, "log-density must be a scalar"
+    assert np.isfinite(lnp)
+    expected = scipy.stats.multivariate_normal(mean=mean, cov=cov).logpdf(x)
+    assert np.allclose(lnp, expected)
+
+
+def test_multivariate_normal_unit_transform_mean():
+    """Regression: unit_transform must recenter on the mean (it returned
+    mean + L z with the mean dropped, so nested sampling drew from a
+    zero-centered prior whenever mean != 0)."""
+    mean = np.array([2.0, -1.0])
+    cov = np.eye(2) * 0.25
+    prior = priors.MultiVariateNormal(mean=mean, Sigma=cov)
+    # the median of the unit cube must map to the mean itself
+    assert np.allclose(prior.unit_transform(np.array([0.5, 0.5])), mean)
+    # and the sample cloud must recenter there too
+    rng = np.random.default_rng(0)
+    u = rng.uniform(size=(4000, 2))
+    draws = np.array([prior.unit_transform(ui) for ui in u])
+    assert np.allclose(draws.mean(axis=0), mean, atol=0.05)

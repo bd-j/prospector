@@ -285,8 +285,9 @@ class MultiVariateNormal(Prior):
     @property
     def range(self):
         nsig = 4
-        return (self.params['mean'] - nsig * self.params['Sigma'],
-                self.params['mean'] + nsig * self.params['Sigma'])
+        sig = np.sqrt(np.diag(np.atleast_2d(self.params['Sigma'])))
+        return (self.params['mean'] - nsig * sig,
+                self.params['mean'] + nsig * sig)
 
     def bounds(self, **kwargs):
         #if len(kwargs) > 0:
@@ -312,11 +313,8 @@ class MultiVariateNormal(Prior):
         if len(kwargs) > 0:
             self.update(**kwargs)
         z = self.distribution.ppf(x, *self.args, loc=0, scale=1)
-        #print(z)
-        sqrtS = np.linalg.cholesky(self.params['Sigma']) #, lower=True)
-        #print(sqrtS)
-        #theta = np.matmul(z, sqrtS)
-        theta = np.matmul(sqrtS, z)
+        sqrtS = np.linalg.cholesky(self.params['Sigma'])
+        theta = np.asarray(self.params['mean'], dtype=float) + np.matmul(sqrtS, z)
         return theta
     
     def inverse_unit_transform(self, x, **kwargs):
@@ -325,7 +323,16 @@ class MultiVariateNormal(Prior):
         if len(kwargs) > 0:
             self.update(**kwargs)
         return scipy.stats.multivariate_normal.cdf(x, *self.args,
-                                                   mean=0., cov=self.params['Sigma'])
+                                                   mean=self.params['mean'],
+                                                   cov=self.params['Sigma'])
+
+
+    def __call__(self, x, **kwargs):
+        m = np.asarray(self.params['mean'], float)
+        S = np.asarray(self.params['Sigma'], float)
+        return scipy.stats.multivariate_normal(
+            mean=m, cov=S, allow_singular=True).logpdf(np.asarray(x, float))
+        
 
 
 class ClippedNormal(Prior):
