@@ -1478,12 +1478,14 @@ def z_to_agebins_rescale(zstart, nbins_sfh=7, amin=7.1295):
     follow the same spacing.
     """
 
+    # Work in lookback time measured from the GALAXY, and shift to lookback from z = 0
+    # on return.  The log-spacing below must match transforms.zred_to_agebins_pbeta,
+    # which spaces in the galaxy's frame; log is not translation-invariant, so applying
+    # it after the shift gives nearly even spacing in linear time instead.
+    t0 = cosmo.lookback_time(zstart).to(u.yr).value  # shift the start of the agebin
     agelims = np.zeros(nbins_sfh + 1)
-    agelims[0] = (
-        cosmo.lookback_time(zstart).to(u.yr).value
-    )  # shift the start of the agebin
     tuniv = (
-        cosmo.lookback_time(15).to(u.yr).value
+        cosmo.lookback_time(15).to(u.yr).value - t0
     )  # cap at z~15, for the onset of star formation
     tbinmax = tuniv - (tuniv - agelims[0]) * 0.10
     agelims[-2] = tbinmax
@@ -1520,7 +1522,7 @@ def z_to_agebins_rescale(zstart, nbins_sfh=7, amin=7.1295):
         )
 
     agebins = np.array([agelims[:-1], agelims[1:]]).T
-    return 10**agebins
+    return 10**agebins + t0
 
 
 ### functions needed for the SFH(M,z) prior
