@@ -785,9 +785,16 @@ class SpecModel(ProspectorParams):
         eline_gaussians = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dv**2 / (2 * sigma**2))
         eline_gaussians *= dv_dnu
 
-        # outside of the wavelengths defined by the spectrum? (why this dependence?)
-        # FIXME what is this?
-        eline_gaussians /= -trapezoid(eline_gaussians, 3e18/warr[:, None], axis=0)
+        # Flux-conservation renorm for undersampled (narrow) lines. Must be
+        # evaluated on the full contiguous grid: predict_spec passes a
+        # truncated wave (_outwave[emask]), and a trapezoid over that gappy
+        # grid strides masked holes with wide d-nu segments, corrupting the
+        # amplitude of any line whose 5-sigma window touches masked pixels
+        wfull = self._outwave
+        dv_full = ckms * (wfull[:, None] / mu - 1)
+        dv_dnu_full = ckms * wfull[:, None]**2 / (lightspeed * mu)
+        g_full = 1. / (sigma * np.sqrt(np.pi * 2)) * np.exp(-dv_full**2 / (2 * sigma**2)) * dv_dnu_full
+        eline_gaussians /= -trapezoid(g_full, 3e18 / wfull[:, None], axis=0)
 
         return eline_gaussians
 
