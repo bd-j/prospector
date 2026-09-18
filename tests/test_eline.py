@@ -198,3 +198,37 @@ def test_eline_implementation(get_sps, plot=False):
     # test marginalizing over lines
     #model_pars["marginalize_elines"] = dict(init=True)
     #model = SpecModel(model_pars)
+
+
+def test_eline_renorm_ignores_masked_pixels():
+    """The flux-conservation renorm must use the full contiguous wavelength grid.
+
+    ``predict_spec`` and ``fit_mle_elines`` both call into
+    ``get_eline_gaussians`` with ``wave=self._outwave[pixel_mask]``, where the
+    pixel mask intersects the per-line +/-5 sigma windows with the data mask.
+    A trapezoid taken over that gappy grid strides every masked hole with a
+    single wide d-nu segment, so the line amplitude is divided by a
+    meaningless number.  For DESI the ivar=0 sky-line holes land on the
+    H-alpha window at most BGS redshifts, suppressing H-alpha by an order of
+    magnitude while leaving H-beta untouched.
+    """
+    model = SpecModel(TemplateLibrary["parametric_sfh"])
+    model._ewave_obs = np.array([6563.0])
+    model._eline_sigma_kms = np.array([100.0])
+    model._outwave = np.arange(6000.0, 7000.0, 0.8)
+
+    gaussians = model.get_eline_gaussians()
+
+    # punch a hole in the line window, as an ivar=0 sky mask does
+    keep = ~((model._outwave > 6566.0) & (model._outwave < 6600.0))
+    masked = model.get_eline_gaussians(wave=model._outwave[keep])
+
+    # the line profile must not care which pixels were handed to it.
+    # atol=0 matters: the gaussians are ~1e-12 in Lsun/Hz, so the default
+    # atol=1e-8 would make this assertion vacuous.
+    assert np.allclose(masked, gaussians[keep], rtol=1e-10, atol=0.0)
+
+    # ...and the per-grid renorm really is wrong here, so the test has teeth
+    warr = model._outwave[keep]
+    naive = -trapezoid(gaussians[keep], 3e18 / warr[:, None], axis=0)
+    assert naive[0] > 2.0
