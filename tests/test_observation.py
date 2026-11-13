@@ -11,7 +11,7 @@ from prospect.models import SpecModel, templates
 from prospect.sources import CSPSpecBasis
 from prospect.observation import Photometry, Spectrum
 from prospect.fitting import fit_model
-from prospect.io.write_results import write_obs_to_h5
+from prospect.io.write_results import write_hdf5, write_obs_to_h5
 from prospect.io.read_results import obs_from_h5, results_from
 
 
@@ -90,8 +90,9 @@ def test_named_filters_store_no_curves():
 
 
 def test_empty_spectrum_fit(sps, tmp_path):
-    """An empty Spectrum passes rectify, survives an optimization alongside
-    custom-filter photometry, and both read back from the results file."""
+    """An empty Spectrum passes rectify and survives an optimization alongside
+    custom-filter photometry, and the optimization-only results file reads
+    back both observations."""
     model = build_model()
     filters = [gaussian_filter(f"g{i}", w, w / 80)
                for i, w in enumerate(np.linspace(7500, 50000, 12))]
@@ -113,10 +114,12 @@ def test_empty_spectrum_fit(sps, tmp_path):
     assert len(pphot) == len(filters)
     assert len(pspec) == len(sps.wavelengths)
 
-    fn = tmp_path / "results.h5"
-    with h5py.File(fn, "w") as hf:
-        write_obs_to_h5(hf, observations)
-    _, reread, _ = results_from(str(fn), dangerous=False)
+    fn = str(tmp_path / "results.h5")
+    write_hdf5(fn, run_params, model, observations,
+               optimize_result_tuple=output["optimization"])
+    res, reread, _ = results_from(fn, dangerous=False)
+    assert "optimizer_results" in res["optimization"]
+    assert "chain" not in res
     assert reread is not None
     reread = {o.kind: o for o in reread}
     assert set(reread) == {"photometry", "spectrum"}

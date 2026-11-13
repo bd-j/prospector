@@ -125,8 +125,10 @@ def write_hdf5(hfile,
         chain, extras = nested_to_struct(sampling_result, model)
     else:
         chain, extras = None, None
-    write_sampling_h5(hf, chain, extras)
-    hf.flush()
+    # optimization-only fits have no chain, and no 'sampling' group
+    if chain is not None:
+        write_sampling_h5(hf, chain, extras)
+        hf.flush()
 
     # ----------------------
     # Observational data
@@ -258,7 +260,8 @@ def write_obs_to_h5(hf, obslist):
 
 def optresultlist_to_ndarray(results):
     npar, nout = len(results[0].x), len(results[0].fun)
-    dt = [("success", bool), ("message", "U50"), ("nfev", int),
+    # bytes, since h5py cannot store numpy unicode strings
+    dt = [("success", bool), ("message", "S50"), ("nfev", int),
           ("x", (float, npar)), ("fun", (float, nout))]
     out = np.zeros(len(results), dtype=np.dtype(dt))
     for i, r in enumerate(results):
