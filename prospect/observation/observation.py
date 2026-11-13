@@ -7,7 +7,7 @@ from numpy.polynomial.chebyshev import chebval, chebvander
 from scipy.interpolate import splrep, BSpline
 from scipy.signal import medfilt
 
-from sedpy.observate import FilterSet
+from sedpy.observate import Filter, FilterSet
 from sedpy.smoothing import smooth_fft
 from sedpy.observate import rebin
 
@@ -61,8 +61,9 @@ class Observation:
                  **kwargs
                  ):
 
-        self.flux = np.array(flux)
-        self.uncertainty = np.array(uncertainty)
+        # None marks an observation with no data, e.g. to predict a model spectrum
+        self.flux = None if flux is None else np.array(flux)
+        self.uncertainty = None if uncertainty is None else np.array(uncertainty)
         self.mask = mask
         self.noise = noise
         self.from_oldstyle(**kwargs)
@@ -100,31 +101,16 @@ class Observation:
         appropriate sizes.  Also auto-masks non-finite data or negative
         uncertainties.
         """
-        n = self.__repr__
+        n = str(self)
 
-        # TODO: clean up this logic
-        # _flux_array = False
-        # try:
-        #     len(self.flux)
-        #     _flux_array = True
-        # except:
-        #     _flux_array = False
-
-        # if _flux_array:
         if self.flux is None:
             print(f"{n} has no data")
             return
-        # else:
-        #     if self.flux == None:
-        #         print(f"{n} has no data")
-        #         self.flux = None
-        #         self.wavelength = None
-        #         return
 
+        assert self.uncertainty is not None, f"{n} No uncertainties."
         assert self.flux.ndim == 1, f"{n}: flux is not a 1d array"
         assert self.uncertainty.ndim == 1, f"{n}: uncertainty is not a 1d array"
         assert self.ndata > 0, f"{n} no data supplied!"
-        assert self.uncertainty is not None, f"{n} No uncertainties."
         assert len(self.flux) == len(self.uncertainty), f"{n}: flux and uncertainty of different length"
         if self.wavelength is not None:
             assert self.wavelength.ndim == 1, f"{n}: `wavelength` is not 1-d array"
@@ -191,12 +177,14 @@ class Observation:
         cols = []
         for c in self._data:
             dat = getattr(self, c)
-            if (dat is None):
+            # scalars (e.g. a flat spectral response) are not per-datum columns
+            if (dat is None) or (np.ndim(dat) == 0):
                 continue
             if (len(dat) != self.ndata):
                 continue
                 #raise ValueError(f"The {c} attribute of the {self.name} observation has the wrong length ({len(dat)} instead of {self.ndata})")
-            cols += [(c, dat.dtype)]
+            # 2-d data (e.g. per-filter curves) become sub-array columns
+            cols += [(c, dat.dtype, dat.shape[1:])]
         dtype = np.dtype(cols)
         struct = np.zeros(self.ndata, dtype=dtype)
         for c in dtype.names:
@@ -239,6 +227,73 @@ class Observation:
         return 1e9 * 3631
 
 
+class FilterSetFromInstances(FilterSet):
+
+    """A `sedpy.observate.FilterSet` built from `sedpy.observate.Filter`
+    instances rather than filter names, so filters defined by arrays need no
+    transmission file.
+    """
+
+    def __init__(self, filters, wmin=None, dlnlam=None):
+        self.filternames = [f.name for f in filters]
+        self._set_filters(filters, wmin=wmin, dlnlam=dlnlam)
+        self._build_super_trans()
+
+    def _set_filters(self, native, wmin=None, wmax=None, dlnlam=None):
+        # Same grid as FilterSet._set_filters, filled from each instance's curve
+        self.dlnlam_native = np.array([np.diff(np.log(f.wavelength)).min()
+                                       for f in native])
+        if dlnlam is None:
+            dlnlam = min(self.dlnlam_native.min(), 1e-3)
+        if wmin is None:
+            wmin = np.min([f.wavelength.min() for f in native])
+        if wmax is None:
+            wmax = np.max([f.wavelength.max() for f in native])
+        self.wmin = wmin
+        self.wmax = np.exp(np.log(wmax) + dlnlam)
+        self.dlnlam = dlnlam
+
+        self.lnlam = np.arange(np.log(self.wmin), np.log(self.wmax), self.dlnlam)
+        self.lam = np.exp(self.lnlam)
+
+        # The curves were already cleaned and trimmed on load; min_trans=0
+        # keeps them as they are, matching a reload from the filter file.
+        self.filters = [Filter(f.name, nick=f.nick, min_trans=0,
+                               data=(f.wavelength, f.transmission),
+                               wmin=self.wmin, dlnlam=self.dlnlam)
+                        for f in native]
+
+
+def _pad_curves(filters):
+    """Native curves of the Filter instances in ``filters`` as NaN-padded
+    arrays of shape (nfilters, npts); rows for filter names are all NaN.
+    """
+    curves = [None if isinstance(f, str) else (f.wavelength, f.transmission)
+              for f in filters]
+    npts = max(len(c[0]) for c in curves if c is not None)
+    wave = np.full((len(curves), npts), np.nan)
+    trans = np.full((len(curves), npts), np.nan)
+    for i, c in enumerate(curves):
+        if c is not None:
+            wave[i, :len(c[0])] = c[0]
+            trans[i, :len(c[1])] = c[1]
+    return wave, trans
+
+
+def _unpad_curves(names, wave, trans):
+    """Invert `_pad_curves`: Filter instances where a curve was stored, names
+    elsewhere.
+    """
+    filters = []
+    for name, w, t in zip(names, wave, trans):
+        good = np.isfinite(w)
+        if good.any():
+            filters.append(Filter(name, min_trans=0, data=(w[good], t[good])))
+        else:
+            filters.append(name)
+    return filters
+
+
 class Photometry(Observation):
 
     _kind = "photometry"
@@ -247,6 +302,8 @@ class Photometry(Observation):
                  filters="filters",
                  phot_mask="mask")
     _meta =  ("kind", "name", "filternames")
+    _data = ("wavelength", "flux", "uncertainty", "mask",
+             "filter_wavelength", "filter_transmission")
 
     def __init__(self, filters=[],
                  name=None,
@@ -271,24 +328,29 @@ class Photometry(Observation):
         super(Photometry, self).__init__(name=name, **kwargs)
 
     def set_filters(self, filters):
+        """Build the gridded FilterSet used for predictions.
 
-        # TODO: Make this less convoluted
-        if (len(filters) == 0) or (filters is None):
+        Names are loaded from sedpy's filter files.  `sedpy.observate.Filter`
+        instances keep their own transmission curves, which are also stored as
+        ``filter_wavelength`` and ``filter_transmission`` so they survive
+        serialization.
+        """
+        self.filter_wavelength = None
+        self.filter_transmission = None
+        if (filters is None) or (len(filters) == 0):
             self.filters = filters
             self.filternames = []
             self.filterset = None
             return
 
-        try:
-            self.filternames = [f.name for f in filters]
-        except(AttributeError):
-            self.filternames = filters
-        #if type(filters[0]) is str:
-        #    self.filternames = filters
-        #else:
-        #    self.filternames = [f.name for f in filters]
-
-        self.filterset = FilterSet(self.filternames)
+        if all(isinstance(f, str) for f in filters):
+            self.filternames = list(filters)
+            self.filterset = FilterSet(self.filternames)
+        else:
+            native = [Filter(f) if isinstance(f, str) else f for f in filters]
+            self.filternames = [f.name for f in native]
+            self.filterset = FilterSetFromInstances(native)
+            self.filter_wavelength, self.filter_transmission = _pad_curves(filters)
         # filters on the gridded resolution
         self.filters = [f for f in self.filterset.filters]
 
@@ -810,6 +872,10 @@ def from_serial(arr, meta):
     adict["name"] = meta.pop("name", "")
     if 'filters' in meta:
         adict["filters"] = meta.pop("filters").split(",")
+    if "filter_wavelength" in adict:
+        adict["filters"] = _unpad_curves(adict["filters"],
+                                         adict.pop("filter_wavelength"),
+                                         adict.pop("filter_transmission"))
 
     obs = kind(**adict)
 

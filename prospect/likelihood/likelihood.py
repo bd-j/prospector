@@ -43,6 +43,9 @@ def compute_chi(pred, obs):
     obs : instance of Observation()
         The observational data
     """
+    # observations without data (e.g. an empty Spectrum) add no residuals
+    if obs.flux is None:
+        return np.zeros(0)
     chi = (pred - obs.flux) / obs.uncertainty
     return chi[obs.mask]
 
